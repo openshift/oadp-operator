@@ -7,6 +7,8 @@
       "Read(/go/src/**)",
       "Read(/logs/**)",
       "Read(/tmp/**)",
+      "Read(/artifacts/**)",
+      "Read(/home/prow/**)",
       "Bash(ls:*)",
       "Bash(cat:*)",
       "Bash(head:*)",
@@ -24,7 +26,12 @@
       "Bash(jq:*)",
       "Bash(less:*)",
       "Bash(more:*)",
-      "Bash(file:*)"
+      "Bash(file:*)",
+      "Bash(du:*)",
+      "Bash(stat:*)",
+      "Bash(zcat:*)",
+      "Bash(gunzip:*)",
+      "Bash(tar:*)"
     ],
     "deny": [
       "Write",

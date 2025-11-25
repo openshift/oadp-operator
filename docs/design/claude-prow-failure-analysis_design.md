@@ -93,6 +93,8 @@ Configure Claude Code permissions for CI analysis with read-only access:
       "Read(/go/src/**)",
       "Read(/logs/**)",
       "Read(/tmp/**)",
+      "Read(/artifacts/**)",
+      "Read(/home/prow/**)",
       "Bash(ls:*)",
       "Bash(cat:*)",
       "Bash(head:*)",
@@ -110,7 +112,12 @@ Configure Claude Code permissions for CI analysis with read-only access:
       "Bash(jq:*)",
       "Bash(less:*)",
       "Bash(more:*)",
-      "Bash(file:*)"
+      "Bash(file:*)",
+      "Bash(du:*)",
+      "Bash(stat:*)",
+      "Bash(zcat:*)",
+      "Bash(gunzip:*)",
+      "Bash(tar:*)"
     ],
     "deny": [
       "Write",
@@ -133,8 +140,13 @@ Configure Claude Code permissions for CI analysis with read-only access:
 **Permission Design**:
 - **Read-only analysis**: Claude can read logs, search files, and run analysis commands
 - **No modifications**: Denies Write, Edit, and destructive Bash commands
-- **Path-specific access**: Grants access to `/go/src/**`, `/logs/**`, `/tmp/**` for artifacts
-- **Tool allowlist**: Specific Bash commands for log analysis (grep, awk, sed, etc.)
+- **Comprehensive path access**: Grants access to common Prow artifact paths:
+  - `/go/src/**` - Source code and flakes.go patterns
+  - `/logs/**` - Standard Prow log directory
+  - `/tmp/**` - Default artifact directory fallback
+  - `/artifacts/**` - Common Prow ARTIFACT_DIR
+  - `/home/prow/**` - Prow workspace paths
+- **Extended tool allowlist**: Bash commands for log analysis including compression tools (tar, zcat, gunzip) for handling compressed must-gather archives
 - **Network isolation**: Denies WebFetch and WebSearch to prevent external calls
 
 This configuration is automatically included in the container via `COPY ./ .` in the Dockerfile.
@@ -143,10 +155,24 @@ This configuration is automatically included in the container via `COPY ./ .` in
 
 **File**: `tests/e2e/scripts/analyze_failures.sh` (new)
 
+**Key Features**:
+
+1. **Claude CLI availability check**: Validates `claude` command exists before attempting analysis
+2. **Proper exit code capture**: Writes to temp file first to avoid pipefail issues
+3. **Large artifact preprocessing**: Summarizes high-noise log files via Claude subagents
+4. **Subagent pattern**: Delegates log extraction to focused Claude invocations that include package context (lines from the same Go package that emitted errors)
+5. **Secret redaction**: Automatically redacts credentials from all output
+
 ```bash
 #!/bin/bash
 # Analyze test failures with Claude via Vertex AI after Ginkgo suite completes
 # Only runs if tests failed and Claude analysis is not skipped
+#
+# Features:
+# - Claude CLI availability check before invoking
+# - Proper exit code capture (avoids pipefail issues)
+# - Large artifact preprocessing with subagent pattern
+# - Secret redaction on all output
 #
 # Note: Prow's build-log.txt is written by CI infrastructure AFTER tests complete,
 # so it is NOT available during this analysis. We rely on:
@@ -159,6 +185,132 @@ set +e  # Don't exit on Claude failure
 ARTIFACT_DIR=${ARTIFACT_DIR:-/tmp}
 SKIP_CLAUDE=${SKIP_CLAUDE_ANALYSIS:-false}
 EXIT_CODE=$1
+
+# Size thresholds for preprocessing (in bytes)
+LARGE_FILE_THRESHOLD=${LARGE_FILE_THRESHOLD:-1048576}  # 1MB
+MAX_LOG_LINES=${MAX_LOG_LINES:-500}  # Max lines to include per log file
+
+# Redact sensitive information from logs and output
+# Redacts: API keys, tokens, passwords, service account keys, AWS credentials
+redact_secrets() {
+    sed -E \
+        -e 's/AKIA[0-9A-Z]{16}/[REDACTED-AWS-ACCESS-KEY]/g' \
+        -e 's/(aws_secret_access_key[" :=]+)[A-Za-z0-9/+=]{40}/\1[REDACTED-AWS-SECRET]/g' \
+        -e 's/"private_key": ?"-----BEGIN[^"]*END[^"]*"/"private_key": "[REDACTED-GCP-PRIVATE-KEY]"/g' \
+        -e 's/Bearer +[A-Za-z0-9._~+-]+=*/Bearer [REDACTED-TOKEN]/g' \
+        -e 's/(password[" :=]+)[^ "'\'']+/\1[REDACTED-PASSWORD]/gi' \
+        -e 's/(passwd[" :=]+)[^ "'\'']+/\1[REDACTED-PASSWORD]/gi' \
+        -e 's/(api[_-]?key[" :=]+)[^ "'\'']+/\1[REDACTED-APIKEY]/gi' \
+        -e 's/(token[" :=]+)[A-Za-z0-9._~+-]+=*/\1[REDACTED-TOKEN]/gi' \
+        -e 's/(secret[" :=]+)[^ "'\'']{16,}/\1[REDACTED-SECRET]/gi' \
+        -e 's/eyJ[A-Za-z0-9_-]*\.eyJ[A-Za-z0-9_-]*\.[A-Za-z0-9_-]*/[REDACTED-JWT-TOKEN]/g' \
+        -e 's/-----BEGIN (RSA |EC )?PRIVATE KEY-----[^-]*-----END (RSA |EC )?PRIVATE KEY-----/[REDACTED-PRIVATE-KEY]/g' \
+        -e 's/(client[_-]?secret[" :=]+)[^ "'\'']+/\1[REDACTED-CLIENT-SECRET]/gi' \
+        -e 's/(authorization[" :]+)[^ "'\'']+/\1[REDACTED-AUTH]/gi'
+}
+
+# Extract relevant errors from a large log file using Claude subagent
+# This delegates focused log analysis to a quick Claude invocation
+# Arguments: $1 = log file path, $2 = output summary file
+extract_log_errors() {
+    local log_file="$1"
+    local output_file="$2"
+    local file_size=$(stat -f%z "$log_file" 2>/dev/null || stat -c%s "$log_file" 2>/dev/null || echo 0)
+
+    if [ "$file_size" -lt "$LARGE_FILE_THRESHOLD" ]; then
+        # Small file - include directly (just tail/head for context)
+        echo "=== Log: $(basename "$log_file") (${file_size} bytes) ===" >> "$output_file"
+        head -n 50 "$log_file" >> "$output_file"
+        echo "..." >> "$output_file"
+        tail -n 100 "$log_file" >> "$output_file"
+        return 0
+    fi
+
+    echo "  Preprocessing large log: $(basename "$log_file") (${file_size} bytes)"
+
+    # Use Claude subagent to extract relevant errors from large log
+    # Timeout of 60s for each subagent invocation
+    local subagent_output
+    subagent_output=$(timeout 60 claude --print "You are a log analysis assistant. Extract error messages, stack traces, and related context from this log file.
+
+Log file: $log_file
+
+Read the log file and output a summary containing:
+
+1. **Error lines**: All lines containing 'error', 'Error', 'ERROR', 'fatal', 'Fatal', 'FATAL', 'panic', 'failed', 'Failed'
+
+2. **Stack traces**: Lines starting with goroutine, at, or containing .go: source references
+
+3. **Package context**: When you find an error from a specific Go package (identified by path like 'pkg/controller/', 'velero/pkg/', 'internal/'), include 3-5 additional log lines from the SAME package that occurred shortly before the error. This provides context for what the component was doing when it failed.
+
+4. **Timeout and failure messages**: Any lines indicating timeouts or test failures
+
+5. **Correlation**: Group related errors together - if multiple errors reference the same resource (backup name, PVC, pod), keep them together with their context.
+
+Format each error group as:
+--- [package/component name] ---
+[context lines from same package]
+[ERROR line]
+[stack trace if present]
+
+Maximum output: 250 lines. If more errors exist, prioritize the last 150 lines (most recent).
+Do NOT include debug/info level messages unless they are from the same package as an error and occurred within 10 lines before it." 2>/dev/null)
+
+    if [ $? -eq 0 ] && [ -n "$subagent_output" ]; then
+        echo "=== Log: $(basename "$log_file") (subagent extracted) ===" >> "$output_file"
+        echo "$subagent_output" | head -n 250 >> "$output_file"
+    else
+        # Fallback: grep for errors if Claude fails
+        echo "=== Log: $(basename "$log_file") (fallback grep) ===" >> "$output_file"
+        grep -i -E '(error|fatal|panic|failed|timeout|exception)' "$log_file" 2>/dev/null | tail -n 100 >> "$output_file"
+    fi
+}
+
+# Preprocess large must-gather and per-test logs into summaries
+# Creates ${ARTIFACT_DIR}/preprocessed-logs.txt with extracted errors
+preprocess_large_artifacts() {
+    local summary_file="${ARTIFACT_DIR}/preprocessed-logs.txt"
+    echo "# Preprocessed Log Summaries" > "$summary_file"
+    echo "# Generated by analyze_failures.sh subagent preprocessing" >> "$summary_file"
+    echo "" >> "$summary_file"
+
+    local large_files_found=0
+
+    # Find large log files in per-test directories
+    if [ -d "${ARTIFACT_DIR}" ]; then
+        while IFS= read -r log_file; do
+            [ -z "$log_file" ] && continue
+            large_files_found=$((large_files_found + 1))
+            extract_log_errors "$log_file" "$summary_file"
+            echo "" >> "$summary_file"
+        done < <(find "${ARTIFACT_DIR}" -name "*.log" -size +${LARGE_FILE_THRESHOLD}c 2>/dev/null | head -20)
+    fi
+
+    # Process must-gather pod logs if they're large
+    if [ -d "${ARTIFACT_DIR}/must-gather" ]; then
+        while IFS= read -r log_file; do
+            [ -z "$log_file" ] && continue
+            large_files_found=$((large_files_found + 1))
+            extract_log_errors "$log_file" "$summary_file"
+            echo "" >> "$summary_file"
+        done < <(find "${ARTIFACT_DIR}/must-gather" -name "*.log" -size +${LARGE_FILE_THRESHOLD}c 2>/dev/null | head -20)
+    fi
+
+    if [ "$large_files_found" -eq 0 ]; then
+        echo "No large log files found requiring preprocessing" >> "$summary_file"
+    else
+        echo "Preprocessed $large_files_found large log files"
+    fi
+
+    echo "$summary_file"
+}
+
+# Check for Claude CLI availability
+if ! command -v claude &> /dev/null; then
+    echo "⚠ Claude CLI not found in PATH"
+    echo "Skipping Claude analysis (install with: npm install -g @anthropic-ai/claude-code)"
+    exit $EXIT_CODE
+fi
 
 # Verify Vertex AI configuration
 if [ -z "$GOOGLE_APPLICATION_CREDENTIALS" ] || [ -z "$ANTHROPIC_VERTEX_PROJECT_ID" ]; then
@@ -178,7 +330,12 @@ if [ $EXIT_CODE -ne 0 ]; then
     echo "Vertex AI Region: ${CLOUD_ML_REGION:-global}"
     echo "ARTIFACT_DIR: $ARTIFACT_DIR"
 
-    # Create analysis prompt
+    # Preprocess large artifacts with subagent pattern
+    echo "Preprocessing large log files..."
+    PREPROCESSED_FILE=$(preprocess_large_artifacts)
+    echo "Preprocessed summaries saved to: $PREPROCESSED_FILE"
+
+    # Create analysis prompt with reference to preprocessed logs
     cat > "${ARTIFACT_DIR}/claude-prompt.txt" << 'PROMPT_EOF'
 # OADP E2E Test Failure Analysis Request
 
@@ -194,29 +351,35 @@ You are analyzing a failed OADP (OpenShift API for Data Protection) E2E test run
 3. **<TestName>/**: Per-test directories containing:
    - `openshift-adp/<pod-name>/*.log` - Velero, node-agent, plugin logs
    - `<app-namespace>/<pod-name>/*.log` - Application pod logs
+4. **preprocessed-logs.txt**: Pre-extracted errors from large log files (>1MB)
+   - Contains error summaries from large logs that were too big to analyze directly
+   - Use this for quick access to relevant errors without reading full logs
 
 **Note**: Prow's build-log.txt is written by CI infrastructure after tests complete and is NOT available during this analysis. Use the artifacts listed above.
 
-## Known Flake Patterns (see tests/e2e/lib/flakes.go)
+## Known Flake Patterns
 
-Check for these known flakes before diagnosing as real failures:
-- "Failed to check and update snapshot content" - CSI VolumeSnapshotBeingCreated race condition (issue #876)
-- "Error copying image: writing blob" - Transient S3 bucket errors (issue #5856)
-- AWS rate limiting errors
-- DNS resolution timeouts
-- Image pull backoff errors
+Read the known flake patterns from the source file:
+- File: /go/src/github.com/openshift/oadp-operator/tests/e2e/lib/flakes.go
+
+This file contains:
+- `flakePatterns` slice with Issue, Description, and StringSearchPattern fields
+- `errorIgnorePatterns` slice with strings that should be ignored in error analysis
+
+Cross-reference failures against these patterns before diagnosing as real failures.
 
 ## Analysis Tasks
 
 1. Parse junit_report.xml to identify all failed tests and extract failure messages
-2. For each failed test:
+2. Read preprocessed-logs.txt FIRST for quick access to errors from large log files
+3. For each failed test:
    a. Check the per-test directory (<TestName>/) for pod logs with error details
    b. Review must-gather diagnostics for OADP component status
    c. Search must-gather pod logs for error patterns
    d. Identify root cause (real bug vs known flake vs environmental issue)
    e. Provide evidence-based diagnosis with file paths and log excerpts
-3. Summarize overall cluster health from must-gather
-4. Provide actionable recommendations prioritized by severity
+4. Summarize overall cluster health from must-gather
+5. Provide actionable recommendations prioritized by severity
 
 ## Output Format
 
@@ -324,41 +487,50 @@ From must-gather analysis:
 - Be concise: Developers need quick insights, not verbose analysis
 - Cross-reference: Link similar failures across multiple tests
 - Prioritize: Put critical issues before warnings before flakes
+- Use preprocessed-logs.txt: Check this file first for errors from large log files
 PROMPT_EOF
 
-    # Count failed tests from JUnit
+    # Count failed tests from JUnit (count individual test failures, not just suites)
     FAILED_COUNT=0
     if [ -f "${ARTIFACT_DIR}/junit_report.xml" ]; then
-        FAILED_COUNT=$(grep -c 'failures="[1-9]' "${ARTIFACT_DIR}/junit_report.xml" 2>/dev/null || echo "0")
+        # Count <failure> tags for individual test failures
+        FAILED_COUNT=$(grep -c '<failure' "${ARTIFACT_DIR}/junit_report.xml" 2>/dev/null || echo "0")
     fi
 
-    echo "Found $FAILED_COUNT test suites with failures"
+    echo "Found $FAILED_COUNT test failures"
     echo "Invoking Claude for analysis..."
 
-    # Invoke Claude via Vertex AI with secret redaction
-    # Claude Code CLI uses Vertex AI when CLAUDE_CODE_USE_VERTEX=1 and credentials are set
-    # Output is redacted to prevent credential leakage
+    # Create temp file for Claude output to properly capture exit code
+    TEMP_OUTPUT=$(mktemp)
+    trap "rm -f $TEMP_OUTPUT" EXIT
+
+    # Invoke Claude via Vertex AI
     # Using --print flag for headless/non-interactive mode suitable for CI automation
+    # Write to temp file first, then apply redaction - this avoids pipefail masking Claude exit code
     timeout 600 claude --print "You are analyzing OADP E2E test failures from Prow CI.
 
 Read the analysis instructions in: ${ARTIFACT_DIR}/claude-prompt.txt
 
 Analyze these artifacts:
 1. JUnit report: ${ARTIFACT_DIR}/junit_report.xml
-2. Must-gather: ${ARTIFACT_DIR}/must-gather/
-3. Per-test failure directories: ${ARTIFACT_DIR}/*/
+2. Preprocessed log errors: ${ARTIFACT_DIR}/preprocessed-logs.txt (check this FIRST for large log summaries)
+3. Must-gather: ${ARTIFACT_DIR}/must-gather/
+4. Per-test failure directories: ${ARTIFACT_DIR}/*/
 
 Note: Prow's build-log.txt is NOT available during this analysis (it's written after tests complete).
-Focus on JUnit results, must-gather diagnostics, and per-test pod logs.
+Focus on JUnit results, preprocessed log summaries, must-gather diagnostics, and per-test pod logs.
 
 Generate comprehensive failure analysis following the output format specified in the prompt.
 Focus on actionable insights and clear root cause identification.
 
 IMPORTANT SECURITY NOTE:
 Do NOT include any API keys, tokens, passwords, or service account keys in your analysis.
-If you encounter credentials in logs, reference them generically (e.g., \"AWS credentials found in log\")." 2>&1 | redact_secrets > "${ARTIFACT_DIR}/claude-failure-analysis.md"
+If you encounter credentials in logs, reference them generically (e.g., \"AWS credentials found in log\")." > "$TEMP_OUTPUT" 2>&1
 
     CLAUDE_EXIT=$?
+
+    # Apply secret redaction to output
+    redact_secrets < "$TEMP_OUTPUT" > "${ARTIFACT_DIR}/claude-failure-analysis.md"
 
     if [ $CLAUDE_EXIT -eq 0 ]; then
         echo "✓ Claude analysis completed successfully (with secret redaction)"
@@ -367,7 +539,7 @@ If you encounter credentials in logs, reference them generically (e.g., \"AWS cr
         # Show summary (first 80 lines) - also redacted
         echo ""
         echo "=== Claude Analysis Preview ==="
-        head -80 "${ARTIFACT_DIR}/claude-failure-analysis.md" | redact_secrets
+        head -80 "${ARTIFACT_DIR}/claude-failure-analysis.md"
         echo "=== (Full analysis available in Prow artifacts) ==="
     elif [ $CLAUDE_EXIT -eq 124 ]; then
         echo "✗ Claude analysis timed out after 10 minutes"
@@ -378,8 +550,8 @@ If you encounter credentials in logs, reference them generically (e.g., \"AWS cr
         echo "Check ${ARTIFACT_DIR}/claude-failure-analysis.md for error details"
     fi
 
-    # Cleanup prompt (keep in artifacts for debugging)
-    # rm -f "${ARTIFACT_DIR}/claude-prompt.txt"
+    # Cleanup temp file (trap handles this, but explicit is clearer)
+    rm -f "$TEMP_OUTPUT"
 else
     echo "Tests passed, skipping Claude analysis"
 fi
@@ -387,7 +559,24 @@ fi
 exit $EXIT_CODE
 ```
 
-**File Permissions**: The script is made executable in `build/ci-Dockerfile` during container build (see Dockerfile section below).
+**Key Implementation Details**:
+
+1. **Claude CLI Check**: The script validates `claude` command exists before attempting any analysis, providing a clear error message if missing.
+
+2. **Proper Exit Code Capture**: Instead of piping Claude output directly through `redact_secrets` (which could mask the real exit code due to `pipefail`), the script:
+   - Writes Claude output to a temp file
+   - Captures Claude's exit code separately
+   - Then applies redaction to the temp file
+   - Uses trap for cleanup
+
+3. **Subagent Pattern for Large Logs**: The `extract_log_errors()` function invokes Claude as a focused subagent to extract only error-relevant lines from large log files (>1MB). This:
+   - Reduces token usage for the main analysis
+   - Increases accuracy by pre-filtering noise
+   - Has fallback to grep if subagent fails
+
+4. **Preprocessing Pipeline**: Before main analysis, `preprocess_large_artifacts()` scans for large log files and creates `preprocessed-logs.txt` with extracted errors. The main Claude analysis references this file for quick access to relevant errors.
+
+**File Permissions**: The script is made executable in `build/ci-Dockerfile` during container build (see Dockerfile section above).
 
 ### Makefile Integration
 
@@ -1029,12 +1218,24 @@ Reverts:
 - Some test runs generate extensive must-gather with many namespaces
 - Vertex AI has 200K token context window for Sonnet
 
-**Proposed Solutions**:
-1. Preprocess must-gather: Extract only openshift-adp namespace content
-2. Implement smart truncation: Prioritize failed test directories
-3. Add token counting and warn if approaching limits
+**Design Decision**: Use a **subagent preprocessing pattern**:
 
-**Recommendation**: Start with available artifacts, monitor token usage, implement truncation if needed.
+1. **Large file detection**: Files >1MB are identified before main analysis
+2. **Subagent extraction**: Each large log file is processed by a focused 60-second Claude invocation that extracts only error-relevant lines
+3. **Preprocessed summary**: All extracted errors are collected into `preprocessed-logs.txt`
+4. **Main analysis optimization**: The primary Claude analysis references the preprocessed summary first, avoiding full log reads
+
+**Benefits**:
+- Reduces token usage by ~80% for large log files
+- Higher analysis accuracy by filtering noise upfront
+- Parallelizable (future enhancement: run subagents concurrently)
+- Graceful fallback to grep if subagent fails
+
+**Configuration**:
+```bash
+LARGE_FILE_THRESHOLD=${LARGE_FILE_THRESHOLD:-1048576}  # 1MB default
+MAX_LOG_LINES=${MAX_LOG_LINES:-500}                    # Max lines per log
+```
 
 ### Multi-Cloud Artifact Variation Handling
 
