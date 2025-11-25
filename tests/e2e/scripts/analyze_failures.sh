@@ -1,6 +1,12 @@
 #!/bin/bash
 # Analyze test failures with Claude via Vertex AI after Ginkgo suite completes
 # Only runs if tests failed and Claude analysis is not skipped
+#
+# Note: Prow's build-log.txt is written by CI infrastructure AFTER tests complete,
+# so it is NOT available during this analysis. We rely on:
+# - JUnit reports (junit_report.xml)
+# - must-gather diagnostics
+# - Per-test pod log directories
 
 set +e  # Don't exit on Claude failure
 
@@ -45,17 +51,6 @@ if [ $EXIT_CODE -ne 0 ]; then
     echo "Vertex AI Region: ${CLOUD_ML_REGION:-global}"
     echo "ARTIFACT_DIR: $ARTIFACT_DIR"
 
-    # Find build-log.txt (typically in parent directory of ARTIFACT_DIR)
-    BUILD_LOG="${ARTIFACT_DIR}/../build-log.txt"
-    if [ ! -f "$BUILD_LOG" ]; then
-        BUILD_LOG="/logs/build-log.txt"
-    fi
-
-    if [ ! -f "$BUILD_LOG" ]; then
-        echo "Warning: build-log.txt not found at expected locations"
-        BUILD_LOG="<not available>"
-    fi
-
     # Create analysis prompt
     cat > "${ARTIFACT_DIR}/claude-prompt.txt" << 'PROMPT_EOF'
 # OADP E2E Test Failure Analysis Request
@@ -64,15 +59,16 @@ You are analyzing a failed OADP (OpenShift API for Data Protection) E2E test run
 
 ## Available Artifacts
 
-1. **build-log.txt**: Complete Ginkgo test output (stdout/stderr) - contains all test execution logs
+1. **junit_report.xml**: Structured test results with pass/fail status and failure messages
 2. **must-gather/**: OADP diagnostics collection with structure:
    - `clusters/<cluster-id>/oadp-must-gather-summary.md` - High-level summary
    - `clusters/<cluster-id>/namespaces/openshift-adp/` - OADP namespace resources (pod logs, DPA, BSL, VSL, backups, restores)
    - `clusters/<cluster-id>/cluster-scoped-resources/` - Cluster-wide resources (CSI drivers, storage classes)
-3. **junit_report.xml**: Structured test results with pass/fail status
-4. **<TestName>/**: Per-test directories containing:
+3. **<TestName>/**: Per-test directories containing:
    - `openshift-adp/<pod-name>/*.log` - Velero, node-agent, plugin logs
    - `<app-namespace>/<pod-name>/*.log` - Application pod logs
+
+**Note**: Prow's build-log.txt is written by CI infrastructure after tests complete and is NOT available during this analysis. Use the artifacts listed above.
 
 ## Known Flake Patterns (see tests/e2e/lib/flakes.go)
 
@@ -85,13 +81,13 @@ Check for these known flakes before diagnosing as real failures:
 
 ## Analysis Tasks
 
-1. Parse junit_report.xml to identify all failed tests
+1. Parse junit_report.xml to identify all failed tests and extract failure messages
 2. For each failed test:
-   a. Extract relevant log snippets from build-log.txt (search by test name)
+   a. Check the per-test directory (<TestName>/) for pod logs with error details
    b. Review must-gather diagnostics for OADP component status
-   c. Check per-test pod logs for error messages
+   c. Search must-gather pod logs for error patterns
    d. Identify root cause (real bug vs known flake vs environmental issue)
-   e. Provide evidence-based diagnosis with line numbers/log snippets
+   e. Provide evidence-based diagnosis with file paths and log excerpts
 3. Summarize overall cluster health from must-gather
 4. Provide actionable recommendations prioritized by severity
 
@@ -118,9 +114,9 @@ Generate a markdown document with this exact structure:
 
 **Evidence**:
 ```
-build-log.txt:LINE: "<relevant log excerpt>"
+junit_report.xml: "<failure message from JUnit>"
 must-gather: <specific resource status or log finding>
-Pod logs (<namespace>/<pod>/<container>): "<error message>"
+Pod logs (<TestName>/<namespace>/<pod>/*.log): "<error message>"
 ```
 
 **Diagnosis**: <Detailed analysis of what went wrong and why>
@@ -141,7 +137,7 @@ Pod logs (<namespace>/<pod>/<container>): "<error message>"
 
 ## Known Flakes Detected
 
-- ✓ VolumeSnapshotBeingCreated race condition (matched pattern in build-log.txt:LINES)
+- ✓ VolumeSnapshotBeingCreated race condition (matched pattern in <file>)
 - ✗ AWS rate limiting (not detected)
 
 ## Cluster Health Summary
@@ -194,7 +190,7 @@ From must-gather analysis:
 
 ## Important Guidelines
 
-- Be specific: Always cite line numbers from build-log.txt, not "somewhere in the log"
+- Be specific: Cite file paths and excerpts from artifacts (JUnit, must-gather, per-test logs)
 - Be evidence-based: Don't speculate without supporting log evidence
 - Distinguish failure types: Real bugs vs flakes vs environmental vs configuration
 - Be actionable: Recommendations should be concrete and implementable
@@ -221,10 +217,12 @@ PROMPT_EOF
 Read the analysis instructions in: ${ARTIFACT_DIR}/claude-prompt.txt
 
 Analyze these artifacts:
-1. Build log: ${BUILD_LOG}
+1. JUnit report: ${ARTIFACT_DIR}/junit_report.xml
 2. Must-gather: ${ARTIFACT_DIR}/must-gather/
-3. JUnit report: ${ARTIFACT_DIR}/junit_report.xml
-4. Test failure directories: ${ARTIFACT_DIR}/*/
+3. Per-test failure directories: ${ARTIFACT_DIR}/*/
+
+Note: Prow's build-log.txt is NOT available during this analysis (it's written after tests complete).
+Focus on JUnit results, must-gather diagnostics, and per-test pod logs.
 
 Generate comprehensive failure analysis following the output format specified in the prompt.
 Focus on actionable insights and clear root cause identification.
@@ -246,7 +244,7 @@ If you encounter credentials in logs, reference them generically (e.g., \"AWS cr
         echo "=== (Full analysis available in Prow artifacts) ==="
     elif [ $CLAUDE_EXIT -eq 124 ]; then
         echo "✗ Claude analysis timed out after 10 minutes"
-        echo "Large build-log.txt may have exceeded token limits"
+        echo "Large artifacts may have exceeded token limits"
         echo "Partial analysis may be in ${ARTIFACT_DIR}/claude-failure-analysis.md"
     else
         echo "✗ Claude analysis failed (exit code: $CLAUDE_EXIT)"

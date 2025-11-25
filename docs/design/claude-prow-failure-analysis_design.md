@@ -3,15 +3,17 @@
 ## Abstract
 
 Automatically analyze OADP E2E test failures in Prow CI using Claude Code via Google Vertex AI.
-After Ginkgo test suite completes with failures, invoke Claude to analyze build logs, must-gather diagnostics, and test artifacts, then output a comprehensive root cause analysis to Prow's artifact storage for developer consumption.
+After Ginkgo test suite completes with failures, invoke Claude to analyze JUnit reports, must-gather diagnostics, and per-test pod logs, then output a comprehensive root cause analysis to Prow's artifact storage for developer consumption.
 
 ## Background
 
 OADP operators E2E test suite runs in OpenShift Prow CI using Ginkgo framework.
-When tests fail, developers must manually sift through large build-log.txt files (often 50MB+), must-gather archives, and per-test pod logs to diagnose root causes.
+When tests fail, developers must manually sift through must-gather archives, JUnit reports, and per-test pod logs to diagnose root causes.
 This manual analysis is time-consuming and requires deep domain knowledge of Velero, CSI snapshots, cloud provider APIs, and Kubernetes internals.
 The repository already has comprehensive artifact collection infrastructure including must-gather integration, JUnit reports, and per-test failure logs.
 We have access to Google Vertex AI for Claude inference, which can be leveraged to automate failure analysis.
+
+**Note**: Prow's `build-log.txt` is written by CI infrastructure **after** tests complete and is NOT available during analysis. This design relies on artifacts generated during test execution: JUnit reports, must-gather diagnostics, and per-test pod log directories.
 
 ## Goals
 
@@ -32,7 +34,7 @@ We have access to Google Vertex AI for Claude inference, which can be leveraged 
 
 Add Claude CLI to the Prow CI container image (`build/ci-Dockerfile`).
 Create a wrapper script (`tests/e2e/scripts/analyze_failures.sh`) that runs after Ginkgo exits.
-If tests failed, invoke Claude with paths to build-log.txt, must-gather artifacts, and JUnit reports.
+If tests failed, invoke Claude with paths to JUnit reports, must-gather artifacts, and per-test log directories.
 Claude analyzes artifacts using Vertex AI and generates a markdown summary.
 Output is written to `${ARTIFACT_DIR}/claude-failure-analysis.md` where Prow uploads it to GCS.
 Modify Makefile `test-e2e` target to invoke the analysis script regardless of test exit code.
@@ -145,6 +147,12 @@ This configuration is automatically included in the container via `COPY ./ .` in
 #!/bin/bash
 # Analyze test failures with Claude via Vertex AI after Ginkgo suite completes
 # Only runs if tests failed and Claude analysis is not skipped
+#
+# Note: Prow's build-log.txt is written by CI infrastructure AFTER tests complete,
+# so it is NOT available during this analysis. We rely on:
+# - JUnit reports (junit_report.xml)
+# - must-gather diagnostics
+# - Per-test pod log directories
 
 set +e  # Don't exit on Claude failure
 
@@ -170,17 +178,6 @@ if [ $EXIT_CODE -ne 0 ]; then
     echo "Vertex AI Region: ${CLOUD_ML_REGION:-global}"
     echo "ARTIFACT_DIR: $ARTIFACT_DIR"
 
-    # Find build-log.txt (typically in parent directory of ARTIFACT_DIR)
-    BUILD_LOG="${ARTIFACT_DIR}/../build-log.txt"
-    if [ ! -f "$BUILD_LOG" ]; then
-        BUILD_LOG="/logs/build-log.txt"
-    fi
-
-    if [ ! -f "$BUILD_LOG" ]; then
-        echo "Warning: build-log.txt not found at expected locations"
-        BUILD_LOG="<not available>"
-    fi
-
     # Create analysis prompt
     cat > "${ARTIFACT_DIR}/claude-prompt.txt" << 'PROMPT_EOF'
 # OADP E2E Test Failure Analysis Request
@@ -189,15 +186,16 @@ You are analyzing a failed OADP (OpenShift API for Data Protection) E2E test run
 
 ## Available Artifacts
 
-1. **build-log.txt**: Complete Ginkgo test output (stdout/stderr) - contains all test execution logs
+1. **junit_report.xml**: Structured test results with pass/fail status and failure messages
 2. **must-gather/**: OADP diagnostics collection with structure:
    - `clusters/<cluster-id>/oadp-must-gather-summary.md` - High-level summary
    - `clusters/<cluster-id>/namespaces/openshift-adp/` - OADP namespace resources (pod logs, DPA, BSL, VSL, backups, restores)
    - `clusters/<cluster-id>/cluster-scoped-resources/` - Cluster-wide resources (CSI drivers, storage classes)
-3. **junit_report.xml**: Structured test results with pass/fail status
-4. **<TestName>/**: Per-test directories containing:
+3. **<TestName>/**: Per-test directories containing:
    - `openshift-adp/<pod-name>/*.log` - Velero, node-agent, plugin logs
    - `<app-namespace>/<pod-name>/*.log` - Application pod logs
+
+**Note**: Prow's build-log.txt is written by CI infrastructure after tests complete and is NOT available during this analysis. Use the artifacts listed above.
 
 ## Known Flake Patterns (see tests/e2e/lib/flakes.go)
 
@@ -210,13 +208,13 @@ Check for these known flakes before diagnosing as real failures:
 
 ## Analysis Tasks
 
-1. Parse junit_report.xml to identify all failed tests
+1. Parse junit_report.xml to identify all failed tests and extract failure messages
 2. For each failed test:
-   a. Extract relevant log snippets from build-log.txt (search by test name)
+   a. Check the per-test directory (<TestName>/) for pod logs with error details
    b. Review must-gather diagnostics for OADP component status
-   c. Check per-test pod logs for error messages
+   c. Search must-gather pod logs for error patterns
    d. Identify root cause (real bug vs known flake vs environmental issue)
-   e. Provide evidence-based diagnosis with line numbers/log snippets
+   e. Provide evidence-based diagnosis with file paths and log excerpts
 3. Summarize overall cluster health from must-gather
 4. Provide actionable recommendations prioritized by severity
 
@@ -243,9 +241,9 @@ Generate a markdown document with this exact structure:
 
 **Evidence**:
 ```
-build-log.txt:LINE: "<relevant log excerpt>"
+junit_report.xml: "<failure message from JUnit>"
 must-gather: <specific resource status or log finding>
-Pod logs (<namespace>/<pod>/<container>): "<error message>"
+Pod logs (<TestName>/<namespace>/<pod>/*.log): "<error message>"
 ```
 
 **Diagnosis**: <Detailed analysis of what went wrong and why>
@@ -266,7 +264,7 @@ Pod logs (<namespace>/<pod>/<container>): "<error message>"
 
 ## Known Flakes Detected
 
-- ✓ VolumeSnapshotBeingCreated race condition (matched pattern in build-log.txt:LINES)
+- ✓ VolumeSnapshotBeingCreated race condition (matched pattern in <file>)
 - ✗ AWS rate limiting (not detected)
 
 ## Cluster Health Summary
@@ -319,7 +317,7 @@ From must-gather analysis:
 
 ## Important Guidelines
 
-- Be specific: Always cite line numbers from build-log.txt, not "somewhere in the log"
+- Be specific: Cite file paths and excerpts from artifacts (JUnit, must-gather, per-test logs)
 - Be evidence-based: Don't speculate without supporting log evidence
 - Distinguish failure types: Real bugs vs flakes vs environmental vs configuration
 - Be actionable: Recommendations should be concrete and implementable
@@ -337,18 +335,21 @@ PROMPT_EOF
     echo "Found $FAILED_COUNT test suites with failures"
     echo "Invoking Claude for analysis..."
 
-    # Invoke Claude via Vertex AI in headless mode
+    # Invoke Claude via Vertex AI with secret redaction
     # Claude Code CLI uses Vertex AI when CLAUDE_CODE_USE_VERTEX=1 and credentials are set
-    # Using --print flag for non-interactive/headless operation suitable for CI automation
+    # Output is redacted to prevent credential leakage
+    # Using --print flag for headless/non-interactive mode suitable for CI automation
     timeout 600 claude --print "You are analyzing OADP E2E test failures from Prow CI.
 
 Read the analysis instructions in: ${ARTIFACT_DIR}/claude-prompt.txt
 
 Analyze these artifacts:
-1. Build log: ${BUILD_LOG}
+1. JUnit report: ${ARTIFACT_DIR}/junit_report.xml
 2. Must-gather: ${ARTIFACT_DIR}/must-gather/
-3. JUnit report: ${ARTIFACT_DIR}/junit_report.xml
-4. Test failure directories: ${ARTIFACT_DIR}/*/
+3. Per-test failure directories: ${ARTIFACT_DIR}/*/
+
+Note: Prow's build-log.txt is NOT available during this analysis (it's written after tests complete).
+Focus on JUnit results, must-gather diagnostics, and per-test pod logs.
 
 Generate comprehensive failure analysis following the output format specified in the prompt.
 Focus on actionable insights and clear root cause identification.
@@ -360,17 +361,17 @@ If you encounter credentials in logs, reference them generically (e.g., \"AWS cr
     CLAUDE_EXIT=$?
 
     if [ $CLAUDE_EXIT -eq 0 ]; then
-        echo "✓ Claude analysis completed successfully"
+        echo "✓ Claude analysis completed successfully (with secret redaction)"
         echo "✓ Analysis saved to: ${ARTIFACT_DIR}/claude-failure-analysis.md"
 
-        # Show summary (first 80 lines)
+        # Show summary (first 80 lines) - also redacted
         echo ""
         echo "=== Claude Analysis Preview ==="
-        head -80 "${ARTIFACT_DIR}/claude-failure-analysis.md"
+        head -80 "${ARTIFACT_DIR}/claude-failure-analysis.md" | redact_secrets
         echo "=== (Full analysis available in Prow artifacts) ==="
     elif [ $CLAUDE_EXIT -eq 124 ]; then
         echo "✗ Claude analysis timed out after 10 minutes"
-        echo "Large build-log.txt may have exceeded token limits"
+        echo "Large artifacts may have exceeded token limits"
         echo "Partial analysis may be in ${ARTIFACT_DIR}/claude-failure-analysis.md"
     else
         echo "✗ Claude analysis failed (exit code: $CLAUDE_EXIT)"
@@ -524,10 +525,10 @@ Prow GCS artifact layout:
 
 ```
 gs://origin-ci-test/pr-logs/pull/openshift_oadp-operator/<PR>/<job-name>/<build-id>/
-├── build-log.txt                          # Ginkgo stdout/stderr
+├── build-log.txt                          # Ginkgo stdout/stderr (NOT available during analysis)
 ├── artifacts/
-│   ├── junit_report.xml                   # Test results
-│   ├── must-gather/                       # OADP diagnostics
+│   ├── junit_report.xml                   # Test results (PRIMARY - available)
+│   ├── must-gather/                       # OADP diagnostics (available)
 │   │   └── clusters/<cluster-id>/
 │   │       ├── oadp-must-gather-summary.md
 │   │       ├── namespaces/
@@ -536,7 +537,7 @@ gs://origin-ci-test/pr-logs/pull/openshift_oadp-operator/<PR>/<job-name>/<build-
 │   │       │       ├── backups/
 │   │       │       └── restores/
 │   │       └── cluster-scoped-resources/
-│   ├── MySQL application CSI/             # Per-test logs
+│   ├── MySQL application CSI/             # Per-test logs (available)
 │   │   ├── openshift-adp/
 │   │   │   └── velero-<hash>/
 │   │   │       ├── velero.log
@@ -549,6 +550,8 @@ gs://origin-ci-test/pr-logs/pull/openshift_oadp-operator/<PR>/<job-name>/<build-
 │   └── claude-failure-analysis.md         # NEW: Claude output
 └── finished.json
 ```
+
+**Note**: `build-log.txt` is written by Prow CI infrastructure after tests complete. The analysis script runs before this file exists, so Claude analyzes JUnit reports, must-gather, and per-test log directories instead.
 
 Access URL pattern:
 ```
@@ -578,11 +581,11 @@ https://prow.ci.openshift.org/view/gs/origin-ci-test/pr-logs/pull/openshift_oadp
 
 **Evidence**:
 ```
-build-log.txt:1247: "VolumeSnapshot mysql-pvc not ready after 10m0s"
+junit_report.xml: "VolumeSnapshot mysql-pvc not ready after 10m0s"
 must-gather: clusters/12345678/namespaces/openshift-adp/volumesnapshots.yaml
   status.readyToUse: false
   status.error: "snapshot-12345: rpc error: code = DeadlineExceeded"
-Pod logs (openshift-adp/node-agent-abc123/node-agent):
+Pod logs (MySQL application CSI/openshift-adp/node-agent-abc123/node-agent.log):
   "CSI driver timeout creating snapshot for pvc mysql-pvc"
 ```
 
@@ -609,8 +612,10 @@ The cluster may have hit AWS API rate limits for EBS snapshot operations, or the
 
 **Evidence**:
 ```
-build-log.txt:2103: "Error copying image: writing blob: unexpected EOF"
-velero logs: "Backup failed: error uploading backup: RequestTimeout: upload timeout"
+junit_report.xml: "Backup failed: error uploading backup"
+Pod logs (MongoDB FSB application/openshift-adp/velero-xyz/velero.log):
+  "Error copying image: writing blob: unexpected EOF"
+  "Backup failed: error uploading backup: RequestTimeout: upload timeout"
 ```
 
 **Diagnosis**: This matches the known flake pattern for transient S3 errors documented in tests/e2e/lib/flakes.go.
@@ -631,9 +636,9 @@ velero logs: "Backup failed: error uploading backup: RequestTimeout: upload time
 
 **Evidence**:
 ```
-build-log.txt:856: "Pod openshift-adp/velero-plugin-for-aws-xyz ImagePullBackOff"
+junit_report.xml: "DPA not ready: velero deployment not available"
 must-gather events: "Failed to pull image quay.io/konveyor/velero-plugin-for-aws:v1.10.1"
-Pod status: "ErrImagePull: rate limit exceeded"
+must-gather pod status: "ErrImagePull: rate limit exceeded"
 ```
 
 **Diagnosis**: Quay.io rate limiting prevented pulling the AWS plugin image.
@@ -650,7 +655,7 @@ This is an environmental issue with the container registry, not a code defect.
 
 ## Known Flakes Detected
 
-- ✓ S3 transient write errors (matched "Error copying image: writing blob" in build-log.txt:2103)
+- ✓ S3 transient write errors (matched "Error copying image: writing blob" in per-test logs)
 - ✗ VolumeSnapshotBeingCreated race condition (not detected - MySQL failure is different)
 
 ## Cluster Health Summary
@@ -766,7 +771,7 @@ Vertex AI credentials stored in existing OpenShift CI vault collection:
 - Mounted read-only at:
   - `/var/run/oadp-credentials/gcp-claude-code-credentials`
   - `/var/run/oadp-credentials/gcp-claude-code-project-id`
-- Never logged or exposed in build-log.txt or artifacts
+- Never logged or exposed in artifacts
 - Stored alongside OADP cloud credentials (AWS/Azure/GCP backup credentials) in same collection
 - Managed by OpenShift CI infrastructure team via vault backend
 - No openshift/release configuration changes needed (mount path already exists)
@@ -777,7 +782,7 @@ Analysis script automatically redacts sensitive data:
 
 - `GOOGLE_APPLICATION_CREDENTIALS` path logged, not contents
 - Service account key never read or echoed
-- Claude inputs (build-log.txt, must-gather) are already non-sensitive CI logs
+- Claude inputs (must-gather, JUnit, per-test logs) are already non-sensitive CI logs
 - No OADP backup credentials passed to Claude
 - **Automatic redaction** applied to all Claude output before saving to artifacts
 
@@ -800,7 +805,7 @@ This prevents credential leakage even if Claude inadvertently includes secrets i
 
 All Claude API calls logged in Vertex AI audit logs:
 - Request timestamps, model used, token counts
-- No payload logging (build-log.txt not stored by Vertex AI)
+- No payload logging (artifacts not stored by Vertex AI)
 - GCP Cloud Audit Logs track service account usage
 
 ## Compatibility
@@ -823,7 +828,7 @@ env:
 
 Analysis automatically skipped if:
 - `SKIP_CLAUDE_ANALYSIS=true`
-- Vertex AI credentials missing (`GOOGLE_APPLICATION_CREDENTIALS` or `GOOGLE_CLOUD_PROJECT` unset)
+- Vertex AI credentials missing (`GOOGLE_APPLICATION_CREDENTIALS` or `ANTHROPIC_VERTEX_PROJECT_ID` unset)
 - Tests passed (exit code 0)
 
 ### Graceful Degradation
@@ -838,7 +843,6 @@ Failure modes:
 - Claude CLI not installed: Script logs warning, exits with original test code
 - Vertex AI timeout (>10min): Script logs timeout, preserves test result
 - API authentication error: Script logs error, preserves test result
-- Build-log.txt not found: Script logs warning, analyzes available artifacts only
 
 ### Version Compatibility
 
@@ -967,17 +971,16 @@ Reverts:
 - Output: $15.00 per million tokens (~$0.015 per 1K tokens)
 
 **Typical Failed Test Run**:
-- build-log.txt: ~50,000 tokens (200KB text)
 - must-gather summary: ~5,000 tokens
 - JUnit XML: ~1,000 tokens
 - Per-test logs (3 failures): ~10,000 tokens
-- Total input: ~66,000 tokens → ~$0.20
+- Total input: ~16,000 tokens → ~$0.05
 - Output: ~5,000 tokens → ~$0.08
-- **Total per failed run: ~$0.28**
+- **Total per failed run: ~$0.13**
 
 **Monthly Estimate** (100 failed runs/month):
-- 100 runs × $0.28 = **$28/month**
-- With retries and variations: **~$30-50/month**
+- 100 runs × $0.13 = **$13/month**
+- With retries and variations: **~$15-25/month**
 
 **Cost Controls**:
 - Only analyze on failures (not ~1000 successful runs/month)
@@ -1017,21 +1020,21 @@ Reverts:
 
 **Proposed**: Default to `claude-sonnet-4.5`, add optional `CLAUDE_MODEL` env var for experiments.
 
-### Token Limits for Large build-log.txt Files
+### Token Limits for Large Artifact Sets
 
-**Question**: How to handle build-log.txt files >200KB (>50K tokens, approaching context limits)?
+**Question**: How to handle very large must-gather archives or many per-test log directories?
 
 **Considerations**:
 - Claude Code CLI may truncate or fail on very large inputs
-- Some test runs generate 500KB+ logs with verbose output
+- Some test runs generate extensive must-gather with many namespaces
 - Vertex AI has 200K token context window for Sonnet
 
 **Proposed Solutions**:
-1. Preprocess build-log.txt: Extract only failed test sections (grep for test names from JUnit)
-2. Implement smart truncation: Keep first 10KB, last 50KB, + failed test sections
+1. Preprocess must-gather: Extract only openshift-adp namespace content
+2. Implement smart truncation: Prioritize failed test directories
 3. Add token counting and warn if approaching limits
 
-**Recommendation**: Start with full file, monitor token usage, implement truncation if needed.
+**Recommendation**: Start with available artifacts, monitor token usage, implement truncation if needed.
 
 ### Multi-Cloud Artifact Variation Handling
 
@@ -1044,19 +1047,15 @@ Reverts:
 
 **Current Approach**: Generic prompt works across providers (already handles AWS/Azure/GCP in prompt examples).
 
-**Future Enhancement**: Add cloud provider detection and specialized prompts:
-```bash
-PROVIDER=$(grep 'PROVIDER=' build-log.txt | head -1 | cut -d= -f2)
-# Load provider-specific flake patterns and analysis hints
-```
+**Future Enhancement**: Add cloud provider detection and specialized prompts based on PROVIDER env var.
 
 ### Handling Test Suite Expansion
 
 **Question**: As E2E suite grows (currently 42 tests → future 100+ tests), will analysis degrade or exceed time limits?
 
 **Considerations**:
-- More tests = longer build-log.txt
-- More failures = more per-test directories to analyze
+- More tests = more per-test directories to analyze
+- More failures = more content for Claude to process
 - 10-minute timeout may be insufficient
 
 **Proposed**:
