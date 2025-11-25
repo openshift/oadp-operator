@@ -9,6 +9,7 @@
 # - Per-test pod log directories
 
 set +e  # Don't exit on Claude failure
+set -o pipefail  # Return first non-zero exit code in pipeline
 
 ARTIFACT_DIR=${ARTIFACT_DIR:-/tmp}
 SKIP_CLAUDE=${SKIP_CLAUDE_ANALYSIS:-false}
@@ -70,14 +71,16 @@ You are analyzing a failed OADP (OpenShift API for Data Protection) E2E test run
 
 **Note**: Prow's build-log.txt is written by CI infrastructure after tests complete and is NOT available during this analysis. Use the artifacts listed above.
 
-## Known Flake Patterns (see tests/e2e/lib/flakes.go)
+## Known Flake Patterns
 
-Check for these known flakes before diagnosing as real failures:
-- "Failed to check and update snapshot content" - CSI VolumeSnapshotBeingCreated race condition (issue #876)
-- "Error copying image: writing blob" - Transient S3 bucket errors (issue #5856)
-- AWS rate limiting errors
-- DNS resolution timeouts
-- Image pull backoff errors
+Read the known flake patterns from the source file:
+- File: /go/src/github.com/openshift/oadp-operator/tests/e2e/lib/flakes.go
+
+This file contains:
+- `flakePatterns` slice with Issue, Description, and StringSearchPattern fields
+- `errorIgnorePatterns` slice with strings that should be ignored in error analysis
+
+Cross-reference failures against these patterns before diagnosing as real failures.
 
 ## Analysis Tasks
 
