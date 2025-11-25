@@ -79,9 +79,34 @@ RUN go mod download && \
 
 ### Claude Code Permissions Configuration
 
-**File**: `.claude/config.json` (new)
+Claude Code permissions are configured through two mechanisms:
 
-Configure Claude Code permissions for CI analysis with read-only access:
+1. **Runtime `--allowedTools` flag** (primary): Explicitly grants file access at invocation time
+2. **`.claude/config.json`** (secondary): General tool permissions and deny rules
+
+#### Runtime Permissions via --allowedTools
+
+The analysis script uses the `--allowedTools` CLI flag to explicitly grant Read permissions for artifact paths:
+
+```bash
+claude --print \
+  --allowedTools "Read(${ARTIFACT_DIR}/**) Read(/go/src/**) Grep Glob Bash(ls:*) Bash(cat:*) ..." \
+  "prompt..."
+```
+
+**Why runtime permissions instead of config file?**
+
+Claude Code's sandbox mode restricts filesystem access to the current working directory (CWD) and its subdirectories. In Prow CI:
+- CWD is `/go/src/github.com/openshift/oadp-operator`
+- Artifacts are at `/logs/artifacts/` (outside CWD)
+
+Path-specific permissions in `.claude/config.json` (e.g., `Read(/logs/**)`) are overridden by sandbox CWD restrictions. The `--allowedTools` flag bypasses these restrictions by explicitly granting permissions at invocation time.
+
+#### Static Configuration File
+
+**File**: `.claude/config.json`
+
+General tool permissions and deny rules (path permissions handled at runtime):
 
 ```json
 {
@@ -90,11 +115,6 @@ Configure Claude Code permissions for CI analysis with read-only access:
       "Read",
       "Glob",
       "Grep",
-      "Read(/go/src/**)",
-      "Read(/logs/**)",
-      "Read(/tmp/**)",
-      "Read(/artifacts/**)",
-      "Read(/home/prow/**)",
       "Bash(ls:*)",
       "Bash(cat:*)",
       "Bash(head:*)",
@@ -140,13 +160,7 @@ Configure Claude Code permissions for CI analysis with read-only access:
 **Permission Design**:
 - **Read-only analysis**: Claude can read logs, search files, and run analysis commands
 - **No modifications**: Denies Write, Edit, and destructive Bash commands
-- **Comprehensive path access**: Grants access to common Prow artifact paths:
-  - `/go/src/**` - Source code and flakes.go patterns
-  - `/logs/**` - Standard Prow log directory
-  - `/tmp/**` - Default artifact directory fallback
-  - `/artifacts/**` - Common Prow ARTIFACT_DIR
-  - `/home/prow/**` - Prow workspace paths
-- **Extended tool allowlist**: Bash commands for log analysis including compression tools (tar, zcat, gunzip) for handling compressed must-gather archives
+- **Tool allowlist**: Bash commands for log analysis including compression tools (tar, zcat, gunzip)
 - **Network isolation**: Denies WebFetch and WebSearch to prevent external calls
 
 This configuration is automatically included in the container via `COPY ./ .` in the Dockerfile.
@@ -230,8 +244,13 @@ extract_log_errors() {
 
     # Use Claude subagent to extract relevant errors from large log
     # Timeout of 60s for each subagent invocation
+    # Using --allowedTools to explicitly grant file access (bypasses sandbox CWD restrictions)
     local subagent_output
-    subagent_output=$(timeout 60 claude --print "You are a log analysis assistant. Extract error messages, stack traces, and related context from this log file.
+    subagent_output=$(timeout 60 claude --print \
+      --allowedTools "Read(${ARTIFACT_DIR}/**) Read(/go/src/**) Grep Bash(grep:*) Bash(head:*) Bash(tail:*)" \
+      "You are a log analysis assistant. Extract error messages, stack traces, and related context from this log file.
+
+AVAILABLE TOOLS: You have access to Read, Grep, and Bash commands (grep, head, tail only). Use these tools to read and analyze the log file. Do NOT attempt to use any other tools.
 
 Log file: $log_file
 
@@ -506,8 +525,19 @@ PROMPT_EOF
 
     # Invoke Claude via Vertex AI
     # Using --print flag for headless/non-interactive mode suitable for CI automation
+    # Using --allowedTools to explicitly grant file access (bypasses sandbox CWD restrictions)
     # Write to temp file first, then apply redaction - this avoids pipefail masking Claude exit code
-    timeout 600 claude --print "You are analyzing OADP E2E test failures from Prow CI.
+    timeout 600 claude --print \
+      --allowedTools "Read(${ARTIFACT_DIR}/**) Read(/go/src/**) Grep Glob Bash(ls:*) Bash(cat:*) Bash(head:*) Bash(tail:*) Bash(grep:*) Bash(find:*) Bash(wc:*)" \
+      "You are analyzing OADP E2E test failures from Prow CI.
+
+AVAILABLE TOOLS: You have access to the following tools ONLY:
+- Read: Read files from ${ARTIFACT_DIR}/** and /go/src/**
+- Grep: Search file contents
+- Glob: Find files by pattern
+- Bash: ls, cat, head, tail, grep, find, wc commands only
+
+Use these tools to read and analyze artifacts. Do NOT attempt to use Write, Edit, WebFetch, or any other tools.
 
 Read the analysis instructions in: ${ARTIFACT_DIR}/claude-prompt.txt
 
@@ -563,18 +593,24 @@ exit $EXIT_CODE
 
 1. **Claude CLI Check**: The script validates `claude` command exists before attempting any analysis, providing a clear error message if missing.
 
-2. **Proper Exit Code Capture**: Instead of piping Claude output directly through `redact_secrets` (which could mask the real exit code due to `pipefail`), the script:
+2. **Runtime Permissions via --allowedTools**: Claude Code's sandbox mode restricts filesystem access to the current working directory. Since artifacts are at `/logs/artifacts/` (outside the CWD `/go/src/github.com/openshift/oadp-operator`), the script uses the `--allowedTools` CLI flag to explicitly grant Read permissions:
+   ```bash
+   claude --print --allowedTools "Read(${ARTIFACT_DIR}/**) Read(/go/src/**) Grep Glob ..."
+   ```
+   This bypasses sandbox CWD restrictions and ensures Claude can access artifact files.
+
+3. **Proper Exit Code Capture**: Instead of piping Claude output directly through `redact_secrets` (which could mask the real exit code due to `pipefail`), the script:
    - Writes Claude output to a temp file
    - Captures Claude's exit code separately
    - Then applies redaction to the temp file
    - Uses trap for cleanup
 
-3. **Subagent Pattern for Large Logs**: The `extract_log_errors()` function invokes Claude as a focused subagent to extract only error-relevant lines from large log files (>1MB). This:
+4. **Subagent Pattern for Large Logs**: The `extract_log_errors()` function invokes Claude as a focused subagent to extract only error-relevant lines from large log files (>1MB). This:
    - Reduces token usage for the main analysis
    - Increases accuracy by pre-filtering noise
    - Has fallback to grep if subagent fails
 
-4. **Preprocessing Pipeline**: Before main analysis, `preprocess_large_artifacts()` scans for large log files and creates `preprocessed-logs.txt` with extracted errors. The main Claude analysis references this file for quick access to relevant errors.
+5. **Preprocessing Pipeline**: Before main analysis, `preprocess_large_artifacts()` scans for large log files and creates `preprocessed-logs.txt` with extracted errors. The main Claude analysis references this file for quick access to relevant errors.
 
 **File Permissions**: The script is made executable in `build/ci-Dockerfile` during container build (see Dockerfile section above).
 
