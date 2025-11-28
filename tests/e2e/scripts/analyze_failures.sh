@@ -74,10 +74,11 @@ extract_log_errors() {
 
     # Use Claude subagent to extract relevant errors from large log
     # Timeout of 60s for each subagent invocation
-    # Using --allowedTools to explicitly grant file access (bypasses sandbox CWD restrictions)
+    # Using --add-dir to grant access to artifact directories (bypasses sandbox CWD restrictions)
     local subagent_output
     subagent_output=$(timeout 60 claude \
-      --allowedTools "Read(${ARTIFACT_DIR}/**) Read(/go/src/**) Grep Bash(grep:*) Bash(head:*) Bash(tail:*)" \
+      --add-dir "${ARTIFACT_DIR}" --add-dir "/go/src" \
+      --allowedTools "Read Grep Bash(grep:*) Bash(head:*) Bash(tail:*)" \
       --print "You are a log analysis assistant. Extract error messages, stack traces, and related context from this log file.
 
 AVAILABLE TOOLS: You have access to Read, Grep, and Bash commands (grep, head, tail only). Use these tools to read and analyze the log file. Do NOT attempt to use any other tools.
@@ -366,14 +367,15 @@ PROMPT_EOF
 
     # Invoke Claude via Vertex AI
     # Using --print flag for headless/non-interactive mode suitable for CI automation
-    # Using --allowedTools to explicitly grant file access (bypasses sandbox CWD restrictions)
+    # Using --add-dir to grant access to artifact directories (bypasses sandbox CWD restrictions)
     # Write to temp file first, then apply redaction - this avoids pipefail masking Claude exit code
     timeout 600 claude \
-      --allowedTools "Read(${ARTIFACT_DIR}/**) Read(/go/src/**) Grep Glob Bash(ls:*) Bash(cat:*) Bash(head:*) Bash(tail:*) Bash(grep:*) Bash(find:*) Bash(wc:*)" \
+      --add-dir "${ARTIFACT_DIR}" --add-dir "/go/src" \
+      --allowedTools "Read Grep Glob Bash(ls:*) Bash(cat:*) Bash(head:*) Bash(tail:*) Bash(grep:*) Bash(find:*) Bash(wc:*)" \
       --print "You are analyzing OADP E2E test failures from Prow CI.
 
 AVAILABLE TOOLS: You have access to the following tools ONLY:
-- Read: Read files from ${ARTIFACT_DIR}/** and /go/src/**
+- Read: Read files from ${ARTIFACT_DIR} and /go/src directories
 - Grep: Search file contents
 - Glob: Find files by pattern
 - Bash: ls, cat, head, tail, grep, find, wc commands only

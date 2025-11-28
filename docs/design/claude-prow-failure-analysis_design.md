@@ -84,15 +84,19 @@ Claude Code permissions are configured through two mechanisms:
 1. **Runtime `--allowedTools` flag** (primary): Explicitly grants file access at invocation time
 2. **`.claude/config.json`** (secondary): General tool permissions and deny rules
 
-#### Runtime Permissions via --allowedTools
+#### Runtime Permissions via --add-dir and --allowedTools
 
-The analysis script uses the `--allowedTools` CLI flag to explicitly grant Read permissions for artifact paths:
+The analysis script uses CLI flags to grant directory access and tool permissions:
 
 ```bash
-claude --print \
-  --allowedTools "Read(${ARTIFACT_DIR}/**) Read(/go/src/**) Grep Glob Bash(ls:*) Bash(cat:*) ..." \
-  "prompt..."
+claude \
+  --add-dir "${ARTIFACT_DIR}" --add-dir "/go/src" \
+  --allowedTools "Read Grep Glob Bash(ls:*) Bash(cat:*) ..." \
+  --print "prompt..."
 ```
+
+- **`--add-dir`**: Grants filesystem access to additional directories beyond the current working directory
+- **`--allowedTools`**: Pre-approves specific tools without prompting
 
 **Why runtime permissions instead of config file?**
 
@@ -100,7 +104,7 @@ Claude Code's sandbox mode restricts filesystem access to the current working di
 - CWD is `/go/src/github.com/openshift/oadp-operator`
 - Artifacts are at `/logs/artifacts/` (outside CWD)
 
-Path-specific permissions in `.claude/config.json` (e.g., `Read(/logs/**)`) are overridden by sandbox CWD restrictions. The `--allowedTools` flag bypasses these restrictions by explicitly granting permissions at invocation time.
+Path-specific permissions in `.claude/config.json` (e.g., `Read(/logs/**)`) are overridden by sandbox CWD restrictions. The `--add-dir` flag bypasses these restrictions by explicitly granting directory access at invocation time.
 
 #### Static Configuration File
 
@@ -244,10 +248,11 @@ extract_log_errors() {
 
     # Use Claude subagent to extract relevant errors from large log
     # Timeout of 60s for each subagent invocation
-    # Using --allowedTools to explicitly grant file access (bypasses sandbox CWD restrictions)
+    # Using --add-dir to grant access to artifact directories (bypasses sandbox CWD restrictions)
     local subagent_output
     subagent_output=$(timeout 60 claude \
-      --allowedTools "Read(${ARTIFACT_DIR}/**) Read(/go/src/**) Grep Bash(grep:*) Bash(head:*) Bash(tail:*)" \
+      --add-dir "${ARTIFACT_DIR}" --add-dir "/go/src" \
+      --allowedTools "Read Grep Bash(grep:*) Bash(head:*) Bash(tail:*)" \
       --print "You are a log analysis assistant. Extract error messages, stack traces, and related context from this log file.
 
 AVAILABLE TOOLS: You have access to Read, Grep, and Bash commands (grep, head, tail only). Use these tools to read and analyze the log file. Do NOT attempt to use any other tools.
@@ -525,14 +530,15 @@ PROMPT_EOF
 
     # Invoke Claude via Vertex AI
     # Using --print flag for headless/non-interactive mode suitable for CI automation
-    # Using --allowedTools to explicitly grant file access (bypasses sandbox CWD restrictions)
+    # Using --add-dir to grant access to artifact directories (bypasses sandbox CWD restrictions)
     # Write to temp file first, then apply redaction - this avoids pipefail masking Claude exit code
     timeout 600 claude \
-      --allowedTools "Read(${ARTIFACT_DIR}/**) Read(/go/src/**) Grep Glob Bash(ls:*) Bash(cat:*) Bash(head:*) Bash(tail:*) Bash(grep:*) Bash(find:*) Bash(wc:*)" \
+      --add-dir "${ARTIFACT_DIR}" --add-dir "/go/src" \
+      --allowedTools "Read Grep Glob Bash(ls:*) Bash(cat:*) Bash(head:*) Bash(tail:*) Bash(grep:*) Bash(find:*) Bash(wc:*)" \
       --print "You are analyzing OADP E2E test failures from Prow CI.
 
 AVAILABLE TOOLS: You have access to the following tools ONLY:
-- Read: Read files from ${ARTIFACT_DIR}/** and /go/src/**
+- Read: Read files from ${ARTIFACT_DIR} and /go/src directories
 - Grep: Search file contents
 - Glob: Find files by pattern
 - Bash: ls, cat, head, tail, grep, find, wc commands only
@@ -593,11 +599,11 @@ exit $EXIT_CODE
 
 1. **Claude CLI Check**: The script validates `claude` command exists before attempting any analysis, providing a clear error message if missing.
 
-2. **Runtime Permissions via --allowedTools**: Claude Code's sandbox mode restricts filesystem access to the current working directory. Since artifacts are at `/logs/artifacts/` (outside the CWD `/go/src/github.com/openshift/oadp-operator`), the script uses the `--allowedTools` CLI flag to explicitly grant Read permissions:
+2. **Runtime Permissions via --add-dir**: Claude Code's sandbox mode restricts filesystem access to the current working directory. Since artifacts are at `/logs/artifacts/` (outside the CWD `/go/src/github.com/openshift/oadp-operator`), the script uses CLI flags to grant access:
    ```bash
-   claude --print --allowedTools "Read(${ARTIFACT_DIR}/**) Read(/go/src/**) Grep Glob ..."
+   claude --add-dir "${ARTIFACT_DIR}" --add-dir "/go/src" --allowedTools "Read Grep Glob ..." --print "..."
    ```
-   This bypasses sandbox CWD restrictions and ensures Claude can access artifact files.
+   The `--add-dir` flag grants directory access, and `--allowedTools` pre-approves tool usage.
 
 3. **Proper Exit Code Capture**: Instead of piping Claude output directly through `redact_secrets` (which could mask the real exit code due to `pipefail`), the script:
    - Writes Claude output to a temp file
