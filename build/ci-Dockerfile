@@ -5,10 +5,21 @@ WORKDIR /go/src/github.com/openshift/oadp-operator
 
 COPY ./ .
 
-# Install kubectl
-RUN curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl" && \
+# Make analysis script executable for CI execution
+RUN chmod +x tests/e2e/scripts/analyze_failures.sh
+
+# Install kubectl (multi-arch)
+ARG TARGETARCH
+RUN curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/${TARGETARCH}/kubectl" && \
     chmod +x kubectl && \
     mv kubectl /usr/local/bin/
+
+# Install Node.js and Claude CLI
+# Using NodeSource setup script for RHEL-based images
+RUN curl -fsSL https://rpm.nodesource.com/setup_20.x | bash - && \
+    dnf install -y nodejs && \
+    npm install -g @anthropic-ai/claude-code && \
+    dnf clean all
 
 RUN go mod download && \
     mkdir -p $(go env GOCACHE) && \
