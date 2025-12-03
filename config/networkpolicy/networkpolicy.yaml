@@ -8,6 +8,10 @@ metadata:
     app.kubernetes.io/part-of: oadp-operator
     app.kubernetes.io/managed-by: olm
 spec:
+  # Limited Default Deny Policy:
+  # This policy selects pods managed by oadp-operator and blocks all traffic by default,
+  # except for the specific ingress/egress rules defined below.
+  # It allows OADP to coexist with other workloads in the same namespace.
   podSelector:
     matchLabels:
       app.kubernetes.io/managed-by: "oadp-operator"
@@ -41,16 +45,23 @@ spec:
           port: 443
         - protocol: TCP
           port: 6443
+    # Explicitly allow access to DNS
     - to:
       - namespaceSelector:
           matchLabels:
-            # This label is standard on the openshift-dns namespace
             kubernetes.io/metadata.name: openshift-dns
+        podSelector:
+          matchLabels:
+            dns.operator.openshift.io/daemonset-dns: default
       ports:
       - protocol: UDP
         port: 53
       - protocol: TCP
         port: 53
+      - protocol: UDP
+        port: 5353
+      - protocol: TCP
+        port: 5353
     # Explicitly allow access to Kubernetes API Server
     - to:
       - namespaceSelector:

@@ -97,15 +97,23 @@ The policy defines multiple egress rules to ensure comprehensive connectivity:
   - namespaceSelector:
       matchLabels:
         kubernetes.io/metadata.name: openshift-dns
+    podSelector:
+      matchLabels:
+        dns.operator.openshift.io/daemonset-dns: default
   ports:
   - protocol: UDP
     port: 53
   - protocol: TCP
     port: 53
+  - protocol: UDP
+    port: 5353
+  - protocol: TCP
+    port: 5353
 ```
 
 **What this allows:**
-- DNS queries to the OpenShift DNS service.
+- DNS queries to the OpenShift DNS service (ports 53 and 5353).
+- Uses specific selectors for the `openshift-dns` namespace and `dns-default` pods.
 
 **3. Kubernetes API Access (Explicit)**
 ```yaml
