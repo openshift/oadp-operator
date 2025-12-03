@@ -2,7 +2,6 @@ apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
   name: oadp-default-deny-labelled
-  namespace: system
   labels:
     app.kubernetes.io/name: oadp-networkpolicy
     app.kubernetes.io/component: network-security
@@ -18,6 +17,21 @@ spec:
   ingress:
   - from:
     - podSelector: {}
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: openshift-monitoring
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: openshift-user-workload-monitoring
+    ports:
+    - protocol: TCP
+      port: 8085
+    - protocol: TCP
+      port: 8443
+  - ports:
+    - protocol: TCP
+      port: 9443
   egress:
     - to:
         - ipBlock:
@@ -35,3 +49,10 @@ spec:
         port: 53
       - protocol: TCP
         port: 53
+    - to:
+      - namespaceSelector:
+          matchLabels:
+            kubernetes.io/metadata.name: default
+      ports:
+      - protocol: TCP
+        port: 443

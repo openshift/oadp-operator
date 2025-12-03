@@ -46,11 +46,29 @@ The policy applies to all pods that have the label `app.kubernetes.io/managed-by
 ingress:
 - from:
   - podSelector: {}
+# Allow OpenShift Monitoring
+- from:
+  - namespaceSelector:
+      matchLabels:
+        kubernetes.io/metadata.name: openshift-monitoring
+  - namespaceSelector:
+      matchLabels:
+        kubernetes.io/metadata.name: openshift-user-workload-monitoring
+  ports:
+  - protocol: TCP
+    port: 8085  # Velero Metrics
+  - protocol: TCP
+    port: 8443  # Controller Metrics
+# Allow API Server Webhooks
+- ports:
+  - protocol: TCP
+    port: 9443  # Webhook
 ```
 
 **What this allows:**
-- Allows incoming traffic from **any pod within the same namespace**
-- This enables inter-pod communication for OADP components that need to communicate with each other
+- **Internal Communication**: Allows incoming traffic from **any pod within the same namespace**.
+- **Monitoring**: Allows OpenShift Monitoring stack to scrape metrics from OADP components (ports 8085, 8443).
+- **Webhooks**: Allows the Kubernetes API server to communicate with OADP validation/mutation webhooks (port 9443).
 
 #### Egress Rules (Outgoing Traffic)
 
@@ -89,6 +107,21 @@ The policy defines two egress rules:
 - Essential for resolving domain names for cloud storage endpoints and other external services
 - Uses the standard OpenShift DNS namespace label
 
+**3. Kubernetes API Access**
+```yaml
+- to:
+  - namespaceSelector:
+      matchLabels:
+        kubernetes.io/metadata.name: default
+  ports:
+  - protocol: TCP
+    port: 443
+```
+
+**What this allows:**
+- Traffic to the Kubernetes API server (service `kubernetes` in `default` namespace).
+- Essential for the OADP operator to manage resources (DPAs, Backups, Restores).
+
 ## Why These Rules Matter for OADP
 
 ### Security Benefits
@@ -104,6 +137,8 @@ OADP components need specific network access to function properly:
 - **Cloud Storage Access**: HTTPS (443) for communicating with cloud storage APIs
 - **DNS Resolution**: Required to resolve cloud storage endpoint names
 - **Inter-Component Communication**: OADP pods may need to communicate with each other within the namespace
+- **Monitoring**: The OpenShift Monitoring stack needs to reach OADP metrics endpoints
+- **Webhooks**: The Kubernetes API server needs to reach the OADP operator for CR validation
 
 ## Applying the NetworkPolicy
 
