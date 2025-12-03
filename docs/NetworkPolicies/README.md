@@ -72,9 +72,9 @@ ingress:
 
 #### Egress Rules (Outgoing Traffic)
 
-The policy defines two egress rules:
+The policy defines multiple egress rules to ensure comprehensive connectivity:
 
-**1. HTTPS Internet Access**
+**1. General Network Access**
 ```yaml
 - to:
     - ipBlock:
@@ -82,12 +82,14 @@ The policy defines two egress rules:
   ports:
     - protocol: TCP
       port: 443
+    - protocol: TCP
+      port: 6443
 ```
 
 **What this allows:**
-- Outbound HTTPS traffic (port 443) to any IP address on the internet
-- Essential for OADP components to communicate with cloud storage providers (AWS S3, Azure Blob, Google Cloud Storage, etc.)
-- Allows downloading container images and accessing external APIs
+- Outbound HTTPS traffic (port 443) to any IP address.
+- Outbound traffic to Kubernetes API servers (port 6443).
+- This covers cloud storage providers, external APIs, container registries, and external/host-networked API servers.
 
 **2. DNS Resolution**
 ```yaml
@@ -103,12 +105,11 @@ The policy defines two egress rules:
 ```
 
 **What this allows:**
-- DNS queries to the OpenShift DNS service (both UDP and TCP on port 53)
-- Essential for resolving domain names for cloud storage endpoints and other external services
-- Uses the standard OpenShift DNS namespace label
+- DNS queries to the OpenShift DNS service.
 
-**3. Kubernetes API Access**
+**3. Kubernetes API Access (Explicit)**
 ```yaml
+# Allow access to Kubernetes API Server
 - to:
   - namespaceSelector:
       matchLabels:
@@ -116,11 +117,32 @@ The policy defines two egress rules:
   ports:
   - protocol: TCP
     port: 443
+
+# Allow access to OpenShift API Server
+- to:
+  - namespaceSelector:
+      matchLabels:
+        kubernetes.io/metadata.name: openshift-apiserver
+  ports:
+  - protocol: TCP
+    port: 443
+
+# Allow access to Kubernetes API Server (OpenShift Namespace)
+- to:
+  - namespaceSelector:
+      matchLabels:
+        kubernetes.io/metadata.name: openshift-kube-apiserver
+  ports:
+  - protocol: TCP
+    port: 443
+  - protocol: TCP
+    port: 6443
 ```
 
 **What this allows:**
-- Traffic to the Kubernetes API server (service `kubernetes` in `default` namespace).
-- Essential for the OADP operator to manage resources (DPAs, Backups, Restores).
+- Explicitly allows traffic to the Kubernetes API server (in `default` and `openshift-kube-apiserver` namespaces) and OpenShift API server (in `openshift-apiserver` namespace).
+- Ensures internal Service Network traffic is permitted even if broader rules don't apply to cluster services in some CNI configurations.
+- Covers both port 443 (Service) and 6443 (Pod/Endpoint) for the API server.
 
 ## Why These Rules Matter for OADP
 

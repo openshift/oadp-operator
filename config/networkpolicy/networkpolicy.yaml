@@ -39,6 +39,8 @@ spec:
       ports:
         - protocol: TCP
           port: 443
+        - protocol: TCP
+          port: 6443
     - to:
       - namespaceSelector:
           matchLabels:
@@ -49,6 +51,7 @@ spec:
         port: 53
       - protocol: TCP
         port: 53
+    # Explicitly allow access to Kubernetes API Server
     - to:
       - namespaceSelector:
           matchLabels:
@@ -56,3 +59,21 @@ spec:
       ports:
       - protocol: TCP
         port: 443
+    # Explicitly allow access to OpenShift API Server
+    - to:
+      - namespaceSelector:
+          matchLabels:
+            kubernetes.io/metadata.name: openshift-apiserver
+      ports:
+      - protocol: TCP
+        port: 443
+    # Explicitly allow access to Kubernetes API Server (OpenShift Namespace)
+    - to:
+      - namespaceSelector:
+          matchLabels:
+            kubernetes.io/metadata.name: openshift-kube-apiserver
+      ports:
+      - protocol: TCP
+        port: 443
+      - protocol: TCP
+        port: 6443
