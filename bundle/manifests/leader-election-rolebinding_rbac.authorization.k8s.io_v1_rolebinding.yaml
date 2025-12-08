@@ -1,14 +1,15 @@
 apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRoleBinding
+kind: RoleBinding
 metadata:
+  creationTimestamp: null
   labels:
-    app.kubernetes.io/name: oadp-vm-file-restore
     app.kubernetes.io/managed-by: kustomize
-  name: manager-rolebinding
+    app.kubernetes.io/name: oadp-vm-file-restore
+  name: leader-election-rolebinding
 roleRef:
   apiGroup: rbac.authorization.k8s.io
-  kind: ClusterRole
-  name: manager-role
+  kind: Role
+  name: leader-election-role
 subjects:
 - kind: ServiceAccount
   name: controller-manager

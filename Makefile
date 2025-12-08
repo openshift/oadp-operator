@@ -907,6 +907,34 @@ endif
 		$(SED) -i "s%resources:%resources:\n- $$file_name%" $(shell pwd)/config/samples/kustomization.yaml;done
 	@make bundle
 
+.PHONY: update-vmfr-manifests
+update-vmfr-manifests: VMFR_CONTROLLER_IMG?=quay.io/konveyor/oadp-vm-file-restore:latest
+update-vmfr-manifests: VMFR_ACCESS_IMG?=quay.io/konveyor/oadp-vmfr-access:latest
+update-vmfr-manifests: VMFR_SSH_IMG?=quay.io/konveyor/oadp-vmfr-access-sshd:latest
+update-vmfr-manifests: VMFR_BROWSER_IMG?=quay.io/konveyor/oadp-vmfr-access-filebrowser:latest
+update-vmfr-manifests: yq ## Update VM File Restore (VMFR) manifests shipped with OADP, from VMFR_CONTROLLER_PATH
+ifeq ($(VMFR_CONTROLLER_PATH),)
+	$(error You must set VMFR_CONTROLLER_PATH to run this command)
+endif
+	@for file_name in $(shell ls $(VMFR_CONTROLLER_PATH)/config/crd/bases);do \
+		cp $(VMFR_CONTROLLER_PATH)/config/crd/bases/$$file_name $(shell pwd)/config/crd/bases/$$file_name && \
+		grep -q "\- bases/$$file_name" $(shell pwd)/config/crd/kustomization.yaml || \
+		$(SED) -i "s%resources:%resources:\n- bases/$$file_name%" $(shell pwd)/config/crd/kustomization.yaml;done
+	$(YQ) -i 'select(.kind == "Deployment")|= .spec.template.spec.containers[0].env |= .[] |= select(.name == "RELATED_IMAGE_VM_FILE_RESTORE_CONTROLLER") |= .value="$(VMFR_CONTROLLER_IMG)"' config/manager/manager.yaml
+	$(YQ) -i 'select(.kind == "Deployment")|= .spec.template.spec.containers[0].env |= .[] |= select(.name == "RELATED_IMAGE_VM_FILE_RESTORE_ACCESS") |= .value="$(VMFR_ACCESS_IMG)"' config/manager/manager.yaml
+	$(YQ) -i 'select(.kind == "Deployment")|= .spec.template.spec.containers[0].env |= .[] |= select(.name == "RELATED_IMAGE_VM_FILE_RESTORE_SSH") |= .value="$(VMFR_SSH_IMG)"' config/manager/manager.yaml
+	$(YQ) -i 'select(.kind == "Deployment")|= .spec.template.spec.containers[0].env |= .[] |= select(.name == "RELATED_IMAGE_VM_FILE_RESTORE_BROWSER") |= .value="$(VMFR_BROWSER_IMG)"' config/manager/manager.yaml
+	@mkdir -p $(shell pwd)/config/vm-file-restore-controller_rbac
+	@for file_name in $(shell grep -I '^\-' $(VMFR_CONTROLLER_PATH)/config/rbac/kustomization.yaml | awk -F'- ' '{print $$2}');do \
+		cp $(VMFR_CONTROLLER_PATH)/config/rbac/$$file_name $(shell pwd)/config/vm-file-restore-controller_rbac/$$file_name;done
+	@cp $(VMFR_CONTROLLER_PATH)/config/rbac/kustomization.yaml $(shell pwd)/config/vm-file-restore-controller_rbac/kustomization.yaml
+	@$(SED) -i '1i namePrefix: oadp-vm-file-restore-' $(shell pwd)/config/vm-file-restore-controller_rbac/kustomization.yaml
+	@for file_name in $(shell grep -I '^\-' $(VMFR_CONTROLLER_PATH)/config/samples/kustomization.yaml | awk -F'- ' '{print $$2}');do \
+		cp $(VMFR_CONTROLLER_PATH)/config/samples/$$file_name $(shell pwd)/config/samples/$$file_name && \
+		grep -q "\- $$file_name" $(shell pwd)/config/samples/kustomization.yaml || \
+		$(SED) -i "s%resources:%resources:\n- $$file_name%" $(shell pwd)/config/samples/kustomization.yaml;done
+	@make bundle
+
 .PHONY: build-must-gather
 build-must-gather: check-go ## Build OADP Must-gather binary must-gather/oadp-must-gather
 ifeq ($(SKIP_MUST_GATHER),true)

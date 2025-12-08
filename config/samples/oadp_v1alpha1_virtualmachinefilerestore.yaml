@@ -1,0 +1,9 @@
+apiVersion: oadp.openshift.io/v1alpha1
+kind: VirtualMachineFileRestore
+metadata:
+  labels:
+    app.kubernetes.io/name: oadp-vm-file-restore
+    app.kubernetes.io/managed-by: kustomize
+  name: virtualmachinefilerestore-sample
+spec:
+  # TODO(user): Add fields here
