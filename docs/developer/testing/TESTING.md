@@ -100,6 +100,11 @@ You can also execute make test-e2e with a $GINKGO_ARGS variable set. Example:
 make test-e2e GINKGO_ARGS="--ginkgo.focus='MySQL application DATAMOVER'"
 ```
 
+Some tests, like the DPA configuration will need the test filter removed
+```bash
+make test-e2e TEST_FILTER="" GINKGO_ARGS="--focus='Should enable and disable VMFileRestore'"
+```
+
 ### Run selected test for HCP against external HostedControlPlane
 
 Set common env variables as mentioned above, then run:
