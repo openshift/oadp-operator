@@ -366,6 +366,9 @@ spec:
                                   - number
                                 type: object
                               type: array
+                            prepareQueueLength:
+                              description: PrepareQueueLength specifies the max number of loads that are under expose
+                              type: integer
                           type: object
                         podConfig:
                           description: Pod specific configuration

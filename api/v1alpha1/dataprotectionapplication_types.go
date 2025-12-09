@@ -393,6 +393,9 @@ type LoadConcurrency struct {
 
 	// PerNodeConfig specifies the concurrency number to nodes matched by rules
 	PerNodeConfig []RuledConfigs `json:"perNodeConfig,omitempty"`
+
+	// PrepareQueueLength specifies the max number of loads that are under expose
+	PrepareQueueLength int `json:"prepareQueueLength,omitempty"`
 }
 
 // Below struct should be same as:
