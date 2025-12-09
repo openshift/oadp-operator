@@ -33,6 +33,8 @@ type TestDPASpec struct {
 	NoS3ForcePathStyle      bool
 	NoRegion                bool
 	DoNotBackupImages       bool
+	EnableVMFR              bool
+	EnableNonAdmin          bool
 }
 
 func createTestDPASpec(testSpec TestDPASpec) *oadpv1alpha1.DataProtectionApplicationSpec {
@@ -128,6 +130,16 @@ func createTestDPASpec(testSpec TestDPASpec) *oadpv1alpha1.DataProtectionApplica
 	}
 	if testSpec.DoNotBackupImages {
 		dpaSpec.BackupImages = ptr.To(false)
+	}
+	if testSpec.EnableNonAdmin {
+		dpaSpec.NonAdmin = &oadpv1alpha1.NonAdmin{
+			Enable: ptr.To(true),
+		}
+	}
+	if testSpec.EnableVMFR {
+		dpaSpec.VMFileRestore = &oadpv1alpha1.VMFileRestore{
+			Enable: ptr.To(true),
+		}
 	}
 	return dpaSpec
 }
@@ -373,6 +385,52 @@ var _ = ginkgo.Describe("Configuration testing for DPA Custom Resource", func() 
 			}),
 		}, "Delete restic object from spec.configuration, use spec.configuration.nodeAgent instead"),
 	)
+
+	ginkgo.It("Should enable and disable NonAdmin", func() {
+		// 1. Enable NonAdmin
+		testSpec := TestDPASpec{
+			BSLSecretName:  bslSecretName,
+			EnableNonAdmin: true,
+		}
+		dpaSpec := createTestDPASpec(testSpec)
+		err := dpaCR.CreateOrUpdate(dpaSpec)
+		gomega.Expect(err).ToNot(gomega.HaveOccurred())
+
+		log.Printf("Waiting for DPA to be reconciled with NonAdmin enabled")
+		gomega.Eventually(dpaCR.IsReconciledTrue(), time.Minute*2, time.Second*5).Should(gomega.BeTrue())
+
+		// 2. Disable NonAdmin
+		testSpec.EnableNonAdmin = false
+		dpaSpec = createTestDPASpec(testSpec)
+		err = dpaCR.CreateOrUpdate(dpaSpec)
+		gomega.Expect(err).ToNot(gomega.HaveOccurred())
+
+		log.Printf("Waiting for DPA to be reconciled with NonAdmin disabled")
+		gomega.Eventually(dpaCR.IsReconciledTrue(), time.Minute*2, time.Second*5).Should(gomega.BeTrue())
+	})
+
+	ginkgo.It("Should enable and disable VMFileRestore", func() {
+		// 1. Enable VMFileRestore
+		testSpec := TestDPASpec{
+			BSLSecretName: bslSecretName,
+			EnableVMFR:    true,
+		}
+		dpaSpec := createTestDPASpec(testSpec)
+		err := dpaCR.CreateOrUpdate(dpaSpec)
+		gomega.Expect(err).ToNot(gomega.HaveOccurred())
+
+		log.Printf("Waiting for DPA to be reconciled with VMFileRestore enabled")
+		gomega.Eventually(dpaCR.IsReconciledTrue(), time.Minute*2, time.Second*5).Should(gomega.BeTrue())
+
+		// 2. Disable VMFileRestore
+		testSpec.EnableVMFR = false
+		dpaSpec = createTestDPASpec(testSpec)
+		err = dpaCR.CreateOrUpdate(dpaSpec)
+		gomega.Expect(err).ToNot(gomega.HaveOccurred())
+
+		log.Printf("Waiting for DPA to be reconciled with VMFileRestore disabled")
+		gomega.Eventually(dpaCR.IsReconciledTrue(), time.Minute*2, time.Second*5).Should(gomega.BeTrue())
+	})
 
 	ginkgo.DescribeTable("DPA Deletion test",
 		func() {
