@@ -73,6 +73,8 @@ func IsBackupDone(ocClient client.Client, veleroNamespace, name string) wait.Con
 		}
 		var phasesNotDone = []velero.BackupPhase{
 			velero.BackupPhaseNew,
+			velero.BackupPhaseQueued,
+			velero.BackupPhaseReadyToStart,
 			velero.BackupPhaseInProgress,
 			velero.BackupPhaseWaitingForPluginOperations,
 			velero.BackupPhaseWaitingForPluginOperationsPartiallyFailed,
