@@ -126,9 +126,11 @@ items:
             startupProbe:
               exec:
                 command:
-                - /bin/bash
-                - -c
-                - "mongosh --eval 'db.runCommand(\"ping\")' --quiet"
+                - mongosh
+                - admin
+                - -u $(MONGO_INITDB_ROOT_USERNAME)
+                - -p $(MONGO_INITDB_ROOT_PASSWORD)
+                - --eval 'printjson(db.getCollectionNames())'
               initialDelaySeconds: 10
               periodSeconds: 10
               timeoutSeconds: 5
@@ -158,8 +160,8 @@ items:
         port: 27017
       selector:
         app: mongo
-  - apiVersion: apps/v1
-    kind: Deployment
+  - apiVersion: apps.openshift.io/v1
+    kind: DeploymentConfig
     metadata:
       name: todolist
       namespace: mongo-persistent
@@ -170,9 +172,8 @@ items:
     spec:
       replicas: 1
       selector:
-        matchLabels:
-          app: todolist
-          service: todolist
+        app: todolist
+        service: todolist
       strategy:
         type: Recreate
       template:
@@ -184,7 +185,7 @@ items:
         spec:
           containers:
           - name: todolist
-            image: quay.io/migtools/oadp-ci-todolist-mongo-go-4
+            image: quay.io/migtools/oadp-ci-todolist-mongo-go-1
             env:
               - name: foo
                 value: bar

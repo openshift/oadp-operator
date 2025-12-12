@@ -96,40 +96,12 @@ items:
             volumeMounts:
             - name: mysql-data
               mountPath: /var/lib/mysql
-            readinessProbe:
-              exec:
-                command:
-                - /usr/bin/timeout
-                - 1s
-                - /usr/bin/mysql
-                - $(MYSQL_DATABASE)
-                - -h
-                - 127.0.0.1
-                - -u$(MYSQL_USER)
-                - -p$(MYSQL_PASSWORD)
-                - -e
-                - SELECT 1
-              initialDelaySeconds: 10
-              periodSeconds: 5
-              timeoutSeconds: 2
-              failureThreshold: 3
             livenessProbe:
-              exec:
-                command:
-                - /usr/bin/timeout
-                - 1s
-                - /usr/bin/mysql
-                - $(MYSQL_DATABASE)
-                - -h
-                - 127.0.0.1
-                - -u$(MYSQL_USER)
-                - -p$(MYSQL_PASSWORD)
-                - -e
-                - SELECT 1
+              tcpSocket:
+                port: mysql
               initialDelaySeconds: 30
               periodSeconds: 10
               timeoutSeconds: 5
-              failureThreshold: 3
             startupProbe:
               exec:
                 command:
@@ -170,8 +142,8 @@ items:
       selector:
         app: todolist
         service: todolist
-  - apiVersion: apps/v1
-    kind: Deployment
+  - apiVersion: apps.openshift.io/v1
+    kind: DeploymentConfig
     metadata:
       name: todolist
       namespace: mysql-persistent
@@ -182,9 +154,8 @@ items:
     spec:
       replicas: 1
       selector:
-        matchLabels:
-          app: todolist
-          service: todolist
+        app: todolist
+        service: todolist
       strategy:
         type: Recreate
       template:
@@ -203,18 +174,6 @@ items:
             ports:
               - containerPort: 8000
                 protocol: TCP
-            livenessProbe:
-              httpGet:
-                path: /
-                port: 8000
-              initialDelaySeconds: 30
-              periodSeconds: 10
-            readinessProbe:
-              httpGet:
-                path: /
-                port: 8000
-              initialDelaySeconds: 10
-              periodSeconds: 5
             volumeMounts:
             - name: applog
               mountPath: /tmp/log/todoapp/
