@@ -128,8 +128,6 @@ func (r *DataProtectionApplicationReconciler) ReconcileVeleroDeployment(log logr
 		return false, err
 	}
 
-	//TODO: Review velero deployment status and report errors and conditions
-
 	if op == controllerutil.OperationResultCreated || op == controllerutil.OperationResultUpdated {
 		// Trigger event to indicate velero deployment was created or updated
 		r.EventRecorder.Event(veleroDeployment,
