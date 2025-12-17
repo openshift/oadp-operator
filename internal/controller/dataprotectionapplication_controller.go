@@ -141,6 +141,9 @@ func (r *DataProtectionApplicationReconciler) Reconcile(ctx context.Context, req
 	allReady, readinessErr := r.updateReadinessConditions()
 	if readinessErr != nil {
 		logger.Error(readinessErr, "error updating readiness conditions")
+		if err == nil {
+			err = readinessErr
+		}
 	}
 
 	statusErr := r.Client.Status().Update(ctx, r.dpa)
