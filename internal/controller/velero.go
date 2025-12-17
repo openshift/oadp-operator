@@ -409,6 +409,9 @@ func (r *DataProtectionApplicationReconciler) customizeVeleroDeployment(veleroDe
 	if dpa.Spec.Configuration.Velero.ItemBlockWorkerCount > 0 {
 		veleroContainer.Args = append(veleroContainer.Args, fmt.Sprintf("--item-block-worker-count=%v", dpa.Spec.Configuration.Velero.ItemBlockWorkerCount))
 	}
+	if dpa.Spec.Configuration.Velero.ConcurrentBackups > 0 {
+		veleroContainer.Args = append(veleroContainer.Args, fmt.Sprintf("--concurrent-backups=%v", dpa.Spec.Configuration.Velero.ConcurrentBackups))
+	}
 
 	// check for backup-repository-configmap parameter
 	if isBackupRepositoryCmRequired(dpa.Spec.Configuration.NodeAgent) {

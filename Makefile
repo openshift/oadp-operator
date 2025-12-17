@@ -784,7 +784,7 @@ ifeq ($(CLUSTER_TYPE), openstack)
 	KVM_EMULATION = false
 endif
 
-OPENSHIFT_CI ?= true
+OPENSHIFT_CI ?= false
 OADP_BUCKET ?= $(shell cat $(OADP_BUCKET_FILE))
 SETTINGS_TMP=/tmp/test-settings
 
@@ -816,6 +816,7 @@ HCP_EXTERNAL_ARGS ?= ""
 TEST_CLI ?= false
 SKIP_MUST_GATHER  ?= false
 TEST_UPGRADE ?= false
+FAIL_FAST ?= true
 TEST_FILTER = (($(shell echo '! aws && ! gcp && ! azure && ! ibmcloud' | \
 $(SED) -r "s/[&]* [!] $(CLUSTER_TYPE)|[!] $(CLUSTER_TYPE) [&]*//")) || $(CLUSTER_TYPE))
 #TEST_FILTER := $(shell echo '! aws && ! gcp && ! azure' | $(SED) -r "s/[&]* [!] $(CLUSTER_TYPE)|[!] $(CLUSTER_TYPE) [&]*//")
@@ -845,11 +846,15 @@ ifeq ($(TEST_CLI),true)
 else
 	TEST_FILTER += && (! cli)
 endif
-
+# Do not fail fast in OpenShift CI, it's expensive to start the cluster, run all tests and report the results.
+ifeq ($(OPENSHIFT_CI),true)
+	FAIL_FAST = false
+endif
 GINKGO_FLAGS = --vv \
 	--no-color=$(OPENSHIFT_CI) \
 	--label-filter="$(TEST_FILTER)" \
 	--junit-report="$(ARTIFACT_DIR)/junit_report.xml" \
+	--fail-fast=$(FAIL_FAST) \
 	--timeout=2h
 
 .PHONY: test-e2e
@@ -865,7 +870,20 @@ test-e2e: test-e2e-setup install-ginkgo ## Run E2E tests against OADP operator i
 	-kvm_emulation=$(KVM_EMULATION) \
 	-hco_upstream=$(HCO_UPSTREAM) \
 	-skipMustGather=$(SKIP_MUST_GATHER) \
-	$(HCP_EXTERNAL_ARGS)
+	$(HCP_EXTERNAL_ARGS) \
+	|| EXIT_CODE=$$?; \
+	if [ "$(OPENSHIFT_CI)" = "true" ]; then \
+		if [ -f /var/run/oadp-credentials/gcp-claude-code-credentials ]; then \
+			export GOOGLE_APPLICATION_CREDENTIALS=/var/run/oadp-credentials/gcp-claude-code-credentials; \
+			export CLAUDE_CODE_USE_VERTEX=1; \
+			export CLOUD_ML_REGION=global; \
+			if [ -f /var/run/oadp-credentials/gcp-claude-code-project-id ]; then \
+				export ANTHROPIC_VERTEX_PROJECT_ID=$$(cat /var/run/oadp-credentials/gcp-claude-code-project-id); \
+			fi; \
+		fi; \
+		./tests/e2e/scripts/analyze_failures.sh $${EXIT_CODE:-0}; \
+	fi; \
+	exit $${EXIT_CODE:-0}
 
 .PHONY: test-e2e-cleanup
 test-e2e-cleanup: login-required

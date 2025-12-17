@@ -295,7 +295,7 @@ Update `pkg/common/common.go`, changing the following (if release branch was cre
 -	GCPPluginImage       = "quay.io/konveyor/velero-plugin-for-gcp:latest"
 +	GCPPluginImage       = "quay.io/konveyor/velero-plugin-for-gcp:oadp-1.4"
 	RegistryImage        = "quay.io/konveyor/registry:latest"
-	KubeVirtPluginImage  = "quay.io/konveyor/kubevirt-velero-plugin:v0.7.0"
+	KubeVirtPluginImage  = "quay.io/konveyor/kubevirt-velero-plugin:latest"
  )
 ...
 ```

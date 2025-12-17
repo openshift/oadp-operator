@@ -323,9 +323,13 @@ type VeleroConfig struct {
 	DisableInformerCache *bool `json:"disableInformerCache,omitempty"`
 	// Number of workers in worker pool for processing item backup. This will allow multiple items within
 	// a Velero backup to be backed up at the same time which may improve performance for backups with
-	// a large number of items. Default is 1.
+	// a large number of items. Workers are per backup if concurrent backups are enabled. Default is 1.
 	// +optional
 	ItemBlockWorkerCount int `json:"itemBlockWorkerCount,omitempty"`
+	// Number of backups to process at the same time. Only backups which do not have any namespaces
+	// in common will run at the same time. Default is 1.
+	// +optional
+	ConcurrentBackups int `json:"concurrentBackups,omitempty"`
 	// resourceTimeout defines how long to wait for several Velero resources before timeout occurs,
 	// such as Velero CRD availability, volumeSnapshot deletion, and repo availability.
 	// Default is 10m

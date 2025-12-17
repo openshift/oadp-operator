@@ -1111,6 +1111,11 @@ spec:
                         client-qps:
                           description: maximum number of requests per second by the server to the Kubernetes API once the burst limit has been reached. (default 100)
                           type: integer
+                        concurrentBackups:
+                          description: |-
+                            Number of backups to process at the same time. Only backups which do not have any namespaces
+                            in common will run at the same time. Default is 1.
+                          type: integer
                         customPlugins:
                           description: customPlugins defines the custom plugin to be installed with Velero
                           items:
@@ -1166,7 +1171,7 @@ spec:
                           description: |-
                             Number of workers in worker pool for processing item backup. This will allow multiple items within
                             a Velero backup to be backed up at the same time which may improve performance for backups with
-                            a large number of items. Default is 1.
+                            a large number of items. Workers are per backup if concurrent backups are enabled. Default is 1.
                           type: integer
                         itemOperationSyncFrequency:
                           description: How often to check status on async backup/restore operations after backup processing. Default value is 2m.
