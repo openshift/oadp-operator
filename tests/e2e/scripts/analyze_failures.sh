@@ -221,6 +221,10 @@ You are analyzing a failed OADP (OpenShift API for Data Protection) E2E test run
    - OpenShift's fork of Velero with OADP-specific patches
    - Use to investigate error messages originating from Velero packages
    - Key directories: `pkg/backup/`, `pkg/restore/`, `pkg/controller/`, `pkg/nodeagent/`
+6. **OADP Operator Source Code**: `/go/src/github.com/openshift/oadp-operator/`
+   - The OADP operator codebase being tested
+   - Key directories: `internal/controller/`, `pkg/`, `api/v1alpha1/`
+   - Use to investigate OADP-specific errors and reconciliation logic
 
 **Note**: Prow's build-log.txt is written by CI infrastructure after tests complete and is NOT available during this analysis. Use the artifacts listed above.
 
@@ -235,15 +239,17 @@ This file contains:
 
 Cross-reference failures against these patterns before diagnosing as real failures.
 
-## Velero Source Code Investigation
+## Source Code Investigation
 
-When analyzing failures that reference Velero packages (e.g., `velero/pkg/backup/`, `velero/pkg/restore/`):
+When analyzing failures, use the source code to understand error origins:
 
-1. Locate the error message in the Velero source code
+1. Locate the error message in the source code
 2. Trace the code path that led to the error
 3. Identify what conditions trigger the error
 4. Check if the error is recoverable, transient, or indicates a real bug
 5. Look for related error handling or retry logic
+
+### Velero Source (`/go/src/github.com/openshift/velero/`)
 
 Key Velero packages:
 - `pkg/backup/` - Backup workflow and item processing
@@ -252,6 +258,15 @@ Key Velero packages:
 - `pkg/nodeagent/` - Node agent (restic/kopia) operations
 - `pkg/persistence/` - Object storage operations
 - `pkg/plugin/` - Plugin framework and built-in plugins
+
+### OADP Operator Source (`/go/src/github.com/openshift/oadp-operator/`)
+
+Key OADP packages:
+- `internal/controller/` - DPA reconciler and other controllers
+- `pkg/velero/` - Velero deployment and configuration
+- `pkg/credentials/` - Cloud credential management
+- `api/v1alpha1/` - CRD type definitions
+- `tests/e2e/lib/` - E2E test utilities and flake patterns
 
 ## Analysis Tasks
 
@@ -438,14 +453,15 @@ Analyze these artifacts:
 3. Must-gather: ${ARTIFACT_DIR}/must-gather/
 4. Per-test failure directories: ${ARTIFACT_DIR}/*/
 5. Velero source code: /go/src/github.com/openshift/velero/
+6. OADP operator source code: /go/src/github.com/openshift/oadp-operator/
 
-When errors reference Velero packages, read the relevant source code to understand:
+When errors reference Velero or OADP packages, read the relevant source code to understand:
 - What conditions trigger the error
 - If there's retry logic that should have handled it
 - If this is a known limitation or edge case
 
 Note: Prow's build-log.txt is NOT available during this analysis (it's written after tests complete).
-Focus on JUnit results, preprocessed log summaries, must-gather diagnostics, per-test pod logs, and Velero source investigation.
+Focus on JUnit results, preprocessed log summaries, must-gather diagnostics, per-test pod logs, and source code investigation.
 
 Generate comprehensive failure analysis following the output format specified in the prompt.
 Focus on actionable insights and clear root cause identification.
