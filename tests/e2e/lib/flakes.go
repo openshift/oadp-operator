@@ -22,6 +22,7 @@ var errorIgnorePatterns = []string{
 	"level=error msg=\"error patch for managed fields ",
 	"VolumeSnapshot has a temporary error Failed to create snapshot: error updating status for volume snapshot content snapcontent-",
 	"Skipping hypershift plugin execution - not a hypershift backup: error checking for HostedControlPlane CRD",
+	"claim Selector is not supported",
 }
 
 type FlakePattern struct {
