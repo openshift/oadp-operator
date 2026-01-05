@@ -1,6 +1,7 @@
 package common
 
 import (
+	"errors"
 	"reflect"
 	"testing"
 
@@ -8,6 +9,8 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/ptr"
+
+	"github.com/openshift/oadp-operator/pkg/storage/aws"
 )
 
 func TestAppendUniqueKeyTOfTMaps(t *testing.T) {
@@ -561,6 +564,16 @@ func TestUpdateBackupStorageLocation(t *testing.T) {
 			},
 		},
 	}
+
+	// Mock GetBucketRegionFunc to return a region for the test bucket
+	originalGetBucketRegionFunc := aws.GetBucketRegionFunc
+	aws.GetBucketRegionFunc = func(bucket string) (string, error) {
+		if bucket == "openshift-velero-plugin-s3-auto-region-test-1" {
+			return "us-east-1", nil
+		}
+		return "", errors.New("bucket region not discoverable")
+	}
+	defer func() { aws.GetBucketRegionFunc = originalGetBucketRegionFunc }()
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

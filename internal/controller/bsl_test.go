@@ -25,6 +25,7 @@ import (
 	oadpv1alpha1 "github.com/openshift/oadp-operator/api/v1alpha1"
 	"github.com/openshift/oadp-operator/pkg/common"
 	"github.com/openshift/oadp-operator/pkg/credentials/stsflow"
+	"github.com/openshift/oadp-operator/pkg/storage/aws"
 )
 
 // A bucket that region can be automatically discovered
@@ -1911,6 +1912,16 @@ func TestDPAReconciler_ValidateBackupStorageLocations(t *testing.T) {
 			wantErr: true,
 		},
 	}
+	// Mock GetBucketRegionFunc to return a region for DiscoverableBucket
+	originalGetBucketRegionFunc := aws.GetBucketRegionFunc
+	aws.GetBucketRegionFunc = func(bucket string) (string, error) {
+		if bucket == DiscoverableBucket {
+			return "us-east-1", nil
+		}
+		return "", fmt.Errorf("bucket region not discoverable")
+	}
+	defer func() { aws.GetBucketRegionFunc = originalGetBucketRegionFunc }()
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			tt.objects = append(tt.objects, tt.dpa, tt.secret)
