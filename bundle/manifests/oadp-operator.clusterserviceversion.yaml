@@ -173,6 +173,35 @@ metadata:
           }
         },
         {
+          "apiVersion": "oadp.openshift.io/v1alpha1",
+          "kind": "VirtualMachineBackupsDiscovery",
+          "metadata": {
+            "labels": {
+              "app.kubernetes.io/managed-by": "kustomize",
+              "app.kubernetes.io/name": "oadp-vm-file-restore"
+            },
+            "name": "virtualmachinebackupsdiscovery-sample"
+          },
+          "spec": {
+            "endTime": "2024-12-31T23:59:59Z",
+            "startTime": "2024-01-01",
+            "virtualMachineName": "test-vm",
+            "virtualMachineNamespace": "test-namespace"
+          }
+        },
+        {
+          "apiVersion": "oadp.openshift.io/v1alpha1",
+          "kind": "VirtualMachineFileRestore",
+          "metadata": {
+            "labels": {
+              "app.kubernetes.io/managed-by": "kustomize",
+              "app.kubernetes.io/name": "oadp-vm-file-restore"
+            },
+            "name": "virtualmachinefilerestore-sample"
+          },
+          "spec": null
+        },
+        {
           "apiVersion": "velero.io/v1",
           "kind": "Backup",
           "metadata": {
@@ -845,7 +874,6 @@ spec:
         - apiGroups:
           - ""
           resources:
-          - events
           - namespaces
           - pods
           - secrets
@@ -879,18 +907,6 @@ spec:
           - patch
           - update
           - watch
-        - apiGroups:
-          - coordination.k8s.io
-          resources:
-          - leases
-          verbs:
-          - get
-          - list
-          - watch
-          - create
-          - update
-          - patch
-          - delete
         - apiGroups:
           - oadp.openshift.io
           resources:
@@ -945,6 +961,14 @@ spec:
           - update
           - watch
         - apiGroups:
+          - security.openshift.io
+          resourceNames:
+          - privileged
+          resources:
+          - securitycontextconstraints
+          verbs:
+          - use
+        - apiGroups:
           - velero.io
           resources:
           - backups
@@ -983,6 +1007,18 @@ spec:
           - patch
           - update
           - watch
+        - apiGroups:
+          - authentication.k8s.io
+          resources:
+          - tokenreviews
+          verbs:
+          - create
+        - apiGroups:
+          - authorization.k8s.io
+          resources:
+          - subjectaccessreviews
+          verbs:
+          - create
         serviceAccountName: oadp-vm-file-restore-controller-manager
       - rules:
         - apiGroups:
@@ -1348,6 +1384,39 @@ spec:
               - emptyDir: {}
                 name: tmp-dir
       permissions:
+      - rules:
+        - apiGroups:
+          - ""
+          resources:
+          - configmaps
+          verbs:
+          - get
+          - list
+          - watch
+          - create
+          - update
+          - patch
+          - delete
+        - apiGroups:
+          - coordination.k8s.io
+          resources:
+          - leases
+          verbs:
+          - get
+          - list
+          - watch
+          - create
+          - update
+          - patch
+          - delete
+        - apiGroups:
+          - ""
+          resources:
+          - events
+          verbs:
+          - create
+          - patch
+        serviceAccountName: oadp-vm-file-restore-controller-manager
       - rules:
         - apiGroups:
           - ""
