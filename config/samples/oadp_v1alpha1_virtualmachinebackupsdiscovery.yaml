@@ -1,0 +1,15 @@
+apiVersion: oadp.openshift.io/v1alpha1
+kind: VirtualMachineBackupsDiscovery
+metadata:
+  labels:
+    app.kubernetes.io/name: oadp-vm-file-restore
+    app.kubernetes.io/managed-by: kustomize
+  name: virtualmachinebackupsdiscovery-sample
+spec:
+  virtualMachineName: "test-vm"
+  virtualMachineNamespace: "test-namespace"
+  # Time range filtering (optional)
+  # Both formats supported:
+  startTime: "2024-01-01"           # Date-only format (defaults to 00:00:00Z)
+  endTime: "2024-12-31T23:59:59Z"   # Full RFC3339 format
+  # startTime: "2024-01-01T00:00:00Z"  # Full RFC3339 format also works

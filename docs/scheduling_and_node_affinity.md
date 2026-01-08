@@ -91,6 +91,17 @@ Global configuration is applied to all nodes. Per-node configuration is applied 
 
 The `nodeSelector` uses the same syntax for selecting nodes as `loadAffinity.nodeSelector` and it may be used in combination with `matchExpressions` for advanced node selection.
 
+#### Prepare Queue Length
+
+The `prepareQueueLength` field specifies the maximum number of loads that are allowed to be in the prepare phase (Accepted or Prepared state) at the same time. This helps prevent excessive creation of data mover pods and volume snapshots before they can actually be processed.
+
+When set to a positive number, the mechanism will throttle new loads, keeping them in the "New" state until there is available capacity in the prepare queue. This is useful in environments where:
+- There is a pod limit per node or throughout the cluster
+- System disk space is limited and too many inactive data mover pods would cause issues
+- Large numbers of snapshots could degrade storage performance
+
+If not set or set to 0, there will be no throttling at the prepare phase.
+
 ```yaml
 spec:
   configuration:
@@ -98,6 +109,7 @@ spec:
       enable: true
       loadConcurrency:
         globalConfig: 2
+        prepareQueueLength: 2
         perNodeConfig:
           - nodeSelector:
               matchLabels:

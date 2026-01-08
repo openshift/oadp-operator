@@ -1457,6 +1457,53 @@ func TestDPAReconciler_buildNodeAgentDaemonset(t *testing.T) {
 			}),
 		},
 		{
+			name: "valid DPA CR with LoadConcurrency and PrepareQueueLength, NodeAgent DaemonSet is built with pointer to the config map",
+			dpa: createTestDpaWith(
+				nil,
+				oadpv1alpha1.DataProtectionApplicationSpec{
+					Configuration: &oadpv1alpha1.ApplicationConfig{
+						Velero: &oadpv1alpha1.VeleroConfig{},
+						NodeAgent: &oadpv1alpha1.NodeAgentConfig{
+							NodeAgentCommonFields: oadpv1alpha1.NodeAgentCommonFields{},
+							NodeAgentConfigMapSettings: oadpv1alpha1.NodeAgentConfigMapSettings{
+								LoadConcurrency: &oadpv1alpha1.LoadConcurrency{
+									GlobalConfig:       10,
+									PrepareQueueLength: 5,
+									PerNodeConfig: []oadpv1alpha1.RuledConfigs{
+										{
+											NodeSelector: metav1.LabelSelector{
+												MatchLabels: map[string]string{"app": "velero"},
+											},
+											Number: 1,
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			),
+			clientObjects: []client.Object{
+				testGenericInfrastructure,
+				&corev1.ConfigMap{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      common.NodeAgentConfigMapPrefix + testDpaName,
+						Namespace: testNamespaceName,
+					},
+					Data: map[string]string{
+						"loadConcurrency": `{"globalConfig":10,"perNodeConfig":[{"nodeSelector":{"app":"velero"},"number":1}],"prepareQueueLength":5}`,
+					},
+				},
+			},
+			nodeAgentDaemonSet: testNodeAgentDaemonSet.DeepCopy(),
+			wantNodeAgentDaemonSet: createTestBuiltNodeAgentDaemonSet(TestBuiltNodeAgentDaemonSetOptions{
+				args: []string{
+					"--node-agent-configmap=node-agent-test-DPA-CR",
+				},
+				labels: map[string]string{"openshift.io/node-agent-cm-version": "999"},
+			}),
+		},
+		{
 			name: "valid DPA CR with NodeSelector from PodConfig, NodeAgent DaemonSet is built with pointer to the config map",
 			dpa: createTestDpaWith(
 				nil,
@@ -1646,6 +1693,67 @@ func TestDPAReconciler_updateNodeAgentCM(t *testing.T) {
 							}
 						}
 					],
+					"privilegedFsBackup": true
+				}`,
+			}),
+		},
+		{
+			name: "Given DPA CR instance, appropriate NodeAgent config cm is created with LoadConcurrency including PrepareQueueLength",
+			nodeAgentConfigMap: &corev1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      common.NodeAgentConfigMapPrefix + testCmName,
+					Namespace: testCmNs,
+				},
+			},
+			dpa: &oadpv1alpha1.DataProtectionApplication{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      testCmName,
+					Namespace: testCmNs,
+				},
+				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
+					Configuration: &oadpv1alpha1.ApplicationConfig{
+						Velero: &oadpv1alpha1.VeleroConfig{
+							DefaultPlugins: []oadpv1alpha1.DefaultPlugin{
+								oadpv1alpha1.DefaultPluginAWS,
+							},
+						},
+						NodeAgent: &oadpv1alpha1.NodeAgentConfig{
+							NodeAgentCommonFields: oadpv1alpha1.NodeAgentCommonFields{},
+							NodeAgentConfigMapSettings: oadpv1alpha1.NodeAgentConfigMapSettings{
+								LoadConcurrency: &oadpv1alpha1.LoadConcurrency{
+									GlobalConfig:       10,
+									PrepareQueueLength: 5,
+									PerNodeConfig: []oadpv1alpha1.RuledConfigs{
+										{
+											NodeSelector: metav1.LabelSelector{
+												MatchLabels: map[string]string{"app": "velero"},
+											},
+											Number: 1,
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			wantErr: false,
+			wantNodeAgentConfigMap: createTestBuiltNodeAgentCM(map[string]string{
+				"node-agent-config": `{
+					"loadConcurrency": {
+						"globalConfig": 10,
+						"prepareQueueLength": 5,
+						"perNodeConfig": [
+							{
+								"nodeSelector": {
+									"matchLabels": {
+										"app": "velero"
+									}
+								},
+								"number": 1
+							}
+						]
+					},
 					"privilegedFsBackup": true
 				}`,
 			}),
