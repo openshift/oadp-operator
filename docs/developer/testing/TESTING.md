@@ -115,6 +115,23 @@ HC_NAME=hc1 \
 make test-e2e
 ```
 
+### Run selected test for HCP against external HostedControlPlane on ROSA
+
+* KUBECONFIG must point to the management cluster
+* SC_KUBECONFIG must point to the Service Cluster with ManifestWork resources
+* To break the guest cluster, the tests delete ManifestWork resources on the Service Cluster.
+
+
+```bash
+TEST_HCP_EXTERNAL=true \
+HC_BACKUP_RESTORE_MODE=external-rosa \
+HC_NAME=hc1 \
+HC_NAMESPACE=xyz \
+SC_KUBECONFIG=/path/to/service/cluster/kubeconfig \
+make test-e2e
+```
+
+
 ### Run tests with custom images
 
 You can run tests with custom images by setting the following environment variables:

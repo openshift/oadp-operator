@@ -6,7 +6,6 @@ import (
 	"os"
 	"strconv"
 	"testing"
-	"time"
 
 	"github.com/onsi/ginkgo/v2"
 	"github.com/onsi/gomega"
@@ -14,20 +13,24 @@ import (
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/clientcmd"
+	workv1 "open-cluster-management.io/api/work/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
 	"github.com/openshift/oadp-operator/tests/e2e/lib"
+	libhcp "github.com/openshift/oadp-operator/tests/e2e/lib/hcp"
 )
 
 var (
 	// Common vars obtained from flags passed in ginkgo.
-	bslCredFile, namespace, instanceName, provider, vslCredFile, settings, artifact_dir string
-	flakeAttempts                                                                       int64
+	bslCredFile, namespace, instanceName, provider, vslCredFile, settings, artifact_dir, scKubeconfig string
+	flakeAttempts                                                                                     int64
 
 	kubernetesClientForSuiteRun *kubernetes.Clientset
+	crClientForServiceCluster   client.Client
 	runTimeClientForSuiteRun    client.Client
 	dynamicClientForSuiteRun    dynamic.Interface
 
@@ -37,6 +40,7 @@ var (
 	vslSecretName                   string
 
 	kubeConfig          *rest.Config
+	kubeConfigForSC     *rest.Config
 	knownFlake          bool
 	accumulatedTestLogs []string
 
@@ -45,6 +49,7 @@ var (
 	skipMustGather      bool
 	hcBackupRestoreMode string
 	hcName              string
+	hcNamespace         string
 )
 
 func init() {
@@ -63,6 +68,8 @@ func init() {
 	flag.BoolVar(&skipMustGather, "skipMustGather", false, "avoid errors with local execution and cluster architecture")
 	flag.StringVar(&hcBackupRestoreMode, "hc_backup_restore_mode", string(HCModeCreate), "Type of HC test to run")
 	flag.StringVar(&hcName, "hc_name", "", "Name of the HostedCluster to use for HCP tests")
+	flag.StringVar(&hcNamespace, "hc_namespace", libhcp.ClustersNamespace, "Namespace for HostedClusters")
+	flag.StringVar(&scKubeconfig, "sc_kubeconfig", "", "Path to kubeconfig file for Service Cluster. Only used for HCP tests and ROSA.")
 
 	// helps with launching debug sessions from IDE
 	if os.Getenv("E2E_USE_ENV_FLAGS") == "true" {
@@ -127,6 +134,9 @@ func init() {
 		if os.Getenv("HC_NAME") != "" {
 			hcName = os.Getenv("HC_NAME")
 		}
+		if os.Getenv("SC_KUBECONFIG") != "" {
+			scKubeconfig = os.Getenv("SC_KUBECONFIG")
+		}
 	}
 }
 
@@ -143,6 +153,20 @@ func TestOADPE2E(t *testing.T) {
 
 	kubernetesClientForSuiteRun, err = kubernetes.NewForConfig(kubeConfig)
 	gomega.Expect(err).NotTo(gomega.HaveOccurred())
+
+	// Set up kubeConfigForSC if sc_kubeconfig flag is provided
+	if scKubeconfig != "" {
+		kubeConfigForSC, err = clientcmd.BuildConfigFromFlags("", scKubeconfig)
+		gomega.Expect(err).NotTo(gomega.HaveOccurred())
+
+		kubeConfigForSC.QPS = kubeConfig.QPS
+		kubeConfigForSC.Burst = kubeConfig.Burst
+
+		scheme := lib.Scheme
+		workv1.Install(scheme)
+		crClientForServiceCluster, err = client.New(kubeConfigForSC, client.Options{Scheme: scheme})
+		gomega.Expect(err).NotTo(gomega.HaveOccurred())
+	}
 
 	runTimeClientForSuiteRun, err = client.New(kubeConfig, client.Options{Scheme: lib.Scheme})
 	gomega.Expect(err).NotTo(gomega.HaveOccurred())
@@ -213,8 +237,9 @@ var _ = ginkgo.AfterSuite(func() {
 	gomega.Expect(err).ToNot(gomega.HaveOccurred())
 	err = lib.DeleteSecret(kubernetesClientForSuiteRun, namespace, bslSecretNameWithCarriageReturn)
 	gomega.Expect(err).ToNot(gomega.HaveOccurred())
-	log.Printf("Deleting DPA")
-	err = dpaCR.Delete()
-	gomega.Expect(err).ToNot(gomega.HaveOccurred())
-	gomega.Eventually(dpaCR.IsDeleted(), time.Minute*2, time.Second*5).Should(gomega.BeTrue())
+	oadpDeploymentOperation := NewOADPDeploymentOperationDefault()
+	if HCBackupRestoreMode(hcBackupRestoreMode) == HCModeExternalROSA {
+		oadpDeploymentOperation = NewOADPDeploymentOperationROSA()
+	}
+	oadpDeploymentOperation.Undeploy(lib.KOPIA)
 })

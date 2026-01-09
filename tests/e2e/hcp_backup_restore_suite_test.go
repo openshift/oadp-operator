@@ -6,6 +6,7 @@ import (
 	"log"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/onsi/ginkgo/v2"
 	"github.com/onsi/gomega"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -17,9 +18,9 @@ import (
 type HCBackupRestoreMode string
 
 const (
-	HCModeCreate   HCBackupRestoreMode = "create"   // Create new HostedCluster for test
-	HCModeExternal HCBackupRestoreMode = "external" // Get external HostedCluster
-	// TODO: Add HCModeExternalROSA for ROSA where DPA and some other resources are already installed
+	HCModeCreate       HCBackupRestoreMode = "create"        // Create new HostedCluster for test
+	HCModeExternal     HCBackupRestoreMode = "external"      // Get external HostedCluster
+	HCModeExternalROSA HCBackupRestoreMode = "external-rosa" // Get external HostedCluster for ROSA where DPA and some other resources are already installed
 )
 
 // runHCPBackupAndRestore is the unified function that handles both create and external HC modes
@@ -29,30 +30,47 @@ func runHCPBackupAndRestore(
 	updateLastInstallTime func(),
 	h *libhcp.HCHandler,
 ) {
+	var err error
 	updateLastBRcase(brCase)
 	updateLastInstallTime()
 
 	log.Printf("Preparing backup and restore")
-	backupName, restoreName := prepareBackupAndRestore(brCase.BackupRestoreCase, func() {})
 
-	err := h.AddHCPPluginToDPA(dpaCR.Namespace, dpaCR.Name, false)
-	gomega.Expect(err).ToNot(gomega.HaveOccurred(), "failed to add HCP plugin to DPA: %v", err)
-	// TODO: move the wait for HC just after the DPA modification to allow reconciliation to go ahead without waiting for the HC to be created
+	backupUid, _ := uuid.NewUUID()
+	restoreUid, _ := uuid.NewUUID()
+	backupName := fmt.Sprintf("%s-%s", brCase.Name, backupUid.String())
+	restoreName := fmt.Sprintf("%s-%s", brCase.Name, restoreUid.String())
 
-	// Wait for HCP plugin to be added
-	gomega.Eventually(libhcp.IsHCPPluginAdded(h.Client, dpaCR.Namespace, dpaCR.Name), 3*time.Minute, 1*time.Second).Should(gomega.BeTrue())
+	oadpDeploymentOperation := NewOADPDeploymentOperationDefault()
+	if brCase.Mode == HCModeExternalROSA {
+		oadpDeploymentOperation = NewOADPDeploymentOperationROSA()
+	}
+	oadpDeploymentOperation.Deploy(brCase.BackupRestoreType)
 
-	h.HCPNamespace = libhcp.GetHCPNamespace(brCase.BackupRestoreCase.Name, libhcp.ClustersNamespace)
+	// Ensure that an existing backup repository is deleted
+	err = lib.DeleteBackupRepositories(runTimeClientForSuiteRun, namespace)
+	gomega.Expect(err).ToNot(gomega.HaveOccurred())
+
+	// For ROSA the DPA is managed by ManifestWork in service cluster and would be reverted back.
+	if brCase.Mode != HCModeExternalROSA {
+		err := h.AddHCPPluginToDPA(dpaCR.Namespace, dpaCR.Name, false)
+		gomega.Expect(err).ToNot(gomega.HaveOccurred(), "failed to add HCP plugin to DPA: %v", err)
+		// TODO: move the wait for HC just after the DPA modification to allow reconciliation to go ahead without waiting for the HC to be created
+		// Wait for HCP plugin to be added
+		gomega.Eventually(libhcp.IsHCPPluginAdded(h.Client, dpaCR.Namespace, dpaCR.Name), 3*time.Minute, 1*time.Second).Should(gomega.BeTrue())
+	}
+
+	h.HCPNamespace = libhcp.GetHCPNamespace(brCase.BackupRestoreCase.Name, hcNamespace)
 
 	// Unified HostedCluster setup
 	switch brCase.Mode {
 	case HCModeCreate:
 		// Create new HostedCluster for test
-		h.HostedCluster, err = h.DeployHCManifest(brCase.Template, brCase.Provider, brCase.BackupRestoreCase.Name)
+		h.HostedCluster, err = h.DeployHCManifest(brCase.Template, brCase.Provider, brCase.BackupRestoreCase.Name, hcNamespace)
 		gomega.Expect(err).ToNot(gomega.HaveOccurred())
-	case HCModeExternal:
-		// Get external HostedCluster
-		h.HostedCluster, err = h.GetHostedCluster(brCase.BackupRestoreCase.Name, libhcp.ClustersNamespace)
+	case HCModeExternal, HCModeExternalROSA:
+		// Get existing HostedCluster
+		h.HostedCluster, err = h.GetHostedCluster(brCase.BackupRestoreCase.Name, hcNamespace)
 		gomega.Expect(err).ToNot(gomega.HaveOccurred())
 	default:
 		ginkgo.Fail(fmt.Sprintf("unknown HCP mode: %s", brCase.Mode))
@@ -65,7 +83,7 @@ func runHCPBackupAndRestore(
 		gomega.Expect(err).ToNot(gomega.HaveOccurred(), "failed to run HCP pre-backup verification: %v", err)
 	}
 
-	if brCase.Mode == HCModeExternal {
+	if brCase.Mode == HCModeExternal || brCase.Mode == HCModeExternalROSA {
 		// Pre-backup verification for guest cluster
 		if brCase.PreBackupVerifyGuest != nil {
 			log.Printf("Validating guest cluster pre-backup")
@@ -83,14 +101,24 @@ func runHCPBackupAndRestore(
 	log.Printf("Backing up HC")
 	includedResources := libhcp.HCPIncludedResources
 	excludedResources := libhcp.HCPExcludedResources
-	includedNamespaces := append(libhcp.HCPIncludedNamespaces, libhcp.GetHCPNamespace(h.HostedCluster.Name, libhcp.ClustersNamespace))
+	includedNamespaces := []string{hcNamespace, libhcp.GetHCPNamespace(h.HostedCluster.Name, hcNamespace)}
 
 	nsRequiresResticDCWorkaround := runHCPBackup(brCase.BackupRestoreCase, backupName, h, includedNamespaces, includedResources, excludedResources)
 
 	// Delete everything in HCP namespace
 	log.Printf("Deleting HCP & HC")
-	err = h.RemoveHCP(libhcp.Wait10Min)
-	gomega.Expect(err).ToNot(gomega.HaveOccurred(), "failed to remove HCP: %v", err)
+	switch brCase.Mode {
+	case HCModeExternalROSA:
+		err = h.BackupManifestWork()
+		gomega.Expect(err).ToNot(gomega.HaveOccurred(), "failed to backup ManifestWork: %v", err)
+		// For ROSA the DPA is managed by ManifestWork in service cluster.
+		// Need to delete the ManifestWork.
+		err = h.DeleteManifestWork(libhcp.Wait30Min)
+		gomega.Expect(err).ToNot(gomega.HaveOccurred(), "failed to delete ManifestWork: %v", err)
+	default:
+		err = h.RemoveHCP(libhcp.Wait10Min)
+		gomega.Expect(err).ToNot(gomega.HaveOccurred(), "failed to remove HCP: %v", err)
+	}
 
 	// Restore HC
 	log.Printf("Restoring HC")
@@ -103,7 +131,7 @@ func runHCPBackupAndRestore(
 		gomega.Expect(err).ToNot(gomega.HaveOccurred(), "failed to run HCP post-restore verification: %v", err)
 	}
 
-	if brCase.Mode == HCModeExternal {
+	if brCase.Mode == HCModeExternal || brCase.Mode == HCModeExternalROSA {
 		// Post-restore verification for guest cluster
 		if brCase.PostRestoreVerifyGuest != nil {
 			log.Printf("Validating guest cluster post-restore")
@@ -111,7 +139,7 @@ func runHCPBackupAndRestore(
 			gomega.Expect(err).ToNot(gomega.HaveOccurred())
 			crClientForHC, err := client.New(hcKubeconfig, client.Options{Scheme: lib.Scheme})
 			gomega.Expect(err).ToNot(gomega.HaveOccurred())
-			gomega.Eventually(h.ValidateClient(crClientForHC), 5*time.Minute, 2*time.Second).Should(gomega.BeTrue())
+			gomega.Eventually(h.ValidateClient(crClientForHC), libhcp.ValidateHCPTimeout, libhcp.WaitForNextCheckTimeout).Should(gomega.BeTrue())
 			err = brCase.PostRestoreVerifyGuest(crClientForHC, "" /*unused*/)
 			gomega.Expect(err).ToNot(gomega.HaveOccurred(), "failed to run post-restore verification for guest cluster: %v", err)
 		}
