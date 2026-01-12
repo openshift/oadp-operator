@@ -250,6 +250,15 @@ func (r *DataProtectionApplicationReconciler) customizeVeleroDeployment(veleroDe
 		}
 	}
 
+	// Apply user-provided resource labels (protected labels are filtered)
+	// Note: NOT applied to Spec.Selector.MatchLabels as those are immutable after creation
+	veleroDeployment.Labels = applyResourceLabels(dpa, veleroDeployment.Labels)
+	veleroDeployment.Spec.Template.Labels = applyResourceLabels(dpa, veleroDeployment.Spec.Template.Labels)
+
+	// Apply user-provided resource annotations to both deployment and pod template
+	veleroDeployment.Annotations = applyResourceAnnotations(dpa, veleroDeployment.Annotations)
+	veleroDeployment.Spec.Template.Annotations = applyResourceAnnotations(dpa, veleroDeployment.Spec.Template.Annotations)
+
 	// Selector: veleroDeployment.Spec.Selector,
 	replicas := int32(1)
 	if value, present := os.LookupEnv(VeleroReplicaOverride); present {
@@ -775,6 +784,76 @@ func getAppLabels(instanceName string) map[string]string {
 		labels["app.kubernetes.io/instance"] = instanceName
 	}
 	return labels
+}
+
+// protectedLabelPrefixes are label key prefixes that cannot be overridden by user-provided resourceLabels
+var protectedLabelPrefixes = []string{
+	"app.kubernetes.io/",
+}
+
+// protectedLabels are specific label keys that cannot be overridden by user-provided resourceLabels
+var protectedLabels = []string{
+	oadpv1alpha1.OadpOperatorLabel, // openshift.io/oadp
+	common.RegistryDeploymentLabel,
+}
+
+// isProtectedLabel checks if a label key is protected and cannot be overridden
+func isProtectedLabel(key string) bool {
+	for _, prefix := range protectedLabelPrefixes {
+		if strings.HasPrefix(key, prefix) {
+			return true
+		}
+	}
+	for _, protected := range protectedLabels {
+		if key == protected {
+			return true
+		}
+	}
+	return false
+}
+
+// applyResourceLabels merges DPA resourceLabels with core labels.
+// Core labels take precedence - protected labels from user input are filtered out.
+// Returns a new map containing core labels plus non-protected user labels.
+func applyResourceLabels(dpa *oadpv1alpha1.DataProtectionApplication, coreLabels map[string]string) map[string]string {
+	if dpa == nil || dpa.Spec.ResourceLabels == nil {
+		return coreLabels
+	}
+
+	// Start with core labels
+	result := make(map[string]string)
+	for k, v := range coreLabels {
+		result[k] = v
+	}
+
+	// Add user labels, skipping protected ones
+	for k, v := range dpa.Spec.ResourceLabels {
+		if !isProtectedLabel(k) {
+			result[k] = v
+		}
+	}
+
+	return result
+}
+
+// applyResourceAnnotations merges DPA resourceAnnotations with existing annotations.
+// User-provided annotations are added to existing annotations. User annotations take precedence
+// for any conflicting keys.
+func applyResourceAnnotations(dpa *oadpv1alpha1.DataProtectionApplication, existingAnnotations map[string]string) map[string]string {
+	if dpa == nil || dpa.Spec.ResourceAnnotations == nil {
+		return existingAnnotations
+	}
+
+	result := make(map[string]string)
+	for k, v := range existingAnnotations {
+		result[k] = v
+	}
+
+	for k, v := range dpa.Spec.ResourceAnnotations {
+		result[k] = v
+	}
+
+	return result
 }
 
 // getResourceListFrom get the values of cpu, memory and ephemeral-storage from

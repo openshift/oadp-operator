@@ -746,6 +746,12 @@ func (r *DataProtectionApplicationReconciler) patchRegistrySecret(secret *corev1
 		return err
 	}
 
+	// Apply user-provided resource labels (protected labels are filtered)
+	secret.Labels = applyResourceLabels(r.dpa, secret.Labels)
+
+	// Apply user-provided resource annotations
+	secret.Annotations = applyResourceAnnotations(r.dpa, secret.Annotations)
+
 	// when updating the spec fields we update each field individually
 	// to get around the immutable fields
 	provider := bsl.Spec.Provider

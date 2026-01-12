@@ -425,6 +425,12 @@ func (r *DataProtectionApplicationReconciler) updateBSLFromSpec(bsl *velerov1.Ba
 	bsl.Labels["app.kubernetes.io/component"] = "bsl"
 	bsl.Labels[oadpv1alpha1.OadpOperatorLabel] = "True"
 
+	// Apply user-provided resource labels (protected labels are filtered)
+	bsl.Labels = applyResourceLabels(r.dpa, bsl.Labels)
+
+	// Apply user-provided resource annotations
+	bsl.Annotations = applyResourceAnnotations(r.dpa, bsl.Annotations)
+
 	return nil
 }
 

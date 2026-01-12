@@ -3404,3 +3404,268 @@ func TestDPAReconciler_buildVeleroDeploymentWithAzureWorkloadIdentity(t *testing
 		})
 	}
 }
+
+func TestIsProtectedLabel(t *testing.T) {
+	tests := []struct {
+		name     string
+		key      string
+		expected bool
+	}{
+		{
+			name:     "app.kubernetes.io prefix is protected",
+			key:      "app.kubernetes.io/name",
+			expected: true,
+		},
+		{
+			name:     "app.kubernetes.io/managed-by is protected",
+			key:      "app.kubernetes.io/managed-by",
+			expected: true,
+		},
+		{
+			name:     "app.kubernetes.io/custom is protected",
+			key:      "app.kubernetes.io/custom-label",
+			expected: true,
+		},
+		{
+			name:     "openshift.io/oadp is protected",
+			key:      oadpv1alpha1.OadpOperatorLabel,
+			expected: true,
+		},
+		{
+			name:     "oadp.openshift.io/registry is protected",
+			key:      common.RegistryDeploymentLabel,
+			expected: true,
+		},
+		{
+			name:     "custom label is not protected",
+			key:      "custom-label",
+			expected: false,
+		},
+		{
+			name:     "argocd annotation key is not protected",
+			key:      "argocd.argoproj.io/sync-options",
+			expected: false,
+		},
+		{
+			name:     "team label is not protected",
+			key:      "team.example.com/owner",
+			expected: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := isProtectedLabel(tt.key)
+			if result != tt.expected {
+				t.Errorf("isProtectedLabel(%q) = %v, expected %v", tt.key, result, tt.expected)
+			}
+		})
+	}
+}
+
+func TestApplyResourceLabels(t *testing.T) {
+	tests := []struct {
+		name           string
+		dpa            *oadpv1alpha1.DataProtectionApplication
+		coreLabels     map[string]string
+		expectedLabels map[string]string
+	}{
+		{
+			name: "nil DPA returns core labels",
+			dpa:  nil,
+			coreLabels: map[string]string{
+				"app.kubernetes.io/name": "velero",
+			},
+			expectedLabels: map[string]string{
+				"app.kubernetes.io/name": "velero",
+			},
+		},
+		{
+			name: "nil resourceLabels returns core labels",
+			dpa: &oadpv1alpha1.DataProtectionApplication{
+				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
+					ResourceLabels: nil,
+				},
+			},
+			coreLabels: map[string]string{
+				"app.kubernetes.io/name": "velero",
+			},
+			expectedLabels: map[string]string{
+				"app.kubernetes.io/name": "velero",
+			},
+		},
+		{
+			name: "user labels are merged with core labels",
+			dpa: &oadpv1alpha1.DataProtectionApplication{
+				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
+					ResourceLabels: map[string]string{
+						"custom-label": "custom-value",
+						"team":         "backup",
+					},
+				},
+			},
+			coreLabels: map[string]string{
+				"app.kubernetes.io/name": "velero",
+			},
+			expectedLabels: map[string]string{
+				"app.kubernetes.io/name": "velero",
+				"custom-label":           "custom-value",
+				"team":                   "backup",
+			},
+		},
+		{
+			name: "protected labels are filtered from user input",
+			dpa: &oadpv1alpha1.DataProtectionApplication{
+				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
+					ResourceLabels: map[string]string{
+						"app.kubernetes.io/name":       "user-override", // should be ignored
+						"app.kubernetes.io/managed-by": "user-manager", // should be ignored
+						"custom-label":                 "custom-value", // should be included
+					},
+				},
+			},
+			coreLabels: map[string]string{
+				"app.kubernetes.io/name":       "velero",
+				"app.kubernetes.io/managed-by": common.OADPOperator,
+			},
+			expectedLabels: map[string]string{
+				"app.kubernetes.io/name":       "velero",       // core label preserved
+				"app.kubernetes.io/managed-by": common.OADPOperator, // core label preserved
+				"custom-label":                 "custom-value", // user label added
+			},
+		},
+		{
+			name: "argocd labels are allowed",
+			dpa: &oadpv1alpha1.DataProtectionApplication{
+				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
+					ResourceLabels: map[string]string{
+						"argocd.argoproj.io/sync-options": "ServerSideApply=true",
+					},
+				},
+			},
+			coreLabels: map[string]string{
+				"app.kubernetes.io/name": "velero",
+			},
+			expectedLabels: map[string]string{
+				"app.kubernetes.io/name":          "velero",
+				"argocd.argoproj.io/sync-options": "ServerSideApply=true",
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := applyResourceLabels(tt.dpa, tt.coreLabels)
+			if !reflect.DeepEqual(result, tt.expectedLabels) {
+				t.Errorf("applyResourceLabels() = %v, expected %v", result, tt.expectedLabels)
+			}
+		})
+	}
+}
+
+func TestApplyResourceAnnotations(t *testing.T) {
+	tests := []struct {
+		name                string
+		dpa                 *oadpv1alpha1.DataProtectionApplication
+		existingAnnotations map[string]string
+		expectedAnnotations map[string]string
+	}{
+		{
+			name: "nil DPA returns existing annotations",
+			dpa:  nil,
+			existingAnnotations: map[string]string{
+				"existing": "annotation",
+			},
+			expectedAnnotations: map[string]string{
+				"existing": "annotation",
+			},
+		},
+		{
+			name: "nil resourceAnnotations returns existing annotations",
+			dpa: &oadpv1alpha1.DataProtectionApplication{
+				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
+					ResourceAnnotations: nil,
+				},
+			},
+			existingAnnotations: map[string]string{
+				"existing": "annotation",
+			},
+			expectedAnnotations: map[string]string{
+				"existing": "annotation",
+			},
+		},
+		{
+			name: "user annotations are merged with existing",
+			dpa: &oadpv1alpha1.DataProtectionApplication{
+				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
+					ResourceAnnotations: map[string]string{
+						"custom-annotation": "custom-value",
+					},
+				},
+			},
+			existingAnnotations: map[string]string{
+				"existing": "annotation",
+			},
+			expectedAnnotations: map[string]string{
+				"existing":          "annotation",
+				"custom-annotation": "custom-value",
+			},
+		},
+		{
+			name: "user annotations override existing on conflict",
+			dpa: &oadpv1alpha1.DataProtectionApplication{
+				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
+					ResourceAnnotations: map[string]string{
+						"existing": "user-value",
+					},
+				},
+			},
+			existingAnnotations: map[string]string{
+				"existing": "annotation",
+			},
+			expectedAnnotations: map[string]string{
+				"existing": "user-value", // user value wins
+			},
+		},
+		{
+			name: "argocd ignore-resource-updates annotation",
+			dpa: &oadpv1alpha1.DataProtectionApplication{
+				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
+					ResourceAnnotations: map[string]string{
+						"argocd.argoproj.io/ignore-resource-updates": "true",
+					},
+				},
+			},
+			existingAnnotations: map[string]string{
+				"prometheus.io/scrape": "true",
+			},
+			expectedAnnotations: map[string]string{
+				"prometheus.io/scrape":                       "true",
+				"argocd.argoproj.io/ignore-resource-updates": "true",
+			},
+		},
+		{
+			name: "nil existing annotations",
+			dpa: &oadpv1alpha1.DataProtectionApplication{
+				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
+					ResourceAnnotations: map[string]string{
+						"custom": "value",
+					},
+				},
+			},
+			existingAnnotations: nil,
+			expectedAnnotations: map[string]string{
+				"custom": "value",
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := applyResourceAnnotations(tt.dpa, tt.existingAnnotations)
+			if !reflect.DeepEqual(result, tt.expectedAnnotations) {
+				t.Errorf("applyResourceAnnotations() = %v, expected %v", result, tt.expectedAnnotations)
+			}
+		})
+	}
+}

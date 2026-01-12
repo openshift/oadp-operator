@@ -155,6 +155,12 @@ func (r *DataProtectionApplicationReconciler) updateNodeAgentCM(cm *corev1.Confi
 		oadpv1alpha1.OadpOperatorLabel: "True",
 	}
 
+	// Apply user-provided resource labels (protected labels are filtered)
+	cm.Labels = applyResourceLabels(r.dpa, cm.Labels)
+
+	// Apply user-provided resource annotations
+	cm.Annotations = applyResourceAnnotations(r.dpa, cm.Annotations)
+
 	if cm.Data == nil {
 		cm.Data = make(map[string]string)
 	}
@@ -498,6 +504,15 @@ func (r *DataProtectionApplicationReconciler) customizeNodeAgentDaemonset(ds *ap
 			}
 		}
 	}
+
+	// Apply user-provided resource labels (protected labels are filtered)
+	// Note: NOT applied to Spec.Selector.MatchLabels as those are immutable after creation
+	ds.Labels = applyResourceLabels(dpa, ds.Labels)
+	ds.Spec.Template.Labels = applyResourceLabels(dpa, ds.Spec.Template.Labels)
+
+	// Apply user-provided resource annotations to both daemonset and pod template
+	ds.Annotations = applyResourceAnnotations(dpa, ds.Annotations)
+	ds.Spec.Template.Annotations = applyResourceAnnotations(dpa, ds.Spec.Template.Annotations)
 
 	// fetch nodeAgent container in order to customize it
 	var nodeAgentContainer *corev1.Container
