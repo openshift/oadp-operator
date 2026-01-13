@@ -20,6 +20,7 @@ import (
 	"context"
 	"os"
 	"reflect"
+	"time"
 
 	"github.com/go-logr/logr"
 	routev1 "github.com/openshift/api/route/v1"
@@ -135,9 +136,24 @@ func (r *DataProtectionApplicationReconciler) Reconcile(ctx context.Context, req
 			},
 		)
 	}
+
+	// Update readiness conditions for all components
+	allReady, readinessErr := r.updateReadinessConditions()
+	if readinessErr != nil {
+		logger.Error(readinessErr, "error updating readiness conditions")
+		if err == nil {
+			err = readinessErr
+		}
+	}
+
 	statusErr := r.Client.Status().Update(ctx, r.dpa)
 	if err == nil { // Don't mask previous error
 		err = statusErr
+	}
+
+	// Requeue if not all components are ready (to check again later)
+	if !allReady {
+		return ctrl.Result{RequeueAfter: 30 * time.Second}, err
 	}
 
 	return ctrl.Result{}, err

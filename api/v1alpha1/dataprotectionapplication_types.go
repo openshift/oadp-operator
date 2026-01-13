@@ -34,6 +34,24 @@ const ReconciledReasonComplete = "Complete"
 const ReconciledReasonError = "Error"
 const ReconcileCompleteMessage = "Reconcile complete"
 
+// Readiness Conditions
+const (
+	ConditionVeleroReady        = "VeleroReady"
+	ConditionNodeAgentReady     = "NodeAgentReady"
+	ConditionNonAdminReady      = "NonAdminReady"
+	ConditionVMFileRestoreReady = "VMFileRestoreReady"
+)
+
+// Readiness condition reasons
+const (
+	ReasonDeploymentReady    = "DeploymentReady"
+	ReasonDeploymentNotReady = "DeploymentNotReady"
+	ReasonDaemonSetReady     = "DaemonSetReady"
+	ReasonDaemonSetNotReady  = "DaemonSetNotReady"
+	ReasonComponentDisabled  = "ComponentDisabled"
+	ReasonComponentNotFound  = "ComponentNotFound"
+)
+
 const OadpOperatorLabel = "openshift.io/oadp"
 
 // +kubebuilder:validation:Enum=aws;legacy-aws;gcp;azure;csi;vsm;openshift;kubevirt;hypershift
