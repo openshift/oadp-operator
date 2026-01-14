@@ -1,0 +1,69 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: pvc-browser
+  namespace: cirros-test-cont
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: pvc-browser
+  template:
+    metadata:
+      labels:
+        app: pvc-browser
+    spec:
+      containers:
+      - name: browser
+        image: docker.io/filebrowser/filebrowser:latest
+        env:
+        - name: FB_NOAUTH
+          value: "true"
+        args:
+        - -p
+        - "8080"
+        - -a
+        - "0.0.0.0"
+        - -r
+        - /mnt
+        - -d
+        - /tmp/filebrowser.db
+        - --noauth
+        ports:
+        - containerPort: 8080
+        volumeMounts:
+        - name: storage
+          mountPath: /mnt
+        - name: config-volume
+          mountPath: /config
+      volumes:
+      - name: storage
+        persistentVolumeClaim:
+          claimName: pushbackup-pv
+      - name: config-volume
+        emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: pvc-browser-service
+  namespace: cirros-test-cont
+spec:
+  selector:
+    app: pvc-browser
+  ports:
+    - protocol: TCP
+      port: 8080
+      targetPort: 8080
+---
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: pvc-browser-route
+  namespace: cirros-test-cont
+spec:
+  to:
+    kind: Service
+    name: pvc-browser-service
+  port:
+    targetPort: 8080

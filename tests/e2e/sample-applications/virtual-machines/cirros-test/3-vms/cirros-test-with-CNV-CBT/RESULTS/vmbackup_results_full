@@ -1,0 +1,37 @@
+oc -n cirros-test-cont get virtualmachineBackup vmbackup-cirros-test-cont-1 -o yaml
+apiVersion: backup.kubevirt.io/v1alpha1
+kind: VirtualMachineBackup
+metadata:
+  creationTimestamp: "2026-01-14T15:40:55Z"
+  finalizers:
+  - backup.kubevirt.io/vmbackup-protection
+  generation: 1
+  name: vmbackup-cirros-test-cont-1
+  namespace: cirros-test-cont
+  resourceVersion: "392611"
+  uid: 649409e7-84e7-47af-a12f-6cd6356e6fd7
+spec:
+  pvcName: pushbackup-pv
+  source:
+    apiGroup: backup.kubevirt.io
+    kind: VirtualMachineBackupTracker
+    name: vmbackuptracker-cirros-test-cont-1
+status:
+  checkpointName: vmbackup-cirros-test-cont-1-2026-01-14_15-40-55
+  conditions:
+  - lastProbeTime: null
+    lastTransitionTime: "2026-01-14T15:41:04Z"
+    reason: 'Completed VirtualMachineBackup, warning: Failed freezing guest filesystem:
+      virError(Code=86, Domain=10, Message=''Guest agent is not responding: QEMU guest
+      agent is not connected'')'
+    status: "False"
+    type: Progressing
+  - lastProbeTime: null
+    lastTransitionTime: "2026-01-14T15:41:04Z"
+    reason: 'Completed VirtualMachineBackup, warning: Failed freezing guest filesystem:
+      virError(Code=86, Domain=10, Message=''Guest agent is not responding: QEMU guest
+      agent is not connected'')'
+    status: "True"
+    type: Done
+  type: Full
+

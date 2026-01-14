@@ -1,0 +1,11 @@
+apiVersion: backup.kubevirt.io/v1alpha1
+kind: VirtualMachineBackup
+metadata:
+  name: vmbackup-cirros-test-cont-1-inc-1
+  namespace: cirros-test-cont
+spec:
+  source:
+    apiGroup: backup.kubevirt.io
+    kind: VirtualMachineBackupTracker
+    name: vmbackuptracker-cirros-test-cont-1
+  pvcName: pushbackup-pv
