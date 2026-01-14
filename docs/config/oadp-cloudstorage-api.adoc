@@ -1,0 +1,454 @@
+// Module included in the following assemblies:
+//
+// * backup_and_restore/application_backup_and_restore/installing/installing-oadp-aws.adoc
+// * backup_and_restore/application_backup_and_restore/installing/installing-oadp-azure.adoc
+// * backup_and_restore/application_backup_and_restore/installing/installing-oadp-gcp.adoc
+// * backup_and_restore/application_backup_and_restore/installing/installing-oadp-rosa.adoc
+
+:_mod-docs-content-type: REFERENCE
+[id="oadp-cloudstorage-api_{context}"]
+= OADP CloudStorage API
+
+The OADP CloudStorage API provides automated bucket or container management for backup storage locations. Instead of manually creating and configuring cloud storage resources, you can use the CloudStorage custom resource to automatically handle storage provisioning, configuration, and lifecycle management.
+
+[NOTE]
+====
+The CloudStorage API functionality requires OADP operator version with CloudStorage API support enabled.
+====
+
+== Overview
+
+The CloudStorage API offers several advantages over manual storage configuration:
+
+* **Automated provisioning**: Creates buckets/containers if they don't exist
+* **Authentication integration**: Seamlessly integrates with cloud-native authentication methods (STS, Workload Identity, etc.) using pre-configured permissions
+* **Lifecycle protection**: Uses finalizers to prevent accidental deletion of storage containing backup data
+* **Standardized configuration**: Consistent approach across different cloud providers
+
+== Prerequisites
+
+* OADP operator with CloudStorage API functionality enabled
+* Properly configured cloud authentication (STS, Workload Identity, etc.)
+* Appropriate cloud permissions for storage resource creation and management
+
+== CloudStorage Resource Definition
+
+The CloudStorage custom resource defines the desired state of your backup storage location:
+
+[source,yaml]
+----
+apiVersion: oadp.openshift.io/v1alpha1
+kind: CloudStorage
+metadata:
+  name: <storage-name>
+  namespace: openshift-adp
+spec:
+  name: <bucket-or-container-name>    # Required
+  provider: <cloud-provider>          # Required: aws, azure, or gcp
+  region: <region>                     # Optional: AWS and GCP only
+  enableSharedConfig: <true|false>     # Optional: AWS only - enable shared config loading
+  tags:                                # Optional: Tags for bucket/container
+    <key>: <value>
+  creationSecret:                      # Required
+    name: <credential-secret-name>
+    key: <credential-key>              # Provider-specific key name
+  config:                              # Optional: Provider-specific configuration
+    storageAccount: <account-name>     # Required for Azure CloudStorage
+status:
+  name: <bucket-or-container-name>
+  lastSyncTimestamp: <timestamp>       # Last sync time
+  conditions:                          # Status conditions for bucket readiness
+  - type: BucketReady
+    status: "True"                     # True, False, or Unknown
+    reason: <reason>                   # See Status Conditions section
+    message: <descriptive-message>
+    lastTransitionTime: <timestamp>
+----
+
+=== Provider-Specific Parameters
+
+[cols="1,1,1,2,2", options="header"]
+|===
+|Cloud Provider|Provider Value|Credential Key|CloudStorage Spec Requirements|Optional CloudStorage Fields
+
+|AWS
+|`aws`
+|`credentials`
+|`region` (in spec.region)
+|`enableSharedConfig`, `tags`
+
+|Azure
+|`azure`
+|`azurekey`
+|`storageAccount` (in spec.config)
+|`tags`
+
+|GCP
+|`gcp`
+|`service_account.json`
+|`region` (in spec.region)
+|`tags`
+|===
+
+=== Status Conditions
+
+The CloudStorage resource uses Kubernetes status conditions to provide detailed information about the bucket's state. The primary condition type is `BucketReady`, which indicates whether the bucket exists and is ready for use.
+
+==== Condition Reasons
+
+The `BucketReady` condition can have the following reasons:
+
+[cols="1,1,3", options="header"]
+|===
+|Reason|Status|Description
+
+|`BucketCreated`
+|True
+|The bucket was successfully created
+
+|`BucketReady`
+|True
+|The bucket already exists and is available for use
+
+|`BucketCreationFailed`
+|False
+|Failed to create the bucket due to permissions, quota, or other issues
+
+|`BucketCheckError`
+|False
+|Unable to verify if the bucket exists (network issues, authentication problems)
+
+|`STSSecretError`
+|False
+|Unable to get or process the STS secret for authentication
+|===
+
+==== Example Status with Conditions
+
+[source,yaml]
+----
+status:
+  name: my-backup-bucket
+  lastSyncTimestamp: "2024-01-15T10:30:00Z"
+  conditions:
+  - type: BucketReady
+    status: "True"
+    reason: BucketCreated
+    message: "Bucket my-backup-bucket has been created successfully"
+    lastTransitionTime: "2024-01-15T10:30:00Z"
+    observedGeneration: 1
+----
+
+These conditions help with:
+
+* *Troubleshooting*: Quickly identify why a bucket isn't ready
+* *Monitoring*: Track bucket status changes over time
+* *Automation*: Build workflows that react to bucket state changes
+
+== DataProtectionApplication Configuration
+
+When using CloudStorage resources, configure your BSL under DataProtectionApplication to reference the CloudStorage resource instead of specifying bucket details directly:
+
+[source,yaml]
+----
+apiVersion: oadp.openshift.io/v1alpha1
+kind: DataProtectionApplication
+metadata:
+  name: <dpa-name>
+  namespace: openshift-adp
+spec:
+  configuration:
+    velero:
+      defaultPlugins:
+        - <provider>     # aws, azure, or gcp
+        - openshift
+        - csi
+  backupLocations:
+    - name: default
+      bucket:
+        provider: <provider>           # aws, azure, or gcp
+        cloudStorageRef:
+          name: <cloudstorage-name>
+        prefix: velero
+        credential:
+          name: <credential-secret-name>
+          key: <credential-key>       # Provider-specific: credentials (AWS), azurekey (Azure), service_account.json (GCP)
+        config:
+          region: <region>            # AWS and GCP
+          resourceGroup: <resource-group>     # Azure
+          storageAccount: <storage-account>   # Azure
+          subscriptionId: <subscription-id>   # Azure
+        default: true
+  snapshotLocations:
+    - name: default
+      velero:
+        provider: <provider>
+        credential:
+          name: <credential-secret-name>
+          key: <credential-key>
+        config:
+          # Provider-specific snapshot configuration
+----
+
+== Verification and Monitoring
+
+=== Verify CloudStorage Resource Status
+
+Check the status of your CloudStorage resource:
+
+[source,bash]
+----
+# View CloudStorage resource details
+oc get cloudstorage <storage-name> -n openshift-adp -o yaml
+
+# Check CloudStorage resource status
+oc describe cloudstorage <storage-name> -n openshift-adp
+----
+
+=== Monitor CloudStorage Operations
+
+Monitor CloudStorage controller operations through operator logs:
+
+[source,bash]
+----
+# Check operator logs for CloudStorage operations
+oc logs -n openshift-adp deployment/oadp-operator-controller-manager | grep -i cloudstorage
+
+# Check for provider-specific operations
+oc logs -n openshift-adp deployment/oadp-operator-controller-manager | grep -i <provider>
+----
+
+== Deletion and Finalizer Management
+
+[WARNING]
+====
+CloudStorage resources are protected by a finalizer (`oadp.openshift.io/bucket-protection`) to prevent accidental deletion of storage containing backup data. 
+
+To delete a CloudStorage resource, you must first add the deletion annotation:
+
+[source,bash]
+----
+# Add deletion annotation before attempting to delete
+oc annotate cloudstorage <storage-name> -n openshift-adp \
+    oadp.openshift.io/cloudstorage-delete=true --overwrite
+
+# Then delete the CloudStorage resource
+oc delete cloudstorage <storage-name> -n openshift-adp
+----
+
+Without this annotation, the deletion will hang indefinitely as the finalizer prevents removal.
+
+**Alternative: Preserve Cloud Storage**
+
+If you want to remove the CloudStorage resource from OpenShift without deleting the actual cloud storage, you can manually remove the finalizer:
+
+[source,bash]
+----
+# Remove finalizer to delete CloudStorage CR without deleting the cloud storage
+oc patch cloudstorage <storage-name> -n openshift-adp --type json \
+    -p='[{"op": "remove", "path": "/metadata/finalizers"}]'
+----
+====
+
+== Automatic Features
+
+The CloudStorage API automatically provides the following functionality:
+
+* **Storage Creation**: Creates buckets/containers if they don't exist
+* **Authentication Integration**: Integrates with existing cloud authentication methods and uses pre-configured IAM permissions:
+  - Works with static credentials, STS roles, managed identities, or workload identity federation
+  - Relies on pre-existing permissions for Velero backup and restore operations
+  - Validates credential compatibility with the specified authentication method
+* **Regional Configuration**: Sets up location-based configuration as specified
+* **Lifecycle Protection**: Protects storage resources with finalizers to prevent accidental deletion
+* **Status Reporting**: Provides detailed status information about storage provisioning and health
+
+== Provider-Specific Examples
+
+=== AWS (S3)
+
+==== CloudStorage Resource
+
+[source,yaml]
+----
+apiVersion: oadp.openshift.io/v1alpha1
+kind: CloudStorage
+metadata:
+  name: aws-backup-storage
+  namespace: openshift-adp
+spec:
+  name: my-backup-bucket
+  provider: aws
+  region: us-east-1
+  enableSharedConfig: true           # Optional: Enable shared config loading
+  tags:                              # Optional: Bucket tags
+    environment: production
+    team: platform
+  creationSecret:
+    name: cloud-credentials-aws
+    key: credentials
+----
+
+==== DPA Configuration Options
+
+When using AWS CloudStorage, the following config fields are available in your DataProtectionApplication:
+
+[source,yaml]
+----
+backupLocations:
+  - name: default
+    bucket:
+      provider: aws
+      cloudStorageRef:
+        name: aws-backup-storage
+      prefix: velero
+      credential:
+        name: cloud-credentials-aws
+        key: credentials
+      config:
+        region: us-east-1                    # AWS region (overrides CloudStorage spec.region)
+        profile: "default"                   # AWS profile name (optional)
+        s3ForcePathStyle: "false"            # Force path-style S3 URLs (optional)
+        s3Url: "https://s3.custom.endpoint"  # Custom S3 endpoint (optional)
+        insecureSkipTLSVerify: "false"       # Skip TLS verification (optional)
+        enableSharedConfig: "true"           # Enable shared config loading (optional)
+        checksumAlgorithm: "CRC32"           # Checksum algorithm (optional)
+        signatureVersion: "1"                # AWS signature version (optional)
+        public_url: "https://public.s3.url"  # Public URL for S3 (optional)
+      default: true
+----
+
+=== Azure (Storage Container)
+
+==== CloudStorage Resource
+
+[source,yaml]
+----
+apiVersion: oadp.openshift.io/v1alpha1
+kind: CloudStorage
+metadata:
+  name: azure-backup-storage
+  namespace: openshift-adp
+spec:
+  name: my-backup-container
+  provider: azure
+  tags:                              # Optional: Container tags
+    environment: production
+    team: platform
+  creationSecret:
+    name: cloud-credentials-azure
+    key: azurekey
+  config:
+    storageAccount: mystorageaccount # Required for Azure CloudStorage
+----
+
+==== DPA Configuration Options
+
+When using Azure CloudStorage, the following config fields are available in your DataProtectionApplication:
+
+[source,yaml]
+----
+backupLocations:
+  - name: default
+    bucket:
+      provider: azure
+      cloudStorageRef:
+        name: azure-backup-storage
+      prefix: velero
+      credential:
+        name: cloud-credentials-azure
+        key: azurekey
+      config:
+        resourceGroup: my-resource-group     # Required: Azure resource group
+        storageAccount: mystorageaccount     # Required: Azure storage account
+        subscriptionId: 12345678-1234-1234-1234-123456789012  # Required: Azure subscription
+        useAAD: "true"                       # Optional: Use Azure AD authentication
+      default: true
+----
+
+=== GCP (Cloud Storage)
+
+==== CloudStorage Resource
+
+[source,yaml]
+----
+apiVersion: oadp.openshift.io/v1alpha1
+kind: CloudStorage
+metadata:
+  name: gcp-backup-storage
+  namespace: openshift-adp
+spec:
+  name: my-backup-bucket
+  provider: gcp
+  region: us-central1
+  tags:                              # Optional: Bucket tags
+    environment: production
+    team: platform
+  creationSecret:
+    name: cloud-credentials-gcp
+    key: service_account.json
+----
+
+==== DPA Configuration Options
+
+When using GCP CloudStorage, the following config fields are available in your DataProtectionApplication:
+
+[source,yaml]
+----
+backupLocations:
+  - name: default
+    bucket:
+      provider: gcp
+      cloudStorageRef:
+        name: gcp-backup-storage
+      prefix: velero
+      credential:
+        name: cloud-credentials-gcp
+        key: service_account.json
+      config:
+        project: my-gcp-project             # Required: GCP project ID
+        snapshotLocation: us-central1       # Optional: Region for snapshots
+      default: true
+----
+
+== Troubleshooting
+
+If you experience issues with CloudStorage resources:
+
+. **Check CloudStorage status**: Use `oc describe cloudstorage` to view detailed status and events
+. **Review operator logs**: Look for CloudStorage-related messages in the OADP operator logs
+. **Verify credentials**: Ensure the credential secret exists and has the correct key name
+. **Check permissions**: Verify that the cloud identity has permissions to create and manage storage resources
+. **Validate region/location**: Ensure the specified region or storage account location is correct and accessible
+
+=== Provider-Specific Verification Commands
+
+**AWS S3 Verification:**
+[source,bash]
+----
+# Check if bucket was created in S3
+aws s3 ls s3://${BUCKET_NAME}/
+
+# Verify bucket policies and configuration
+aws s3api get-bucket-policy --bucket ${BUCKET_NAME}
+----
+
+**Azure Storage Verification:**
+[source,bash]
+----
+# Check if container was created in Azure Storage
+az storage container list --account-name ${STORAGE_ACCOUNT_NAME} --auth-mode login --query "[].name" -o tsv
+
+# Verify container access
+az storage container show --name ${CONTAINER_NAME} --account-name ${STORAGE_ACCOUNT_NAME} --auth-mode login
+----
+
+**GCP Cloud Storage Verification:**
+[source,bash]
+----
+# Check if bucket was created in GCP
+gsutil ls -p ${GCP_PROJECT_ID} | grep "gs://${BUCKET_NAME}/"
+
+# Verify bucket configuration
+gsutil ls -L -b gs://${BUCKET_NAME}/
+----
