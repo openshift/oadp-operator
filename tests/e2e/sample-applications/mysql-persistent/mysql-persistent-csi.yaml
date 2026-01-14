@@ -227,7 +227,7 @@ items:
           initContainers:
           - name: init-myservice
             image: docker.io/curlimages/curl:8.5.0
-            command: ['sh', '-c', 'sleep 10; max_attempts=120; attempt=0; until /usr/bin/nc -z -w 1 mysql 3306 || [ $attempt -ge $max_attempts ]; do attempt=$((attempt+1)); echo "Attempt $attempt/$max_attempts: Trying to connect to mysql DB port"; sleep 5; done; if [ $attempt -ge $max_attempts ]; then echo "ERROR: Failed to connect to mysql after $max_attempts attempts"; exit 1; fi; echo "mysql DB port reachable"']
+            command: ['sh', '-c', 'sleep 30; max_attempts=180; attempt=0; until /usr/bin/nc -z -w 1 mysql 3306 || [ $attempt -ge $max_attempts ]; do attempt=$((attempt+1)); echo "Attempt $attempt/$max_attempts: Trying to connect to mysql DB port"; sleep 5; done; if [ $attempt -ge $max_attempts ]; then echo "ERROR: Failed to connect to mysql after $max_attempts attempts"; exit 1; fi; echo "mysql DB port reachable"']
   - apiVersion: route.openshift.io/v1
     kind: Route
     metadata:
