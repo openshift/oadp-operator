@@ -27,6 +27,20 @@ spec:
         registry:
           pullMethod: node
           url: docker://quay.io/kubevirt/cirros-container-disk-demo
+  - metadata:
+      annotations:
+        cdi.kubevirt.io/storage.deleteAfterCompletion: "false"
+      name: cirros-test-cont-2-home-dv
+    spec:
+      pvc:
+        accessModes:
+        - ReadWriteOnce
+        resources:
+          requests:
+            storage: 150Mi
+        volumeMode: Block
+      source:
+        blank: {}
   running: true
   template:
     metadata:
@@ -40,6 +54,9 @@ spec:
           - disk:
               bus: virtio
             name: volume0
+          - disk:
+              bus: virtio
+            name: volume1
           interfaces:
           - masquerade: {}
             name: default
@@ -57,3 +74,6 @@ spec:
       - dataVolume:
           name: cirros-test-cont-2-dv
         name: volume0
+      - dataVolume:
+          name: cirros-test-cont-2-home-dv
+        name: volume1
