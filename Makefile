@@ -2,7 +2,7 @@
 # All version-related variables are defined here for easy maintenance
 DEFAULT_VERSION := 99.0.0
 VERSION ?= $(DEFAULT_VERSION) # the version of the operator
-OPERATOR_SDK_VERSION ?= v1.35.0
+OPERATOR_SDK_VERSION ?= v1.42.0
 ENVTEST_K8S_VERSION = 1.32 #refers to the version of kubebuilder assets to be downloaded by envtest binary # Kubernetes version from OpenShift 4.19.x
 GOLANGCI_LINT_VERSION ?= v2.6.1
 KUSTOMIZE_VERSION ?= v5.2.1
