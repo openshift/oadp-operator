@@ -71,7 +71,7 @@ items:
           # Used to format the block device (put filesystem on it).
           # This allows Mongo to use the filesystem which lives on block device.
           initContainers:
-            - image: docker.io/library/mongo:7.0
+            - image: quay.io/mongodb/mongodb-community-server:7.0.0-ubi8
               imagePullPolicy: IfNotPresent
               securityContext:
                 privileged: true
@@ -102,7 +102,7 @@ items:
                 - name: block-volume-pv
                   devicePath: /dev/xvdx
           containers:
-            - image: docker.io/library/mongo:7.0
+            - image: quay.io/mongodb/mongodb-community-server:7.0.0-ubi8
               name: mongo
               securityContext:
                 privileged: true

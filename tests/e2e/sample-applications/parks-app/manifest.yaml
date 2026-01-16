@@ -94,7 +94,7 @@ items:
           emptyDir: {}
         initContainers:
         - name: wait-for-mongodb
-          image: 'docker.io/library/mongo:7.0'
+          image: 'quay.io/mongodb/mongodb-community-server:7.0.0-ubi8'
           command:
           - /bin/bash
           - -c
@@ -267,7 +267,7 @@ items:
       spec:
         containers:
         - name: mongodb-container
-          image: 'docker.io/library/mongo:7.0'
+          image: 'quay.io/mongodb/mongodb-community-server:7.0.0-ubi8'
           ports:
           - containerPort: 27017
             protocol: TCP

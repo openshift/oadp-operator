@@ -140,6 +140,8 @@ func createTestDPASpec(testSpec TestDPASpec) *oadpv1alpha1.DataProtectionApplica
 		dpaSpec.VMFileRestore = &oadpv1alpha1.VMFileRestore{
 			Enable: ptr.To(true),
 		}
+		// Ensure required plugins are added
+		dpaSpec.Configuration.Velero.DefaultPlugins = append(dpaSpec.Configuration.Velero.DefaultPlugins, oadpv1alpha1.DefaultPluginKubeVirt, oadpv1alpha1.DefaultPluginOpenShift)
 	}
 	return dpaSpec
 }

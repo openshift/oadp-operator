@@ -67,7 +67,7 @@ items:
         spec:
           serviceAccountName: mongo-persistent-sa
           containers:
-          - image: docker.io/library/mongo:7.0
+          - image: quay.io/mongodb/mongodb-community-server:7.0.0-ubi8
             imagePullPolicy: IfNotPresent
             name: mongo
             securityContext:
