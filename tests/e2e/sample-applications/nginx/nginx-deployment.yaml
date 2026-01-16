@@ -37,7 +37,8 @@ items:
           app: nginx
       spec:
         containers:
-        - image: bitnamisecure/nginx
+        - image: registry.access.redhat.com/ubi8/nginx-120:latest
+          command: ["/usr/libexec/s2i/run"]
           name: nginx
           ports:
           - containerPort: 8080
