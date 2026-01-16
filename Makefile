@@ -545,7 +545,8 @@ deploy-olm: undeploy-olm ## Build current branch operator image, bundle image, p
 	IMG=$(THIS_OPERATOR_IMAGE) BUNDLE_IMG=$(THIS_BUNDLE_IMAGE) \
 		make docker-build docker-push bundle bundle-build bundle-push; \
 	chmod -R 777 $(DEPLOY_TMP) && rm -rf $(DEPLOY_TMP)
-	$(OPERATOR_SDK) run bundle --security-context-config restricted $(THIS_BUNDLE_IMAGE) --namespace $(OADP_TEST_NAMESPACE)
+	$(OC_CLI) label --overwrite ns $(OADP_TEST_NAMESPACE) pod-security.kubernetes.io/enforce=privileged security.openshift.io/scc.podSecurityLabelSync=false || true
+	$(OPERATOR_SDK) run bundle --security-context-config restricted $(THIS_BUNDLE_IMAGE) --namespace $(OADP_TEST_NAMESPACE) --timeout 5m
 
 .PHONY: undeploy-olm
 undeploy-olm: login-required operator-sdk ## Uninstall current branch operator via OLM
