@@ -37,7 +37,7 @@ items:
           app: nginx
       spec:
         containers:
-        - image: bitnamisecure/nginx
+        - image: quay.io/migtools/nginx:latest
           name: nginx
           ports:
           - containerPort: 8080
