@@ -1,242 +1,241 @@
 apiVersion: v1
 kind: List
 items:
-  - kind: Namespace
-    apiVersion: v1
-    metadata:
-      name: mongo-persistent
-      labels:
-        app: todolist-mongo-go
-  - apiVersion: v1
-    kind: ServiceAccount
-    metadata:
-      name: mongo-persistent-sa
-      namespace: mongo-persistent
-      labels:
-        component: mongo-persistent
-  - kind: SecurityContextConstraints
-    apiVersion: security.openshift.io/v1
-    metadata:
-      name: mongo-persistent-scc
-    allowPrivilegeEscalation: true
-    allowPrivilegedContainer: true
-    runAsUser:
-      type: RunAsAny
-    seLinuxContext:
-      type: RunAsAny
-    fsGroup:
-      type: RunAsAny
-    supplementalGroups:
-      type: RunAsAny
-    volumes:
-    - '*'
-    users:
-    - system:admin
-    - system:serviceaccount:mongo-persistent:mongo-persistent-sa
-  - apiVersion: v1
-    kind: PersistentVolumeClaim
-    metadata:
-      name: mongo
-      namespace: mongo-persistent
-      labels:
+- kind: Namespace
+  apiVersion: v1
+  metadata:
+    name: mongo-persistent
+    labels:
+      app: todolist-mongo-go
+- apiVersion: v1
+  kind: ServiceAccount
+  metadata:
+    name: mongo-persistent-sa
+    namespace: mongo-persistent
+    labels:
+      component: mongo-persistent
+- kind: SecurityContextConstraints
+  apiVersion: security.openshift.io/v1
+  metadata:
+    name: mongo-persistent-scc
+  allowPrivilegeEscalation: true
+  allowPrivilegedContainer: true
+  runAsUser:
+    type: RunAsAny
+  seLinuxContext:
+    type: RunAsAny
+  fsGroup:
+    type: RunAsAny
+  supplementalGroups:
+    type: RunAsAny
+  volumes:
+  - '*'
+  users:
+  - system:admin
+  - system:serviceaccount:mongo-persistent:mongo-persistent-sa
+- kind: ImageStream
+  apiVersion: image.openshift.io/v1
+  metadata:
+    name: todolist-mongo-go
+    namespace: mongo-persistent
+    labels:
+      app: todolist
+  spec: {}
+  status:
+    dockerImageRepository: ''
+- apiVersion: apps/v1
+  kind: Deployment
+  metadata:
+    annotations:
+      template.alpha.openshift.io/wait-for-ready: 'true'
+    name: mongo
+    namespace: mongo-persistent
+    labels:
+      e2e-app: 'true'
+  spec:
+    selector:
+      matchLabels:
         app: mongo
-    spec:
-      accessModes:
-      - ReadWriteOnce
-      resources:
-        requests:
-          storage: 1Gi
-  - kind: ImageStream
-    apiVersion: image.openshift.io/v1
-    metadata:
-      name: todolist-mongo-go
-      namespace: mongo-persistent
-      labels:
-        app: todolist
-    spec: {}
-    status:
-      dockerImageRepository: ''
-  - apiVersion: apps/v1
-    kind: Deployment
-    metadata:
-      annotations:
-        template.alpha.openshift.io/wait-for-ready: 'true'
-      name: mongo
-      namespace: mongo-persistent
-      labels:
-        e2e-app: "true"
-    spec:
-      selector:
-        matchLabels:
+    strategy:
+      type: Recreate
+    template:
+      metadata:
+        labels:
+          e2e-app: 'true'
           app: mongo
-      strategy:
-        type: Recreate
-      template:
-        metadata:
-          labels:
-            e2e-app: "true"
-            app: mongo
-            curl-tool: "true"
-        spec:
-          serviceAccountName: mongo-persistent-sa
-          containers:
-          - image: quay.io/mongodb/mongodb-community-server:7.0.0-ubi8
-            imagePullPolicy: IfNotPresent
+          curl-tool: 'true'
+      spec:
+        serviceAccountName: mongo-persistent-sa
+        containers:
+        - image: quay.io/mongodb/mongodb-community-server:7.0.0-ubi8
+          imagePullPolicy: IfNotPresent
+          name: mongo
+          securityContext:
+            privileged: true
+          env:
+          - name: MONGO_INITDB_ROOT_USERNAME
+            value: changeme
+          - name: MONGO_INITDB_ROOT_PASSWORD
+            value: changeme
+          - name: MONGO_INITDB_DATABASE
+            value: todolist
+          ports:
+          - containerPort: 27017
             name: mongo
-            securityContext:
-              privileged: true
-            env:
-              - name: MONGO_INITDB_ROOT_USERNAME
-                value: changeme
-              - name: MONGO_INITDB_ROOT_PASSWORD
-                value: changeme
-              - name: MONGO_INITDB_DATABASE
-                value: todolist
-            ports:
-            - containerPort: 27017
-              name: mongo
-            resources:
-              requests:
-                memory: 512Mi
-              limits:
-                memory: 1Gi
-            volumeMounts:
-            - name: mongo-data
-              mountPath: /data/db
-            readinessProbe:
-              exec:
-                command:
-                - /bin/bash
-                - -c
-                - "mongosh --eval 'db.runCommand(\"ping\")' --quiet"
-              initialDelaySeconds: 30
-              periodSeconds: 10
-              timeoutSeconds: 5
-              failureThreshold: 3
-            livenessProbe:
-              exec:
-                command:
-                - /bin/bash
-                - -c
-                - "mongosh --eval 'db.runCommand(\"ping\")' --quiet"
-              initialDelaySeconds: 60
-              periodSeconds: 30
-              timeoutSeconds: 10
-              failureThreshold: 3
-            startupProbe:
-              exec:
-                command:
-                - bash
-                - -c
-                - |
-                  mongosh admin --authenticationDatabase admin -u "$MONGO_INITDB_ROOT_USERNAME" -p "$MONGO_INITDB_ROOT_PASSWORD" --eval 'db.adminCommand("ping")'
-              initialDelaySeconds: 10
-              periodSeconds: 10
-              timeoutSeconds: 5
-              successThreshold: 1
-              failureThreshold: 12 # 12x10sec = 2min before restart pod
-          - image: registry.access.redhat.com/ubi8/ubi:latest
-            name: curl-tool
-            command: ["/bin/sleep", "infinity"]
-          volumes:
+          resources:
+            requests:
+              memory: 512Mi
+            limits:
+              memory: 1Gi
+          volumeMounts:
           - name: mongo-data
-            persistentVolumeClaim:
-              claimName: mongo
-  - apiVersion: v1
-    kind: Service
-    metadata:
-      annotations:
-        template.openshift.io/expose-uri: mongodb://{.spec.clusterIP}:{.spec.ports[?(.name=="mongo")].port}
+            mountPath: /data/db
+          readinessProbe:
+            exec:
+              command:
+              - /bin/bash
+              - -c
+              - mongosh --eval 'db.runCommand("ping")' --quiet
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          livenessProbe:
+            exec:
+              command:
+              - /bin/bash
+              - -c
+              - mongosh --eval 'db.runCommand("ping")' --quiet
+            initialDelaySeconds: 60
+            periodSeconds: 30
+            timeoutSeconds: 10
+            failureThreshold: 3
+          startupProbe:
+            exec:
+              command:
+              - bash
+              - -c
+              - 'mongosh admin --authenticationDatabase admin -u "$MONGO_INITDB_ROOT_USERNAME"
+                -p "$MONGO_INITDB_ROOT_PASSWORD" --eval ''db.adminCommand("ping")''
+
+                '
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 5
+            successThreshold: 1
+            failureThreshold: 12
+        - image: registry.access.redhat.com/ubi8/ubi:latest
+          name: curl-tool
+          command:
+          - /bin/sleep
+          - infinity
+        volumes:
+        - name: mongo-data
+          persistentVolumeClaim:
+            claimName: mongo
+- apiVersion: v1
+  kind: Service
+  metadata:
+    annotations:
+      template.openshift.io/expose-uri: mongodb://{.spec.clusterIP}:{.spec.ports[?(.name=="mongo")].port}
+    name: mongo
+    namespace: mongo-persistent
+    labels:
+      app: mongo
+      service: mongo
+  spec:
+    ports:
+    - protocol: TCP
       name: mongo
-      namespace: mongo-persistent
-      labels:
-        app: mongo
-        service: mongo
-    spec:
-      ports:
-      - protocol: TCP
-        name: mongo
-        port: 27017
-      selector:
-        app: mongo
-  - apiVersion: apps/v1
-    kind: Deployment
-    metadata:
-      name: todolist
-      namespace: mongo-persistent
-      labels:
+      port: 27017
+    selector:
+      app: mongo
+- apiVersion: apps/v1
+  kind: Deployment
+  metadata:
+    name: todolist
+    namespace: mongo-persistent
+    labels:
+      app: todolist
+      service: todolist
+      e2e-app: 'true'
+  spec:
+    replicas: 1
+    selector:
+      matchLabels:
         app: todolist
         service: todolist
-        e2e-app: "true"
-    spec:
-      replicas: 1
-      selector:
-        matchLabels:
+    strategy:
+      type: Recreate
+    template:
+      metadata:
+        labels:
           app: todolist
           service: todolist
-      strategy:
-        type: Recreate
-      template:
-        metadata:
-          labels:
-            app: todolist
-            service: todolist
-            e2e-app: "true"
-        spec:
-          containers:
-          - name: todolist
-            image: quay.io/migtools/oadp-ci-todolist-mongo-go-4
-            env:
-              - name: foo
-                value: bar
-            ports:
-              - containerPort: 8000
-                protocol: TCP
-            livenessProbe:
-              httpGet:
-                path: /
-                port: 8000
-              initialDelaySeconds: 10
-              periodSeconds: 10
-            readinessProbe:
-              httpGet:
-                path: /
-                port: 8000
-              initialDelaySeconds: 5
-              periodSeconds: 5
-          initContainers:
-          - name: init-myservice
-            image: registry.access.redhat.com/ubi8/ubi:latest
-            command: ['bash', '-c', 'sleep 30; max_attempts=180; attempt=0; until (echo > /dev/tcp/mongo/27017) >/dev/null 2>&1 || [ $attempt -ge $max_attempts ]; do attempt=$((attempt+1)); echo "Attempt $attempt/$max_attempts: Trying to connect to mongo DB port"; sleep 5; done; if [ $attempt -ge $max_attempts ]; then echo "ERROR: Failed to connect to mongo after $max_attempts attempts"; exit 1; fi; echo "mongo DB port reachable"']
-  - apiVersion: v1
-    kind: Service
-    metadata:
+          e2e-app: 'true'
+      spec:
+        containers:
+        - name: todolist
+          image: quay.io/migtools/oadp-ci-todolist-mongo-go-4
+          env:
+          - name: foo
+            value: bar
+          ports:
+          - containerPort: 8000
+            protocol: TCP
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 8000
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 8000
+            initialDelaySeconds: 5
+            periodSeconds: 5
+        initContainers:
+        - name: init-myservice
+          image: registry.access.redhat.com/ubi8/ubi:latest
+          command:
+          - bash
+          - -c
+          - 'sleep 30; max_attempts=60; attempt=0; until (echo > /dev/tcp/mongo/27017)
+            >/dev/null 2>&1 || [ $attempt -ge $max_attempts ]; do attempt=$((attempt+1));
+            echo "Attempt $attempt/$max_attempts: Trying to connect to mongo DB port";
+            sleep 5; done; if [ $attempt -ge $max_attempts ]; then echo "ERROR: Failed
+            to connect to mongo after $max_attempts attempts"; exit 1; fi; echo "mongo
+            DB port reachable"'
+- apiVersion: v1
+  kind: Service
+  metadata:
+    name: todolist
+    namespace: mongo-persistent
+    labels:
+      app: todolist
+      service: todolist
+    annotations:
+      app: todolist
+  spec:
+    ports:
+    - name: web
+      protocol: TCP
+      port: 8000
+      targetPort: 8000
+    selector:
+      app: todolist
+    sessionAffinity: None
+    ipFamilies:
+    - IPv4
+    ipFamilyPolicy: SingleStack
+- apiVersion: route.openshift.io/v1
+  kind: Route
+  metadata:
+    name: todolist-route
+    namespace: mongo-persistent
+  spec:
+    path: /
+    to:
+      kind: Service
       name: todolist
-      namespace: mongo-persistent
-      labels:
-        app: todolist
-        service: todolist
-      annotations:
-        app: todolist
-    spec:
-      ports:
-        - name: web
-          protocol: TCP
-          port: 8000
-          targetPort: 8000
-      selector:
-        app: todolist
-      sessionAffinity: None
-      ipFamilies:
-        - IPv4
-      ipFamilyPolicy: SingleStack
-  - apiVersion: route.openshift.io/v1
-    kind: Route
-    metadata:
-      name: todolist-route
-      namespace: mongo-persistent
-    spec:
-      path: "/"
-      to:
-        kind: Service
-        name: todolist

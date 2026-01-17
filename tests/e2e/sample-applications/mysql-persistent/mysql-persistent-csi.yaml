@@ -227,7 +227,7 @@ items:
           initContainers:
           - name: init-myservice
             image: registry.access.redhat.com/ubi8/ubi:latest
-            command: ['bash', '-c', 'sleep 30; max_attempts=180; attempt=0; until (echo > /dev/tcp/mysql/3306) >/dev/null 2>&1 || [ $attempt -ge $max_attempts ]; do attempt=$((attempt+1)); echo "Attempt $attempt/$max_attempts: Trying to connect to mysql DB port"; sleep 5; done; if [ $attempt -ge $max_attempts ]; then echo "ERROR: Failed to connect to mysql after $max_attempts attempts"; exit 1; fi; echo "mysql DB port reachable"']
+            command: ['bash', '-c', 'sleep 30; max_attempts=60; attempt=0; until (echo > /dev/tcp/mysql/3306) >/dev/null 2>&1 || [ $attempt -ge $max_attempts ]; do attempt=$((attempt+1)); echo "Attempt $attempt/$max_attempts: Trying to connect to mysql DB port"; sleep 5; done; if [ $attempt -ge $max_attempts ]; then echo "ERROR: Failed to connect to mysql after $max_attempts attempts"; exit 1; fi; echo "mysql DB port reachable"']
   - apiVersion: route.openshift.io/v1
     kind: Route
     metadata:

@@ -1,272 +1,275 @@
 apiVersion: v1
 kind: List
 items:
-  - kind: Namespace
-    apiVersion: v1
-    metadata:
-      name: mongo-persistent
-      labels:
-        app: todolist-mongo-go
-  - apiVersion: v1
-    kind: ServiceAccount
-    metadata:
-      name: mongo-persistent-sa
-      namespace: mongo-persistent
-      labels:
-        component: mongo-persistent
-  - kind: SecurityContextConstraints
-    apiVersion: security.openshift.io/v1
-    metadata:
-      name: mongo-persistent-scc
-    allowPrivilegeEscalation: true
-    allowPrivilegedContainer: true
-    runAsUser:
-      type: RunAsAny
-    seLinuxContext:
-      type: RunAsAny
-    fsGroup:
-      type: RunAsAny
-    supplementalGroups:
-      type: RunAsAny
-    volumes:
-    - '*'
-    users:
-    - system:admin
-    - system:serviceaccount:mongo-persistent:mongo-persistent-sa
-  - kind: ImageStream
-    apiVersion: image.openshift.io/v1
-    metadata:
-      name: todolist-mongo-go
-      namespace: mongo-persistent
-      labels:
-        app: todolist
-    spec: {}
-    status:
-      dockerImageRepository: ''
-  - apiVersion: apps/v1
-    kind: Deployment
-    metadata:
-      annotations:
-        template.alpha.openshift.io/wait-for-ready: 'true'
-      name: mongo
-      namespace: mongo-persistent
-      labels:
-        e2e-app: "true"
-    spec:
-      selector:
-        matchLabels:
+- kind: Namespace
+  apiVersion: v1
+  metadata:
+    name: mongo-persistent
+    labels:
+      app: todolist-mongo-go
+- apiVersion: v1
+  kind: ServiceAccount
+  metadata:
+    name: mongo-persistent-sa
+    namespace: mongo-persistent
+    labels:
+      component: mongo-persistent
+- kind: SecurityContextConstraints
+  apiVersion: security.openshift.io/v1
+  metadata:
+    name: mongo-persistent-scc
+  allowPrivilegeEscalation: true
+  allowPrivilegedContainer: true
+  runAsUser:
+    type: RunAsAny
+  seLinuxContext:
+    type: RunAsAny
+  fsGroup:
+    type: RunAsAny
+  supplementalGroups:
+    type: RunAsAny
+  volumes:
+  - '*'
+  users:
+  - system:admin
+  - system:serviceaccount:mongo-persistent:mongo-persistent-sa
+- kind: ImageStream
+  apiVersion: image.openshift.io/v1
+  metadata:
+    name: todolist-mongo-go
+    namespace: mongo-persistent
+    labels:
+      app: todolist
+  spec: {}
+  status:
+    dockerImageRepository: ''
+- apiVersion: apps/v1
+  kind: Deployment
+  metadata:
+    annotations:
+      template.alpha.openshift.io/wait-for-ready: 'true'
+    name: mongo
+    namespace: mongo-persistent
+    labels:
+      e2e-app: 'true'
+  spec:
+    selector:
+      matchLabels:
+        app: mongo
+    strategy:
+      type: Recreate
+    template:
+      metadata:
+        labels:
+          e2e-app: 'true'
           app: mongo
-      strategy:
-        type: Recreate
-      template:
-        metadata:
-          labels:
-            e2e-app: "true"
-            app: mongo
-            curl-tool: "true"
-        spec:
-          serviceAccountName: mongo-persistent-sa
+          curl-tool: 'true'
+      spec:
+        serviceAccountName: mongo-persistent-sa
+        securityContext:
+          runAsUser: 0
+        initContainers:
+        - image: quay.io/libpod/alpine:latest
+          imagePullPolicy: IfNotPresent
           securityContext:
-            runAsUser: 0  
-          # Used to format the block device (put filesystem on it).
-          # This allows Mongo to use the filesystem which lives on block device.
-          initContainers:
-            - image: quay.io/mongodb/mongodb-community-server:7.0.0-ubi8
-              imagePullPolicy: IfNotPresent
-              securityContext:
-                privileged: true
-              name: setup-block-device
-              command:
-                - "sh"
-                - "-c"
-                - |
-                  DEVICE="/dev/xvdx"
-                  MOUNT_POINT="/data/db"
-                  if [ ! -e $DEVICE ]; then
-                    echo "$DEVICE does not exist."
-                    exit 1
-                  fi
-                  if dumpe2fs -h $DEVICE 2>/dev/null; then
-                    echo "Filesystem already exists on $DEVICE"
-                  else
-                    echo "Formatting $DEVICE"
-                    mkfs.ext4 $DEVICE
-                  fi
-                  mkdir -p $MOUNT_POINT
-                  echo "Mounting $DEVICE in the $MOUNT_POINT"
-                  mount $DEVICE $MOUNT_POINT
-                  echo $(date +%s) > $MOUNT_POINT/format_timestamp
-                  echo "Recorded timestamp: $(cat $MOUNT_POINT/format_timestamp)"
-                  umount $MOUNT_POINT
-              volumeDevices:
-                - name: block-volume-pv
-                  devicePath: /dev/xvdx
-          containers:
-            - image: quay.io/mongodb/mongodb-community-server:7.0.0-ubi8
-              name: mongo
-              securityContext:
-                privileged: true
-              env:
-                - name: MONGO_INITDB_ROOT_USERNAME
-                  value: changeme
-                - name: MONGO_INITDB_ROOT_PASSWORD
-                  value: changeme
-                - name: MONGO_INITDB_DATABASE
-                  value: todolist
-              ports:
-                - containerPort: 27017
-                  name: mongo
-              resources:
-                requests:
-                  memory: 512Mi
-                limits:
-                  memory: 1Gi
-              command:
-                - "sh"
-                - "-c"
-                - |
-                  DEVICE="/dev/xvdx"
-                  MOUNT_POINT="/data/db"
-                  mkdir -p $MOUNT_POINT
-                  mount $DEVICE $MOUNT_POINT
-                  docker-entrypoint.sh mongod --auth --bind_ip_all --dbpath $MOUNT_POINT
-              volumeDevices:
-                - name:  block-volume-pv
-                  devicePath: /dev/xvdx
-              readinessProbe:
-                exec:
-                  command:
-                  - /bin/bash
-                  - -c
-                  - "mongosh --eval 'db.runCommand(\"ping\")' --quiet"
-                initialDelaySeconds: 30
-                periodSeconds: 10
-                timeoutSeconds: 5
-                failureThreshold: 3
-              livenessProbe:
-                exec:
-                  command:
-                  - /bin/bash
-                  - -c
-                  - "mongosh --eval 'db.runCommand(\"ping\")' --quiet"
-                initialDelaySeconds: 60
-                periodSeconds: 30
-                timeoutSeconds: 10
-                failureThreshold: 3
-              startupProbe:
-                exec:
-                  command:
-                  - bash
-                  - -c
-                  - |
-                    mongosh admin --authenticationDatabase admin -u "$MONGO_INITDB_ROOT_USERNAME" -p "$MONGO_INITDB_ROOT_PASSWORD" --eval 'db.adminCommand("ping")'
-                initialDelaySeconds: 10
-                periodSeconds: 10
-                timeoutSeconds: 5
-                successThreshold: 1
-                failureThreshold: 12 # 12x10sec = 2min before restart pod
-            - image: registry.access.redhat.com/ubi8/ubi:latest
-              name: curl-tool
-              command: ["/bin/sleep", "infinity"]
-          volumes:
+            privileged: true
+          name: setup-block-device
+          command:
+          - sh
+          - -c
+          - "apk add --no-cache e2fsprogs\nDEVICE=\"/dev/xvdx\"\nMOUNT_POINT=\"/data/db\"\
+            \nif [ ! -e $DEVICE ]; then\n  echo \"$DEVICE does not exist.\"\n  exit\
+            \ 1\nfi\nif dumpe2fs -h $DEVICE 2>/dev/null; then\n  echo \"Filesystem\
+            \ already exists on $DEVICE\"\nelse\n  echo \"Formatting $DEVICE\"\n \
+            \ mkfs.ext4 $DEVICE\nfi\nmkdir -p $MOUNT_POINT\necho \"Mounting $DEVICE\
+            \ in the $MOUNT_POINT\"\nmount $DEVICE $MOUNT_POINT\necho $(date +%s)\
+            \ > $MOUNT_POINT/format_timestamp\necho \"Recorded timestamp: $(cat $MOUNT_POINT/format_timestamp)\"\
+            \numount $MOUNT_POINT\n"
+          volumeDevices:
           - name: block-volume-pv
-            persistentVolumeClaim:
-              claimName: mongo
-  - apiVersion: v1
-    kind: Service
-    metadata:
-      annotations:
-        template.openshift.io/expose-uri: mongodb://{.spec.clusterIP}:{.spec.ports[?(.name=="mongo")].port}
+            devicePath: /dev/xvdx
+        containers:
+        - image: quay.io/mongodb/mongodb-community-server:7.0.0-ubi8
+          name: mongo
+          securityContext:
+            privileged: true
+          env:
+          - name: MONGO_INITDB_ROOT_USERNAME
+            value: changeme
+          - name: MONGO_INITDB_ROOT_PASSWORD
+            value: changeme
+          - name: MONGO_INITDB_DATABASE
+            value: todolist
+          ports:
+          - containerPort: 27017
+            name: mongo
+          resources:
+            requests:
+              memory: 512Mi
+            limits:
+              memory: 1Gi
+          command:
+          - sh
+          - -c
+          - 'DEVICE="/dev/xvdx"
+
+            MOUNT_POINT="/data/db"
+
+            mkdir -p $MOUNT_POINT
+
+            mount $DEVICE $MOUNT_POINT
+
+            python3 /usr/local/bin/docker-entrypoint.py mongod --bind_ip_all --dbpath
+            $MOUNT_POINT'
+          volumeDevices:
+          - name: block-volume-pv
+            devicePath: /dev/xvdx
+          readinessProbe:
+            exec:
+              command:
+              - /bin/bash
+              - -c
+              - mongosh --eval 'db.runCommand("ping")' --quiet
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          livenessProbe:
+            exec:
+              command:
+              - /bin/bash
+              - -c
+              - mongosh --eval 'db.runCommand("ping")' --quiet
+            initialDelaySeconds: 60
+            periodSeconds: 30
+            timeoutSeconds: 10
+            failureThreshold: 3
+          startupProbe:
+            exec:
+              command:
+              - bash
+              - -c
+              - 'mongosh admin --authenticationDatabase admin -u "$MONGO_INITDB_ROOT_USERNAME"
+                -p "$MONGO_INITDB_ROOT_PASSWORD" --eval ''db.adminCommand("ping")''
+
+                '
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 5
+            successThreshold: 1
+            failureThreshold: 12
+        - image: registry.access.redhat.com/ubi8/ubi:latest
+          name: curl-tool
+          command:
+          - /bin/sleep
+          - infinity
+        volumes:
+        - name: block-volume-pv
+          persistentVolumeClaim:
+            claimName: mongo-block
+- apiVersion: v1
+  kind: Service
+  metadata:
+    annotations:
+      template.openshift.io/expose-uri: mongodb://{.spec.clusterIP}:{.spec.ports[?(.name=="mongo")].port}
+    name: mongo
+    namespace: mongo-persistent
+    labels:
+      app: mongo
+      service: mongo
+  spec:
+    ports:
+    - protocol: TCP
       name: mongo
-      namespace: mongo-persistent
-      labels:
-        app: mongo
-        service: mongo
-    spec:
-      ports:
-      - protocol: TCP
-        name: mongo
-        port: 27017
-      selector:
-        app: mongo
-  - apiVersion: apps/v1
-    kind: Deployment
-    metadata:
-      name: todolist
-      namespace: mongo-persistent
-      labels:
+      port: 27017
+    selector:
+      app: mongo
+- apiVersion: apps/v1
+  kind: Deployment
+  metadata:
+    name: todolist
+    namespace: mongo-persistent
+    labels:
+      app: todolist
+      service: todolist
+      e2e-app: 'true'
+  spec:
+    replicas: 1
+    selector:
+      matchLabels:
         app: todolist
         service: todolist
-        e2e-app: "true"
-    spec:
-      replicas: 1
-      selector:
-        matchLabels:
+    strategy:
+      type: Recreate
+    template:
+      metadata:
+        labels:
           app: todolist
           service: todolist
-      strategy:
-        type: Recreate
-      template:
-        metadata:
-          labels:
-            app: todolist
-            service: todolist
-            e2e-app: "true"
-        spec:
-          containers:
-          - name: todolist
-            image: quay.io/migtools/oadp-ci-todolist-mongo-go-4 
-            env:
-              - name: foo
-                value: bar
-            ports:
-              - containerPort: 8000
-                protocol: TCP
-            livenessProbe:
-              httpGet:
-                path: /
-                port: 8000
-              initialDelaySeconds: 10
-              periodSeconds: 10
-            readinessProbe:
-              httpGet:
-                path: /
-                port: 8000
-              initialDelaySeconds: 5
-              periodSeconds: 5
-          initContainers:
-          - name: init-myservice
-            image: registry.access.redhat.com/ubi8/ubi:latest
-            command: ['bash', '-c', 'sleep 30; max_attempts=180; attempt=0; until (echo > /dev/tcp/mongo/27017) >/dev/null 2>&1 || [ $attempt -ge $max_attempts ]; do attempt=$((attempt+1)); echo "Attempt $attempt/$max_attempts: Trying to connect to mongo DB port"; sleep 5; done; if [ $attempt -ge $max_attempts ]; then echo "ERROR: Failed to connect to mongo after $max_attempts attempts"; exit 1; fi; echo "mongo DB port reachable"']
-  - apiVersion: v1
-    kind: Service
-    metadata:
+          e2e-app: 'true'
+      spec:
+        containers:
+        - name: todolist
+          image: quay.io/migtools/oadp-ci-todolist-mongo-go-4
+          env:
+          - name: foo
+            value: bar
+          ports:
+          - containerPort: 8000
+            protocol: TCP
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 8000
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 8000
+            initialDelaySeconds: 5
+            periodSeconds: 5
+        initContainers:
+        - name: init-myservice
+          image: registry.access.redhat.com/ubi8/ubi:latest
+          command:
+          - bash
+          - -c
+          - 'sleep 30; max_attempts=60; attempt=0; until (echo > /dev/tcp/mongo/27017)
+            >/dev/null 2>&1 || [ $attempt -ge $max_attempts ]; do attempt=$((attempt+1));
+            echo "Attempt $attempt/$max_attempts: Trying to connect to mongo DB port";
+            sleep 5; done; if [ $attempt -ge $max_attempts ]; then echo "ERROR: Failed
+            to connect to mongo after $max_attempts attempts"; exit 1; fi; echo "mongo
+            DB port reachable"'
+- apiVersion: v1
+  kind: Service
+  metadata:
+    name: todolist
+    namespace: mongo-persistent
+    labels:
+      app: todolist
+      service: todolist
+    annotations:
+      app: todolist
+  spec:
+    ports:
+    - name: web
+      protocol: TCP
+      port: 8000
+      targetPort: 8000
+    selector:
+      app: todolist
+    sessionAffinity: None
+    ipFamilies:
+    - IPv4
+    ipFamilyPolicy: SingleStack
+- apiVersion: route.openshift.io/v1
+  kind: Route
+  metadata:
+    name: todolist-route
+    namespace: mongo-persistent
+  spec:
+    path: /
+    to:
+      kind: Service
       name: todolist
-      namespace: mongo-persistent
-      labels:
-        app: todolist
-        service: todolist
-      annotations:
-        app: todolist
-    spec:
-      ports:
-        - name: web
-          protocol: TCP
-          port: 8000
-          targetPort: 8000
-      selector:
-        app: todolist
-      sessionAffinity: None
-      ipFamilies:
-        - IPv4
-      ipFamilyPolicy: SingleStack
-  - apiVersion: route.openshift.io/v1
-    kind: Route
-    metadata:
-      name: todolist-route
-      namespace: mongo-persistent
-    spec:
-      path: "/"
-      to:
-        kind: Service
-        name: todolist
