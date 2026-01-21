@@ -21,6 +21,10 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"github.com/onsi/ginkgo/v2"
 	"github.com/onsi/gomega"
+	oadpv1alpha1 "github.com/openshift/oadp-operator/api/v1alpha1"
+	oadpclient "github.com/openshift/oadp-operator/pkg/client"
+	"github.com/openshift/oadp-operator/pkg/common"
+	"github.com/openshift/oadp-operator/pkg/credentials/stsflow"
 	"github.com/operator-framework/operator-lib/proxy"
 	"github.com/sirupsen/logrus"
 	velerov1 "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
@@ -33,11 +37,6 @@ import (
 	"k8s.io/client-go/tools/record"
 	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-
-	oadpv1alpha1 "github.com/openshift/oadp-operator/api/v1alpha1"
-	oadpclient "github.com/openshift/oadp-operator/pkg/client"
-	"github.com/openshift/oadp-operator/pkg/common"
-	"github.com/openshift/oadp-operator/pkg/credentials/stsflow"
 )
 
 const (
@@ -3519,8 +3518,8 @@ func TestApplyResourceLabels(t *testing.T) {
 				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
 					ResourceLabels: map[string]string{
 						"app.kubernetes.io/name":       "user-override", // should be ignored
-						"app.kubernetes.io/managed-by": "user-manager", // should be ignored
-						"custom-label":                 "custom-value", // should be included
+						"app.kubernetes.io/managed-by": "user-manager",  // should be ignored
+						"custom-label":                 "custom-value",  // should be included
 					},
 				},
 			},
@@ -3529,9 +3528,9 @@ func TestApplyResourceLabels(t *testing.T) {
 				"app.kubernetes.io/managed-by": common.OADPOperator,
 			},
 			expectedLabels: map[string]string{
-				"app.kubernetes.io/name":       "velero",       // core label preserved
+				"app.kubernetes.io/name":       "velero",            // core label preserved
 				"app.kubernetes.io/managed-by": common.OADPOperator, // core label preserved
-				"custom-label":                 "custom-value", // user label added
+				"custom-label":                 "custom-value",      // user label added
 			},
 		},
 		{
