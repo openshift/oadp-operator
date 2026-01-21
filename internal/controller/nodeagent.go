@@ -9,6 +9,10 @@ import (
 
 	"github.com/go-logr/logr"
 	configv1 "github.com/openshift/api/config/v1"
+	oadpv1alpha1 "github.com/openshift/oadp-operator/api/v1alpha1"
+	"github.com/openshift/oadp-operator/pkg/common"
+	"github.com/openshift/oadp-operator/pkg/credentials"
+	"github.com/openshift/oadp-operator/pkg/credentials/stsflow"
 	"github.com/operator-framework/operator-lib/proxy"
 	"github.com/vmware-tanzu/velero/pkg/install"
 	"github.com/vmware-tanzu/velero/pkg/util/kube"
@@ -21,11 +25,6 @@ import (
 	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
-
-	oadpv1alpha1 "github.com/openshift/oadp-operator/api/v1alpha1"
-	"github.com/openshift/oadp-operator/pkg/common"
-	"github.com/openshift/oadp-operator/pkg/credentials"
-	"github.com/openshift/oadp-operator/pkg/credentials/stsflow"
 )
 
 const (
@@ -509,6 +508,17 @@ func (r *DataProtectionApplicationReconciler) customizeNodeAgentDaemonset(ds *ap
 	// Note: NOT applied to Spec.Selector.MatchLabels as those are immutable after creation
 	ds.Labels = applyResourceLabels(dpa, ds.Labels)
 	ds.Spec.Template.Labels = applyResourceLabels(dpa, ds.Spec.Template.Labels)
+
+	// Re-assert selector labels to ensure template labels match selector
+	// This prevents user resourceLabels from overriding selector-critical labels
+	if ds.Spec.Selector != nil && ds.Spec.Selector.MatchLabels != nil {
+		if ds.Spec.Template.Labels == nil {
+			ds.Spec.Template.Labels = make(map[string]string)
+		}
+		for k, v := range ds.Spec.Selector.MatchLabels {
+			ds.Spec.Template.Labels[k] = v
+		}
+	}
 
 	// Apply user-provided resource annotations to both daemonset and pod template
 	ds.Annotations = applyResourceAnnotations(dpa, ds.Annotations)
