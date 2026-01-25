@@ -13,16 +13,25 @@ import (
 	"github.com/aws/aws-sdk-go/aws/request"
 )
 
+// GetBucketRegionFunc is the function used to get bucket region.
+// It can be replaced in tests for mocking.
+var GetBucketRegionFunc = getBucketRegionImpl
+
 func BucketRegionIsDiscoverable(bucket string) bool {
-	_, err := GetBucketRegion(bucket)
+	_, err := GetBucketRegionFunc(bucket)
 	return err == nil
 }
 
 // GetBucketRegion returns the AWS region that a bucket is in, or an error
-// if the region cannot be determined.
+// if the region cannot be determined. This is a wrapper that calls GetBucketRegionFunc.
+func GetBucketRegion(bucket string) (string, error) {
+	return GetBucketRegionFunc(bucket)
+}
+
+// getBucketRegionImpl is the actual implementation that calls AWS.
 // copied from https://github.com/openshift/openshift-velero-plugin/pull/223/files#diff-da482ef606b3938b09ae46990a60eb0ad49ebfb4885eb1af327d90f215bf58b1
 // modified to aws-sdk-go-v2
-func GetBucketRegion(bucket string) (string, error) {
+func getBucketRegionImpl(bucket string) (string, error) {
 	var region string
 	// GetBucketRegion will attempt to get the region for a bucket using the client's configured region to determine
 	// which AWS partition to perform the query on.
