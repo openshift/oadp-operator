@@ -227,13 +227,13 @@ items:
                 protocol: TCP
             livenessProbe:
               httpGet:
-                path: /
+                path: /healthz
                 port: 8000
               initialDelaySeconds: 30
               periodSeconds: 10
             readinessProbe:
               httpGet:
-                path: /
+                path: /healthz
                 port: 8000
               initialDelaySeconds: 10
               periodSeconds: 5
