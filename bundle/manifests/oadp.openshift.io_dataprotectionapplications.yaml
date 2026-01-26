@@ -1146,6 +1146,7 @@ spec:
                               - vsm
                               - openshift
                               - kubevirt
+                              - kubevirt-datamover
                               - hypershift
                             type: string
                           type: array
@@ -2675,6 +2676,7 @@ spec:
                       - azurePluginImageFqin
                       - gcpPluginImageFqin
                       - kubevirtPluginImageFqin
+                      - kubevirtDatamoverPluginImageFqin
                       - hypershiftPluginImageFqin
                       - nonAdminControllerImageFqin
                       - vmFileRestoreControllerImageFqin
