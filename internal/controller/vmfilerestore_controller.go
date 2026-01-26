@@ -135,6 +135,27 @@ func (r *DataProtectionApplicationReconciler) buildVMFileRestoreDeployment(deplo
 	if err != nil {
 		return err
 	}
+
+	// Apply user-provided resource labels (protected labels are filtered)
+	// Note: NOT applied to Spec.Selector.MatchLabels as those are immutable after creation
+	deploymentObject.Labels = applyResourceLabels(r.dpa, deploymentObject.Labels)
+	deploymentObject.Spec.Template.Labels = applyResourceLabels(r.dpa, deploymentObject.Spec.Template.Labels)
+
+	// Re-assert selector labels to ensure template labels match selector
+	// This prevents user resourceLabels from overriding selector-critical labels
+	if deploymentObject.Spec.Selector != nil && deploymentObject.Spec.Selector.MatchLabels != nil {
+		if deploymentObject.Spec.Template.Labels == nil {
+			deploymentObject.Spec.Template.Labels = make(map[string]string)
+		}
+		for k, v := range deploymentObject.Spec.Selector.MatchLabels {
+			deploymentObject.Spec.Template.Labels[k] = v
+		}
+	}
+
+	// Apply user-provided resource annotations to both deployment and pod template
+	deploymentObject.Annotations = applyResourceAnnotations(r.dpa, deploymentObject.Annotations)
+	deploymentObject.Spec.Template.Annotations = applyResourceAnnotations(r.dpa, deploymentObject.Spec.Template.Annotations)
+
 	return nil
 }
 

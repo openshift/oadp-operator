@@ -227,6 +227,12 @@ func (r *DataProtectionApplicationReconciler) ReconcileVolumeSnapshotLocations(l
 				oadpv1alpha1.OadpOperatorLabel: "True",
 			}
 
+			// Apply user-provided resource labels (protected labels are filtered)
+			vsl.Labels = applyResourceLabels(dpa, vsl.Labels)
+
+			// Apply user-provided resource annotations
+			vsl.Annotations = applyResourceAnnotations(dpa, vsl.Annotations)
+
 			vsl.Spec = *vslSpec.Velero
 			return nil
 		})

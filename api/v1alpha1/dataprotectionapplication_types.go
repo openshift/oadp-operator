@@ -893,6 +893,15 @@ type DataProtectionApplicationSpec struct {
 	// +optional
 	// Deprecated: Use PodConfig instead
 	PodAnnotations map[string]string `json:"podAnnotations,omitempty"`
+	// resourceLabels defines labels that will be applied to all resources managed by the DPA.
+	// These labels are merged with OADP-required labels. User-provided labels cannot override
+	// core operator labels (app.kubernetes.io/*, openshift.io/oadp).
+	// +optional
+	ResourceLabels map[string]string `json:"resourceLabels,omitempty"`
+	// resourceAnnotations defines annotations that will be applied to all resources managed by the DPA.
+	// Useful for GitOps tools like ArgoCD (e.g., argocd.argoproj.io/ignore-resource-updates: 'true').
+	// +optional
+	ResourceAnnotations map[string]string `json:"resourceAnnotations,omitempty"`
 	// podDnsPolicy defines how a pod's DNS will be configured.
 	// https://kubernetes.io/docs/concepts/services-networking/dns-pod-service/#pod-s-dns-policy
 	// +optional

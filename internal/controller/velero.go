@@ -186,6 +186,10 @@ func (r *DataProtectionApplicationReconciler) buildVeleroDeployment(veleroDeploy
 		uploaderType = dpa.Spec.Configuration.NodeAgent.UploaderType
 	}
 
+	// Filter out resourceLabels before passing to install.Deployment
+	// This ensures matchLabels don't contain resourceLabels (which would cause immutable selector errors on reconcile)
+	labelsForInstall := filterOutResourceLabels(dpa, veleroDeployment.Labels)
+
 	installDeployment := install.Deployment(veleroDeployment.Namespace,
 		install.WithResources(veleroResourceReqs),
 		install.WithImage(getVeleroImage(dpa)),
@@ -193,7 +197,7 @@ func (r *DataProtectionApplicationReconciler) buildVeleroDeployment(veleroDeploy
 		install.WithFeatures(dpa.Spec.Configuration.Velero.FeatureFlags),
 		install.WithUploaderType(uploaderType),
 		// last label overrides previous ones
-		install.WithLabels(veleroDeployment.Labels),
+		install.WithLabels(labelsForInstall),
 		// use WithSecret false even if we have secret because we use a different VolumeMounts and EnvVars
 		// see: https://github.com/vmware-tanzu/velero/blob/ed5809b7fc22f3661eeef10bdcb63f0d74472b76/pkg/install/deployment.go#L223-L261
 		// our secrets are appended to containers/volumeMounts in credentials.AppendPluginSpecificSpecs function
@@ -232,7 +236,10 @@ func (r *DataProtectionApplicationReconciler) customizeVeleroDeployment(veleroDe
 	if veleroDeployment.Spec.Selector.MatchLabels == nil {
 		veleroDeployment.Spec.Selector.MatchLabels = make(map[string]string)
 	}
-	veleroDeployment.Spec.Selector.MatchLabels, err = common.AppendUniqueKeyTOfTMaps(veleroDeployment.Spec.Selector.MatchLabels, veleroDeployment.Labels, getDpaAppLabels(dpa))
+	// Filter out resourceLabels from veleroDeployment.Labels before adding to matchLabels
+	// matchLabels are immutable, so we must not include resourceLabels which are user-configurable
+	labelsForMatchLabels := filterOutResourceLabels(dpa, veleroDeployment.Labels)
+	veleroDeployment.Spec.Selector.MatchLabels, err = common.AppendUniqueKeyTOfTMaps(veleroDeployment.Spec.Selector.MatchLabels, labelsForMatchLabels, getDpaAppLabels(dpa))
 	if err != nil {
 		return fmt.Errorf("velero deployment selector label: %v", err)
 	}
@@ -247,6 +254,15 @@ func (r *DataProtectionApplicationReconciler) customizeVeleroDeployment(veleroDe
 			return fmt.Errorf("velero deployment template custom label: %v", err)
 		}
 	}
+
+	// Apply user-provided resource labels (protected labels are filtered)
+	// Note: NOT applied to Spec.Selector.MatchLabels as those are immutable after creation
+	veleroDeployment.Labels = applyResourceLabels(dpa, veleroDeployment.Labels)
+	veleroDeployment.Spec.Template.Labels = applyResourceLabels(dpa, veleroDeployment.Spec.Template.Labels)
+
+	// Apply user-provided resource annotations to both deployment and pod template
+	veleroDeployment.Annotations = applyResourceAnnotations(dpa, veleroDeployment.Annotations)
+	veleroDeployment.Spec.Template.Annotations = applyResourceAnnotations(dpa, veleroDeployment.Spec.Template.Annotations)
 
 	// Selector: veleroDeployment.Spec.Selector,
 	replicas := int32(1)
@@ -773,6 +789,101 @@ func getAppLabels(instanceName string) map[string]string {
 		labels["app.kubernetes.io/instance"] = instanceName
 	}
 	return labels
+}
+
+// protectedLabelPrefixes are label key prefixes that cannot be overridden by user-provided resourceLabels
+var protectedLabelPrefixes = []string{
+	"app.kubernetes.io/",
+}
+
+// protectedLabels are specific label keys that cannot be overridden by user-provided resourceLabels
+var protectedLabels = []string{
+	oadpv1alpha1.OadpOperatorLabel, // openshift.io/oadp
+	common.RegistryDeploymentLabel,
+}
+
+// isProtectedLabel checks if a label key is protected and cannot be overridden
+func isProtectedLabel(key string) bool {
+	for _, prefix := range protectedLabelPrefixes {
+		if strings.HasPrefix(key, prefix) {
+			return true
+		}
+	}
+	for _, protected := range protectedLabels {
+		if key == protected {
+			return true
+		}
+	}
+	return false
+}
+
+// applyResourceLabels merges DPA resourceLabels with core labels.
+// Core labels take precedence - protected labels from user input are filtered out.
+// Returns a new map containing core labels plus non-protected user labels.
+func applyResourceLabels(dpa *oadpv1alpha1.DataProtectionApplication, coreLabels map[string]string) map[string]string {
+	if dpa == nil || dpa.Spec.ResourceLabels == nil {
+		return coreLabels
+	}
+
+	// Start with core labels
+	result := make(map[string]string)
+	for k, v := range coreLabels {
+		result[k] = v
+	}
+
+	// Add user labels, skipping protected ones
+	for k, v := range dpa.Spec.ResourceLabels {
+		if !isProtectedLabel(k) {
+			result[k] = v
+		}
+	}
+
+	return result
+}
+
+// filterOutResourceLabels removes resourceLabels from the given labels map.
+// This is used to get labels that are safe for matchLabels (which are immutable).
+func filterOutResourceLabels(dpa *oadpv1alpha1.DataProtectionApplication, labels map[string]string) map[string]string {
+	if labels == nil {
+		return nil
+	}
+
+	result := make(map[string]string)
+	for k, v := range labels {
+		result[k] = v
+	}
+
+	// Remove resourceLabels if present, but skip protected labels
+	// Protected labels should always be preserved in matchLabels
+	if dpa != nil && dpa.Spec.ResourceLabels != nil {
+		for k := range dpa.Spec.ResourceLabels {
+			if !isProtectedLabel(k) {
+				delete(result, k)
+			}
+		}
+	}
+
+	return result
+}
+
+// applyResourceAnnotations merges DPA resourceAnnotations with existing annotations.
+// User-provided annotations are added to existing annotations. User annotations take precedence
+// for any conflicting keys.
+func applyResourceAnnotations(dpa *oadpv1alpha1.DataProtectionApplication, existingAnnotations map[string]string) map[string]string {
+	if dpa == nil || dpa.Spec.ResourceAnnotations == nil {
+		return existingAnnotations
+	}
+
+	result := make(map[string]string)
+	for k, v := range existingAnnotations {
+		result[k] = v
+	}
+
+	for k, v := range dpa.Spec.ResourceAnnotations {
+		result[k] = v
+	}
+
+	return result
 }
 
 // getResourceListFrom get the values of cpu, memory and ephemeral-storage from

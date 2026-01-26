@@ -63,5 +63,12 @@ func (r *DataProtectionApplicationReconciler) updateVeleroMetricsSVC(svc *corev1
 	}
 
 	svc.Labels = getDpaAppLabels(r.dpa)
+
+	// Apply user-provided resource labels (protected labels are filtered)
+	svc.Labels = applyResourceLabels(r.dpa, svc.Labels)
+
+	// Apply user-provided resource annotations
+	svc.Annotations = applyResourceAnnotations(r.dpa, svc.Annotations)
+
 	return nil
 }

@@ -438,6 +438,20 @@ func (in *DataProtectionApplicationSpec) DeepCopyInto(out *DataProtectionApplica
 			(*out)[key] = val
 		}
 	}
+	if in.ResourceLabels != nil {
+		in, out := &in.ResourceLabels, &out.ResourceLabels
+		*out = make(map[string]string, len(*in))
+		for key, val := range *in {
+			(*out)[key] = val
+		}
+	}
+	if in.ResourceAnnotations != nil {
+		in, out := &in.ResourceAnnotations, &out.ResourceAnnotations
+		*out = make(map[string]string, len(*in))
+		for key, val := range *in {
+			(*out)[key] = val
+		}
+	}
 	in.PodDnsConfig.DeepCopyInto(&out.PodDnsConfig)
 	if in.BackupImages != nil {
 		in, out := &in.BackupImages, &out.BackupImages
