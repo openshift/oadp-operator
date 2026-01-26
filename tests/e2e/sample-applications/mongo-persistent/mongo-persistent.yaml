@@ -135,7 +135,7 @@ items:
               timeoutSeconds: 5
               successThreshold: 1
               failureThreshold: 12 # 12x10sec = 2min before restart pod
-          - image: registry.access.redhat.com/ubi8/ubi:latest
+          - image: registry.access.redhat.com/ubi9/ubi:latest
             name: curl-tool
             command: ["/bin/sleep", "infinity"]
           volumes:
@@ -206,7 +206,7 @@ items:
               periodSeconds: 5
           initContainers:
           - name: init-myservice
-            image: registry.access.redhat.com/ubi8/ubi:latest
+            image: registry.access.redhat.com/ubi9/ubi:latest
             command: ['sh', '-c', 'sleep 30; max_attempts=180; attempt=0; until /usr/bin/nc -z -w 1 mongo 27017 || [ $attempt -ge $max_attempts ]; do attempt=$((attempt+1)); echo "Attempt $attempt/$max_attempts: Trying to connect to mongo DB port"; sleep 5; done; if [ $attempt -ge $max_attempts ]; then echo "ERROR: Failed to connect to mongo after $max_attempts attempts"; exit 1; fi; echo "mongo DB port reachable"']
   - apiVersion: v1
     kind: Service
