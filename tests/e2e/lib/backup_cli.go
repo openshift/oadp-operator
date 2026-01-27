@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"strings"
+	"time"
 
 	velero "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -191,8 +192,14 @@ func IsBackupCompletedSuccessfullyViaCLI(name string) (bool, error) {
 	)
 }
 
-// DescribeBackupViaCLI describes backup using the OADP CLI
+// DescribeBackupViaCLI describes backup using the OADP CLI with default timeout and retry.
+// The timeout prevents the command from hanging when retrieving backup details from object storage.
 func DescribeBackupViaCLI(name string) (backupDescription string) {
+	return DescribeBackupViaCLIWithOptions(name, DefaultCLITimeout, DefaultCLIRetries, DefaultCLIRetryDelay)
+}
+
+// DescribeBackupViaCLIWithOptions describes backup using the OADP CLI with specified timeout and retry options.
+func DescribeBackupViaCLIWithOptions(name string, timeout time.Duration, maxRetries int, retryDelay time.Duration) (backupDescription string) {
 	// Use CLI to describe backup
 	cmd := &CLICommand{
 		Resource: "backup",
@@ -200,7 +207,16 @@ func DescribeBackupViaCLI(name string) (backupDescription string) {
 		Name:     name,
 		Options:  []string{"--details"},
 	}
-	output, err := cmd.Execute()
+
+	var output []byte
+	var err error
+
+	if maxRetries > 1 {
+		output, err = cmd.ExecuteWithTimeoutAndRetry(timeout, maxRetries, retryDelay)
+	} else {
+		output, err = cmd.ExecuteWithTimeout(timeout)
+	}
+
 	if err != nil {
 		return fmt.Sprintf("could not describe backup via CLI: %v, output: %s", err, string(output))
 	}
@@ -208,20 +224,41 @@ func DescribeBackupViaCLI(name string) (backupDescription string) {
 	return string(output)
 }
 
-// BackupLogsViaCLI gets backup logs using the OADP CLI
+// BackupLogsViaCLI gets backup logs using the OADP CLI with default timeout and retry.
+// The timeout prevents the command from hanging indefinitely when streaming logs from object storage.
+// Retry logic helps handle transient network issues.
 func BackupLogsViaCLI(name string) (backupLogs string, err error) {
+	return BackupLogsViaCLIWithOptions(name, DefaultCLITimeout, DefaultCLIRetries, DefaultCLIRetryDelay)
+}
+
+// BackupLogsViaCLIWithTimeout gets backup logs using the OADP CLI with a specified timeout (no retry).
+func BackupLogsViaCLIWithTimeout(name string, timeout time.Duration) (backupLogs string, err error) {
+	return BackupLogsViaCLIWithOptions(name, timeout, 1, 0)
+}
+
+// BackupLogsViaCLIWithOptions gets backup logs using the OADP CLI with specified timeout and retry options.
+func BackupLogsViaCLIWithOptions(name string, timeout time.Duration, maxRetries int, retryDelay time.Duration) (backupLogs string, err error) {
 	if name == "" {
 		return "", fmt.Errorf("backup name cannot be empty")
 	}
 
-	// Use CLI to get backup logs
+	// Use CLI to get backup logs with timeout and retry to prevent hanging
 	cmd := &CLICommand{
 		Resource: "backup",
 		Action:   "logs",
 		Name:     name,
 		Options:  []string{},
 	}
-	output, cmdErr := cmd.ExecuteOutput()
+
+	var output []byte
+	var cmdErr error
+
+	if maxRetries > 1 {
+		output, cmdErr = cmd.ExecuteOutputWithTimeoutAndRetry(timeout, maxRetries, retryDelay)
+	} else {
+		output, cmdErr = cmd.ExecuteOutputWithTimeout(timeout)
+	}
+
 	if cmdErr != nil {
 		return "", fmt.Errorf("failed to get backup logs via CLI: %v", cmdErr)
 	}
