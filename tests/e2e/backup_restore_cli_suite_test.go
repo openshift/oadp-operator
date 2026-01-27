@@ -270,7 +270,7 @@ var _ = ginkgo.Describe("Backup and restore tests via OADP CLI", ginkgo.Label("c
 				BackupTimeout:     20 * time.Minute,
 			},
 		}, nil),
-		ginkgo.Entry("Mongo application CSI via CLI", ginkgo.FlakeAttempts(flakeAttempts), ApplicationBackupRestoreCase{
+		ginkgo.PEntry("Mongo application CSI via CLI", ginkgo.FlakeAttempts(flakeAttempts), ApplicationBackupRestoreCase{
 			ApplicationTemplate: "./sample-applications/mongo-persistent/mongo-persistent-csi.yaml",
 			BackupRestoreCase: BackupRestoreCase{
 				Namespace:         "mongo-persistent",
@@ -303,7 +303,7 @@ var _ = ginkgo.Describe("Backup and restore tests via OADP CLI", ginkgo.Label("c
 				BackupTimeout:     20 * time.Minute,
 			},
 		}, nil),
-		ginkgo.Entry("Mongo application DATAMOVER via CLI", ginkgo.FlakeAttempts(flakeAttempts), ApplicationBackupRestoreCase{
+		ginkgo.PEntry("Mongo application DATAMOVER via CLI", ginkgo.FlakeAttempts(flakeAttempts), ApplicationBackupRestoreCase{
 			ApplicationTemplate: "./sample-applications/mongo-persistent/mongo-persistent-csi.yaml",
 			BackupRestoreCase: BackupRestoreCase{
 				Namespace:         "mongo-persistent",
@@ -325,7 +325,7 @@ var _ = ginkgo.Describe("Backup and restore tests via OADP CLI", ginkgo.Label("c
 				BackupTimeout:     20 * time.Minute,
 			},
 		}, nil),
-		ginkgo.Entry("Mongo application BlockDevice DATAMOVER via CLI", ginkgo.FlakeAttempts(flakeAttempts), ApplicationBackupRestoreCase{
+		ginkgo.PEntry("Mongo application BlockDevice DATAMOVER via CLI", ginkgo.FlakeAttempts(flakeAttempts), ApplicationBackupRestoreCase{
 			ApplicationTemplate: "./sample-applications/mongo-persistent/mongo-persistent-block.yaml",
 			PvcSuffixName:       "-block-mode",
 			BackupRestoreCase: BackupRestoreCase{
@@ -348,7 +348,7 @@ var _ = ginkgo.Describe("Backup and restore tests via OADP CLI", ginkgo.Label("c
 				BackupTimeout:     20 * time.Minute,
 			},
 		}, nil),
-		ginkgo.Entry("Mongo application Native-Snapshots via CLI", ginkgo.FlakeAttempts(flakeAttempts), ginkgo.Label("aws", "azure", "gcp"), ApplicationBackupRestoreCase{
+		ginkgo.PEntry("Mongo application Native-Snapshots via CLI", ginkgo.FlakeAttempts(flakeAttempts), ginkgo.Label("aws", "azure", "gcp"), ApplicationBackupRestoreCase{
 			ApplicationTemplate: "./sample-applications/mongo-persistent/mongo-persistent.yaml",
 			BackupRestoreCase: BackupRestoreCase{
 				Namespace:         "mongo-persistent",

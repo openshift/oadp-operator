@@ -147,7 +147,7 @@ items:
               timeoutSeconds: 2
               successThreshold: 1
               failureThreshold: 40 # 40x30sec before restart pod
-          - image: docker.io/curlimages/curl:8.5.0
+          - image: registry.access.redhat.com/ubi9/ubi:latest
             name: curl-tool
             command: ["/bin/sleep", "infinity"]
           volumes:
@@ -205,13 +205,13 @@ items:
                 protocol: TCP
             livenessProbe:
               httpGet:
-                path: /
+                path: /healthz
                 port: 8000
               initialDelaySeconds: 30
               periodSeconds: 10
             readinessProbe:
               httpGet:
-                path: /
+                path: /healthz
                 port: 8000
               initialDelaySeconds: 10
               periodSeconds: 5
@@ -222,10 +222,6 @@ items:
           - name: applog
             persistentVolumeClaim:
               claimName: applog
-          initContainers:
-          - name: init-myservice
-            image: docker.io/curlimages/curl:8.5.0
-            command: ['sh', '-c', 'sleep 30; max_attempts=180; attempt=0; until /usr/bin/nc -z -w 1 mysql 3306 || [ $attempt -ge $max_attempts ]; do attempt=$((attempt+1)); echo "Attempt $attempt/$max_attempts: Trying to connect to mysql DB port"; sleep 5; done; if [ $attempt -ge $max_attempts ]; then echo "ERROR: Failed to connect to mysql after $max_attempts attempts"; exit 1; fi; echo "mysql DB port reachable"']
   - apiVersion: route.openshift.io/v1
     kind: Route
     metadata:
