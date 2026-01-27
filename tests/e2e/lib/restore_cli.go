@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"strings"
+	"time"
 
 	velero "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -166,8 +167,14 @@ func IsRestoreCompletedSuccessfullyViaCLI(name string) (bool, error) {
 	)
 }
 
-// DescribeRestoreViaCLI describes restore using the OADP CLI
+// DescribeRestoreViaCLI describes restore using the OADP CLI with default timeout and retry.
+// The timeout prevents the command from hanging when retrieving restore details from object storage.
 func DescribeRestoreViaCLI(name string) string {
+	return DescribeRestoreViaCLIWithOptions(name, DefaultCLITimeout, DefaultCLIRetries, DefaultCLIRetryDelay)
+}
+
+// DescribeRestoreViaCLIWithOptions describes restore using the OADP CLI with specified timeout and retry options.
+func DescribeRestoreViaCLIWithOptions(name string, timeout time.Duration, maxRetries int, retryDelay time.Duration) string {
 	// Use CLI to describe restore
 	cmd := &CLICommand{
 		Resource: "restore",
@@ -175,7 +182,16 @@ func DescribeRestoreViaCLI(name string) string {
 		Name:     name,
 		Options:  []string{"--details"},
 	}
-	output, err := cmd.Execute()
+
+	var output []byte
+	var err error
+
+	if maxRetries > 1 {
+		output, err = cmd.ExecuteWithTimeoutAndRetry(timeout, maxRetries, retryDelay)
+	} else {
+		output, err = cmd.ExecuteWithTimeout(timeout)
+	}
+
 	if err != nil {
 		return fmt.Sprintf("could not describe restore via CLI: %v, output: %s", err, string(output))
 	}
@@ -183,20 +199,41 @@ func DescribeRestoreViaCLI(name string) string {
 	return string(output)
 }
 
-// RestoreLogsViaCLI gets restore logs using the OADP CLI
+// RestoreLogsViaCLI gets restore logs using the OADP CLI with default timeout and retry.
+// The timeout prevents the command from hanging indefinitely when streaming logs from object storage.
+// Retry logic helps handle transient network issues.
 func RestoreLogsViaCLI(name string) (restoreLogs string, err error) {
+	return RestoreLogsViaCLIWithOptions(name, DefaultCLITimeout, DefaultCLIRetries, DefaultCLIRetryDelay)
+}
+
+// RestoreLogsViaCLIWithTimeout gets restore logs using the OADP CLI with a specified timeout (no retry).
+func RestoreLogsViaCLIWithTimeout(name string, timeout time.Duration) (restoreLogs string, err error) {
+	return RestoreLogsViaCLIWithOptions(name, timeout, 1, 0)
+}
+
+// RestoreLogsViaCLIWithOptions gets restore logs using the OADP CLI with specified timeout and retry options.
+func RestoreLogsViaCLIWithOptions(name string, timeout time.Duration, maxRetries int, retryDelay time.Duration) (restoreLogs string, err error) {
 	if name == "" {
 		return "", fmt.Errorf("restore name cannot be empty")
 	}
 
-	// Use CLI to get restore logs
+	// Use CLI to get restore logs with timeout and retry to prevent hanging
 	cmd := &CLICommand{
 		Resource: "restore",
 		Action:   "logs",
 		Name:     name,
 		Options:  []string{},
 	}
-	output, cmdErr := cmd.ExecuteOutput()
+
+	var output []byte
+	var cmdErr error
+
+	if maxRetries > 1 {
+		output, cmdErr = cmd.ExecuteOutputWithTimeoutAndRetry(timeout, maxRetries, retryDelay)
+	} else {
+		output, cmdErr = cmd.ExecuteOutputWithTimeout(timeout)
+	}
+
 	if cmdErr != nil {
 		return "", fmt.Errorf("failed to get restore logs via CLI: %v", cmdErr)
 	}
