@@ -1,12 +1,23 @@
 package lib
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"time"
+)
+
+// Default timeout for CLI commands that may hang (e.g., log streaming)
+const DefaultCLITimeout = 5 * time.Minute
+
+// Default retry settings for CLI commands
+const (
+	DefaultCLIRetries    = 3
+	DefaultCLIRetryDelay = 10 * time.Second
 )
 
 type CLICommand struct {
@@ -14,6 +25,7 @@ type CLICommand struct {
 	Action   string // "create", "get", "delete", etc.
 	Name     string
 	Options  []string
+	Timeout  time.Duration // Optional timeout for commands that may hang
 }
 
 func (c *CLICommand) Execute() ([]byte, error) {
@@ -38,6 +50,103 @@ func (c *CLICommand) ExecuteOutput() ([]byte, error) {
 	c.LogCLICommand()
 	cmd := exec.Command("kubectl", args...)
 	return cmd.Output()
+}
+
+// ExecuteWithTimeout executes the CLI command with a timeout.
+// If the timeout is exceeded, the command is killed and an error is returned.
+func (c *CLICommand) ExecuteWithTimeout(timeout time.Duration) ([]byte, error) {
+	args := []string{"oadp", c.Resource, c.Action}
+	if c.Name != "" {
+		args = append(args, c.Name)
+	}
+	args = append(args, c.Options...)
+
+	c.LogCLICommand()
+
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+
+	cmd := exec.CommandContext(ctx, "kubectl", args...)
+	output, err := cmd.CombinedOutput()
+
+	if ctx.Err() == context.DeadlineExceeded {
+		return output, fmt.Errorf("command timed out after %v: kubectl %s", timeout, strings.Join(args, " "))
+	}
+
+	return output, err
+}
+
+// ExecuteOutputWithTimeout executes the CLI command with a timeout and returns stdout only.
+// If the timeout is exceeded, the command is killed and an error is returned.
+func (c *CLICommand) ExecuteOutputWithTimeout(timeout time.Duration) ([]byte, error) {
+	args := []string{"oadp", c.Resource, c.Action}
+	if c.Name != "" {
+		args = append(args, c.Name)
+	}
+	args = append(args, c.Options...)
+
+	c.LogCLICommand()
+
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+
+	cmd := exec.CommandContext(ctx, "kubectl", args...)
+	output, err := cmd.Output()
+
+	if ctx.Err() == context.DeadlineExceeded {
+		return output, fmt.Errorf("command timed out after %v: kubectl %s", timeout, strings.Join(args, " "))
+	}
+
+	return output, err
+}
+
+// ExecuteOutputWithTimeoutAndRetry executes the CLI command with a timeout and retry logic.
+// It retries the command up to maxRetries times with a delay between attempts.
+// This is useful for commands that may fail due to transient issues (e.g., network problems).
+func (c *CLICommand) ExecuteOutputWithTimeoutAndRetry(timeout time.Duration, maxRetries int, retryDelay time.Duration) ([]byte, error) {
+	var lastErr error
+	var lastOutput []byte
+
+	for attempt := 1; attempt <= maxRetries; attempt++ {
+		output, err := c.ExecuteOutputWithTimeout(timeout)
+		if err == nil {
+			return output, nil
+		}
+
+		lastErr = err
+		lastOutput = output
+
+		if attempt < maxRetries {
+			log.Printf("CLI command failed (attempt %d/%d): %v. Retrying in %v...", attempt, maxRetries, err, retryDelay)
+			time.Sleep(retryDelay)
+		}
+	}
+
+	return lastOutput, fmt.Errorf("CLI command failed after %d attempts: %v", maxRetries, lastErr)
+}
+
+// ExecuteWithTimeoutAndRetry executes the CLI command with a timeout and retry logic.
+// It retries the command up to maxRetries times with a delay between attempts.
+func (c *CLICommand) ExecuteWithTimeoutAndRetry(timeout time.Duration, maxRetries int, retryDelay time.Duration) ([]byte, error) {
+	var lastErr error
+	var lastOutput []byte
+
+	for attempt := 1; attempt <= maxRetries; attempt++ {
+		output, err := c.ExecuteWithTimeout(timeout)
+		if err == nil {
+			return output, nil
+		}
+
+		lastErr = err
+		lastOutput = output
+
+		if attempt < maxRetries {
+			log.Printf("CLI command failed (attempt %d/%d): %v. Retrying in %v...", attempt, maxRetries, err, retryDelay)
+			time.Sleep(retryDelay)
+		}
+	}
+
+	return lastOutput, fmt.Errorf("CLI command failed after %d attempts: %v", maxRetries, lastErr)
 }
 
 func (c *CLICommand) LogCLICommand() {
