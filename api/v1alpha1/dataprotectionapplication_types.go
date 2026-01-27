@@ -54,7 +54,7 @@ const (
 
 const OadpOperatorLabel = "openshift.io/oadp"
 
-// +kubebuilder:validation:Enum=aws;legacy-aws;gcp;azure;csi;vsm;openshift;kubevirt;hypershift
+// +kubebuilder:validation:Enum=aws;legacy-aws;gcp;azure;csi;vsm;openshift;kubevirt;kubevirt-datamover;hypershift
 type DefaultPlugin string
 
 const DefaultPluginAWS DefaultPlugin = "aws"
@@ -65,6 +65,7 @@ const DefaultPluginCSI DefaultPlugin = "csi"
 const DefaultPluginVSM DefaultPlugin = "vsm"
 const DefaultPluginOpenShift DefaultPlugin = "openshift"
 const DefaultPluginKubeVirt DefaultPlugin = "kubevirt"
+const DefaultPluginKubeVirtDataMover DefaultPlugin = "kubevirt-datamover"
 const DefaultPluginHypershift DefaultPlugin = "hypershift"
 
 type CustomPlugin struct {
@@ -89,6 +90,7 @@ const OpenShiftPluginImageKey UnsupportedImageKey = "openshiftPluginImageFqin"
 const AzurePluginImageKey UnsupportedImageKey = "azurePluginImageFqin"
 const GCPPluginImageKey UnsupportedImageKey = "gcpPluginImageFqin"
 const KubeVirtPluginImageKey UnsupportedImageKey = "kubevirtPluginImageFqin"
+const KubeVirtDatamoverImageKey UnsupportedImageKey = "kubevirtDatamoverPluginImageFqin"
 const HypershiftPluginImageKey UnsupportedImageKey = "hypershiftPluginImageFqin"
 const NonAdminControllerImageKey UnsupportedImageKey = "nonAdminControllerImageFqin"
 const VMFileRestoreControllerImageKey UnsupportedImageKey = "vmFileRestoreControllerImageFqin"
@@ -879,6 +881,7 @@ type DataProtectionApplicationSpec struct {
 	//   - azurePluginImageFqin
 	//   - gcpPluginImageFqin
 	//   - kubevirtPluginImageFqin
+	//   - kubevirtDatamoverPluginImageFqin
 	//   - hypershiftPluginImageFqin
 	//   - nonAdminControllerImageFqin
 	//   - vmFileRestoreControllerImageFqin

@@ -78,6 +78,10 @@ var (
 			IsCloudProvider: false,
 			PluginName:      common.KubeVirtPlugin,
 		},
+		oadpv1alpha1.DefaultPluginKubeVirtDataMover: {
+			IsCloudProvider: false,
+			PluginName:      common.KubeVirtDatamoverPlugin,
+		},
 		oadpv1alpha1.DefaultPluginHypershift: {
 			IsCloudProvider: false,
 			PluginName:      common.HypershiftPlugin,
@@ -163,6 +167,16 @@ func getKubeVirtPluginImage(dpa *oadpv1alpha1.DataProtectionApplication) string 
 	return os.Getenv("RELATED_IMAGE_KUBEVIRT_VELERO_PLUGIN")
 }
 
+func getKubeVirtDatamoverPluginImage(dpa *oadpv1alpha1.DataProtectionApplication) string {
+	if dpa.Spec.UnsupportedOverrides[oadpv1alpha1.KubeVirtDatamoverImageKey] != "" {
+		return dpa.Spec.UnsupportedOverrides[oadpv1alpha1.KubeVirtDatamoverImageKey]
+	}
+	if os.Getenv("RELATED_IMAGE_KUBEVIRT_DATAMOVER_PLUGIN") == "" {
+		return common.KubeVirtDatamoverPluginImage
+	}
+	return os.Getenv("RELATED_IMAGE_KUBEVIRT_DATAMOVER_PLUGIN")
+}
+
 func getHypershiftPluginImage(dpa *oadpv1alpha1.DataProtectionApplication) string {
 	if dpa.Spec.UnsupportedOverrides[oadpv1alpha1.HypershiftPluginImageKey] != "" {
 		return dpa.Spec.UnsupportedOverrides[oadpv1alpha1.HypershiftPluginImageKey]
@@ -193,6 +207,9 @@ func GetPluginImage(defaultPlugin oadpv1alpha1.DefaultPlugin, dpa *oadpv1alpha1.
 
 	case oadpv1alpha1.DefaultPluginKubeVirt:
 		return getKubeVirtPluginImage(dpa)
+
+	case oadpv1alpha1.DefaultPluginKubeVirtDataMover:
+		return getKubeVirtDatamoverPluginImage(dpa)
 
 	case oadpv1alpha1.DefaultPluginHypershift:
 		return getHypershiftPluginImage(dpa)
