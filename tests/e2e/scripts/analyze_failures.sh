@@ -97,6 +97,8 @@ Read the log file and output a summary containing:
 
 5. **Correlation**: Group related errors together - if multiple errors reference the same resource (backup name, PVC, pod), keep them together with their context.
 
+6. **Source references**: When you find errors from Velero packages (pkg/backup/, pkg/restore/, pkg/controller/, pkg/nodeagent/), note the file:line references for later source code investigation.
+
 Format each error group as:
 --- [package/component name] ---
 [context lines from same package]
@@ -215,6 +217,14 @@ You are analyzing a failed OADP (OpenShift API for Data Protection) E2E test run
 4. **preprocessed-logs.txt**: Pre-extracted errors from large log files (>1MB)
    - Contains error summaries from large logs that were too big to analyze directly
    - Use this for quick access to relevant errors without reading full logs
+5. **Velero Source Code**: `/go/src/github.com/openshift/velero/`
+   - OpenShift's fork of Velero with OADP-specific patches
+   - Use to investigate error messages originating from Velero packages
+   - Key directories: `pkg/backup/`, `pkg/restore/`, `pkg/controller/`, `pkg/nodeagent/`
+6. **OADP Operator Source Code**: `/go/src/github.com/openshift/oadp-operator/`
+   - The OADP operator codebase being tested
+   - Key directories: `internal/controller/`, `pkg/`, `api/v1alpha1/`
+   - Use to investigate OADP-specific errors and reconciliation logic
 
 **Note**: Prow's build-log.txt is written by CI infrastructure after tests complete and is NOT available during this analysis. Use the artifacts listed above.
 
@@ -228,6 +238,35 @@ This file contains:
 - `errorIgnorePatterns` slice with strings that should be ignored in error analysis
 
 Cross-reference failures against these patterns before diagnosing as real failures.
+
+## Source Code Investigation
+
+When analyzing failures, use the source code to understand error origins:
+
+1. Locate the error message in the source code
+2. Trace the code path that led to the error
+3. Identify what conditions trigger the error
+4. Check if the error is recoverable, transient, or indicates a real bug
+5. Look for related error handling or retry logic
+
+### Velero Source (`/go/src/github.com/openshift/velero/`)
+
+Key Velero packages:
+- `pkg/backup/` - Backup workflow and item processing
+- `pkg/restore/` - Restore workflow and item processing
+- `pkg/controller/` - Kubernetes controllers for backup/restore CRs
+- `pkg/nodeagent/` - Node agent (restic/kopia) operations
+- `pkg/persistence/` - Object storage operations
+- `pkg/plugin/` - Plugin framework and built-in plugins
+
+### OADP Operator Source (`/go/src/github.com/openshift/oadp-operator/`)
+
+Key OADP packages:
+- `internal/controller/` - DPA reconciler and other controllers
+- `pkg/velero/` - Velero deployment and configuration
+- `pkg/credentials/` - Cloud credential management
+- `api/v1alpha1/` - CRD type definitions
+- `tests/e2e/lib/` - E2E test utilities and flake patterns
 
 ## Analysis Tasks
 
@@ -337,6 +376,27 @@ From must-gather analysis:
 2. Check if failures match existing GitHub issues
 3. Re-run flakes to confirm transient nature
 4. Investigate environmental issues in cluster/cloud provider
+
+## Must-Gather Improvement Suggestions
+
+If information was missing or incomplete during analysis, list what additional data would have helped:
+
+### Missing Data That Would Have Helped
+- <What was needed and why it would have helped diagnosis>
+- <Specific resource/log/metric that was missing>
+
+### Recommended Must-Gather Enhancements
+1. **<Category>**: <Specific improvement suggestion>
+   - Current gap: <What's missing>
+   - Suggested addition: <What to collect>
+   - Example: <Concrete example of the data needed>
+
+Examples of potential improvements:
+- Additional pod logs (e.g., init containers, sidecar containers)
+- Specific CRD status fields not currently captured
+- Cluster-level resources affecting OADP (NetworkPolicies, ResourceQuotas)
+- Timing/metrics data (pod startup times, API latencies)
+- Cloud provider specific diagnostics (S3 bucket policies, IAM roles)
 ```
 
 ## Important Guidelines
@@ -349,6 +409,9 @@ From must-gather analysis:
 - Cross-reference: Link similar failures across multiple tests
 - Prioritize: Put critical issues before warnings before flakes
 - Use preprocessed-logs.txt: Check this file first for errors from large log files
+- Must-gather feedback: When you cannot determine root cause due to missing information,
+  explicitly note what additional must-gather data would have helped. This feedback loop
+  improves future debugging capabilities.
 PROMPT_EOF
 
     # Count failed tests from JUnit (count individual test failures, not just suites)
@@ -389,9 +452,16 @@ Analyze these artifacts:
 2. Preprocessed log errors: ${ARTIFACT_DIR}/preprocessed-logs.txt (check this FIRST for large log summaries)
 3. Must-gather: ${ARTIFACT_DIR}/must-gather/
 4. Per-test failure directories: ${ARTIFACT_DIR}/*/
+5. Velero source code: /go/src/github.com/openshift/velero/
+6. OADP operator source code: /go/src/github.com/openshift/oadp-operator/
+
+When errors reference Velero or OADP packages, read the relevant source code to understand:
+- What conditions trigger the error
+- If there's retry logic that should have handled it
+- If this is a known limitation or edge case
 
 Note: Prow's build-log.txt is NOT available during this analysis (it's written after tests complete).
-Focus on JUnit results, preprocessed log summaries, must-gather diagnostics, and per-test pod logs.
+Focus on JUnit results, preprocessed log summaries, must-gather diagnostics, per-test pod logs, and source code investigation.
 
 Generate comprehensive failure analysis following the output format specified in the prompt.
 Focus on actionable insights and clear root cause identification.

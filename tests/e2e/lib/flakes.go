@@ -22,7 +22,9 @@ var errorIgnorePatterns = []string{
 	"level=error msg=\"error patch for managed fields ",
 	"VolumeSnapshot has a temporary error Failed to create snapshot: error updating status for volume snapshot content snapcontent-",
 	"Skipping hypershift plugin execution - not a hypershift backup: error checking for HostedControlPlane CRD",
-	"claim Selector is not supported",
+
+	// Data mover volume restore limitation per https://github.com/vmware-tanzu/velero/issues/7946#issuecomment-2196590014
+	"failed to restore volume with StorageClass, claim Selector is not supported",
 }
 
 type FlakePattern struct {

@@ -21,6 +21,12 @@ RUN curl -fsSL https://rpm.nodesource.com/setup_20.x | bash - && \
     npm install -g @anthropic-ai/claude-code && \
     dnf clean all
 
+# Clone openshift/velero source code for failure analysis
+# Uses oadp-dev branch to match OADP operator development
+RUN git clone --depth 1 --branch oadp-dev \
+    https://github.com/openshift/velero.git \
+    /go/src/github.com/openshift/velero
+
 RUN go mod download && \
     mkdir -p $(go env GOCACHE) && \
     chmod -R 777 ./ $(go env GOCACHE) $(go env GOPATH)
