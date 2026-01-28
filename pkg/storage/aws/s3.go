@@ -10,15 +10,24 @@ import (
 	"github.com/aws/aws-sdk-go/service/s3/s3manager"
 )
 
+// GetBucketRegionFunc is the function used to get bucket region.
+// It can be replaced in tests for mocking.
+var GetBucketRegionFunc = getBucketRegionImpl
+
 func BucketRegionIsDiscoverable(bucket string) bool {
-	_, err := GetBucketRegion(bucket)
+	_, err := GetBucketRegionFunc(bucket)
 	return err == nil
 }
 
 // GetBucketRegion returns the AWS region that a bucket is in, or an error
-// if the region cannot be determined.
-// copied from https://github.com/openshift/openshift-velero-plugin/pull/223/files#diff-da482ef606b3938b09ae46990a60eb0ad49ebfb4885eb1af327d90f215bf58b1
+// if the region cannot be determined. This is a wrapper that calls GetBucketRegionFunc.
 func GetBucketRegion(bucket string) (string, error) {
+	return GetBucketRegionFunc(bucket)
+}
+
+// getBucketRegionImpl is the actual implementation that calls AWS.
+// copied from https://github.com/openshift/openshift-velero-plugin/pull/223/files#diff-da482ef606b3938b09ae46990a60eb0ad49ebfb4885eb1af327d90f215bf58b1
+func getBucketRegionImpl(bucket string) (string, error) {
 	var region string
 
 	session, err := session.NewSession()
