@@ -12,6 +12,7 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/google/go-cmp/cmp"
 	oadpv1alpha1 "github.com/openshift/oadp-operator/api/v1alpha1"
+	"github.com/openshift/oadp-operator/pkg/storage/aws"
 	velerov1 "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -1482,6 +1483,15 @@ func TestDPAReconciler_ValidateBackupStorageLocations(t *testing.T) {
 			wantErr: true,
 		},
 	}
+	// Mock GetBucketRegionFunc to return a region for all buckets
+	originalGetBucketRegionFunc := aws.GetBucketRegionFunc
+	aws.GetBucketRegionFunc = func(bucket string) (string, error) {
+		// Return us-east-1 for any valid bucket name
+		// This simulates successful region discovery for test buckets
+		return "us-east-1", nil
+	}
+	defer func() { aws.GetBucketRegionFunc = originalGetBucketRegionFunc }()
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			fakeClient, err := getFakeClientFromObjects(tt.dpa, tt.secret)
