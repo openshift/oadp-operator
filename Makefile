@@ -389,6 +389,9 @@ ifneq ($(origin CATALOG_BASE_IMG), undefined)
 FROM_INDEX_OPT := --from-index $(CATALOG_BASE_IMG)
 endif
 
+# Catalog source name for deploy-olm
+CATALOG_SOURCE_NAME ?= oadp-operator-catalog
+
 # Build a catalog image by adding bundle images to an empty catalog using the operator package manager tool, 'opm'.
 # This recipe invokes 'opm' in 'semver' bundle add mode. For more information on add modes, see:
 # https://github.com/operator-framework/community-operators/blob/7f1438c/docs/packaging-operator.md#updating-your-existing-operator
@@ -535,28 +538,110 @@ OADP_TEST_NAMESPACE ?= openshift-adp
 .PHONY: deploy-olm
 deploy-olm: THIS_OPERATOR_IMAGE?=ttl.sh/oadp-operator-$(GIT_REV):$(TTL_DURATION) # Set target specific variable
 deploy-olm: THIS_BUNDLE_IMAGE?=ttl.sh/oadp-operator-bundle-$(GIT_REV):$(TTL_DURATION) # Set target specific variable
+deploy-olm: THIS_CATALOG_IMAGE?=ttl.sh/oadp-operator-catalog-$(GIT_REV):$(TTL_DURATION) # Set target specific variable
 deploy-olm: DEPLOY_TMP:=$(shell mktemp -d)/ # Set target specific variable
 deploy-olm: undeploy-olm ## Build current branch operator image, bundle image, push and install via OLM. For more information, check docs/developer/install_from_source.md
 	@make versions
 	@echo "DEPLOY_TMP: $(DEPLOY_TMP)"
-	# build and push operator and bundle image
-	# use $(OPERATOR_SDK) to install bundle to authenticated cluster
+	# build and push operator, bundle, and catalog images
 	cp -r . $(DEPLOY_TMP) && cd $(DEPLOY_TMP) && \
-	IMG=$(THIS_OPERATOR_IMAGE) BUNDLE_IMG=$(THIS_BUNDLE_IMAGE) \
-		make docker-build docker-push bundle bundle-build bundle-push; \
+	IMG=$(THIS_OPERATOR_IMAGE) BUNDLE_IMG=$(THIS_BUNDLE_IMAGE) BUNDLE_IMGS=$(THIS_BUNDLE_IMAGE) CATALOG_IMG=$(THIS_CATALOG_IMAGE) \
+		make docker-build docker-push bundle bundle-build bundle-push catalog-build catalog-push; \
 	chmod -R 777 $(DEPLOY_TMP) && rm -rf $(DEPLOY_TMP)
-	$(OPERATOR_SDK) run bundle --security-context-config restricted $(THIS_BUNDLE_IMAGE) --namespace $(OADP_TEST_NAMESPACE)
+	# Create CatalogSource with restricted security context
+	@echo "Creating CatalogSource $(CATALOG_SOURCE_NAME)..."
+	@echo -e "apiVersion: operators.coreos.com/v1alpha1\nkind: CatalogSource\nmetadata:\n  name: $(CATALOG_SOURCE_NAME)\n  namespace: $(OADP_TEST_NAMESPACE)\nspec:\n  sourceType: grpc\n  image: $(THIS_CATALOG_IMAGE)\n  displayName: OADP Operator Catalog\n  publisher: OADP Team\n  grpcPodConfig:\n    securityContextConfig: restricted" | $(OC_CLI) apply -f -
+	# Wait for CatalogSource to be ready
+	@echo "Waiting for CatalogSource to be ready..."
+	@timeout=120; \
+	while [ $$timeout -gt 0 ]; do \
+		STATE=$$($(OC_CLI) get catalogsource $(CATALOG_SOURCE_NAME) -n $(OADP_TEST_NAMESPACE) -o jsonpath='{.status.connectionState.lastObservedState}' 2>/dev/null); \
+		if [ "$$STATE" = "READY" ]; then \
+			echo "CatalogSource is ready"; \
+			break; \
+		fi; \
+		echo -n "."; \
+		sleep 2; \
+		timeout=$$((timeout-2)); \
+	done; \
+	if [ $$timeout -le 0 ]; then \
+		echo "Timeout waiting for CatalogSource"; \
+		$(OC_CLI) get catalogsource $(CATALOG_SOURCE_NAME) -n $(OADP_TEST_NAMESPACE) -o yaml; \
+		exit 1; \
+	fi
+	# Create OperatorGroup if not exists
+	@echo "Checking OperatorGroup..."
+	@OG_COUNT=$$($(OC_CLI) get operatorgroup -n $(OADP_TEST_NAMESPACE) --no-headers 2>/dev/null | wc -l | tr -d ' '); \
+	if [ "$$OG_COUNT" -eq "0" ]; then \
+		echo "Creating OperatorGroup..."; \
+		echo -e "apiVersion: operators.coreos.com/v1\nkind: OperatorGroup\nmetadata:\n  name: oadp-operator-group\n  namespace: $(OADP_TEST_NAMESPACE)\nspec:\n  targetNamespaces:\n    - $(OADP_TEST_NAMESPACE)" | $(OC_CLI) apply -f -; \
+	else \
+		echo "OperatorGroup already exists"; \
+	fi
+	# Create Subscription
+	@echo "Creating Subscription..."
+	@echo -e "apiVersion: operators.coreos.com/v1alpha1\nkind: Subscription\nmetadata:\n  name: oadp-operator\n  namespace: $(OADP_TEST_NAMESPACE)\nspec:\n  channel: $(DEFAULT_CHANNEL)\n  name: oadp-operator\n  source: $(CATALOG_SOURCE_NAME)\n  sourceNamespace: $(OADP_TEST_NAMESPACE)\n  installPlanApproval: Automatic" | $(OC_CLI) apply -f -
+	# Wait for operator to be ready
+	@echo "Waiting for InstallPlan to be created..."
+	@timeout=60; \
+	while [ $$timeout -gt 0 ]; do \
+		INSTALL_PLAN=$$($(OC_CLI) get subscription oadp-operator -n $(OADP_TEST_NAMESPACE) -o jsonpath='{.status.installPlanRef.name}' 2>/dev/null); \
+		if [ -n "$$INSTALL_PLAN" ]; then \
+			echo "InstallPlan $$INSTALL_PLAN found"; \
+			break; \
+		fi; \
+		echo -n "."; \
+		sleep 2; \
+		timeout=$$((timeout-2)); \
+	done; \
+	if [ $$timeout -le 0 ]; then \
+		echo "Timeout waiting for InstallPlan"; \
+		exit 1; \
+	fi
+	@echo "Waiting for CSV to exist..."
+	@timeout=120; \
+	CSV_NAME=""; \
+	while [ $$timeout -gt 0 ]; do \
+		CSV_NAME=$$($(OC_CLI) get subscription oadp-operator -n $(OADP_TEST_NAMESPACE) -o jsonpath='{.status.currentCSV}' 2>/dev/null); \
+		if [ -n "$$CSV_NAME" ]; then \
+			if $(OC_CLI) get csv/$$CSV_NAME -n $(OADP_TEST_NAMESPACE) >/dev/null 2>&1; then \
+				echo "CSV $$CSV_NAME found"; \
+				break; \
+			fi; \
+		fi; \
+		echo -n "."; \
+		sleep 2; \
+		timeout=$$((timeout-2)); \
+	done; \
+	if [ $$timeout -le 0 ]; then \
+		echo "Timeout waiting for CSV to exist"; \
+		exit 1; \
+	fi
+	@echo "Waiting for CSV to be ready..."
+	@CSV_NAME=$$($(OC_CLI) get subscription oadp-operator -n $(OADP_TEST_NAMESPACE) -o jsonpath='{.status.currentCSV}' 2>/dev/null); \
+	if [ -n "$$CSV_NAME" ]; then \
+		$(OC_CLI) wait --for=jsonpath='{.status.phase}'=Succeeded csv/$$CSV_NAME -n $(OADP_TEST_NAMESPACE) --timeout=300s; \
+	fi
+	@echo "Operator is ready!"
+	@$(OC_CLI) get subscription oadp-operator -n $(OADP_TEST_NAMESPACE)
+	@$(OC_CLI) get csv -n $(OADP_TEST_NAMESPACE)
 
 .PHONY: undeploy-olm
-undeploy-olm: login-required operator-sdk ## Uninstall current branch operator via OLM
+undeploy-olm: login-required ## Uninstall current branch operator via OLM
 	$(OC_CLI) whoami # Check if logged in
 	$(OC_CLI) create namespace $(OADP_TEST_NAMESPACE) || true
-	-$(OPERATOR_SDK) cleanup oadp-operator --namespace $(OADP_TEST_NAMESPACE) || true
-	# Also try to clean up any leftover resources
+	# Delete Subscription
 	-$(OC_CLI) delete subscription oadp-operator -n $(OADP_TEST_NAMESPACE) --ignore-not-found=true
-	-$(OC_CLI) get subscription -n $(OADP_TEST_NAMESPACE) -o name | xargs -I {} $(OC_CLI) get {} -n $(OADP_TEST_NAMESPACE) -o jsonpath='{.metadata.name}{"\t"}{.spec.source}{"\n"}' | grep "oadp-operator-catalog" | cut -f1 | xargs -I {} $(OC_CLI) delete subscription {} -n $(OADP_TEST_NAMESPACE) --ignore-not-found=true
+	# Delete any subscriptions using our catalog
+	-$(OC_CLI) get subscription -n $(OADP_TEST_NAMESPACE) -o name 2>/dev/null | xargs -I {} $(OC_CLI) get {} -n $(OADP_TEST_NAMESPACE) -o jsonpath='{.metadata.name}{"\t"}{.spec.source}{"\n"}' 2>/dev/null | grep "$(CATALOG_SOURCE_NAME)" | cut -f1 | xargs -I {} $(OC_CLI) delete subscription {} -n $(OADP_TEST_NAMESPACE) --ignore-not-found=true || true
+	# Delete CSV with OADP label
 	-$(OC_CLI) delete csv -l operators.coreos.com/oadp-operator.$(OADP_TEST_NAMESPACE) -n $(OADP_TEST_NAMESPACE) --ignore-not-found=true
-	-$(OC_CLI) delete catalogsource oadp-operator-catalog -n $(OADP_TEST_NAMESPACE) --ignore-not-found=true
+	# Delete any CSV starting with oadp-operator
+	-$(OC_CLI) get csv -n $(OADP_TEST_NAMESPACE) -o name 2>/dev/null | grep oadp-operator | xargs -I {} $(OC_CLI) delete {} -n $(OADP_TEST_NAMESPACE) --ignore-not-found=true || true
+	# Delete CatalogSource
+	-$(OC_CLI) delete catalogsource $(CATALOG_SOURCE_NAME) -n $(OADP_TEST_NAMESPACE) --ignore-not-found=true
+	# Delete OperatorGroup (only if we created it)
+	-$(OC_CLI) delete operatorgroup oadp-operator-group -n $(OADP_TEST_NAMESPACE) --ignore-not-found=true
 
 # Create subscription YAML helper function
 # Parameters:
@@ -568,9 +653,9 @@ create-sts-subscription = \
 	echo "  name: oadp-operator" >> $(1) && \
 	echo "  namespace: $(OADP_TEST_NAMESPACE)" >> $(1) && \
 	echo "spec:" >> $(1) && \
-	echo "  channel: operator-sdk-run-bundle" >> $(1) && \
+	echo "  channel: $(DEFAULT_CHANNEL)" >> $(1) && \
 	echo "  name: oadp-operator" >> $(1) && \
-	echo "  source: oadp-operator-catalog" >> $(1) && \
+	echo "  source: $(CATALOG_SOURCE_NAME)" >> $(1) && \
 	echo "  sourceNamespace: $(OADP_TEST_NAMESPACE)" >> $(1) && \
 	echo "  installPlanApproval: Automatic" >> $(1) && \
 	echo "  config:" >> $(1) && \
@@ -631,14 +716,14 @@ apply-sts-subscription = \
 .PHONY: deploy-olm-stsflow
 deploy-olm-stsflow: deploy-olm ## Deploy via OLM then uninstall CSV/Subscription and provide console URL for standardized flow
 	@echo "Uninstalling CSV and Subscription to trigger standardized flow UI..."
-	-$(OC_CLI) get subscription -n $(OADP_TEST_NAMESPACE) -o name | xargs -I {} $(OC_CLI) get {} -n $(OADP_TEST_NAMESPACE) -o jsonpath='{.metadata.name}{"\t"}{.spec.source}{"\n"}' | grep "oadp-operator-catalog" | cut -f1 | xargs -I {} $(OC_CLI) delete subscription {} -n $(OADP_TEST_NAMESPACE) --ignore-not-found=true
+	-$(OC_CLI) get subscription -n $(OADP_TEST_NAMESPACE) -o name 2>/dev/null | xargs -I {} $(OC_CLI) get {} -n $(OADP_TEST_NAMESPACE) -o jsonpath='{.metadata.name}{"\t"}{.spec.source}{"\n"}' 2>/dev/null | grep "$(CATALOG_SOURCE_NAME)" | cut -f1 | xargs -I {} $(OC_CLI) delete subscription {} -n $(OADP_TEST_NAMESPACE) --ignore-not-found=true || true
 	-$(OC_CLI) delete csv oadp-operator.v$(VERSION) -n $(OADP_TEST_NAMESPACE) --ignore-not-found=true
 	@echo ""
 	@echo "==========================================================================="
 	@echo "Open the following URL in your browser to trigger the standardized flow UI:"
 	@echo ""
 	@CONSOLE_URL=$$($(OC_CLI) get route console -n openshift-console -o jsonpath='{.spec.host}'); \
-	echo "https://$$CONSOLE_URL/operatorhub/ns/$(OADP_TEST_NAMESPACE)?keyword=oadp-operator&details-item=oadp-operator-oadp-operator-catalog-$(OADP_TEST_NAMESPACE)&channel=operator-sdk-run-bundle&version=$(VERSION)"
+	echo "https://$$CONSOLE_URL/operatorhub/ns/$(OADP_TEST_NAMESPACE)?keyword=oadp-operator&details-item=oadp-operator-$(CATALOG_SOURCE_NAME)-$(OADP_TEST_NAMESPACE)&channel=$(DEFAULT_CHANNEL)&version=$(VERSION)"
 	@echo ""
 	@echo "==========================================================================="
 
