@@ -954,6 +954,20 @@ endif
 		$(SED) -i "s%resources:%resources:\n- $$file_name%" $(shell pwd)/config/samples/kustomization.yaml;done
 	@make bundle
 
+.PHONY: update-kubevirt-datamover-manifests
+update-kubevirt-datamover-manifests: KUBEVIRT_DATAMOVER_CONTROLLER_IMG?=quay.io/konveyor/kubevirt-datamover-controller:latest
+update-kubevirt-datamover-manifests: yq ## Update KubeVirt Datamover Controller RBAC manifests shipped with OADP, from KUBEVIRT_DATAMOVER_PATH
+ifeq ($(KUBEVIRT_DATAMOVER_PATH),)
+	$(error You must set KUBEVIRT_DATAMOVER_PATH to run this command)
+endif
+	$(YQ) -i 'select(.kind == "Deployment")|= .spec.template.spec.containers[0].env |= .[] |= select(.name == "RELATED_IMAGE_KUBEVIRT_DATAMOVER_CONTROLLER") |= .value="$(KUBEVIRT_DATAMOVER_CONTROLLER_IMG)"' config/manager/manager.yaml
+	@mkdir -p $(shell pwd)/config/kubevirt-datamover-controller_rbac
+	@for file_name in $(shell grep -I '^\-' $(KUBEVIRT_DATAMOVER_PATH)/config/rbac/kustomization.yaml | awk -F'- ' '{print $$2}');do \
+		cp $(KUBEVIRT_DATAMOVER_PATH)/config/rbac/$$file_name $(shell pwd)/config/kubevirt-datamover-controller_rbac/$$file_name;done
+	@cp $(KUBEVIRT_DATAMOVER_PATH)/config/rbac/kustomization.yaml $(shell pwd)/config/kubevirt-datamover-controller_rbac/kustomization.yaml
+	@$(SED) -i '1i namePrefix: oadp-kubevirt-datamover-' $(shell pwd)/config/kubevirt-datamover-controller_rbac/kustomization.yaml
+	@make bundle
+
 .PHONY: build-must-gather
 build-must-gather: check-go ## Build OADP Must-gather binary must-gather/oadp-must-gather
 ifeq ($(SKIP_MUST_GATHER),true)
