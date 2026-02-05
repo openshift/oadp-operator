@@ -11,11 +11,11 @@ Taking a VolumeSnapshot and then using kopia to process the entire volume and co
 - Back up and restore VM volumes using kubevirt incremental backup instead of Velero's built-in CSI datamover
 - Use existing Velero infrastructure to integrate this feature into regular velero backup and restore
 - Implementation based on kubevirt enhancement defined at <https://github.com/kubevirt/enhancements/blob/main/veps/sig-storage/incremental-backup.md>
-  - There is a follow-on design PR at <https://github.com/kubevirt/enhancements/pull/126/changes> although this mainly discusses push-mode, which is out of scope for the current design.
+  - There is a follow-on design PR at <https://github.com/kubevirt/enhancements/pull/126/changes> although this mainly discusses pull-mode, which is out of scope for the current design.
 
 ## Non goals
 - Deep integration with velero data mover pluggability (this could be considered in the long-term though, which would minimize duplication of effort and enhance maintainability)
-- Using push mode with kubevirt.
+- Using pull mode with kubevirt.
 
 ## Use cases
 - As a user I want to use OADP to trigger backups that will back up volume data using kubevirt tooling rather than CSI snapshots
@@ -201,7 +201,8 @@ Per-Backup-oer-vm Manifest (manifests/<backup-name>/<vm-name>.json):
   - From the kubevirt enhancement: "Before the process begins, an estimation of the required backup size will be performed. If the provided PVC size is insufficient, an error will be returned"
   - If the PVC is too small, we need a clear error on the backup indicating that it failed due to insufficient PVC space.
   - Since controller is responsible for PVC creation rather than plugin, the controller may be able to respond to PVC too small errors by retrying with a larger PVC.
-- The kubevirt datamover controller will be responsible for deleting the `VirtualMachineBackup` resource once it's no longer needed. When should this happen? Upon velero backup deletion? This would enable debugging in the case of failed operations. If we delete it immediately, that will make troubleshooting more difficult. If on backup deletion, we'll need to write a `DeleteItemAction` plugin.
+  - [alitke] The safest approach is to create a PVC that is 5% larger than the combined size of all disks to be backed up.
+- The kubevirt datamover controller will be responsible for deleting the `VirtualMachineBackup` resource once it's no longer needed. When should this happen? Upon velero backup deletion? This would enable debugging in the case of failed operations. If we delete it immediately, that will make troubleshooting more difficult. If on backup deletion, we'll need to write a `DeleteItemAction` plugin.  [alitke] The VirtualMachineBackup resource should be deleted after the data mover has completed.  It no longer has any use and accumulating these on-cluster will harm usability.  Perhaps completed ones could be garbage collected by the KubeVirt DataMover Controller.
 - Do we need an option to force full backups? If we're always doing incremental, eventually the incremental backup list becomes really long, requiring applying possibly hundreds of incremental files for a single restore.
   - For initial release, we can add a force-full-virt-backup annotation on the velero backup. Longer-term, we can push for a general datamover feature in velero which could force full backups for both fs-backup and velero datamover if backup.Spec.ForceFullVolumeBackup is true, and once implemented, the qcow2 datamover can use this as well.
 
