@@ -49,135 +49,6 @@ items:
   - apiVersion: v1
     kind: Service
     metadata:
-      annotations:
-        template.openshift.io/expose-uri: mariadb://{.spec.clusterIP}:{.spec.ports[?(.name=="mysql")].port}
-      name: mysql
-      namespace: mysql-persistent
-      labels:
-        app: mysql
-        service: mysql
-    spec:
-      ports:
-      - protocol: TCP
-        name: mysql
-        port: 3306
-      selector:
-        app: mysql
-  - apiVersion: apps/v1
-    kind: Deployment
-    metadata:
-      annotations:
-        template.alpha.openshift.io/wait-for-ready: 'true'
-      name: mysql
-      namespace: mysql-persistent
-      labels:
-        e2e-app: "true"
-    spec:
-      selector:
-        matchLabels:
-          app: mysql
-      strategy:
-        type: Recreate
-      template:
-        metadata:
-          labels:
-            e2e-app: "true"
-            app: mysql
-            curl-tool: "true"
-        spec:
-          securityContext:
-            runAsNonRoot: true
-          serviceAccountName: mysql-persistent-sa
-          containers:
-          - image: registry.redhat.io/rhel8/mariadb-105:latest
-            name: mysql
-            securityContext:
-              privileged: false
-              allowPrivilegeEscalation: false
-              capabilities:
-                drop:
-                - ALL
-              seccompProfile:
-                type: RuntimeDefault
-            env:
-              - name: MYSQL_USER
-                value: changeme
-              - name: MYSQL_PASSWORD
-                value: changeme
-              - name: MYSQL_ROOT_PASSWORD
-                value: root
-              - name: MYSQL_DATABASE
-                value: todolist
-            ports:
-            - containerPort: 3306
-              name: mysql
-            resources:
-              limits:
-                memory: 512Mi
-            volumeMounts:
-            - name: mysql-data
-              mountPath: /var/lib/mysql
-            readinessProbe:
-              exec:
-                command:
-                - /usr/bin/timeout
-                - 1s
-                - /usr/bin/mysql
-                - $(MYSQL_DATABASE)
-                - -h
-                - 127.0.0.1
-                - -u$(MYSQL_USER)
-                - -p$(MYSQL_PASSWORD)
-                - -e
-                - SELECT 1
-              initialDelaySeconds: 10
-              periodSeconds: 5
-              timeoutSeconds: 2
-              failureThreshold: 3
-            livenessProbe:
-              exec:
-                command:
-                - /usr/bin/timeout
-                - 1s
-                - /usr/bin/mysql
-                - $(MYSQL_DATABASE)
-                - -h
-                - 127.0.0.1
-                - -u$(MYSQL_USER)
-                - -p$(MYSQL_PASSWORD)
-                - -e
-                - SELECT 1
-              initialDelaySeconds: 30
-              periodSeconds: 10
-              timeoutSeconds: 5
-              failureThreshold: 3
-            startupProbe:
-              exec:
-                command:
-                - /usr/bin/timeout
-                - 1s
-                - /usr/bin/mysql
-                - $(MYSQL_DATABASE)
-                - -h
-                - 127.0.0.1
-                - -u$(MYSQL_USER)
-                - -p$(MYSQL_PASSWORD)
-                - -e EXIT
-              initialDelaySeconds: 5
-              periodSeconds: 30
-              timeoutSeconds: 2
-              successThreshold: 1
-              failureThreshold: 40 # 40x30sec before restart pod
-          - image: registry.access.redhat.com/ubi9/ubi:latest
-            name: curl-tool
-            command: ["/bin/sleep", "infinity"]
-          volumes:
-          - name: mysql-data
-            persistentVolumeClaim:
-              claimName: mysql
-  - apiVersion: v1
-    kind: Service
-    metadata:
       name: todolist
       namespace: mysql-persistent
       labels:
@@ -216,15 +87,47 @@ items:
             service: todolist
             e2e-app: "true"
         spec:
+          securityContext:
+            runAsNonRoot: true
+          serviceAccountName: mysql-persistent-sa
           containers:
           - name: todolist
-            image: quay.io/migtools/oadp-ci-todolist-mariadb-go:latest
+            image: quay.io/migtools/oadp-ci-todolist-mariadb-go-testing:testing
+            securityContext:
+              privileged: false
+              allowPrivilegeEscalation: false
+              capabilities:
+                drop:
+                - ALL
+              seccompProfile:
+                type: RuntimeDefault
             env:
-              - name: foo
-                value: bar
+              - name: MYSQL_USER
+                value: changeme
+              - name: MYSQL_PASSWORD
+                value: changeme
+              - name: MYSQL_ROOT_PASSWORD
+                value: root
+              - name: MYSQL_DATABASE
+                value: todolist
             ports:
               - containerPort: 8000
                 protocol: TCP
+            resources:
+              limits:
+                memory: 512Mi
+            volumeMounts:
+            - name: mysql-data
+              mountPath: /var/lib/mysql/data
+            startupProbe:
+              httpGet:
+                path: /healthz
+                port: 8000
+              initialDelaySeconds: 10
+              periodSeconds: 5
+              timeoutSeconds: 5
+              successThreshold: 1
+              failureThreshold: 40
             livenessProbe:
               httpGet:
                 path: /healthz
@@ -237,6 +140,10 @@ items:
                 port: 8000
               initialDelaySeconds: 10
               periodSeconds: 5
+          volumes:
+          - name: mysql-data
+            persistentVolumeClaim:
+              claimName: mysql
   - apiVersion: route.openshift.io/v1
     kind: Route
     metadata:
