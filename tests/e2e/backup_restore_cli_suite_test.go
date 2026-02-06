@@ -270,14 +270,14 @@ var _ = ginkgo.Describe("Backup and restore tests via OADP CLI", ginkgo.Label("c
 				BackupTimeout:     20 * time.Minute,
 			},
 		}, nil),
-		ginkgo.PEntry("Mongo application CSI via CLI", ginkgo.FlakeAttempts(flakeAttempts), ApplicationBackupRestoreCase{
+		ginkgo.Entry("Mongo application CSI via CLI", ginkgo.FlakeAttempts(flakeAttempts), ApplicationBackupRestoreCase{
 			ApplicationTemplate: "./sample-applications/mongo-persistent/mongo-persistent-csi.yaml",
 			BackupRestoreCase: BackupRestoreCase{
 				Namespace:         "mongo-persistent",
 				Name:              "mongo-csi-cli-e2e",
 				BackupRestoreType: lib.CSI,
-				PreBackupVerify:   todoListReady(true, false, "mongo", "mongo"),
-				PostRestoreVerify: todoListReady(false, false, "mongo", "mongo"),
+				PreBackupVerify:   todoListReady(true, false, "todolist", "mongo"),
+				PostRestoreVerify: todoListReady(false, false, "todolist", "mongo"),
 				BackupTimeout:     20 * time.Minute,
 			},
 		}, nil),
@@ -303,14 +303,14 @@ var _ = ginkgo.Describe("Backup and restore tests via OADP CLI", ginkgo.Label("c
 				BackupTimeout:     20 * time.Minute,
 			},
 		}, nil),
-		ginkgo.PEntry("Mongo application DATAMOVER via CLI", ginkgo.FlakeAttempts(flakeAttempts), ApplicationBackupRestoreCase{
+		ginkgo.Entry("Mongo application DATAMOVER via CLI", ginkgo.FlakeAttempts(flakeAttempts), ApplicationBackupRestoreCase{
 			ApplicationTemplate: "./sample-applications/mongo-persistent/mongo-persistent-csi.yaml",
 			BackupRestoreCase: BackupRestoreCase{
 				Namespace:         "mongo-persistent",
 				Name:              "mongo-datamover-cli-e2e",
 				BackupRestoreType: lib.CSIDataMover,
-				PreBackupVerify:   todoListReady(true, false, "mongo", "mongo"),
-				PostRestoreVerify: todoListReady(false, false, "mongo", "mongo"),
+				PreBackupVerify:   todoListReady(true, false, "todolist", "mongo"),
+				PostRestoreVerify: todoListReady(false, false, "todolist", "mongo"),
 				BackupTimeout:     20 * time.Minute,
 			},
 		}, nil),
@@ -325,15 +325,15 @@ var _ = ginkgo.Describe("Backup and restore tests via OADP CLI", ginkgo.Label("c
 				BackupTimeout:     20 * time.Minute,
 			},
 		}, nil),
-		ginkgo.PEntry("Mongo application BlockDevice DATAMOVER via CLI", ginkgo.FlakeAttempts(flakeAttempts), ApplicationBackupRestoreCase{
+		ginkgo.Entry("Mongo application BlockDevice DATAMOVER via CLI", ginkgo.FlakeAttempts(flakeAttempts), ApplicationBackupRestoreCase{
 			ApplicationTemplate: "./sample-applications/mongo-persistent/mongo-persistent-block.yaml",
 			PvcSuffixName:       "-block-mode",
 			BackupRestoreCase: BackupRestoreCase{
 				Namespace:         "mongo-persistent",
 				Name:              "mongo-blockdevice-cli-e2e",
 				BackupRestoreType: lib.CSIDataMover,
-				PreBackupVerify:   todoListReady(true, false, "mongo", "mongo"),
-				PostRestoreVerify: todoListReady(false, false, "mongo", "mongo"),
+				PreBackupVerify:   todoListReady(true, false, "todolist", "mongo"),
+				PostRestoreVerify: todoListReady(false, false, "todolist", "mongo"),
 				BackupTimeout:     20 * time.Minute,
 			},
 		}, nil),
@@ -348,14 +348,14 @@ var _ = ginkgo.Describe("Backup and restore tests via OADP CLI", ginkgo.Label("c
 				BackupTimeout:     20 * time.Minute,
 			},
 		}, nil),
-		ginkgo.PEntry("Mongo application Native-Snapshots via CLI", ginkgo.FlakeAttempts(flakeAttempts), ginkgo.Label("aws", "azure", "gcp"), ApplicationBackupRestoreCase{
+		ginkgo.Entry("Mongo application Native-Snapshots via CLI", ginkgo.FlakeAttempts(flakeAttempts), ginkgo.Label("aws", "azure", "gcp"), ApplicationBackupRestoreCase{
 			ApplicationTemplate: "./sample-applications/mongo-persistent/mongo-persistent.yaml",
 			BackupRestoreCase: BackupRestoreCase{
 				Namespace:         "mongo-persistent",
 				Name:              "mongo-native-snapshots-cli-e2e",
 				BackupRestoreType: lib.NativeSnapshots,
-				PreBackupVerify:   todoListReady(true, false, "mongo", "mongo"),
-				PostRestoreVerify: todoListReady(false, false, "mongo", "mongo"),
+				PreBackupVerify:   todoListReady(true, false, "todolist", "mongo"),
+				PostRestoreVerify: todoListReady(false, false, "todolist", "mongo"),
 				BackupTimeout:     20 * time.Minute,
 			},
 		}, nil),
