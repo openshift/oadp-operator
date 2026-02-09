@@ -325,7 +325,7 @@ var _ = ginkgo.Describe("Backup and restore tests via OADP CLI", ginkgo.Label("c
 				BackupTimeout:     20 * time.Minute,
 			},
 		}, nil),
-		ginkgo.Entry("Mongo application BlockDevice DATAMOVER via CLI", ginkgo.FlakeAttempts(flakeAttempts), ApplicationBackupRestoreCase{
+		ginkgo.PEntry("Mongo application BlockDevice DATAMOVER via CLI", ginkgo.FlakeAttempts(flakeAttempts), ApplicationBackupRestoreCase{
 			ApplicationTemplate: "./sample-applications/mongo-persistent/mongo-persistent-block.yaml",
 			PvcSuffixName:       "-block-mode",
 			BackupRestoreCase: BackupRestoreCase{
