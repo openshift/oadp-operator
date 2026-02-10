@@ -36,7 +36,20 @@ func GetLeaderElectionConfig(restConfig *rest.Config, enabled bool) configv1.Lea
 			klog.Infof("infrastructure object status: %v", infra)
 			// check if the cluster is a SNO (Single Node Openshift) Cluster
 			if infra.ControlPlaneTopology == configv1.SingleReplicaTopologyMode {
-				return LeaderElectionSNOConfig(defaultLeaderElection)
+				// On SNO clusters, disable leader election entirely.
+				//
+				// Rationale:
+				// 1. SNO has only one node, so there's only ever one replica of the operator
+				// 2. Leader election provides no benefit with a single replica
+				// 3. During IBU (Image-Based Upgrade), leader election can cause significant
+				//    delays if the controller crashes - the new instance must wait for the
+				//    lease to expire (270s with previous SNO config)
+				// 4. Without leader election, the controller starts immediately on restart
+				//
+				// See: https://issues.redhat.com/browse/OADP-7419
+				klog.Info("SNO topology detected, disabling leader election")
+				defaultLeaderElection.Disable = true
+				return defaultLeaderElection
 			}
 		} else {
 			klog.Warningf("unable to get cluster infrastructure status, using HA cluster values for leader election: %v", err)
