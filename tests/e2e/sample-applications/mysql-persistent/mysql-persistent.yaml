@@ -89,18 +89,21 @@ items:
         spec:
           securityContext:
             runAsNonRoot: true
+            runAsUser: 27
+            runAsGroup: 27
+            fsGroup: 27
           serviceAccountName: mysql-persistent-sa
           containers:
           - name: todolist
             image: quay.io/migtools/oadp-ci-todolist-mariadb-go-testing:testing
             securityContext:
+              runAsUser: 27
+              runAsGroup: 27
               privileged: false
               allowPrivilegeEscalation: false
               capabilities:
                 drop:
                 - ALL
-              seccompProfile:
-                type: RuntimeDefault
             env:
               - name: MYSQL_USER
                 value: changeme
