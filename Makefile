@@ -47,7 +47,7 @@ IMAGE_TAG_BASE ?= openshift.io/oadp-operator
 BUNDLE_IMG ?= $(IMAGE_TAG_BASE)-bundle:v$(VERSION)
 
 # BUNDLE_GEN_FLAGS are the flags passed to the operator-sdk generate bundle command
-BUNDLE_GEN_FLAGS ?= -q --extra-service-accounts "velero,non-admin-controller,oadp-vm-file-restore-controller-manager" --overwrite --version $(VERSION) $(BUNDLE_METADATA_OPTS)
+BUNDLE_GEN_FLAGS ?= -q --extra-service-accounts "velero,non-admin-controller,oadp-vm-file-restore-controller-manager,oadp-kubevirt-datamover-controller-manager" --overwrite --version $(VERSION) $(BUNDLE_METADATA_OPTS)
 
 # USE_IMAGE_DIGESTS defines if images are resolved via tags or digests
 # You can enable this value if you would like to use SHA Based Digests
