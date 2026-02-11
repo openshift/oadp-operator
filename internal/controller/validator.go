@@ -359,6 +359,51 @@ func (r *DataProtectionApplicationReconciler) ValidateDataProtectionCR(log logr.
 		}
 	}
 
+	// validate kubevirt-datamover plugin enable
+	if r.checkKubevirtDatamoverEnabled() {
+		// Check for cluster-wide singleton enforcement
+		dpaList := &oadpv1alpha1.DataProtectionApplicationList{}
+		err = r.ClusterWideClient.List(r.Context, dpaList)
+		if err != nil {
+			return false, err
+		}
+		for _, dpa := range dpaList.Items {
+			if dpa.Namespace != r.NamespacedName.Namespace {
+				// Check if other DPA has kubevirt-datamover enabled
+				otherReconciler := &DataProtectionApplicationReconciler{dpa: &dpa}
+				if otherReconciler.checkKubevirtDatamoverEnabled() {
+					kubevirtDatamoverDeployment := &appsv1.Deployment{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      kubevirtDatamoverObjectName,
+							Namespace: dpa.Namespace,
+						},
+					}
+					if err := r.ClusterWideClient.Get(r.Context,
+						types.NamespacedName{Name: kubevirtDatamoverDeployment.Name, Namespace: kubevirtDatamoverDeployment.Namespace},
+						kubevirtDatamoverDeployment); err == nil {
+						return false, fmt.Errorf("only a single instance of KubeVirt DataMover Controller can be installed across the entire cluster. KubeVirt DataMover controller is already configured and installed in %s namespace", dpa.Namespace)
+					}
+				}
+			}
+		}
+
+		// Warn if kubevirt plugin not also configured (soft dependency)
+		hasKubevirtPlugin := false
+		if r.dpa.Spec.Configuration.Velero.DefaultPlugins != nil {
+			for _, plugin := range r.dpa.Spec.Configuration.Velero.DefaultPlugins {
+				if plugin == oadpv1alpha1.DefaultPluginKubeVirt {
+					hasKubevirtPlugin = true
+					break
+				}
+			}
+		}
+		if !hasKubevirtPlugin {
+			log.V(-1).Info("Warning: kubevirt-datamover plugin is enabled without kubevirt plugin")
+			r.EventRecorder.Event(r.dpa, corev1.EventTypeWarning, "KubevirtDatamoverWithoutKubevirtPlugin",
+				"kubevirt-datamover plugin is enabled but kubevirt plugin is not. Consider adding 'kubevirt' to spec.configuration.velero.defaultPlugins for full VM backup/restore functionality.")
+		}
+	}
+
 	return true, nil
 }
 
