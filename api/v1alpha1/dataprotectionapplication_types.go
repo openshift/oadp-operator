@@ -36,10 +36,11 @@ const ReconcileCompleteMessage = "Reconcile complete"
 
 // Readiness Conditions
 const (
-	ConditionVeleroReady        = "VeleroReady"
-	ConditionNodeAgentReady     = "NodeAgentReady"
-	ConditionNonAdminReady      = "NonAdminReady"
-	ConditionVMFileRestoreReady = "VMFileRestoreReady"
+	ConditionVeleroReady                     = "VeleroReady"
+	ConditionNodeAgentReady                  = "NodeAgentReady"
+	ConditionNonAdminReady                   = "NonAdminReady"
+	ConditionVMFileRestoreReady              = "VMFileRestoreReady"
+	ConditionKubevirtAnnotationsRemoverReady = "KubevirtAnnotationsRemoverReady"
 )
 
 // Readiness condition reasons
@@ -97,6 +98,7 @@ const VMFileRestoreControllerImageKey UnsupportedImageKey = "vmFileRestoreContro
 const VMFileRestoreAccessImageKey UnsupportedImageKey = "vmFileRestoreAccessImageFqin"
 const VMFileRestoreSSHImageKey UnsupportedImageKey = "vmFileRestoreSSHImageFqin"
 const VMFileRestoreBrowserImageKey UnsupportedImageKey = "vmFileRestoreBrowserImageFqin"
+const KubevirtAnnotationsRemoverImageKey UnsupportedImageKey = "kubevirtAnnotationsRemoverImageFqin"
 const OperatorTypeKey UnsupportedImageKey = "operator-type"
 
 const OperatorTypeMTC = "mtc"
@@ -771,6 +773,15 @@ type VMFileRestore struct {
 	Resources *corev1.ResourceRequirements `json:"resources,omitempty"`
 }
 
+// KubevirtAnnotationsRemover defines configuration for the webhook that removes
+// Velero backup hook annotations from KubeVirt virt-launcher pods
+type KubevirtAnnotationsRemover struct {
+	// Enable flag to deploy kubevirt-velero-annotations-remover webhook.
+	// By default is disabled
+	// +optional
+	Enable *bool `json:"enable,omitempty"`
+}
+
 // DataMover defines the various config for DPA data mover
 type DataMover struct {
 	// enable flag is used to specify whether you want to deploy the volume snapshot mover controller
@@ -888,6 +899,7 @@ type DataProtectionApplicationSpec struct {
 	//   - vmFileRestoreAccessImageFqin
 	//   - vmFileRestoreSSHImageFqin
 	//   - vmFileRestoreBrowserImageFqin
+	//   - kubevirtAnnotationsRemoverImageFqin
 	//   - operator-type
 	//   - tech-preview-ack
 	// +optional
@@ -933,6 +945,10 @@ type DataProtectionApplicationSpec struct {
 	// vmFileRestore defines the configuration for the DPA to enable VM file restore feature
 	// +optional
 	VMFileRestore *VMFileRestore `json:"vmFileRestore,omitempty"`
+	// kubevirtAnnotationsRemover defines the configuration for the webhook that removes
+	// Velero backup hook annotations from KubeVirt virt-launcher pods
+	// +optional
+	KubevirtAnnotationsRemover *KubevirtAnnotationsRemover `json:"kubevirtAnnotationsRemover,omitempty"`
 	// The format for log output. Valid values are text, json. (default text)
 	// +kubebuilder:validation:Enum=text;json
 	// +kubebuilder:default=text
