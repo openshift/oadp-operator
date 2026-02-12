@@ -16,7 +16,6 @@ better stability and maintainability.
 | OpenShift Version | OADP Version | Velero Version | Estimated Release Timeline [1]|
 |-------------------|--------------|----------------|-------------------------------|
 | 4.14              | 1.3, 1.4     | v1.12, v1.14   | released                      |
-| 4.15              | 1.3, 1.4     | v1.12, v1.14   | released                      |
 | 4.16              | 1.4          | v1.14          | released                      | 
 | 4.17              | 1.4          | v1.14          | released                      |
 | 4.18              | 1.4          | v1.14          | released                      |
