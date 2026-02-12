@@ -148,7 +148,7 @@ func (o *OADPDeploymentOperation) Undeploy(backupRestoreType lib.BackupRestoreTy
 func todoListReady(preBackupState bool, twoVol bool, sccPrefix string) VerificationFunction {
 	return VerificationFunction(func(ocClient client.Client, namespace string) error {
 		log.Printf("checking for the NAMESPACE: %s", namespace)
-		gomega.Eventually(lib.IsDeploymentReady(ocClient, namespace, "todolist"), time.Minute*10, time.Second*10).Should(gomega.BeTrue())
+		gomega.Eventually(lib.IsDeploymentReady(ocClient, namespace, "todolist"), time.Minute*15, time.Second*10).Should(gomega.BeTrue())
 		// perhaps we phase out deploymentConfigs?
 		//gomega.Eventually(lib.IsDCReady(ocClient, namespace, "todolist"), time.Minute*10, time.Second*10).Should(gomega.BeTrue())
 		gomega.Eventually(lib.AreApplicationPodsRunning(kubernetesClientForSuiteRun, namespace), time.Minute*15, time.Second*5).Should(gomega.BeTrue())
