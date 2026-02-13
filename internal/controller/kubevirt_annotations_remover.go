@@ -47,21 +47,21 @@ var (
 // webhook deployment, service, and MutatingWebhookConfiguration.
 func (r *DataProtectionApplicationReconciler) ReconcileKubevirtAnnotationsRemover(log logr.Logger) (bool, error) {
 	if !r.checkKubevirtAnnotationsRemoverEnabled() {
-		return r.cleanupKubevirtAnnotationsRemover(log)
+		return r.cleanupKubevirtAnnotationsRemover()
 	}
 
 	// Reconcile Service first (triggers TLS secret creation via OpenShift Service CA)
-	if err := r.reconcileKubevirtAnnotationsRemoverService(log); err != nil {
+	if err := r.reconcileKubevirtAnnotationsRemoverService(); err != nil {
 		return false, err
 	}
 
 	// Reconcile Deployment
-	if err := r.reconcileKubevirtAnnotationsRemoverDeployment(log); err != nil {
+	if err := r.reconcileKubevirtAnnotationsRemoverDeployment(); err != nil {
 		return false, err
 	}
 
 	// Reconcile MutatingWebhookConfiguration (cluster-scoped)
-	if err := r.reconcileKubevirtAnnotationsRemoverWebhook(log); err != nil {
+	if err := r.reconcileKubevirtAnnotationsRemoverWebhook(); err != nil {
 		return false, err
 	}
 
@@ -69,7 +69,7 @@ func (r *DataProtectionApplicationReconciler) ReconcileKubevirtAnnotationsRemove
 }
 
 // cleanupKubevirtAnnotationsRemover removes all resources when the feature is disabled.
-func (r *DataProtectionApplicationReconciler) cleanupKubevirtAnnotationsRemover(log logr.Logger) (bool, error) {
+func (r *DataProtectionApplicationReconciler) cleanupKubevirtAnnotationsRemover() (bool, error) {
 	// Delete MutatingWebhookConfiguration (cluster-scoped, must be deleted by name)
 	webhookConfig := &admissionregistrationv1.MutatingWebhookConfiguration{}
 	if err := r.Get(
@@ -179,7 +179,7 @@ func (r *DataProtectionApplicationReconciler) cleanupKubevirtAnnotationsRemover(
 
 // reconcileKubevirtAnnotationsRemoverService creates or updates the Service
 // with OpenShift Service CA annotation for TLS certificate generation.
-func (r *DataProtectionApplicationReconciler) reconcileKubevirtAnnotationsRemoverService(log logr.Logger) error {
+func (r *DataProtectionApplicationReconciler) reconcileKubevirtAnnotationsRemoverService() error {
 	svc := &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      kubevirtAnnotationsRemoverName,
@@ -236,7 +236,7 @@ func (r *DataProtectionApplicationReconciler) reconcileKubevirtAnnotationsRemove
 }
 
 // reconcileKubevirtAnnotationsRemoverDeployment creates or updates the webhook Deployment.
-func (r *DataProtectionApplicationReconciler) reconcileKubevirtAnnotationsRemoverDeployment(log logr.Logger) error {
+func (r *DataProtectionApplicationReconciler) reconcileKubevirtAnnotationsRemoverDeployment() error {
 	deployment := &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      kubevirtAnnotationsRemoverName,
@@ -404,7 +404,7 @@ func (r *DataProtectionApplicationReconciler) buildKubevirtAnnotationsRemoverDep
 // reconcileKubevirtAnnotationsRemoverWebhook creates or updates the MutatingWebhookConfiguration.
 // This is a cluster-scoped resource, so it cannot have an owner reference to the namespace-scoped DPA.
 // Instead, it is managed by label-based tracking with a fixed name.
-func (r *DataProtectionApplicationReconciler) reconcileKubevirtAnnotationsRemoverWebhook(log logr.Logger) error {
+func (r *DataProtectionApplicationReconciler) reconcileKubevirtAnnotationsRemoverWebhook() error {
 	webhookConfig := &admissionregistrationv1.MutatingWebhookConfiguration{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: kubevirtAnnotationsRemoverName,
