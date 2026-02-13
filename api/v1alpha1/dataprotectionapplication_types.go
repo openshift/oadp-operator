@@ -446,8 +446,8 @@ type RuledConfigs struct {
 	Number int `json:"number"`
 }
 
-// Below struct should be same as:
-// https://github.com/openshift/velero/blob/584cf1148a746838ee67aa27e3e4e0ded1f5c069/pkg/nodeagent/node_agent.go#L90-L105
+// Below struct should mirror upstream Velero's NodeAgentConfigs.
+// Fields and JSON tags must match: https://github.com/vmware-tanzu/velero/blob/main/pkg/types/node_agent.go
 
 // NodeAgentConfigMapSettings is the config for node-agent
 type NodeAgentConfigMapSettings struct {
@@ -469,6 +469,12 @@ type NodeAgentConfigMapSettings struct {
 	// PodResources is the resource config for various types of pods launched by node-agent, i.e., data mover pods.
 	// +optional
 	PodResources *kube.PodResources `json:"podResources,omitempty"`
+	// CachePVCConfig configures a dedicated PVC for Kopia repository cache during restore operations.
+	// When set, cache data is stored on a provisioned PVC instead of the pod's root filesystem,
+	// preventing ephemeral storage exhaustion on nodes during concurrent restores.
+	// If storageClass is omitted, the cluster's default StorageClass is used.
+	// +optional
+	CachePVCConfig *types.CachePVC `json:"cachePVC,omitempty"`
 }
 
 // DeepCopyInto is a manual deepcopy function, copying the receiver, writing into out. in must be non-nil.
@@ -517,6 +523,11 @@ func (in *NodeAgentConfigMapSettings) DeepCopyInto(out *NodeAgentConfigMapSettin
 	if in.PodResources != nil {
 		in, out := &in.PodResources, &out.PodResources
 		*out = new(kube.PodResources)
+		**out = **in
+	}
+	if in.CachePVCConfig != nil {
+		in, out := &in.CachePVCConfig, &out.CachePVCConfig
+		*out = new(types.CachePVC)
 		**out = **in
 	}
 }
