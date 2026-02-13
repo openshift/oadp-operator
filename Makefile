@@ -4,7 +4,7 @@ DEFAULT_VERSION := 99.0.0
 VERSION ?= $(DEFAULT_VERSION) # the version of the operator
 OPERATOR_SDK_VERSION ?= v1.35.0
 ENVTEST_K8S_VERSION = 1.32 #refers to the version of kubebuilder assets to be downloaded by envtest binary # Kubernetes version from OpenShift 4.19.x
-GOLANGCI_LINT_VERSION ?= v2.6.1
+GOLANGCI_LINT_VERSION ?= v2.9.0
 KUSTOMIZE_VERSION ?= v5.2.1
 CONTROLLER_TOOLS_VERSION ?= v0.16.5
 OPM_VERSION ?= v1.23.0
@@ -472,7 +472,7 @@ TMP_DIR=$$(mktemp -d) ;\
 cd $$TMP_DIR ;\
 go mod init tmp ;\
 echo "Downloading $(2) to branch directory" ;\
-GOBIN=$(dir $(1)) go install -mod=mod $(2) ;\
+GOBIN=$(dir $(1)) go install -a -mod=mod $(2) ;\
 rm -rf $$TMP_DIR ;\
 }
 endef

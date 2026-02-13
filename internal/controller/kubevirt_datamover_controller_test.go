@@ -39,9 +39,9 @@ func createTestKubevirtDatamoverDeployment(namespace string) *appsv1.Deployment 
 			Name:      kubevirtDatamoverObjectName,
 			Namespace: namespace,
 			Labels: map[string]string{
-				"test":                            "test",
-				"app.kubernetes.io/name":          "wrong",
-				kubevirtDatamoverControlPlaneKey:  "super-wrong",
+				"test":                           "test",
+				"app.kubernetes.io/name":         "wrong",
+				kubevirtDatamoverControlPlaneKey: "super-wrong",
 			},
 		},
 		Spec: appsv1.DeploymentSpec{
