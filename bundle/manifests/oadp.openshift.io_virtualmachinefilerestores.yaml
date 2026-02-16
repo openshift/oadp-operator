@@ -23,9 +23,6 @@ spec:
     - jsonPath: .spec.backupsDiscoveryRef
       name: Discovery
       type: string
-    - jsonPath: .status.fileServingInfo.podName
-      name: Pod
-      type: string
     name: v1alpha1
     schema:
       openAPIV3Schema:
