@@ -62,6 +62,13 @@ func (r *DataProtectionApplicationReconciler) updateReadinessConditions() (bool,
 	}
 	allReady = allReady && vmfrReady
 
+	// Check KubevirtDatamover (optional - only if enabled)
+	kdmReady, err := r.updateKubevirtDatamoverReadinessCondition()
+	if err != nil {
+		return false, err
+	}
+	allReady = allReady && kdmReady
+
 	return allReady, nil
 }
 
@@ -279,6 +286,62 @@ func (r *DataProtectionApplicationReconciler) updateVMFileRestoreReadinessCondit
 			Status:  metav1.ConditionFalse,
 			Reason:  oadpv1alpha1.ReasonDeploymentNotReady,
 			Message: fmt.Sprintf("VM File Restore controller not ready: %d/%d replicas ready", deployment.Status.ReadyReplicas, replicas),
+		})
+	}
+
+	return isReady, nil
+}
+
+func (r *DataProtectionApplicationReconciler) updateKubevirtDatamoverReadinessCondition() (bool, error) {
+	// If plugin not enabled, mark as disabled (which counts as ready)
+	if !r.checkKubevirtDatamoverEnabled() {
+		apimeta.SetStatusCondition(&r.dpa.Status.Conditions, metav1.Condition{
+			Type:    oadpv1alpha1.ConditionKubevirtDatamoverReady,
+			Status:  metav1.ConditionTrue,
+			Reason:  oadpv1alpha1.ReasonComponentDisabled,
+			Message: "KubeVirt DataMover controller is disabled",
+		})
+		return true, nil
+	}
+
+	deployment := &appsv1.Deployment{}
+	err := r.Get(r.Context, types.NamespacedName{
+		Name:      kubevirtDatamoverObjectName,
+		Namespace: r.dpa.Namespace,
+	}, deployment)
+
+	if err != nil {
+		if k8serror.IsNotFound(err) {
+			apimeta.SetStatusCondition(&r.dpa.Status.Conditions, metav1.Condition{
+				Type:    oadpv1alpha1.ConditionKubevirtDatamoverReady,
+				Status:  metav1.ConditionFalse,
+				Reason:  oadpv1alpha1.ReasonComponentNotFound,
+				Message: "KubeVirt DataMover controller deployment not found",
+			})
+			return false, nil
+		}
+		return false, err
+	}
+
+	replicas := int32(1)
+	if deployment.Spec.Replicas != nil {
+		replicas = *deployment.Spec.Replicas
+	}
+	isReady := deployment.Status.ReadyReplicas >= 1 && deployment.Status.ReadyReplicas == replicas
+
+	if isReady {
+		apimeta.SetStatusCondition(&r.dpa.Status.Conditions, metav1.Condition{
+			Type:    oadpv1alpha1.ConditionKubevirtDatamoverReady,
+			Status:  metav1.ConditionTrue,
+			Reason:  oadpv1alpha1.ReasonDeploymentReady,
+			Message: fmt.Sprintf("KubeVirt DataMover controller ready: %d/%d replicas", deployment.Status.ReadyReplicas, replicas),
+		})
+	} else {
+		apimeta.SetStatusCondition(&r.dpa.Status.Conditions, metav1.Condition{
+			Type:    oadpv1alpha1.ConditionKubevirtDatamoverReady,
+			Status:  metav1.ConditionFalse,
+			Reason:  oadpv1alpha1.ReasonDeploymentNotReady,
+			Message: fmt.Sprintf("KubeVirt DataMover controller not ready: %d/%d replicas ready", deployment.Status.ReadyReplicas, replicas),
 		})
 	}
 

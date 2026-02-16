@@ -36,10 +36,11 @@ const ReconcileCompleteMessage = "Reconcile complete"
 
 // Readiness Conditions
 const (
-	ConditionVeleroReady        = "VeleroReady"
-	ConditionNodeAgentReady     = "NodeAgentReady"
-	ConditionNonAdminReady      = "NonAdminReady"
-	ConditionVMFileRestoreReady = "VMFileRestoreReady"
+	ConditionVeleroReady            = "VeleroReady"
+	ConditionNodeAgentReady         = "NodeAgentReady"
+	ConditionNonAdminReady          = "NonAdminReady"
+	ConditionVMFileRestoreReady     = "VMFileRestoreReady"
+	ConditionKubevirtDatamoverReady = "KubevirtDatamoverReady"
 )
 
 // Readiness condition reasons
