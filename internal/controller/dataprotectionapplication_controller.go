@@ -116,6 +116,7 @@ func (r *DataProtectionApplicationReconciler) Reconcile(ctx context.Context, req
 		r.ReconcileNonAdminController,
 		r.ReconcileVMFileRestoreController,
 		r.ReconcileKubevirtAnnotationsRemover,
+		r.ReconcileKubevirtDatamoverController,
 	)
 
 	if err != nil {

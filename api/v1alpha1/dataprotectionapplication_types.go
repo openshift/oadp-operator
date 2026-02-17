@@ -41,6 +41,7 @@ const (
 	ConditionNonAdminReady                   = "NonAdminReady"
 	ConditionVMFileRestoreReady              = "VMFileRestoreReady"
 	ConditionKubevirtAnnotationsRemoverReady = "KubevirtAnnotationsRemoverReady"
+	ConditionKubevirtDatamoverReady          = "KubevirtDatamoverReady"
 )
 
 // Readiness condition reasons

@@ -2584,6 +2584,129 @@ func TestDPAReconciler_ValidateDataProtectionCR(t *testing.T) {
 			},
 			wantErr: false,
 		},
+		{
+			name: "Single DPA with kubevirt-datamover enabled - success",
+			dpa: &oadpv1alpha1.DataProtectionApplication{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-DPA-CR",
+					Namespace: "test-ns",
+				},
+				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
+					Configuration: &oadpv1alpha1.ApplicationConfig{
+						Velero: &oadpv1alpha1.VeleroConfig{
+							DefaultPlugins: []oadpv1alpha1.DefaultPlugin{
+								oadpv1alpha1.DefaultPluginKubeVirtDataMover,
+							},
+							NoDefaultBackupLocation: true,
+						},
+					},
+					BackupImages: ptr.To(false),
+				},
+			},
+			objects: []client.Object{},
+			wantErr: false,
+		},
+		{
+			name: "Multiple DPAs with kubevirt-datamover in different namespaces with deployment - error",
+			dpa: &oadpv1alpha1.DataProtectionApplication{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-DPA-CR",
+					Namespace: "test-ns",
+				},
+				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
+					Configuration: &oadpv1alpha1.ApplicationConfig{
+						Velero: &oadpv1alpha1.VeleroConfig{
+							DefaultPlugins: []oadpv1alpha1.DefaultPlugin{
+								oadpv1alpha1.DefaultPluginKubeVirtDataMover,
+							},
+							NoDefaultBackupLocation: true,
+						},
+					},
+					BackupImages: ptr.To(false),
+				},
+			},
+			objects: []client.Object{
+				&oadpv1alpha1.DataProtectionApplication{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "another-DPA-CR",
+						Namespace: "test-another-ns",
+					},
+					Spec: oadpv1alpha1.DataProtectionApplicationSpec{
+						Configuration: &oadpv1alpha1.ApplicationConfig{
+							Velero: &oadpv1alpha1.VeleroConfig{
+								DefaultPlugins: []oadpv1alpha1.DefaultPlugin{
+									oadpv1alpha1.DefaultPluginKubeVirtDataMover,
+								},
+							},
+						},
+					},
+				},
+				&appsv1.Deployment{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "oadp-kubevirt-datamover-controller-manager",
+						Namespace: "test-another-ns",
+					},
+					Spec: appsv1.DeploymentSpec{
+						Selector: &metav1.LabelSelector{
+							MatchLabels: map[string]string{"app": "kdm"},
+						},
+						Template: corev1.PodTemplateSpec{
+							ObjectMeta: metav1.ObjectMeta{
+								Labels: map[string]string{"app": "kdm"},
+							},
+							Spec: corev1.PodSpec{
+								Containers: []corev1.Container{{
+									Name:  "manager",
+									Image: "kdm:latest",
+								}},
+							},
+						},
+					},
+				},
+			},
+			wantErr:    true,
+			messageErr: "only a single instance of KubeVirt DataMover Controller can be installed across the entire cluster. KubeVirt DataMover controller is already configured and installed in test-another-ns namespace",
+		},
+		{
+			name: "Multiple DPAs with kubevirt-datamover, no deployment - allowed",
+			dpa: &oadpv1alpha1.DataProtectionApplication{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-DPA-CR",
+					Namespace: "test-ns",
+				},
+				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
+					Configuration: &oadpv1alpha1.ApplicationConfig{
+						Velero: &oadpv1alpha1.VeleroConfig{
+							DefaultPlugins: []oadpv1alpha1.DefaultPlugin{
+								oadpv1alpha1.DefaultPluginKubeVirtDataMover,
+							},
+							NoDefaultBackupLocation: true,
+						},
+					},
+					BackupImages: ptr.To(false),
+				},
+			},
+			objects: []client.Object{
+				&oadpv1alpha1.DataProtectionApplication{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "another-DPA-CR",
+						Namespace: "test-another-ns",
+					},
+					Spec: oadpv1alpha1.DataProtectionApplicationSpec{
+						Configuration: &oadpv1alpha1.ApplicationConfig{
+							Velero: &oadpv1alpha1.VeleroConfig{
+								DefaultPlugins: []oadpv1alpha1.DefaultPlugin{
+									oadpv1alpha1.DefaultPluginKubeVirtDataMover,
+								},
+								NoDefaultBackupLocation: true,
+							},
+						},
+						BackupImages: ptr.To(false),
+					},
+				},
+			},
+			wantErr: false,
+		},
 	}
 	for _, tt := range tests {
 		tt.objects = append(tt.objects, tt.dpa)
@@ -3106,6 +3229,119 @@ func TestVMFileRestoreValidation(t *testing.T) {
 				}
 				if !valid {
 					t.Errorf("ValidateDataProtectionCR() = %v, want true", valid)
+				}
+			}
+		})
+	}
+}
+
+func TestValidateDataProtectionCR_KubevirtDatamoverWarning(t *testing.T) {
+	tests := []struct {
+		name                string
+		dpa                 *oadpv1alpha1.DataProtectionApplication
+		expectWarning       bool
+		expectedEventReason string
+	}{
+		{
+			name: "Kubevirt-datamover without kubevirt plugin - warning emitted",
+			dpa: &oadpv1alpha1.DataProtectionApplication{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-DPA-CR",
+					Namespace: "test-ns",
+				},
+				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
+					Configuration: &oadpv1alpha1.ApplicationConfig{
+						Velero: &oadpv1alpha1.VeleroConfig{
+							DefaultPlugins: []oadpv1alpha1.DefaultPlugin{
+								oadpv1alpha1.DefaultPluginAWS,
+								oadpv1alpha1.DefaultPluginKubeVirtDataMover,
+							},
+							NoDefaultBackupLocation: true,
+						},
+					},
+					BackupImages: ptr.To(false),
+				},
+			},
+			expectWarning:       true,
+			expectedEventReason: "KubevirtDatamoverWithoutKubevirtPlugin",
+		},
+		{
+			name: "Kubevirt-datamover with kubevirt plugin - no warning",
+			dpa: &oadpv1alpha1.DataProtectionApplication{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-DPA-CR",
+					Namespace: "test-ns",
+				},
+				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
+					Configuration: &oadpv1alpha1.ApplicationConfig{
+						Velero: &oadpv1alpha1.VeleroConfig{
+							DefaultPlugins: []oadpv1alpha1.DefaultPlugin{
+								oadpv1alpha1.DefaultPluginKubeVirt,
+								oadpv1alpha1.DefaultPluginKubeVirtDataMover,
+							},
+							NoDefaultBackupLocation: true,
+						},
+					},
+					BackupImages: ptr.To(false),
+				},
+			},
+			expectWarning: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			objects := []client.Object{tt.dpa}
+			fakeClient, err := getFakeClientFromObjects(objects...)
+			if err != nil {
+				t.Fatalf("error in creating fake client: %v", err)
+			}
+
+			eventRecorder := record.NewFakeRecorder(10)
+			r := &DataProtectionApplicationReconciler{
+				Client:            fakeClient,
+				ClusterWideClient: fakeClient,
+				Scheme:            fakeClient.Scheme(),
+				Log:               logr.Discard(),
+				Context:           newContextForTest(),
+				NamespacedName: types.NamespacedName{
+					Namespace: tt.dpa.Namespace,
+					Name:      tt.dpa.Name,
+				},
+				dpa:           tt.dpa,
+				EventRecorder: eventRecorder,
+			}
+
+			_, err = r.ValidateDataProtectionCR(r.Log)
+			if err != nil {
+				t.Errorf("ValidateDataProtectionCR() unexpected error = %v", err)
+				return
+			}
+
+			// Check for warning event
+			if tt.expectWarning {
+				select {
+				case event := <-eventRecorder.Events:
+					if !strings.Contains(event, "Warning") {
+						t.Errorf("expected Warning event type, got: %s", event)
+					}
+					if !strings.Contains(event, tt.expectedEventReason) {
+						t.Errorf("expected event reason '%s', got: %s", tt.expectedEventReason, event)
+					}
+					if !strings.Contains(event, "kubevirt plugin") {
+						t.Errorf("expected event message to mention kubevirt plugin dependency, got: %s", event)
+					}
+				default:
+					t.Error("expected warning event but none was emitted")
+				}
+			} else {
+				select {
+				case event := <-eventRecorder.Events:
+					if strings.Contains(event, "KubevirtDatamoverWithoutKubevirtPlugin") {
+						t.Errorf("unexpected warning event emitted: %s", event)
+					}
+				default:
+					// No event is expected, this is correct
 				}
 			}
 		})

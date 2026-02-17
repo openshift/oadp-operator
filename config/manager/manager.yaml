@@ -100,6 +100,8 @@ spec:
               value: quay.io/migtools/kubevirt-velero-annotations-remover-go:latest
             - name: RELATED_IMAGE_CONSOLE_CLI_DOWNLOAD
               value: quay.io/konveyor/oadp-cli-binaries:latest
+            - name: RELATED_IMAGE_KUBEVIRT_DATAMOVER_CONTROLLER
+              value: quay.io/konveyor/kubevirt-datamover-controller:latest
           args:
             - --leader-elect
           image: controller:latest

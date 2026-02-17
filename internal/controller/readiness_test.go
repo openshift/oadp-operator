@@ -94,6 +94,11 @@ var _ = ginkgo.Describe("Test Readiness Conditions", func() {
 			_ = k8sClient.Delete(ctx, vmfrDeployment)
 		}
 
+		kdmDeployment := &appsv1.Deployment{}
+		if k8sClient.Get(ctx, types.NamespacedName{Name: kubevirtDatamoverObjectName, Namespace: nsName}, kdmDeployment) == nil {
+			_ = k8sClient.Delete(ctx, kdmDeployment)
+		}
+
 		if dpa != nil {
 			_ = k8sClient.Delete(ctx, dpa)
 		}
@@ -363,6 +368,86 @@ var _ = ginkgo.Describe("Test Readiness Conditions", func() {
 		})
 	})
 
+	ginkgo.Context("KubevirtDatamover Readiness", func() {
+		ginkgo.It("should return true when kubevirt-datamover is disabled", func() {
+			namespace, dpa, r := createTestResources("readiness-kdm-1", "dpa-kdm-1")
+			defer cleanupTestResources("readiness-kdm-1", namespace, dpa)
+
+			isReady, err := r.updateKubevirtDatamoverReadinessCondition()
+			gomega.Expect(err).NotTo(gomega.HaveOccurred())
+			gomega.Expect(isReady).To(gomega.BeTrue())
+
+			cond := findCondition(r.dpa.Status.Conditions, oadpv1alpha1.ConditionKubevirtDatamoverReady)
+			gomega.Expect(cond).NotTo(gomega.BeNil())
+			gomega.Expect(cond.Status).To(gomega.Equal(metav1.ConditionTrue))
+			gomega.Expect(cond.Reason).To(gomega.Equal(oadpv1alpha1.ReasonComponentDisabled))
+		})
+
+		ginkgo.It("should return false when kubevirt-datamover is enabled but deployment not found", func() {
+			namespace, dpa, r := createTestResources("readiness-kdm-2", "dpa-kdm-2")
+			defer cleanupTestResources("readiness-kdm-2", namespace, dpa)
+
+			r.dpa.Spec.Configuration.Velero.DefaultPlugins = []oadpv1alpha1.DefaultPlugin{
+				oadpv1alpha1.DefaultPluginKubeVirtDataMover,
+			}
+
+			isReady, err := r.updateKubevirtDatamoverReadinessCondition()
+			gomega.Expect(err).NotTo(gomega.HaveOccurred())
+			gomega.Expect(isReady).To(gomega.BeFalse())
+
+			cond := findCondition(r.dpa.Status.Conditions, oadpv1alpha1.ConditionKubevirtDatamoverReady)
+			gomega.Expect(cond).NotTo(gomega.BeNil())
+			gomega.Expect(cond.Status).To(gomega.Equal(metav1.ConditionFalse))
+			gomega.Expect(cond.Reason).To(gomega.Equal(oadpv1alpha1.ReasonComponentNotFound))
+		})
+
+		ginkgo.It("should return false when kubevirt-datamover deployment has 0 ready replicas", func() {
+			namespace, dpa, r := createTestResources("readiness-kdm-3", "dpa-kdm-3")
+			defer cleanupTestResources("readiness-kdm-3", namespace, dpa)
+
+			r.dpa.Spec.Configuration.Velero.DefaultPlugins = []oadpv1alpha1.DefaultPlugin{
+				oadpv1alpha1.DefaultPluginKubeVirtDataMover,
+			}
+
+			deployment := createReadinessKubevirtDatamoverDeployment("readiness-kdm-3", 1, 0)
+			gomega.Expect(k8sClient.Create(ctx, deployment)).To(gomega.Succeed())
+
+			isReady, err := r.updateKubevirtDatamoverReadinessCondition()
+			gomega.Expect(err).NotTo(gomega.HaveOccurred())
+			gomega.Expect(isReady).To(gomega.BeFalse())
+
+			cond := findCondition(r.dpa.Status.Conditions, oadpv1alpha1.ConditionKubevirtDatamoverReady)
+			gomega.Expect(cond).NotTo(gomega.BeNil())
+			gomega.Expect(cond.Status).To(gomega.Equal(metav1.ConditionFalse))
+			gomega.Expect(cond.Reason).To(gomega.Equal(oadpv1alpha1.ReasonDeploymentNotReady))
+		})
+
+		ginkgo.It("should return true when kubevirt-datamover deployment is ready", func() {
+			namespace, dpa, r := createTestResources("readiness-kdm-4", "dpa-kdm-4")
+			defer cleanupTestResources("readiness-kdm-4", namespace, dpa)
+
+			r.dpa.Spec.Configuration.Velero.DefaultPlugins = []oadpv1alpha1.DefaultPlugin{
+				oadpv1alpha1.DefaultPluginKubeVirtDataMover,
+			}
+
+			deployment := createReadinessKubevirtDatamoverDeployment("readiness-kdm-4", 1, 1)
+			gomega.Expect(k8sClient.Create(ctx, deployment)).To(gomega.Succeed())
+
+			deployment.Status.ReadyReplicas = 1
+			deployment.Status.Replicas = 1
+			gomega.Expect(k8sClient.Status().Update(ctx, deployment)).To(gomega.Succeed())
+
+			isReady, err := r.updateKubevirtDatamoverReadinessCondition()
+			gomega.Expect(err).NotTo(gomega.HaveOccurred())
+			gomega.Expect(isReady).To(gomega.BeTrue())
+
+			cond := findCondition(r.dpa.Status.Conditions, oadpv1alpha1.ConditionKubevirtDatamoverReady)
+			gomega.Expect(cond).NotTo(gomega.BeNil())
+			gomega.Expect(cond.Status).To(gomega.Equal(metav1.ConditionTrue))
+			gomega.Expect(cond.Reason).To(gomega.Equal(oadpv1alpha1.ReasonDeploymentReady))
+		})
+	})
+
 	ginkgo.Context("Combined Readiness", func() {
 		ginkgo.It("should return false when Velero is not ready even if optional components are disabled", func() {
 			namespace, dpa, r := createTestResources("readiness-combined-1", "dpa-combined-1")
@@ -512,6 +597,38 @@ func createReadinessVMFileRestoreDeployment(namespace string) *appsv1.Deployment
 					},
 				},
 			},
+		},
+	}
+}
+
+func createReadinessKubevirtDatamoverDeployment(namespace string, replicas, readyReplicas int32) *appsv1.Deployment {
+	return &appsv1.Deployment{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      kubevirtDatamoverObjectName,
+			Namespace: namespace,
+		},
+		Spec: appsv1.DeploymentSpec{
+			Replicas: ptr.To(replicas),
+			Selector: &metav1.LabelSelector{
+				MatchLabels: map[string]string{"app": "kdm"},
+			},
+			Template: corev1.PodTemplateSpec{
+				ObjectMeta: metav1.ObjectMeta{
+					Labels: map[string]string{"app": "kdm"},
+				},
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{
+						{
+							Name:  "manager",
+							Image: "kdm:latest",
+						},
+					},
+				},
+			},
+		},
+		Status: appsv1.DeploymentStatus{
+			Replicas:      replicas,
+			ReadyReplicas: readyReplicas,
 		},
 	}
 }

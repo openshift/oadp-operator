@@ -4,7 +4,7 @@ DEFAULT_VERSION := 99.0.0
 VERSION ?= $(DEFAULT_VERSION) # the version of the operator
 OPERATOR_SDK_VERSION ?= v1.35.0
 ENVTEST_K8S_VERSION = 1.32 #refers to the version of kubebuilder assets to be downloaded by envtest binary # Kubernetes version from OpenShift 4.19.x
-GOLANGCI_LINT_VERSION ?= v2.6.1
+GOLANGCI_LINT_VERSION ?= v2.9.0
 KUSTOMIZE_VERSION ?= v5.2.1
 CONTROLLER_TOOLS_VERSION ?= v0.16.5
 OPM_VERSION ?= v1.23.0
@@ -47,7 +47,7 @@ IMAGE_TAG_BASE ?= openshift.io/oadp-operator
 BUNDLE_IMG ?= $(IMAGE_TAG_BASE)-bundle:v$(VERSION)
 
 # BUNDLE_GEN_FLAGS are the flags passed to the operator-sdk generate bundle command
-BUNDLE_GEN_FLAGS ?= -q --extra-service-accounts "velero,non-admin-controller,oadp-vm-file-restore-controller-manager" --overwrite --version $(VERSION) $(BUNDLE_METADATA_OPTS)
+BUNDLE_GEN_FLAGS ?= -q --extra-service-accounts "velero,non-admin-controller,oadp-vm-file-restore-controller-manager,oadp-kubevirt-datamover-controller-manager" --overwrite --version $(VERSION) $(BUNDLE_METADATA_OPTS)
 
 # USE_IMAGE_DIGESTS defines if images are resolved via tags or digests
 # You can enable this value if you would like to use SHA Based Digests
@@ -392,12 +392,30 @@ endif
 # Catalog source name for deploy-olm
 CATALOG_SOURCE_NAME ?= oadp-operator-catalog
 
-# Build a catalog image by adding bundle images to an empty catalog using the operator package manager tool, 'opm'.
-# This recipe invokes 'opm' in 'semver' bundle add mode. For more information on add modes, see:
-# https://github.com/operator-framework/community-operators/blob/7f1438c/docs/packaging-operator.md#updating-your-existing-operator
+# Build a catalog image using file-based catalog (FBC) format.
+# This renders bundle images into a declarative config, adds a channel entry,
+# validates the catalog, and builds a container image with proper platform support.
+# The FBC approach replaces the deprecated sqlite-based 'opm index add' method
+# and ensures correct multi-arch builds via $(DOCKER_BUILD_ARGS).
 .PHONY: catalog-build
 catalog-build: opm ## Build a catalog image.
-	$(OPM) index add --container-tool $(CONTAINER_TOOL) --mode semver --tag $(CATALOG_IMG) --bundles $(BUNDLE_IMGS) $(FROM_INDEX_OPT)
+	rm -rf catalog.Dockerfile catalog/
+	mkdir -p catalog/oadp-operator
+	$(OPM) render $(BUNDLE_IMGS) -o yaml > catalog/oadp-operator/index.yaml
+	@echo "---" >> catalog/oadp-operator/index.yaml
+	@echo "schema: olm.package" >> catalog/oadp-operator/index.yaml
+	@echo "name: oadp-operator" >> catalog/oadp-operator/index.yaml
+	@echo "defaultChannel: $(DEFAULT_CHANNEL)" >> catalog/oadp-operator/index.yaml
+	@echo "---" >> catalog/oadp-operator/index.yaml
+	@echo "schema: olm.channel" >> catalog/oadp-operator/index.yaml
+	@echo "name: $(DEFAULT_CHANNEL)" >> catalog/oadp-operator/index.yaml
+	@echo "package: oadp-operator" >> catalog/oadp-operator/index.yaml
+	@echo "entries:" >> catalog/oadp-operator/index.yaml
+	@echo "  - name: oadp-operator.v$(VERSION)" >> catalog/oadp-operator/index.yaml
+	$(OPM) validate catalog/
+	$(OPM) generate dockerfile catalog/ --binary-image=quay.io/operator-framework/opm:$(OPM_VERSION)
+	$(CONTAINER_TOOL) build --load $(DOCKER_BUILD_ARGS) -f catalog.Dockerfile -t $(CATALOG_IMG) .
+	rm -rf catalog.Dockerfile catalog/
 
 # Push the catalog image.
 .PHONY: catalog-push
@@ -472,7 +490,7 @@ TMP_DIR=$$(mktemp -d) ;\
 cd $$TMP_DIR ;\
 go mod init tmp ;\
 echo "Downloading $(2) to branch directory" ;\
-GOBIN=$(dir $(1)) go install -mod=mod $(2) ;\
+GOBIN=$(dir $(1)) go install -a -mod=mod $(2) ;\
 rm -rf $$TMP_DIR ;\
 }
 endef
@@ -566,7 +584,12 @@ deploy-olm: undeploy-olm ## Build current branch operator image, bundle image, p
 	done; \
 	if [ $$timeout -le 0 ]; then \
 		echo "Timeout waiting for CatalogSource"; \
+		echo "=== CatalogSource status ==="; \
 		$(OC_CLI) get catalogsource $(CATALOG_SOURCE_NAME) -n $(OADP_TEST_NAMESPACE) -o yaml; \
+		echo "=== Catalog pod status ==="; \
+		$(OC_CLI) get pods -n $(OADP_TEST_NAMESPACE) -l olm.catalogSource=$(CATALOG_SOURCE_NAME) 2>/dev/null || true; \
+		echo "=== Catalog pod logs ==="; \
+		$(OC_CLI) logs -n $(OADP_TEST_NAMESPACE) -l olm.catalogSource=$(CATALOG_SOURCE_NAME) --tail=50 2>/dev/null || true; \
 		exit 1; \
 	fi
 	# Create OperatorGroup if not exists

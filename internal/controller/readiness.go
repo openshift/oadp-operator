@@ -68,6 +68,12 @@ func (r *DataProtectionApplicationReconciler) updateReadinessConditions() (bool,
 		return false, err
 	}
 	allReady = allReady && karReady
+	// Check KubevirtDatamover (optional - only if enabled)
+	kdmReady, err := r.updateKubevirtDatamoverReadinessCondition()
+	if err != nil {
+		return false, err
+	}
+	allReady = allReady && kdmReady
 
 	return allReady, nil
 }
@@ -302,6 +308,14 @@ func (r *DataProtectionApplicationReconciler) updateKubevirtAnnotationsRemoverRe
 			Status:  metav1.ConditionTrue,
 			Reason:  oadpv1alpha1.ReasonComponentDisabled,
 			Message: "KubeVirt annotations remover webhook is disabled",
+func (r *DataProtectionApplicationReconciler) updateKubevirtDatamoverReadinessCondition() (bool, error) {
+	// If plugin not enabled, mark as disabled (which counts as ready)
+	if !r.checkKubevirtDatamoverEnabled() {
+		apimeta.SetStatusCondition(&r.dpa.Status.Conditions, metav1.Condition{
+			Type:    oadpv1alpha1.ConditionKubevirtDatamoverReady,
+			Status:  metav1.ConditionTrue,
+			Reason:  oadpv1alpha1.ReasonComponentDisabled,
+			Message: "KubeVirt DataMover controller is disabled",
 		})
 		return true, nil
 	}
@@ -309,6 +323,7 @@ func (r *DataProtectionApplicationReconciler) updateKubevirtAnnotationsRemoverRe
 	deployment := &appsv1.Deployment{}
 	err := r.Get(r.Context, types.NamespacedName{
 		Name:      kubevirtAnnotationsRemoverName,
+		Name:      kubevirtDatamoverObjectName,
 		Namespace: r.dpa.Namespace,
 	}, deployment)
 
@@ -319,6 +334,10 @@ func (r *DataProtectionApplicationReconciler) updateKubevirtAnnotationsRemoverRe
 				Status:  metav1.ConditionFalse,
 				Reason:  oadpv1alpha1.ReasonComponentNotFound,
 				Message: "KubeVirt annotations remover deployment not found",
+				Type:    oadpv1alpha1.ConditionKubevirtDatamoverReady,
+				Status:  metav1.ConditionFalse,
+				Reason:  oadpv1alpha1.ReasonComponentNotFound,
+				Message: "KubeVirt DataMover controller deployment not found",
 			})
 			return false, nil
 		}
@@ -345,6 +364,21 @@ func (r *DataProtectionApplicationReconciler) updateKubevirtAnnotationsRemoverRe
 			Status:  metav1.ConditionFalse,
 			Reason:  oadpv1alpha1.ReasonDeploymentNotReady,
 			Message: fmt.Sprintf("KubeVirt annotations remover not ready: %d/%d replicas ready", deployment.Status.ReadyReplicas, replicas),
+	isReady := deployment.Status.ReadyReplicas >= 1 && deployment.Status.ReadyReplicas == replicas
+
+	if isReady {
+		apimeta.SetStatusCondition(&r.dpa.Status.Conditions, metav1.Condition{
+			Type:    oadpv1alpha1.ConditionKubevirtDatamoverReady,
+			Status:  metav1.ConditionTrue,
+			Reason:  oadpv1alpha1.ReasonDeploymentReady,
+			Message: fmt.Sprintf("KubeVirt DataMover controller ready: %d/%d replicas", deployment.Status.ReadyReplicas, replicas),
+		})
+	} else {
+		apimeta.SetStatusCondition(&r.dpa.Status.Conditions, metav1.Condition{
+			Type:    oadpv1alpha1.ConditionKubevirtDatamoverReady,
+			Status:  metav1.ConditionFalse,
+			Reason:  oadpv1alpha1.ReasonDeploymentNotReady,
+			Message: fmt.Sprintf("KubeVirt DataMover controller not ready: %d/%d replicas ready", deployment.Status.ReadyReplicas, replicas),
 		})
 	}
 

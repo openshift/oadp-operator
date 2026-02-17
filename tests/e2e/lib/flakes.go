@@ -50,6 +50,11 @@ func CheckIfFlakeOccurred(logs []string) bool {
 			Description:         "Transient S3 bucket errors and limits",
 			StringSearchPattern: "Error copying image: writing blob: uploading layer chunked: received unexpected HTTP status: 500 Internal Server Error",
 		},
+		{
+			Issue:               "https://issues.redhat.com/browse/OADP-5086",
+			Description:         "Startup probe timeout causing deployment readiness failure after restore",
+			StringSearchPattern: "deployment is not in a ready state",
+		},
 	}
 	logString := strings.Join(logs, "\n")
 

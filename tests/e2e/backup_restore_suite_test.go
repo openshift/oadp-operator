@@ -145,15 +145,15 @@ func (o *OADPDeploymentOperation) Undeploy(backupRestoreType lib.BackupRestoreTy
 	}
 }
 
-func todoListReady(preBackupState bool, twoVol bool, database string) VerificationFunction {
+func todoListReady(preBackupState bool, twoVol bool, sccPrefix string) VerificationFunction {
 	return VerificationFunction(func(ocClient client.Client, namespace string) error {
 		log.Printf("checking for the NAMESPACE: %s", namespace)
-		gomega.Eventually(lib.IsDeploymentReady(ocClient, namespace, database), time.Minute*10, time.Second*10).Should(gomega.BeTrue())
+		gomega.Eventually(lib.IsDeploymentReady(ocClient, namespace, "todolist"), time.Minute*15, time.Second*10).Should(gomega.BeTrue())
 		// perhaps we phase out deploymentConfigs?
 		//gomega.Eventually(lib.IsDCReady(ocClient, namespace, "todolist"), time.Minute*10, time.Second*10).Should(gomega.BeTrue())
 		gomega.Eventually(lib.AreApplicationPodsRunning(kubernetesClientForSuiteRun, namespace), time.Minute*15, time.Second*5).Should(gomega.BeTrue())
 		// This test confirms that SCC restore logic in our plugin is working
-		err := lib.DoesSCCExist(ocClient, database+"-persistent-scc")
+		err := lib.DoesSCCExist(ocClient, sccPrefix+"-persistent-scc")
 		if err != nil {
 			return err
 		}
@@ -468,7 +468,7 @@ var _ = ginkgo.Describe("Backup and restore tests", ginkgo.Ordered, func() {
 				BackupTimeout:     20 * time.Minute,
 			},
 		}, nil),
-		ginkgo.PEntry("Mongo application CSI", ginkgo.FlakeAttempts(flakeAttempts), ApplicationBackupRestoreCase{
+		ginkgo.Entry("Mongo application CSI", ginkgo.FlakeAttempts(flakeAttempts), ApplicationBackupRestoreCase{
 			ApplicationTemplate: "./sample-applications/mongo-persistent/mongo-persistent-csi.yaml",
 			BackupRestoreCase: BackupRestoreCase{
 				Namespace:         "mongo-persistent",
@@ -501,7 +501,7 @@ var _ = ginkgo.Describe("Backup and restore tests", ginkgo.Ordered, func() {
 				BackupTimeout:     20 * time.Minute,
 			},
 		}, nil),
-		ginkgo.PEntry("Mongo application DATAMOVER", ginkgo.FlakeAttempts(flakeAttempts), ApplicationBackupRestoreCase{
+		ginkgo.Entry("Mongo application DATAMOVER", ginkgo.FlakeAttempts(flakeAttempts), ApplicationBackupRestoreCase{
 			ApplicationTemplate: "./sample-applications/mongo-persistent/mongo-persistent-csi.yaml",
 			BackupRestoreCase: BackupRestoreCase{
 				Namespace:         "mongo-persistent",
@@ -546,7 +546,7 @@ var _ = ginkgo.Describe("Backup and restore tests", ginkgo.Ordered, func() {
 				BackupTimeout:     20 * time.Minute,
 			},
 		}, nil),
-		ginkgo.PEntry("Mongo application Native-Snapshots", ginkgo.FlakeAttempts(flakeAttempts), ginkgo.Label("aws", "azure", "gcp"), ApplicationBackupRestoreCase{
+		ginkgo.Entry("Mongo application Native-Snapshots", ginkgo.FlakeAttempts(flakeAttempts), ginkgo.Label("aws", "azure", "gcp"), ApplicationBackupRestoreCase{
 			ApplicationTemplate: "./sample-applications/mongo-persistent/mongo-persistent.yaml",
 			BackupRestoreCase: BackupRestoreCase{
 				Namespace:         "mongo-persistent",

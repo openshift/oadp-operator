@@ -278,6 +278,16 @@ Key OADP packages:
    c. Search must-gather pod logs for error patterns
    d. Identify root cause (real bug vs known flake vs environmental issue)
    e. Provide evidence-based diagnosis with file paths and log excerpts
+   f. For backup/restore tests involving deployment readiness or startup probe failures,
+      extract container startup timing data from per-test pod logs including:
+      - Restore completion timestamp (look for "restore phase: Completed")
+      - Pod condition timestamps: Initialized, PodReadyToStartContainers, ContainersReady, Ready
+      - Deployment MinimumReplicasAvailable timestamp
+      - Startup probe failure count (count "Startup probe failed" or "failed startup probe" lines)
+      - Container restart count (count "will be restarted" lines)
+      - IsDeploymentReady polling cycle count (count "deployment not available" or "Deployment todolist status" lines)
+      - Total test duration from JUnit report or Ginkgo enter/exit timestamps
+      Compare these against typical healthy baseline values (see Output Format below).
 4. Summarize overall cluster health from must-gather
 5. Provide actionable recommendations prioritized by severity
 
@@ -329,6 +339,34 @@ Pod logs (<TestName>/<namespace>/<pod>/*.log): "<error message>"
 
 - ✓ VolumeSnapshotBeingCreated race condition (matched pattern in <file>)
 - ✗ AWS rate limiting (not detected)
+
+## Container Startup Timing Comparison
+
+For each failed backup/restore test that involves deployment readiness or startup probe failures,
+extract timing data from per-test pod logs and present a comparison table against typical healthy
+baseline values. Skip this section for tests that did not involve deployment readiness checks.
+
+**Test**: <TestName>
+
+| Metric | Typical (healthy baseline) | This Run (failed) |
+|--------|---------------------------|--------------------|
+| Post-restore container startup | ~25-30 seconds | <actual seconds or "Never succeeded (Xs timeout)"> |
+| Startup probe failures | 0 | <count from pod logs> |
+| Container restarts | 0 | <count from pod logs> |
+| IsDeploymentReady polls needed | 2-3 | <count or "timed out at X min"> |
+| Total test duration | ~3-4 minutes | <actual duration from JUnit> |
+
+**How to extract these values from logs**:
+- Restore completion: look for "restore phase: Completed" timestamp in per-test logs
+- Container ready: look for ContainersReady or MinimumReplicasAvailable pod condition timestamps
+- Startup probe failures: count "Startup probe failed" or "failed startup probe" log lines
+- Container restarts: count "will be restarted" log lines
+- IsDeploymentReady polls: count "deployment not available" or "Deployment todolist status" log lines
+- Test duration: from JUnit report or Ginkgo "[It]" enter/exit timestamps
+
+Note: The "Typical" column values are baseline reference values from healthy OADP E2E runs on AWS.
+Adjust if running on a different cloud provider. If multiple backup/restore tests failed, include
+a separate table for each.
 
 ## Cluster Health Summary
 
@@ -409,6 +447,10 @@ Examples of potential improvements:
 - Cross-reference: Link similar failures across multiple tests
 - Prioritize: Put critical issues before warnings before flakes
 - Use preprocessed-logs.txt: Check this file first for errors from large log files
+- Timing comparison: For any backup/restore test failure involving deployment readiness
+  timeouts or startup probe failures, ALWAYS include the Container Startup Timing Comparison
+  table. Extract actual timing values from per-test pod logs and compare against the healthy
+  baseline. This is critical for distinguishing environmental slowness from real bugs.
 - Must-gather feedback: When you cannot determine root cause due to missing information,
   explicitly note what additional must-gather data would have helped. This feedback loop
   improves future debugging capabilities.
