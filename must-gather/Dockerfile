@@ -1,4 +1,4 @@
-FROM --platform=$BUILDPLATFORM quay.io/konveyor/builder:ubi9-latest AS builder
+FROM --platform=$BUILDPLATFORM quay.io/konveyor/builder:ubi9-v1.25.3 AS builder
 ARG BUILDPLATFORM
 ARG TARGETOS
 ARG TARGETARCH
