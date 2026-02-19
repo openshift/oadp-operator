@@ -274,15 +274,22 @@ func (r *DataProtectionApplicationReconciler) ReconcileNodeAgentDaemonset(log lo
 			return err
 		}
 		if dpa.Spec.Configuration.NodeAgent.NodeAgentConfigMapSettings.LoadAffinityConfig != nil {
-			veleroAffinityStruct := make([]*kube.LoadAffinity, len(dpa.Spec.Configuration.NodeAgent.NodeAgentConfigMapSettings.LoadAffinityConfig))
-
-			for i, aff := range dpa.Spec.Configuration.NodeAgent.NodeAgentConfigMapSettings.LoadAffinityConfig {
-				veleroAffinityStruct[i] = &kube.LoadAffinity{
-					NodeSelector: aff.NodeSelector,
+			var terms []corev1.NodeSelectorTerm
+			for _, aff := range dpa.Spec.Configuration.NodeAgent.NodeAgentConfigMapSettings.LoadAffinityConfig {
+				la := &kube.LoadAffinity{NodeSelector: aff.NodeSelector}
+				if a := kube.ToSystemAffinity(la, nil); a != nil {
+					terms = append(terms, a.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms...)
 				}
 			}
-			affinity := kube.ToSystemAffinity(veleroAffinityStruct)
-			ds.Spec.Template.Spec.Affinity = affinity
+			if len(terms) > 0 {
+				ds.Spec.Template.Spec.Affinity = &corev1.Affinity{
+					NodeAffinity: &corev1.NodeAffinity{
+						RequiredDuringSchedulingIgnoredDuringExecution: &corev1.NodeSelector{
+							NodeSelectorTerms: terms,
+						},
+					},
+				}
+			}
 		}
 		return nil
 	})
