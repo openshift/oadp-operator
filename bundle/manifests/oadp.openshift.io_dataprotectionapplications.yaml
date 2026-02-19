@@ -1615,6 +1615,17 @@ spec:
                     - IfNotPresent
                     - Never
                   type: string
+                kubevirtAnnotationsRemover:
+                  description: |-
+                    kubevirtAnnotationsRemover defines the configuration for the webhook that removes
+                    Velero backup hook annotations from KubeVirt virt-launcher pods
+                  properties:
+                    enable:
+                      description: |-
+                        Enable flag to deploy kubevirt-velero-annotations-remover webhook.
+                        By default is disabled
+                      type: boolean
+                  type: object
                 logFormat:
                   default: text
                   description: The format for log output. Valid values are text, json. (default text)
@@ -2698,6 +2709,7 @@ spec:
                       - vmFileRestoreAccessImageFqin
                       - vmFileRestoreSSHImageFqin
                       - vmFileRestoreBrowserImageFqin
+                      - kubevirtAnnotationsRemoverImageFqin
                       - operator-type
                       - tech-preview-ack
                   type: object
