@@ -1,0 +1,8 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: datamover-kubevirt-reader
+rules:
+- apiGroups: ["backup.kubevirt.io"]
+  resources: ["virtualmachinebackups", "virtualmachinebackuptrackers"]
+  verbs: ["get", "list", "delete"]

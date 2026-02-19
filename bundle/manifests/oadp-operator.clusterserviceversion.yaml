@@ -884,6 +884,35 @@ spec:
           - update
           - watch
         - apiGroups:
+          - ""
+          resources:
+          - persistentvolumes
+          verbs:
+          - delete
+          - get
+          - list
+          - patch
+          - update
+          - watch
+        - apiGroups:
+          - ""
+          resources:
+          - pods
+          verbs:
+          - create
+          - delete
+          - get
+          - list
+          - watch
+        - apiGroups:
+          - ""
+          resources:
+          - secrets
+          verbs:
+          - get
+          - list
+          - watch
+        - apiGroups:
           - backup.kubevirt.io
           resources:
           - virtualmachinebackups
@@ -900,13 +929,28 @@ spec:
           - backup.kubevirt.io
           resources:
           - virtualmachinebackups/status
+          verbs:
+          - get
+        - apiGroups:
+          - backup.kubevirt.io
+          resources:
           - virtualmachinebackuptrackers/status
           verbs:
           - get
+          - patch
+          - update
         - apiGroups:
           - kubevirt.io
           resources:
           - virtualmachines
+          verbs:
+          - get
+          - list
+          - watch
+        - apiGroups:
+          - velero.io
+          resources:
+          - backupstoragelocations
           verbs:
           - get
           - list
@@ -1303,6 +1347,15 @@ spec:
           - create
         serviceAccountName: openshift-adp-controller-manager
       - rules:
+        - apiGroups:
+          - backup.kubevirt.io
+          resources:
+          - virtualmachinebackups
+          - virtualmachinebackuptrackers
+          verbs:
+          - get
+          - list
+          - delete
         - apiGroups:
           - build.openshift.io
           - migration.openshift.io
