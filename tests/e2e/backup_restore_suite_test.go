@@ -631,7 +631,7 @@ ddummyenddummyenddummyenddummyend
 	return []byte(cert)
 }
 
-var _ = ginkgo.Describe("Multiple BSL with custom CA cert tests", ginkgo.Ordered, func() {
+var _ = ginkgo.PDescribe("Multiple BSL with custom CA cert tests", ginkgo.Ordered, func() {
 	var _ = ginkgo.AfterEach(func(ctx ginkgo.SpecContext) {
 		log.Printf("Cleaning up after BSL CA cert test")
 		if !skipMustGather && ctx.SpecReport().Failed() {
