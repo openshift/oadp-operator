@@ -250,10 +250,10 @@ func (l *labelHandler) Generic(ctx context.Context, evt event.TypedGenericEvent[
 
 type ReconcileFunc func(logr.Logger) (bool, error)
 
-// reconcileBatch steps through a list of reconcile functions until one returns
+// ReconcileBatch steps through a list of reconcile functions until one returns
 // false or an error.
-// Note: The logger is passed explicitly to each function for clarity and testability.
-// This follows the Go best practice of dependency injection.
+// The logger is passed explicitly to each function for clarity and testability,
+// following the Go dependency-injection pattern.
 func ReconcileBatch(l logr.Logger, reconcileFuncs ...ReconcileFunc) (bool, error) {
 	for _, f := range reconcileFuncs {
 		if cont, err := f(l); !cont || err != nil {
