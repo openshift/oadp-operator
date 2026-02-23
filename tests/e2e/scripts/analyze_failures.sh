@@ -171,7 +171,7 @@ preprocess_large_artifacts() {
 # Check for Claude CLI availability
 if ! command -v claude &> /dev/null; then
     echo "⚠ Claude CLI not found in PATH"
-    echo "Skipping Claude analysis (install with: npm install -g @anthropic-ai/claude-code)"
+    echo "Skipping Claude analysis (install with: curl -fsSL https://claude.ai/install.sh | bash)"
     exit $EXIT_CODE
 fi
 

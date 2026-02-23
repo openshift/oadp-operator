@@ -14,12 +14,11 @@ RUN curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/s
     chmod +x kubectl && \
     mv kubectl /usr/local/bin/
 
-# Install Node.js and Claude CLI
-# Using NodeSource setup script for RHEL-based images
-RUN curl -fsSL https://rpm.nodesource.com/setup_20.x | bash - && \
-    dnf install -y nodejs && \
-    npm install -g @anthropic-ai/claude-code && \
-    dnf clean all
+# Install Claude CLI (native binary, no Node.js dependency)
+# Installer places binary at ~/.local/bin/claude
+RUN curl -fsSL https://claude.ai/install.sh | bash && \
+    ln -sf ~/.local/bin/claude /usr/local/bin/claude && \
+    claude --version
 
 # Clone openshift/velero source code for failure analysis
 # Uses oadp-dev branch to match OADP operator development
