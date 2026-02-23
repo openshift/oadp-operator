@@ -22,6 +22,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"time"
 
 	configv1 "github.com/openshift/api/config/v1"
 	routev1 "github.com/openshift/api/route/v1"
@@ -32,6 +33,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
@@ -80,6 +82,13 @@ const (
 	warnLabel      = psaLabelPrefix + "warn"
 
 	privileged = "privileged"
+
+	// CRD availability wait configuration for IBU (Image-Based Upgrade) scenarios.
+	// During IBU on SNO clusters, the node reboots into a new OS image and OpenShift
+	// CRDs may not be immediately available while the API server initializes.
+	// See: https://issues.redhat.com/browse/OADP-7419
+	crdWaitInterval = 10 * time.Second
+	crdWaitTimeout  = 10 * time.Minute
 )
 
 func init() {
@@ -130,6 +139,16 @@ func main() {
 		os.Exit(1)
 	}
 
+	// Wait for required OpenShift CRDs before starting the manager.
+	// During IBU (Image-Based Upgrade) on SNO clusters, the node reboots and external
+	// OpenShift operators may not have registered their CRDs yet. Without this wait,
+	// the controller crashes trying to watch Route/SCC resources that don't exist.
+	// See: https://issues.redhat.com/browse/OADP-7419
+	if err := waitForRequiredCRDs(context.Background(), kubeconf); err != nil {
+		setupLog.Error(err, "failed waiting for required CRDs")
+		os.Exit(1)
+	}
+
 	// check if this is standardized STS workflow via OLM and CCO
 	if common.CCOWorkflow() {
 		setupLog.Info("AWS Role ARN specified by the user, following standardized STS workflow")
@@ -168,11 +187,19 @@ func main() {
 			},
 		},
 		HealthProbeBindAddress: probeAddr,
-		LeaderElection:         enableLeaderElection,
-		LeaseDuration:          &leConfig.LeaseDuration.Duration,
-		RenewDeadline:          &leConfig.RenewDeadline.Duration,
-		RetryPeriod:            &leConfig.RetryPeriod.Duration,
-		LeaderElectionID:       "oadp.openshift.io",
+		// Enable leader election only if requested via flag AND not disabled by config.
+		// On SNO clusters, leConfig.Disable is set to true to avoid leader election
+		// overhead and delays during IBU. See: https://issues.redhat.com/browse/OADP-7419
+		LeaderElection:   enableLeaderElection && !leConfig.Disable,
+		LeaseDuration:    &leConfig.LeaseDuration.Duration,
+		RenewDeadline:    &leConfig.RenewDeadline.Duration,
+		RetryPeriod:      &leConfig.RetryPeriod.Duration,
+		LeaderElectionID: "oadp.openshift.io",
+		// LeaderElectionReleaseOnCancel ensures the leader lease is released when the
+		// controller crashes or shuts down. Without this, on SNO clusters with 270s lease
+		// duration, a crashed controller would block the new instance from acquiring
+		// leadership for ~4.5 minutes. See: https://issues.redhat.com/browse/OADP-7419
+		LeaderElectionReleaseOnCancel: true,
 		Cache: cache.Options{
 			DefaultNamespaces: map[string]cache.Config{
 				watchNamespace: {},
@@ -396,4 +423,119 @@ func CreateOrUpdateCredRequest(roleARN string, WITP string, secretNS string, kub
 	}
 	setupLog.Info("Custom resource credentialsrequest " + verb + " successfully")
 	return nil
+}
+
+// requiredCRD represents a CRD that must be available before the controller can start.
+type requiredCRD struct {
+	groupVersion string
+	resourceName string
+}
+
+// getRequiredCRDs returns the list of CRDs that must be available before the OADP
+// controller can start.
+//
+// Why only Route and SecurityContextConstraints?
+//
+// The DPA controller watches several resource types via Owns() calls:
+//   - Core K8s resources (Deployment, Service, ConfigMap, etc.) - always available
+//   - OADP CRDs (DPA, CloudStorage) - installed by OLM before operator starts
+//   - Velero CRDs (BSL, VSL) - part of OADP CSV bundle, OLM guarantees availability
+//   - OpenShift CRDs (Route, SCC) - registered by OTHER OpenShift operators
+//
+// Route and SCC are the only CRDs that are:
+//  1. Required by the DPA controller (via Owns() in SetupWithManager)
+//  2. NOT installed by OADP itself
+//  3. Registered by external OpenShift operators (openshift-apiserver, authentication-operator)
+//
+// During Image-Based Upgrade (IBU) on SNO clusters, the node reboots and these
+// external operators may not have registered their CRDs yet when OADP starts.
+// This causes cache sync failures and controller crashes.
+//
+// See: https://issues.redhat.com/browse/OADP-7419
+func getRequiredCRDs() []requiredCRD {
+	return []requiredCRD{
+		{groupVersion: "route.openshift.io/v1", resourceName: "routes"},
+		{groupVersion: "security.openshift.io/v1", resourceName: "securitycontextconstraints"},
+	}
+}
+
+// waitForRequiredCRDs waits for external OpenShift CRDs to be registered before
+// starting the controller.
+//
+// Context: During Image-Based Upgrade (IBU) on Single Node OpenShift (SNO) clusters,
+// the node reboots into a new OS image. The kube-apiserver starts before OpenShift
+// operators have registered their CRDs (Route, SecurityContextConstraints).
+//
+// Without this wait, the controller attempts to create informers for these CRDs,
+// fails with "no matches for kind", and crashes after the cache sync timeout (2 min).
+// Combined with the SNO leader lease duration (270s), this causes an ~8 minute delay
+// before the DPA can reconcile.
+//
+// By explicitly waiting for CRDs via the discovery API, we avoid the crash entirely
+// and allow the controller to start as soon as the CRDs are available.
+//
+// See: https://issues.redhat.com/browse/OADP-7419
+func waitForRequiredCRDs(ctx context.Context, kubeconf *rest.Config) error {
+	discoveryClient, err := discovery.NewDiscoveryClientForConfig(kubeconf)
+	if err != nil {
+		return fmt.Errorf("failed to create discovery client: %w", err)
+	}
+	return waitForRequiredCRDsWithClient(ctx, discoveryClient)
+}
+
+// waitForRequiredCRDsWithClient is the internal implementation that accepts a
+// discovery client directly. This allows for easier unit testing with mock clients.
+func waitForRequiredCRDsWithClient(ctx context.Context, discoveryClient discovery.DiscoveryInterface) error {
+	requiredCRDs := getRequiredCRDs()
+
+	setupLog.Info("Waiting for required OpenShift CRDs to be available",
+		"crds", requiredCRDs,
+		"timeout", crdWaitTimeout.String())
+
+	// Use a shorter interval for testing (context deadline will control actual timeout)
+	interval := crdWaitInterval
+	timeout := crdWaitTimeout
+
+	// If context has a deadline shorter than our default timeout, use that
+	if deadline, ok := ctx.Deadline(); ok {
+		remaining := time.Until(deadline)
+		if remaining < timeout {
+			timeout = remaining
+		}
+		// Use shorter interval for short timeouts (testing)
+		if remaining < 1*time.Second {
+			interval = 10 * time.Millisecond
+		}
+	}
+
+	return wait.PollUntilContextTimeout(ctx, interval, timeout, true, func(ctx context.Context) (bool, error) {
+		for _, crd := range requiredCRDs {
+			if !isCRDAvailable(discoveryClient, crd.groupVersion, crd.resourceName) {
+				setupLog.Info("Waiting for CRD to be registered",
+					"groupVersion", crd.groupVersion,
+					"resource", crd.resourceName)
+				return false, nil
+			}
+		}
+		setupLog.Info("All required CRDs are available, proceeding with controller startup")
+		return true, nil
+	})
+}
+
+// isCRDAvailable checks if a specific CRD is registered with the API server
+// by querying the discovery API for the given group version and resource name.
+// Returns true if the CRD is available, false otherwise (including on errors).
+func isCRDAvailable(discoveryClient discovery.DiscoveryInterface, groupVersion, resourceName string) bool {
+	resourceList, err := discoveryClient.ServerResourcesForGroupVersion(groupVersion)
+	if err != nil {
+		// If the group version doesn't exist, the CRD is not available
+		return false
+	}
+
+	for _, resource := range resourceList.APIResources {
+		if resource.Name == resourceName {
+			return true
+		}
+	}
+	return false
 }
