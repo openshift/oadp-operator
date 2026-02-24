@@ -2,5 +2,5 @@
 packageName: redhat-oadp-operator
 channels:
 - name: stable
-  currentCSV: oadp-operator.v1.5.4
+  currentCSV: oadp-operator.v1.5.5
 defaultChannel: stable
