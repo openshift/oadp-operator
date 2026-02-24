@@ -35,7 +35,7 @@ TEST_UPGRADE ?= false
 
 # TOOL VERSIONS
 # All version-related variables are defined here for easy maintenance
-DEFAULT_VERSION := 1.4.8
+DEFAULT_VERSION := 1.4.9
 VERSION ?= $(DEFAULT_VERSION) # the version of the operator
 OPERATOR_SDK_VERSION ?= v1.34.2
 ENVTEST_K8S_VERSION = 1.29 # Kubernetes version from OpenShift 4.16.x
@@ -172,7 +172,7 @@ ENVTEST_K8S_VERSION = 1.29
 # To re-generate a bundle for another specific version without changing the standard setup, you can:
 # - use the VERSION as arg of the bundle target (e.g make bundle VERSION=0.0.2)
 # - use environment variables to overwrite this value (e.g export VERSION=0.0.2)
-DEFAULT_VERSION := 1.4.8
+DEFAULT_VERSION := 1.4.9
 VERSION ?= $(DEFAULT_VERSION)
 
 # IMAGE_TAG_BASE defines the docker.io namespace and part of the image name for remote images.
@@ -297,8 +297,15 @@ ENVTESTPATH = $(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) -p path)
 ifeq ($(shell $(ENVTEST) list | grep $(ENVTEST_K8S_VERSION)),)
 	ENVTESTPATH = $(shell $(ENVTEST) --arch=amd64 use $(ENVTEST_K8S_VERSION) -p path)
 endif
-$(ENVTEST): ## Download envtest-setup locally if necessary.
-	$(call go-install-tool,$(ENVTEST),sigs.k8s.io/controller-runtime/tools/setup-envtest@v0.0.0-20240320141353-395cfc7486e6)
+.PHONY: check-envtest-arch
+check-envtest-arch:
+	@if [ -f $(ENVTEST) ] && ! $(ENVTEST) --help >/dev/null 2>&1; then \
+		echo "$(ENVTEST) is not executable on this platform, removing and re-downloading"; \
+		rm -f $(ENVTEST); \
+	fi
+
+$(ENVTEST): check-envtest-arch ## Download envtest-setup locally if necessary.
+	$(call go-install-tool,$(ENVTEST),sigs.k8s.io/controller-runtime/tools/setup-envtest@latest)
 
 .PHONY: envtest
 envtest: $(ENVTEST)
