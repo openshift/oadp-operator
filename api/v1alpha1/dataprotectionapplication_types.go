@@ -327,7 +327,11 @@ type VeleroConfig struct {
 	// How long to wait on asynchronous BackupItemActions and RestoreItemActions to complete before timing out. Default value is 1h.
 	// +optional
 	DefaultItemOperationTimeout string `json:"defaultItemOperationTimeout,omitempty"`
-	// Use pod volume file system backup by default for volumes
+	// Use pod volume file system backup by default for volumes.
+	// Matches backup.spec.defaultVolumesToFsBackup in Velero API.
+	// +optional
+	DefaultVolumesToFsBackup *bool `json:"defaultVolumesToFsBackup,omitempty"`
+	// Deprecated: Use defaultVolumesToFsBackup instead (matches Velero backup spec).
 	// +optional
 	DefaultVolumesToFSBackup *bool `json:"defaultVolumesToFSBackup,omitempty"`
 	// DisableFsBackup determines whether the NodeAgent should disable file system backup.
