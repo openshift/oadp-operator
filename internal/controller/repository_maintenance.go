@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -68,7 +67,7 @@ func (r *DataProtectionApplicationReconciler) GetRepositoryMaintenanceConfigMapN
 }
 
 // ReconcileRepositoryMaintenanceConfigMap handles creation, update, and deletion of the RepositoryMaintenance ConfigMap.
-func (r *DataProtectionApplicationReconciler) ReconcileRepositoryMaintenanceConfigMap(log logr.Logger) (bool, error) {
+func (r *DataProtectionApplicationReconciler) ReconcileRepositoryMaintenanceConfigMap() (bool, error) {
 	dpa := r.dpa
 	cmName := r.GetRepositoryMaintenanceConfigMapName()
 	configMap := corev1.ConfigMap{

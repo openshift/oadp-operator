@@ -158,7 +158,7 @@ type azureCredentials struct {
 	strorageAccountKey string
 }
 
-func (r *DataProtectionApplicationReconciler) ReconcileRegistries(log logr.Logger) (bool, error) {
+func (r *DataProtectionApplicationReconciler) ReconcileRegistries() (bool, error) {
 	bslLabels := map[string]string{
 		"app.kubernetes.io/name":       common.OADPOperatorVelero,
 		"app.kubernetes.io/managed-by": common.OADPOperator,
@@ -540,7 +540,7 @@ func (r *DataProtectionApplicationReconciler) getMatchedKeyValue(key string, s s
 	return s, nil
 }
 
-func (r *DataProtectionApplicationReconciler) ReconcileRegistrySVCs(log logr.Logger) (bool, error) {
+func (r *DataProtectionApplicationReconciler) ReconcileRegistrySVCs() (bool, error) {
 	// fetch the bsl instances
 	bslList := velerov1.BackupStorageLocationList{}
 	if err := r.List(r.Context, &bslList, &client.ListOptions{
@@ -583,7 +583,7 @@ func (r *DataProtectionApplicationReconciler) ReconcileRegistrySVCs(log logr.Log
 	return true, nil
 }
 
-func (r *DataProtectionApplicationReconciler) ReconcileRegistryRoutes(log logr.Logger) (bool, error) {
+func (r *DataProtectionApplicationReconciler) ReconcileRegistryRoutes() (bool, error) {
 	// fetch the bsl instances
 	bslList := velerov1.BackupStorageLocationList{}
 	if err := r.List(r.Context, &bslList, &client.ListOptions{
@@ -634,7 +634,7 @@ func (r *DataProtectionApplicationReconciler) ReconcileRegistryRoutes(log logr.L
 	return true, nil
 }
 
-func (r *DataProtectionApplicationReconciler) ReconcileRegistryRouteConfigs(log logr.Logger) (bool, error) {
+func (r *DataProtectionApplicationReconciler) ReconcileRegistryRouteConfigs() (bool, error) {
 	// Now for each of these bsl instances, create a registry route cm for each of them
 	registryRouteCM := corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
@@ -665,7 +665,7 @@ func (r *DataProtectionApplicationReconciler) ReconcileRegistryRouteConfigs(log 
 }
 
 // Create secret for registry to be parsed by openshift-velero-plugin
-func (r *DataProtectionApplicationReconciler) ReconcileRegistrySecrets(log logr.Logger) (bool, error) {
+func (r *DataProtectionApplicationReconciler) ReconcileRegistrySecrets() (bool, error) {
 	dpa := r.dpa
 	// fetch the bsl instances
 	bslList := velerov1.BackupStorageLocationList{}

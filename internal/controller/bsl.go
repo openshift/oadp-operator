@@ -10,7 +10,6 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/go-logr/logr"
 	velerov1 "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -165,7 +164,7 @@ func (r *DataProtectionApplicationReconciler) ValidateBackupStorageLocations() (
 	return true, nil
 }
 
-func (r *DataProtectionApplicationReconciler) ReconcileBackupStorageLocations(log logr.Logger) (bool, error) {
+func (r *DataProtectionApplicationReconciler) ReconcileBackupStorageLocations() (bool, error) {
 	dpa := r.dpa
 	dpaBSLNames := []string{}
 

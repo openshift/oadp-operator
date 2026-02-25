@@ -6,7 +6,6 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/go-logr/logr"
 	velerov1 "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -51,7 +50,7 @@ var validAzureKeys = map[string]bool{
 	AzureResourceGroup:  true,
 }
 
-func (r *DataProtectionApplicationReconciler) LabelVSLSecrets(log logr.Logger) (bool, error) {
+func (r *DataProtectionApplicationReconciler) LabelVSLSecrets() (bool, error) {
 	dpa := r.dpa
 	for _, vsl := range dpa.Spec.SnapshotLocations {
 		provider := strings.TrimPrefix(vsl.Velero.Provider, veleroIOPrefix)
@@ -183,7 +182,7 @@ func (r *DataProtectionApplicationReconciler) ValidateVolumeSnapshotLocations() 
 	return true, nil
 }
 
-func (r *DataProtectionApplicationReconciler) ReconcileVolumeSnapshotLocations(log logr.Logger) (bool, error) {
+func (r *DataProtectionApplicationReconciler) ReconcileVolumeSnapshotLocations() (bool, error) {
 	dpa := r.dpa
 	dpaVSLNames := []string{}
 	// Loop through all configured VSLs

@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -65,7 +64,7 @@ func (r *DataProtectionApplicationReconciler) GetBackupRepositoryConfigMapName()
 }
 
 // ReconcileBackupRepositoryConfigMap handles creation, update, and deletion of the BackupRepository ConfigMap.
-func (r *DataProtectionApplicationReconciler) ReconcileBackupRepositoryConfigMap(log logr.Logger) (bool, error) {
+func (r *DataProtectionApplicationReconciler) ReconcileBackupRepositoryConfigMap() (bool, error) {
 	dpa := r.dpa
 	cmName := r.GetBackupRepositoryConfigMapName()
 	configMap := corev1.ConfigMap{

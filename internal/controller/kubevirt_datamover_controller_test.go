@@ -6,7 +6,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/go-logr/logr"
 	"github.com/onsi/ginkgo/v2"
 	"github.com/onsi/gomega"
 	appsv1 "k8s.io/api/apps/v1"
@@ -123,7 +122,7 @@ func runReconcileKubevirtDatamoverControllerTest(
 		EventRecorder: event,
 		dpa:           dpa,
 	}
-	result, err := r.ReconcileKubevirtDatamoverController(logr.Discard())
+	result, err := r.ReconcileKubevirtDatamoverController()
 
 	if len(scenario.errMessage) == 0 {
 		gomega.Expect(result).To(gomega.BeTrue())

@@ -95,7 +95,7 @@ func (r *DataProtectionApplicationReconciler) Reconcile(ctx context.Context, req
 	// set client to pkg/client for use in non-reconcile functions
 	oadpclient.SetClient(r.Client)
 
-	_, err := ReconcileBatch(r.Log,
+	_, err := ReconcileBatch(
 		r.ValidateDataProtectionCR,
 		r.ReconcileFsRestoreHelperConfig,
 		r.ReconcileBackupStorageLocations,
@@ -248,15 +248,13 @@ func (l *labelHandler) Generic(ctx context.Context, evt event.TypedGenericEvent[
 
 }
 
-type ReconcileFunc func(logr.Logger) (bool, error)
+type ReconcileFunc func() (bool, error)
 
 // ReconcileBatch steps through a list of reconcile functions until one returns
 // false or an error.
-// The logger is passed explicitly to each function for clarity and testability,
-// following the Go dependency-injection pattern.
-func ReconcileBatch(l logr.Logger, reconcileFuncs ...ReconcileFunc) (bool, error) {
+func ReconcileBatch(reconcileFuncs ...ReconcileFunc) (bool, error) {
 	for _, f := range reconcileFuncs {
-		if cont, err := f(l); !cont || err != nil {
+		if cont, err := f(); !cont || err != nil {
 			return cont, err
 		}
 	}

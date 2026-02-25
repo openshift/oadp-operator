@@ -170,7 +170,7 @@ var _ = ginkgo.Describe("Test ReconcileNodeAgentDaemonSet function", func() {
 				EventRecorder: event,
 				dpa:           dpa,
 			}
-			result, err := r.ReconcileNodeAgentDaemonset(logr.Discard())
+			result, err := r.ReconcileNodeAgentDaemonset()
 
 			gomega.Expect(result).To(gomega.BeTrue())
 			gomega.Expect(err).To(gomega.Not(gomega.HaveOccurred()))

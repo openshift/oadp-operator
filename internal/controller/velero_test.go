@@ -271,7 +271,7 @@ var _ = ginkgo.Describe("Test ReconcileVeleroDeployment function", func() {
 				EventRecorder: event,
 				dpa:           dpa,
 			}
-			result, err := r.ReconcileVeleroDeployment(logr.Discard())
+			result, err := r.ReconcileVeleroDeployment()
 
 			gomega.Expect(result).To(gomega.BeTrue())
 			gomega.Expect(err).To(gomega.Not(gomega.HaveOccurred()))

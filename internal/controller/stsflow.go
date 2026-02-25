@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -28,7 +27,7 @@ import (
 //
 // The secret created here is injected into both Velero and NodeAgent pods via envFrom,
 // eliminating the need for temporary credential files as used by AWS/GCP providers.
-func (r *DataProtectionApplicationReconciler) ReconcileAzureWorkloadIdentitySecret(log logr.Logger) (bool, error) {
+func (r *DataProtectionApplicationReconciler) ReconcileAzureWorkloadIdentitySecret() (bool, error) {
 	dpa := r.dpa
 	azureClientID := os.Getenv(stsflow.ClientIDEnvKey)
 
@@ -65,7 +64,7 @@ func (r *DataProtectionApplicationReconciler) ReconcileAzureWorkloadIdentitySecr
 	})
 
 	if err != nil {
-		log.Error(err, "Error reconciling Azure workload identity secret")
+		r.Log.Error(err, "Error reconciling Azure workload identity secret")
 		return false, err
 	}
 

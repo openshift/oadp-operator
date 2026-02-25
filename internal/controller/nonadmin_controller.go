@@ -7,7 +7,6 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/go-logr/logr"
 	"github.com/sirupsen/logrus"
 	"golang.org/x/exp/maps"
 	appsv1 "k8s.io/api/apps/v1"
@@ -48,7 +47,7 @@ var (
 	previousDefaultBSLSyncPeriod  *time.Duration         = nil
 )
 
-func (r *DataProtectionApplicationReconciler) ReconcileNonAdminController(log logr.Logger) (bool, error) {
+func (r *DataProtectionApplicationReconciler) ReconcileNonAdminController() (bool, error) {
 	nonAdminDeployment := &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      nonAdminObjectName,

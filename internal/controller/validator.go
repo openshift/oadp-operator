@@ -7,7 +7,6 @@ import (
 	"time"
 
 	mapset "github.com/deckarep/golang-set/v2"
-	"github.com/go-logr/logr"
 	velerov1 "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -24,7 +23,7 @@ const NACNonEnforceableErr = "DPA %s is non-enforceable by admins"
 
 // ValidateDataProtectionCR function validates the DPA CR, returns true if valid, false otherwise
 // it calls other validation functions to validate the DPA CR
-func (r *DataProtectionApplicationReconciler) ValidateDataProtectionCR(log logr.Logger) (bool, error) {
+func (r *DataProtectionApplicationReconciler) ValidateDataProtectionCR() (bool, error) {
 	dpaList := &oadpv1alpha1.DataProtectionApplicationList{}
 	err := r.List(r.Context, dpaList, &client.ListOptions{Namespace: r.NamespacedName.Namespace})
 	if err != nil {
@@ -44,7 +43,7 @@ func (r *DataProtectionApplicationReconciler) ValidateDataProtectionCR(log logr.
 			"Please migrate to 'configuration.velero.podConfig.annotations' for Velero pods " +
 			"and 'configuration.nodeAgent.podConfig.annotations' for NodeAgent pods."
 		// V(-1) corresponds to the warn level
-		log.V(-1).Info(deprecationWarning)
+		r.Log.V(-1).Info(deprecationWarning)
 		r.EventRecorder.Event(r.dpa, corev1.EventTypeWarning, "DeprecationPodAnnotations", deprecationWarning)
 	}
 
@@ -398,7 +397,7 @@ func (r *DataProtectionApplicationReconciler) ValidateDataProtectionCR(log logr.
 			}
 		}
 		if !hasKubevirtPlugin {
-			log.V(-1).Info("Warning: kubevirt-datamover plugin is enabled without kubevirt plugin")
+			r.Log.V(-1).Info("Warning: kubevirt-datamover plugin is enabled without kubevirt plugin")
 			r.EventRecorder.Event(r.dpa, corev1.EventTypeWarning, "KubevirtDatamoverWithoutKubevirtPlugin",
 				"kubevirt-datamover plugin is enabled but kubevirt plugin is not. Consider adding 'kubevirt' to spec.configuration.velero.defaultPlugins for full VM backup/restore functionality.")
 		}

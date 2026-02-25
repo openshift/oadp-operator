@@ -6,7 +6,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/go-logr/logr"
 	"github.com/onsi/ginkgo/v2"
 	"github.com/onsi/gomega"
 	appsv1 "k8s.io/api/apps/v1"
@@ -125,7 +124,7 @@ func runReconcileVMFileRestoreControllerTest(
 		EventRecorder: event,
 		dpa:           dpa,
 	}
-	result, err := r.ReconcileVMFileRestoreController(logr.Discard())
+	result, err := r.ReconcileVMFileRestoreController()
 
 	if len(scenario.errMessage) == 0 {
 		gomega.Expect(result).To(gomega.BeTrue())

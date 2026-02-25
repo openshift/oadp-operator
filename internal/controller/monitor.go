@@ -3,14 +3,13 @@ package controller
 import (
 	"fmt"
 
-	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
-func (r *DataProtectionApplicationReconciler) ReconcileVeleroMetricsSVC(log logr.Logger) (bool, error) {
+func (r *DataProtectionApplicationReconciler) ReconcileVeleroMetricsSVC() (bool, error) {
 	svc := corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "openshift-adp-velero-metrics-svc",

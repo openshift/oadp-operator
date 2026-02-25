@@ -125,7 +125,7 @@ func TestDPAReconciler_ReconcileAzureWorkloadIdentitySecret(t *testing.T) {
 			}
 
 			// Call the function
-			result, err := r.ReconcileAzureWorkloadIdentitySecret(logr.Discard())
+			result, err := r.ReconcileAzureWorkloadIdentitySecret()
 
 			// Check error
 			if (err != nil) != tt.wantError {

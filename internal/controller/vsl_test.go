@@ -777,7 +777,7 @@ func TestDPAReconciler_ReconcileVolumeSnapshotLocations(t *testing.T) {
 					}},
 				},
 			}
-			got, err := r.ReconcileVolumeSnapshotLocations(r.Log)
+			got, err := r.ReconcileVolumeSnapshotLocations()
 			if (err != nil) != tt.wantErr {
 				t.Errorf("ReconcileVolumeSnapshotLocations() error = %v, wantErr %v", err, tt.wantErr)
 				return

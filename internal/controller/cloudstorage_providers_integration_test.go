@@ -227,7 +227,7 @@ web_identity_token_file = /var/run/secrets/openshift/serviceaccount/token`),
 			r.dpa = tt.dpa
 
 			// Create BSL from DPA spec
-			_, err = r.ReconcileBackupStorageLocations(log.Log)
+			_, err = r.ReconcileBackupStorageLocations()
 			assert.NoError(t, err)
 
 			// Verify BSL was created
@@ -475,7 +475,7 @@ func TestCloudStorageRefIntegrationGCP(t *testing.T) {
 			r.dpa = tt.dpa
 
 			// Create BSL from DPA spec
-			_, err = r.ReconcileBackupStorageLocations(log.Log)
+			_, err = r.ReconcileBackupStorageLocations()
 			assert.NoError(t, err)
 
 			// Verify BSL was created
@@ -714,7 +714,7 @@ AZURE_SUBSCRIPTION_ID=87654321-4321-4321-4321-210987654321`),
 			r.dpa = tt.dpa
 
 			// Create BSL from DPA spec
-			_, err = r.ReconcileBackupStorageLocations(log.Log)
+			_, err = r.ReconcileBackupStorageLocations()
 			assert.NoError(t, err)
 
 			// Verify BSL was created
@@ -836,7 +836,7 @@ func TestCloudStorageRefUpdateScenarios(t *testing.T) {
 			r.dpa = tt.dpa
 
 			// Create initial BSL
-			_, err = r.ReconcileBackupStorageLocations(log.Log)
+			_, err = r.ReconcileBackupStorageLocations()
 			assert.NoError(t, err)
 
 			// Get the current CloudStorage to ensure we have the latest resource version
@@ -853,7 +853,7 @@ func TestCloudStorageRefUpdateScenarios(t *testing.T) {
 			assert.NoError(t, err)
 
 			// Rebuild BSL after CloudStorage update
-			_, err = r.ReconcileBackupStorageLocations(log.Log)
+			_, err = r.ReconcileBackupStorageLocations()
 			assert.NoError(t, err)
 
 			// Verify BSL update
@@ -1234,7 +1234,7 @@ func TestCloudStorageRefBackupSyncPeriod(t *testing.T) {
 			r.dpa = tt.dpa
 
 			// Create BSL from DPA spec
-			_, err = r.ReconcileBackupStorageLocations(log.Log)
+			_, err = r.ReconcileBackupStorageLocations()
 			assert.NoError(t, err)
 
 			// List BSLs to verify creation

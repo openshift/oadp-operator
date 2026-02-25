@@ -5,7 +5,6 @@ import (
 	"os"
 	"strconv"
 
-	"github.com/go-logr/logr"
 	"github.com/sirupsen/logrus"
 	"golang.org/x/exp/maps"
 	appsv1 "k8s.io/api/apps/v1"
@@ -48,7 +47,7 @@ var (
 )
 
 // ReconcileKubevirtDatamoverController manages the kubevirt-datamover controller deployment
-func (r *DataProtectionApplicationReconciler) ReconcileKubevirtDatamoverController(log logr.Logger) (bool, error) {
+func (r *DataProtectionApplicationReconciler) ReconcileKubevirtDatamoverController() (bool, error) {
 	deployment := &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      kubevirtDatamoverObjectName,

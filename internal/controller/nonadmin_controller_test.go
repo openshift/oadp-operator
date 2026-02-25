@@ -6,11 +6,10 @@ import (
 	"strconv"
 	"testing"
 
-	"github.com/go-logr/logr"
 	"github.com/onsi/ginkgo/v2"
 	"github.com/onsi/gomega"
 	"github.com/sirupsen/logrus"
-	"github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
+	v1 "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -115,7 +114,7 @@ func runReconcileNonAdminControllerTest(
 		EventRecorder: event,
 		dpa:           dpa,
 	}
-	result, err := r.ReconcileNonAdminController(logr.Discard())
+	result, err := r.ReconcileNonAdminController()
 
 	if len(scenario.errMessage) == 0 {
 		gomega.Expect(result).To(gomega.BeTrue())

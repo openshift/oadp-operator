@@ -2728,7 +2728,7 @@ func TestDPAReconciler_ValidateDataProtectionCR(t *testing.T) {
 			EventRecorder: record.NewFakeRecorder(10),
 		}
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := r.ValidateDataProtectionCR(r.Log)
+			got, err := r.ValidateDataProtectionCR()
 			if err != nil && !tt.wantErr {
 				t.Errorf("ValidateDataProtectionCR() error = %v, wantErr %v", err, tt.wantErr)
 				return
@@ -2825,7 +2825,7 @@ func TestDPAReconciler_ValidateDataProtectionCR_PodAnnotationsDeprecationWarning
 	}
 
 	// Run validation
-	valid, err := r.ValidateDataProtectionCR(testLogger)
+	valid, err := r.ValidateDataProtectionCR()
 	if err != nil {
 		t.Errorf("ValidateDataProtectionCR() unexpected error = %v", err)
 		return
@@ -2927,7 +2927,7 @@ func TestDPAReconciler_ValidateDataProtectionCR_NoPodAnnotationsNoWarning(t *tes
 	}
 
 	// Run validation
-	valid, err := r.ValidateDataProtectionCR(testLogger)
+	valid, err := r.ValidateDataProtectionCR()
 	if err != nil {
 		t.Errorf("ValidateDataProtectionCR() unexpected error = %v", err)
 		return
@@ -3209,7 +3209,7 @@ func TestVMFileRestoreValidation(t *testing.T) {
 			}
 
 			// Run validation
-			valid, err := r.ValidateDataProtectionCR(logr.Discard())
+			valid, err := r.ValidateDataProtectionCR()
 
 			if tt.wantErr {
 				if err == nil {
@@ -3312,7 +3312,7 @@ func TestValidateDataProtectionCR_KubevirtDatamoverWarning(t *testing.T) {
 				EventRecorder: eventRecorder,
 			}
 
-			_, err = r.ValidateDataProtectionCR(r.Log)
+			_, err = r.ValidateDataProtectionCR()
 			if err != nil {
 				t.Errorf("ValidateDataProtectionCR() unexpected error = %v", err)
 				return

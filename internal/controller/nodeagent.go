@@ -7,7 +7,6 @@ import (
 	"os"
 	"reflect"
 
-	"github.com/go-logr/logr"
 	configv1 "github.com/openshift/api/config/v1"
 	"github.com/operator-framework/operator-lib/proxy"
 	"github.com/vmware-tanzu/velero/pkg/install"
@@ -170,7 +169,7 @@ func (r *DataProtectionApplicationReconciler) updateNodeAgentCM(cm *corev1.Confi
 }
 
 // ReconcileNodeAgentConfigMap handles creation, update, and deletion of the NodeAgent ConfigMap.
-func (r *DataProtectionApplicationReconciler) ReconcileNodeAgentConfigMap(log logr.Logger) (bool, error) {
+func (r *DataProtectionApplicationReconciler) ReconcileNodeAgentConfigMap() (bool, error) {
 	dpa := r.dpa
 	cmName := types.NamespacedName{Name: common.NodeAgentConfigMapPrefix + dpa.Name, Namespace: r.NamespacedName.Namespace}
 	configMap := corev1.ConfigMap{
@@ -215,7 +214,7 @@ func (r *DataProtectionApplicationReconciler) ReconcileNodeAgentConfigMap(log lo
 	return true, nil
 }
 
-func (r *DataProtectionApplicationReconciler) ReconcileNodeAgentDaemonset(log logr.Logger) (bool, error) {
+func (r *DataProtectionApplicationReconciler) ReconcileNodeAgentDaemonset() (bool, error) {
 	dpa := r.dpa
 	// Define "static" portion of daemonset
 	ds := &appsv1.DaemonSet{
@@ -293,12 +292,12 @@ func (r *DataProtectionApplicationReconciler) ReconcileNodeAgentDaemonset(log lo
 			if isStatusCause && cause.Field == "spec.selector" {
 				// recreate deployment
 				// TODO: check for in-progress backup/restore to wait for it to finish
-				log.Info("Found immutable selector from previous daemonset, recreating NodeAgent daemonset")
+				r.Log.Info("Found immutable selector from previous daemonset, recreating NodeAgent daemonset")
 				err := r.Delete(r.Context, ds)
 				if err != nil {
 					return false, err
 				}
-				return r.ReconcileNodeAgentDaemonset(log)
+				return r.ReconcileNodeAgentDaemonset()
 			}
 		}
 		return false, err
@@ -688,7 +687,7 @@ func (r *DataProtectionApplicationReconciler) customizeNodeAgentDaemonset(ds *ap
 }
 
 // This is needed to remove fsRestoreHelperCM added in OADP 1.4 and earlier.
-func (r *DataProtectionApplicationReconciler) ReconcileFsRestoreHelperConfig(log logr.Logger) (bool, error) {
+func (r *DataProtectionApplicationReconciler) ReconcileFsRestoreHelperConfig() (bool, error) {
 	cmName := types.NamespacedName{Name: FsRestoreHelperCM, Namespace: r.NamespacedName.Namespace}
 	fsRestoreHelperCM := corev1.ConfigMap{}
 	err := r.Get(r.Context, cmName, &fsRestoreHelperCM)

@@ -6,7 +6,6 @@ import (
 	"reflect"
 	"strconv"
 
-	"github.com/go-logr/logr"
 	"github.com/sirupsen/logrus"
 	"golang.org/x/exp/maps"
 	appsv1 "k8s.io/api/apps/v1"
@@ -49,7 +48,7 @@ var (
 )
 
 // ReconcileVMFileRestoreController manages the VM file restore controller deployment
-func (r *DataProtectionApplicationReconciler) ReconcileVMFileRestoreController(log logr.Logger) (bool, error) {
+func (r *DataProtectionApplicationReconciler) ReconcileVMFileRestoreController() (bool, error) {
 	vmFileRestoreDeployment := &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      vmFileRestoreObjectName,

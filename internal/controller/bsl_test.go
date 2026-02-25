@@ -2663,7 +2663,7 @@ func TestDPAReconciler_ReconcileBackupStorageLocations(t *testing.T) {
 					}},
 				},
 			}
-			got, err := r.ReconcileBackupStorageLocations(r.Log)
+			got, err := r.ReconcileBackupStorageLocations()
 			if (err != nil) != tt.wantErr {
 				t.Errorf("ReconcileBackupStorageLocations() error = %v, wantErr %v", err, tt.wantErr)
 				return
@@ -3490,7 +3490,7 @@ func TestDPAReconciler_ReconcileBackupStorageLocations(t *testing.T) {
 				dpa:           tt.objects[0].(*oadpv1alpha1.DataProtectionApplication),
 			}
 
-			got, err := r.ReconcileBackupStorageLocations(r.Log)
+			got, err := r.ReconcileBackupStorageLocations()
 			if (err != nil) != tt.wantErr {
 				t.Errorf("ReconcileBackupStorageLocations() error =%v, wantErr %v", err, tt.wantErr)
 				return
@@ -3579,7 +3579,7 @@ func TestDPAReconciler_ReconcileBackupStorageLocations(t *testing.T) {
 		}
 
 		// First reconciliation - should create BSL
-		success, err := r.ReconcileBackupStorageLocations(r.Log)
+		success, err := r.ReconcileBackupStorageLocations()
 		if err != nil {
 			t.Fatalf("first ReconcileBackupStorageLocations() failed: %v", err)
 		}
@@ -3612,7 +3612,7 @@ func TestDPAReconciler_ReconcileBackupStorageLocations(t *testing.T) {
 		}
 
 		// Second reconciliation - should not update BSL if nothing changed
-		success, err = r.ReconcileBackupStorageLocations(r.Log)
+		success, err = r.ReconcileBackupStorageLocations()
 		if err != nil {
 			t.Fatalf("second ReconcileBackupStorageLocations() failed: %v", err)
 		}
@@ -3641,7 +3641,7 @@ func TestDPAReconciler_ReconcileBackupStorageLocations(t *testing.T) {
 		}
 
 		// Third reconciliation - verify it still doesn't change
-		success, err = r.ReconcileBackupStorageLocations(r.Log)
+		success, err = r.ReconcileBackupStorageLocations()
 		if err != nil {
 			t.Fatalf("third ReconcileBackupStorageLocations() failed: %v", err)
 		}
@@ -3731,7 +3731,7 @@ func TestDPAReconciler_ReconcileBackupStorageLocations(t *testing.T) {
 		}
 
 		// First reconciliation - should create BSL
-		success, err := r.ReconcileBackupStorageLocations(r.Log)
+		success, err := r.ReconcileBackupStorageLocations()
 		if err != nil {
 			t.Fatalf("first ReconcileBackupStorageLocations() failed: %v", err)
 		}
@@ -3787,7 +3787,7 @@ func TestDPAReconciler_ReconcileBackupStorageLocations(t *testing.T) {
 
 		// Perform 5 reconciliations to ensure no loops occur
 		for i := 2; i <= 5; i++ {
-			success, err = r.ReconcileBackupStorageLocations(r.Log)
+			success, err = r.ReconcileBackupStorageLocations()
 			if err != nil {
 				t.Fatalf("reconciliation %d failed: %v", i, err)
 			}
@@ -5665,7 +5665,7 @@ func TestDPAReconciler_ensureBSLPreservesDefaultField(t *testing.T) {
 			}
 
 			// Call the BSL reconciliation
-			_, err := r.ReconcileBackupStorageLocations(r.Log)
+			_, err := r.ReconcileBackupStorageLocations()
 			assert.NoError(t, err)
 
 			// Verify the BSL was created/updated correctly

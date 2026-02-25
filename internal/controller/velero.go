@@ -7,7 +7,6 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/go-logr/logr"
 	"github.com/google/go-cmp/cmp"
 	"github.com/operator-framework/operator-lib/proxy"
 	"github.com/sirupsen/logrus"
@@ -75,7 +74,7 @@ var (
 	}
 )
 
-func (r *DataProtectionApplicationReconciler) ReconcileVeleroDeployment(log logr.Logger) (bool, error) {
+func (r *DataProtectionApplicationReconciler) ReconcileVeleroDeployment() (bool, error) {
 
 	dpa := r.dpa
 
@@ -116,12 +115,12 @@ func (r *DataProtectionApplicationReconciler) ReconcileVeleroDeployment(log logr
 			if isStatusCause && cause.Field == "spec.selector" {
 				// recreate deployment
 				// TODO: check for in-progress backup/restore to wait for it to finish
-				log.Info("Found immutable selector from previous deployment, recreating Velero Deployment")
+				r.Log.Info("Found immutable selector from previous deployment, recreating Velero Deployment")
 				err := r.Delete(r.Context, veleroDeployment)
 				if err != nil {
 					return false, err
 				}
-				return r.ReconcileVeleroDeployment(log)
+				return r.ReconcileVeleroDeployment()
 			}
 		}
 
