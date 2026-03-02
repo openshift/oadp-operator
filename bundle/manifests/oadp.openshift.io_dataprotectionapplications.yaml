@@ -258,6 +258,21 @@ spec:
                           format: int64
                           minimum: 0
                           type: integer
+                        cachePVC:
+                          description: |-
+                            CachePVCConfig configures a dedicated PVC for Kopia repository cache during restore operations.
+                            When set, cache data is stored on a provisioned PVC instead of the pod's root filesystem,
+                            preventing ephemeral storage exhaustion on nodes during concurrent restores.
+                            If storageClass is omitted, the cluster's default StorageClass is used.
+                          properties:
+                            residentThresholdInMB:
+                              description: ResidentThresholdInMB specifies the minimum size of the backup data to create cache PVC
+                              format: int64
+                              type: integer
+                            storageClass:
+                              description: StorageClass specifies the storage class for cache PVC
+                              type: string
+                          type: object
                         dataMoverPrepareTimeout:
                           description: How long to wait for preparing a DataUpload/DataDownload. Default is 30 minutes.
                           type: string

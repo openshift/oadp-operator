@@ -23,6 +23,7 @@ import (
 	"github.com/vmware-tanzu/velero/pkg/util/kube"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	storagev1 "k8s.io/api/storage/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -1545,6 +1546,31 @@ func TestDPAReconciler_buildNodeAgentDaemonset(t *testing.T) {
 			}),
 		},
 		{
+			name: "valid DPA CR with KopiaRepoOptions, NodeAgent DaemonSet is built with backup-repository-configmap arg",
+			dpa: createTestDpaWith(
+				nil,
+				oadpv1alpha1.DataProtectionApplicationSpec{
+					Configuration: &oadpv1alpha1.ApplicationConfig{
+						Velero: &oadpv1alpha1.VeleroConfig{},
+						NodeAgent: &oadpv1alpha1.NodeAgentConfig{
+							NodeAgentCommonFields: oadpv1alpha1.NodeAgentCommonFields{},
+							UploaderType:          "kopia",
+							KopiaRepoOptions: oadpv1alpha1.KopiaRepoOptions{
+								CacheLimitMB: ptr.To(int64(10240)),
+							},
+						},
+					},
+				},
+			),
+			clientObjects:      []client.Object{testGenericInfrastructure},
+			nodeAgentDaemonSet: testNodeAgentDaemonSet.DeepCopy(),
+			wantNodeAgentDaemonSet: createTestBuiltNodeAgentDaemonSet(TestBuiltNodeAgentDaemonSetOptions{
+				args: []string{
+					"--backup-repository-configmap=" + common.BackupRepoConfigMapPrefix + testDpaName,
+				},
+			}),
+		},
+		{
 			name: "valid DPA CR with Azure workload identity env vars, NodeAgent DaemonSet is built with Azure env vars",
 			dpa: createTestDpaWith(
 				nil,
@@ -1881,6 +1907,96 @@ func TestDPAReconciler_updateNodeAgentCM(t *testing.T) {
 				}`,
 			}),
 		},
+		{
+			name: "Given DPA CR instance, appropriate NodeAgent config cm is created with CachePVCConfig",
+			nodeAgentConfigMap: &corev1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      common.NodeAgentConfigMapPrefix + testCmName,
+					Namespace: testCmNs,
+				},
+			},
+			dpa: &oadpv1alpha1.DataProtectionApplication{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      testCmName,
+					Namespace: testCmNs,
+				},
+				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
+					Configuration: &oadpv1alpha1.ApplicationConfig{
+						Velero: &oadpv1alpha1.VeleroConfig{
+							DefaultPlugins: []oadpv1alpha1.DefaultPlugin{
+								oadpv1alpha1.DefaultPluginAWS,
+							},
+						},
+						NodeAgent: &oadpv1alpha1.NodeAgentConfig{
+							NodeAgentCommonFields: oadpv1alpha1.NodeAgentCommonFields{},
+							NodeAgentConfigMapSettings: oadpv1alpha1.NodeAgentConfigMapSettings{
+								CachePVCConfig: &velerotypes.CachePVC{
+									StorageClass:          "gp3-csi",
+									ResidentThresholdInMB: 1024,
+								},
+							},
+						},
+					},
+				},
+			},
+			wantErr: false,
+			wantNodeAgentConfigMap: createTestBuiltNodeAgentCM(map[string]string{
+				"node-agent-config": `{
+					"cachePVC": {
+						"storageClass": "gp3-csi",
+						"residentThresholdInMB": 1024
+					},
+					"privilegedFsBackup": true
+				}`,
+			}),
+		},
+		{
+			name: "Given DPA CR instance, appropriate NodeAgent config cm is created with CachePVCConfig and other settings",
+			nodeAgentConfigMap: &corev1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      common.NodeAgentConfigMapPrefix + testCmName,
+					Namespace: testCmNs,
+				},
+			},
+			dpa: &oadpv1alpha1.DataProtectionApplication{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      testCmName,
+					Namespace: testCmNs,
+				},
+				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
+					Configuration: &oadpv1alpha1.ApplicationConfig{
+						Velero: &oadpv1alpha1.VeleroConfig{
+							DefaultPlugins: []oadpv1alpha1.DefaultPlugin{
+								oadpv1alpha1.DefaultPluginAWS,
+							},
+						},
+						NodeAgent: &oadpv1alpha1.NodeAgentConfig{
+							NodeAgentCommonFields: oadpv1alpha1.NodeAgentCommonFields{},
+							NodeAgentConfigMapSettings: oadpv1alpha1.NodeAgentConfigMapSettings{
+								LoadConcurrency: &oadpv1alpha1.LoadConcurrency{
+									GlobalConfig: 5,
+								},
+								CachePVCConfig: &velerotypes.CachePVC{
+									StorageClass: "gp3-csi",
+								},
+							},
+						},
+					},
+				},
+			},
+			wantErr: false,
+			wantNodeAgentConfigMap: createTestBuiltNodeAgentCM(map[string]string{
+				"node-agent-config": `{
+					"loadConcurrency": {
+						"globalConfig": 5
+					},
+					"cachePVC": {
+						"storageClass": "gp3-csi"
+					},
+					"privilegedFsBackup": true
+				}`,
+			}),
+		},
 	}
 
 	for _, tt := range tests {
@@ -1927,6 +2043,234 @@ func TestDPAReconciler_updateNodeAgentCM(t *testing.T) {
 			// Compare the unmarshalled maps
 			require.Equal(t, wantMap, gotMap, "ConfigMaps are not equal")
 
+		})
+	}
+}
+
+func Test_isNodeAgentCMRequired_CachePVCConfig(t *testing.T) {
+	tests := []struct {
+		name            string
+		config          oadpv1alpha1.NodeAgentConfigMapSettings
+		disableFsBackup *bool
+		want            bool
+	}{
+		{
+			name:            "CachePVCConfig set, fs-backup disabled, CM should be required",
+			config:          oadpv1alpha1.NodeAgentConfigMapSettings{CachePVCConfig: &velerotypes.CachePVC{StorageClass: "gp3-csi"}},
+			disableFsBackup: ptr.To(true),
+			want:            true,
+		},
+		{
+			name:            "No config set, fs-backup disabled, CM should not be required",
+			config:          oadpv1alpha1.NodeAgentConfigMapSettings{},
+			disableFsBackup: ptr.To(true),
+			want:            false,
+		},
+		{
+			name:            "CachePVCConfig set, fs-backup enabled, CM should be required",
+			config:          oadpv1alpha1.NodeAgentConfigMapSettings{CachePVCConfig: &velerotypes.CachePVC{StorageClass: "gp3-csi"}},
+			disableFsBackup: ptr.To(false),
+			want:            true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := isNodeAgentCMRequired(tt.config, tt.disableFsBackup)
+			if got != tt.want {
+				t.Errorf("isNodeAgentCMRequired() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func Test_getDefaultStorageClass(t *testing.T) {
+	tests := []struct {
+		name    string
+		objects []client.Object
+		want    string
+		wantErr bool
+	}{
+		{
+			name:    "no storage classes exist",
+			objects: nil,
+			want:    "",
+			wantErr: false,
+		},
+		{
+			name: "default storage class exists",
+			objects: []client.Object{
+				&storagev1.StorageClass{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "gp3-csi",
+						Annotations: map[string]string{
+							"storageclass.kubernetes.io/is-default-class": "true",
+						},
+					},
+				},
+				&storagev1.StorageClass{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "standard",
+					},
+				},
+			},
+			want:    "gp3-csi",
+			wantErr: false,
+		},
+		{
+			name: "no default storage class",
+			objects: []client.Object{
+				&storagev1.StorageClass{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "gp3-csi",
+					},
+				},
+			},
+			want:    "",
+			wantErr: false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			fakeClient, err := getFakeClientFromObjects(tt.objects...)
+			if err != nil {
+				t.Fatalf("error in creating fake client: %v", err)
+			}
+			r := &DataProtectionApplicationReconciler{
+				Client:  fakeClient,
+				Scheme:  fakeClient.Scheme(),
+				Log:     logr.Discard(),
+				Context: newContextForTest(),
+			}
+			got, err := r.getDefaultStorageClass()
+			if (err != nil) != tt.wantErr {
+				t.Errorf("getDefaultStorageClass() error = %v, wantErr %v", err, tt.wantErr)
+			}
+			if got != tt.want {
+				t.Errorf("getDefaultStorageClass() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func Test_updateNodeAgentCM_DefaultStorageClass(t *testing.T) {
+	testCmName := "test-dpa"
+	testCmNs := "test-ns"
+
+	tests := []struct {
+		name             string
+		storageClasses   []client.Object
+		cachePVCConfig   *velerotypes.CachePVC
+		wantStorageClass string
+	}{
+		{
+			name: "CachePVC without StorageClass, default SC exists",
+			storageClasses: []client.Object{
+				&storagev1.StorageClass{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "gp3-csi",
+						Annotations: map[string]string{
+							"storageclass.kubernetes.io/is-default-class": "true",
+						},
+					},
+				},
+			},
+			cachePVCConfig:   &velerotypes.CachePVC{},
+			wantStorageClass: "gp3-csi",
+		},
+		{
+			name:             "CachePVC without StorageClass, no default SC",
+			storageClasses:   nil,
+			cachePVCConfig:   &velerotypes.CachePVC{},
+			wantStorageClass: "",
+		},
+		{
+			name: "CachePVC with explicit StorageClass, default SC exists",
+			storageClasses: []client.Object{
+				&storagev1.StorageClass{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "gp3-csi",
+						Annotations: map[string]string{
+							"storageclass.kubernetes.io/is-default-class": "true",
+						},
+					},
+				},
+			},
+			cachePVCConfig:   &velerotypes.CachePVC{StorageClass: "my-custom-sc"},
+			wantStorageClass: "my-custom-sc",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			fakeClient, err := getFakeClientFromObjects(tt.storageClasses...)
+			if err != nil {
+				t.Fatalf("error in creating fake client: %v", err)
+			}
+			dpa := &oadpv1alpha1.DataProtectionApplication{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      testCmName,
+					Namespace: testCmNs,
+				},
+				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
+					Configuration: &oadpv1alpha1.ApplicationConfig{
+						Velero: &oadpv1alpha1.VeleroConfig{
+							DefaultPlugins: []oadpv1alpha1.DefaultPlugin{
+								oadpv1alpha1.DefaultPluginAWS,
+							},
+						},
+						NodeAgent: &oadpv1alpha1.NodeAgentConfig{
+							NodeAgentCommonFields: oadpv1alpha1.NodeAgentCommonFields{},
+							NodeAgentConfigMapSettings: oadpv1alpha1.NodeAgentConfigMapSettings{
+								CachePVCConfig: tt.cachePVCConfig,
+							},
+						},
+					},
+				},
+			}
+			dpa.AutoCorrect()
+
+			r := &DataProtectionApplicationReconciler{
+				Client:  fakeClient,
+				Scheme:  fakeClient.Scheme(),
+				Log:     logr.Discard(),
+				Context: newContextForTest(),
+				NamespacedName: types.NamespacedName{
+					Namespace: testCmNs,
+					Name:      testCmName,
+				},
+				EventRecorder: record.NewFakeRecorder(10),
+				dpa:           dpa,
+			}
+
+			cm := &corev1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      common.NodeAgentConfigMapPrefix + testCmName,
+					Namespace: testCmNs,
+				},
+			}
+			err = r.updateNodeAgentCM(cm)
+			require.NoError(t, err)
+
+			// Parse the ConfigMap data to verify the storageClass
+			var configMap map[string]interface{}
+			require.NoError(t, json.Unmarshal([]byte(cm.Data["node-agent-config"]), &configMap))
+
+			cachePVC, ok := configMap["cachePVC"]
+			if tt.wantStorageClass == "" && tt.cachePVCConfig.StorageClass == "" {
+				// When no default SC and no explicit SC, cachePVC should be omitted from ConfigMap
+				// so Velero falls back to root filesystem caching
+				require.False(t, ok, "cachePVC should not be present in ConfigMap when no StorageClass can be resolved")
+			} else {
+				require.True(t, ok, "cachePVC should be present in ConfigMap")
+				cachePVCMap := cachePVC.(map[string]interface{})
+				require.Equal(t, tt.wantStorageClass, cachePVCMap["storageClass"])
+			}
+
+			// Verify original DPA spec was not mutated
+			if tt.cachePVCConfig != nil && tt.cachePVCConfig.StorageClass == "" {
+				require.Empty(t, dpa.Spec.Configuration.NodeAgent.CachePVCConfig.StorageClass,
+					"DPA spec should not be mutated by default StorageClass resolution")
+			}
 		})
 	}
 }

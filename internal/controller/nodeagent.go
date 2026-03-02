@@ -14,6 +14,7 @@ import (
 	"github.com/vmware-tanzu/velero/pkg/util/kube"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	storagev1 "k8s.io/api/storage/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -121,8 +122,26 @@ func isNodeAgentCMRequired(config oadpv1alpha1.NodeAgentConfigMapSettings, disab
 		config.RestorePVCConfig != nil ||
 		config.PodResources != nil ||
 		config.LoadAffinityConfig != nil ||
+		config.CachePVCConfig != nil ||
 		disableFsBackup == nil ||
 		!*disableFsBackup
+}
+
+// getDefaultStorageClass returns the name of the cluster's default StorageClass, if one exists.
+// A StorageClass is considered default if it has the annotation
+// "storageclass.kubernetes.io/is-default-class" set to "true".
+func (r *DataProtectionApplicationReconciler) getDefaultStorageClass() (string, error) {
+	scList := &storagev1.StorageClassList{}
+	if err := r.Client.List(r.Context, scList); err != nil {
+		return "", fmt.Errorf("failed to list storage classes: %w", err)
+	}
+	for i := range scList.Items {
+		sc := &scList.Items[i]
+		if sc.Annotations["storageclass.kubernetes.io/is-default-class"] == "true" {
+			return sc.Name, nil
+		}
+	}
+	return "", nil
 }
 
 // updateNodeAgentCM handles the creation or update of the NodeAgent ConfigMap with all required data.
@@ -140,6 +159,27 @@ func (r *DataProtectionApplicationReconciler) updateNodeAgentCM(cm *corev1.Confi
 		NodeAgentConfigMapSettings: r.dpa.Spec.Configuration.NodeAgent.NodeAgentConfigMapSettings,
 		PrivilegedFsBackup:         privilegedFsBackup,
 	}
+
+	// If CachePVCConfig is set but StorageClass is empty, resolve the cluster's default StorageClass.
+	// This prevents restore failures when local storage is limited by ensuring a StorageClass is available
+	// for cache PVC provisioning, even when the user doesn't explicitly specify one.
+	if configWithPrivileged.CachePVCConfig != nil && configWithPrivileged.CachePVCConfig.StorageClass == "" {
+		defaultSC, err := r.getDefaultStorageClass()
+		if err != nil {
+			r.Log.Info("Failed to resolve default StorageClass for cache PVC, cache volume will be disabled", "error", err)
+			configWithPrivileged.CachePVCConfig = nil
+		} else if defaultSC != "" {
+			// Create a copy to avoid modifying the DPA spec
+			cachePVCCopy := *configWithPrivileged.CachePVCConfig
+			cachePVCCopy.StorageClass = defaultSC
+			configWithPrivileged.CachePVCConfig = &cachePVCCopy
+			r.Log.Info("Resolved default StorageClass for cache PVC", "storageClass", defaultSC)
+		} else {
+			r.Log.Info("No default StorageClass found, cache volume will be disabled unless a StorageClass is specified in cachePVC config")
+			configWithPrivileged.CachePVCConfig = nil
+		}
+	}
+
 	// Convert NodeAgentConfigMapSettings to a generic map
 	configNodeAgentJSON, err := json.Marshal(configWithPrivileged)
 	if err != nil {
@@ -364,6 +404,15 @@ func (r *DataProtectionApplicationReconciler) buildNodeAgentDaemonset(ds *appsv1
 		configMapGeneration = configMap.ResourceVersion
 	}
 
+	// Determine the backup-repository-configmap name to pass to the node-agent DaemonSet
+	// so it can read Kopia repository settings (e.g. cacheLimitMB) needed for cache volume
+	// size calculations during restore operations.
+	var backupRepoConfigMapName string
+	if isBackupRepositoryCmRequired(dpa.Spec.Configuration.NodeAgent) {
+		backupRepoCmName := r.GetBackupRepositoryConfigMapName()
+		backupRepoConfigMapName = backupRepoCmName.Name
+	}
+
 	installDs := install.DaemonSet(ds.Namespace,
 		install.WithResources(nodeAgentResourceReqs),
 		install.WithImage(getVeleroImage(dpa)),
@@ -372,6 +421,7 @@ func (r *DataProtectionApplicationReconciler) buildNodeAgentDaemonset(ds *appsv1
 		install.WithServiceAccountName(common.Velero),
 		install.WithNodeAgentConfigMap(configMapName),
 		install.WithLabels(map[string]string{NodeAgentCMVersionLabel: configMapGeneration}),
+		install.WithBackupRepoConfigMap(backupRepoConfigMapName),
 	)
 	ds.TypeMeta = installDs.TypeMeta
 	var err error
