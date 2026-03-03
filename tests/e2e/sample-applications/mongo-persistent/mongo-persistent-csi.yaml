@@ -77,16 +77,18 @@ items:
           serviceAccountName: mongo-persistent-sa
           containers:
           - name: todolist
-            image: quay.io/migtools/oadp-ci-todolist-mongo-go-testing:latest
+            image: quay.io/migtools/oadp-ci-todo2-go-testing-mariadb:latest
             securityContext:
               privileged: false
               allowPrivilegeEscalation: false
               capabilities:
                 drop:
                 - ALL
-              seccompProfile:
-                type: RuntimeDefault
             env:
+              - name: DB_BACKEND
+                value: mongodb
+              - name: MONGO_DATABASE
+                value: todolist
               - name: MONGO_INITDB_ROOT_USERNAME
                 value: changeme
               - name: MONGO_INITDB_ROOT_PASSWORD
@@ -101,7 +103,7 @@ items:
                 memory: 512Mi
             volumeMounts:
             - name: mongo-data
-              mountPath: /data/db
+              mountPath: /var/lib/mongodb
             startupProbe:
               httpGet:
                 path: /healthz

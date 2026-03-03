@@ -77,7 +77,7 @@ items:
           serviceAccountName: mysql-persistent-sa
           containers:
           - name: todolist
-            image: quay.io/migtools/oadp-ci-todolist-mariadb-go-testing:testing
+            image: quay.io/migtools/oadp-ci-todo2-go-testing-mariadb:latest
             securityContext:
               privileged: false
             env:

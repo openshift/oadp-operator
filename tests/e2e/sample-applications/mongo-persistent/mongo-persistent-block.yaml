@@ -79,8 +79,8 @@ items:
             runAsUser: 0
           # Format the block device on first use so MongoDB can use the filesystem
           initContainers:
-            - image: quay.io/migtools/oadp-ci-todolist-mongo-go-testing:latest
-              imagePullPolicy: IfNotPresent
+            - image: quay.io/migtools/oadp-ci-todo2-go-testing-mariadb:latest
+              imagePullPolicy: Always
               securityContext:
                 privileged: true
               name: setup-block-device
@@ -111,10 +111,14 @@ items:
                   devicePath: /dev/xvdx
           containers:
           - name: todolist
-            image: quay.io/migtools/oadp-ci-todolist-mongo-go-testing:latest
+            image: quay.io/migtools/oadp-ci-todo2-go-testing-mariadb:latest
             securityContext:
               privileged: true
             env:
+              - name: DB_BACKEND
+                value: mongodb
+              - name: MONGO_DATABASE
+                value: todolist
               - name: MONGO_INITDB_ROOT_USERNAME
                 value: changeme
               - name: MONGO_INITDB_ROOT_PASSWORD
@@ -131,12 +135,12 @@ items:
             command:
               - "sh"
               - "-c"
-              - |
-                DEVICE="/dev/xvdx"
-                MOUNT_POINT="/data/db"
-                mkdir -p $MOUNT_POINT
-                mount $DEVICE $MOUNT_POINT
-                exec /opt/todolist/entrypoint.sh
+                - |
+                  DEVICE="/dev/xvdx"
+                  MOUNT_POINT="/var/lib/mongodb"
+                  mkdir -p $MOUNT_POINT
+                  mount $DEVICE $MOUNT_POINT
+                  exec /opt/todolist/entrypoint.sh
             volumeDevices:
               - name: block-volume-pv
                 devicePath: /dev/xvdx
