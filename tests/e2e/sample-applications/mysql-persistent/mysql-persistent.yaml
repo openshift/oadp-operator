@@ -33,6 +33,9 @@ items:
       name: mysql-persistent-scc
     allowPrivilegeEscalation: true
     allowPrivilegedContainer: true
+    allowedCapabilities:
+    - CHOWN
+    - FOWNER
     runAsUser:
       type: RunAsAny
     seLinuxContext:
@@ -104,6 +107,9 @@ items:
               capabilities:
                 drop:
                 - ALL
+                add:
+                - CHOWN
+                - FOWNER
             env:
               - name: DB_BACKEND
                 value: mariadb

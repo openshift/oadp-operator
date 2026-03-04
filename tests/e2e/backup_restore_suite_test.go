@@ -266,6 +266,21 @@ func runApplicationBackupAndRestore(brCase ApplicationBackupRestoreCase, updateL
 	// run restore
 	runRestore(brCase.BackupRestoreCase, backupName, restoreName, nsRequiredResticDCWorkaround)
 
+	// For file-system backup restores (KOPIA/restic), the restored pods may have
+	// broken networking because OVN-Kubernetes doesn't fully wire the network
+	// namespace for pods recreated by Velero with a restore-wait init container.
+	// Deleting the pods lets the deployment controller create fresh ones with
+	// proper networking while preserving the restored PVC data.
+	if brCase.BackupRestoreType == lib.KOPIA {
+		log.Printf("Restarting pods in namespace %s to ensure proper networking after file-system restore", brCase.Namespace)
+		err = kubernetesClientForSuiteRun.CoreV1().Pods(brCase.Namespace).DeleteCollection(
+			context.Background(),
+			metav1.DeleteOptions{},
+			metav1.ListOptions{LabelSelector: "e2e-app=true"},
+		)
+		gomega.Expect(err).ToNot(gomega.HaveOccurred())
+	}
+
 	// Run optional custom verification
 	if brCase.PostRestoreVerify != nil {
 		log.Printf("Running post-restore custom function for case %s", brCase.Name)
