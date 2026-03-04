@@ -90,7 +90,7 @@ items:
           serviceAccountName: mongo-persistent-sa
           containers:
           - name: todolist
-            image: quay.io/migtools/oadp-ci-todo2-go-testing-mariadb:latest
+            image: quay.io/migtools/oadp-ci-todo2-go-testing-mongodb:latest
             env:
               - name: DB_BACKEND
                 value: mongodb

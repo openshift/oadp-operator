@@ -79,7 +79,7 @@ items:
             runAsUser: 0
           # Format the block device on first use so MongoDB can use the filesystem
           initContainers:
-            - image: quay.io/migtools/oadp-ci-todo2-go-testing-mariadb:latest
+            - image: quay.io/migtools/oadp-ci-todo2-go-testing-mongodb:latest
               imagePullPolicy: Always
               securityContext:
                 privileged: true
@@ -111,7 +111,7 @@ items:
                   devicePath: /dev/xvdx
           containers:
           - name: todolist
-            image: quay.io/migtools/oadp-ci-todo2-go-testing-mariadb:latest
+            image: quay.io/migtools/oadp-ci-todo2-go-testing-mongodb:latest
             securityContext:
               privileged: true
             env:

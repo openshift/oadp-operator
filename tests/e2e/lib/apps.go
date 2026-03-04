@@ -493,6 +493,27 @@ func VerifyBackupRestoreData(ocClient client.Client, kubeClient *kubernetes.Clie
 		//restore check
 
 		if namespace == "mysql-persistent" || namespace == "mongo-persistent" {
+			// ensure that the application endpoint is reachable
+			requestParams := getRequestParameters(appEndpointURL+"/readyz", proxyPodParams, GET, nil)
+			const maxReadyzAttempts = 5
+			for attempt := 1; attempt <= maxReadyzAttempts; attempt++ {
+				log.Printf("readyz check attempt %d/%d: GET %s/readyz\n", attempt, maxReadyzAttempts, appEndpointURL)
+				respData, errResp, err = MakeRequest(*requestParams)
+				if err == nil {
+					log.Printf("readyz endpoint is alive (attempt %d/%d): %s\n", attempt, maxReadyzAttempts, respData)
+					break
+				}
+				if errResp != "" {
+					log.Printf("Request response error msg: %s\n", errResp)
+				}
+				if attempt == maxReadyzAttempts {
+					log.Printf("readyz endpoint did not become alive after %d attempts: %v\n", maxReadyzAttempts, err)
+					return err
+				}
+				backoff := time.Duration(attempt) * 5 * time.Second
+				log.Printf("readyz attempt %d/%d failed, retrying in %s: %v\n", attempt, maxReadyzAttempts, backoff, err)
+				time.Sleep(backoff)
+			}
 			// Make request to the "todo-incomplete" endpoint
 			requestParamsTodoIncomplete := getRequestParameters(appEndpointURL+"/todo-incomplete", proxyPodParams, GET, nil)
 			respData, errResp, err = MakeRequest(*requestParamsTodoIncomplete)
@@ -503,6 +524,7 @@ func VerifyBackupRestoreData(ocClient client.Client, kubeClient *kubernetes.Clie
 				return err
 			}
 		}
+
 		if namespace == "parks-app" {
 			// Make request to the "clicks" endpoint
 			responseParams := getRequestParameters(appEndpointURL+"/clicks", proxyPodParams, GET, nil)

@@ -81,6 +81,8 @@ items:
             securityContext:
               privileged: false
             env:
+              - name: DB_BACKEND
+                value: mariadb
               - name: MYSQL_USER
                 value: changeme
               - name: MYSQL_PASSWORD
