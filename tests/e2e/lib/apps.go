@@ -528,6 +528,30 @@ func VerifyBackupRestoreData(ocClient client.Client, kubeClient *kubernetes.Clie
 			}
 		}
 
+		if shouldSkipReadyz && (namespace == "mysql-persistent" || namespace == "mongo-persistent") {
+			requestParams := getRequestParameters(appEndpointURL+"/todo-incomplete", proxyPodParams, GET, nil)
+			const maxAttempts = 10
+			for attempt := 1; attempt <= maxAttempts; attempt++ {
+				log.Printf("Polling app endpoint attempt %d/%d: GET %s/todo-incomplete", attempt, maxAttempts, appEndpointURL)
+				respData, errResp, err = MakeRequest(*requestParams)
+				if err == nil && len(bytes.TrimSpace([]byte(respData))) > 0 {
+					log.Printf("VIRT App endpoint responded with data (attempt %d/%d): %s", attempt, maxAttempts, respData)
+					break
+				}
+				if attempt == maxAttempts {
+					if err != nil {
+						log.Printf("VIRT App endpoint did not respond after %d attempts: %v", maxAttempts, err)
+						return err
+					}
+					log.Printf("VIRT App endpoint returned empty data after %d attempts", maxAttempts)
+					return errors.New("VIRT App endpoint returned empty data after max attempts")
+				}
+				backoff := time.Duration(attempt) * 10 * time.Second
+				log.Printf("VIRT Attempt %d/%d: no data yet, retrying in %s (err=%v, resp=%q)", attempt, maxAttempts, backoff, err, respData)
+				time.Sleep(backoff)
+			}
+		}
+
 		if namespace == "parks-app" {
 			// Make request to the "clicks" endpoint
 			responseParams := getRequestParameters(appEndpointURL+"/clicks", proxyPodParams, GET, nil)
