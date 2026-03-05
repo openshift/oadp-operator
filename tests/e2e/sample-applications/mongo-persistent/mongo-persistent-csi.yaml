@@ -89,12 +89,6 @@ items:
                 value: mongodb
               - name: MONGO_DATABASE
                 value: todolist
-              - name: MONGO_INITDB_ROOT_USERNAME
-                value: changeme
-              - name: MONGO_INITDB_ROOT_PASSWORD
-                value: changeme
-              - name: MONGO_INITDB_DATABASE
-                value: todolist
             ports:
               - containerPort: 8000
                 protocol: TCP
