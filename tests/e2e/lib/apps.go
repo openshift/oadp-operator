@@ -421,7 +421,9 @@ func RunMustGather(artifact_dir string, clusterClient client.Client) error {
 }
 
 // VerifyBackupRestoreData verifies if app ready before backup and after restore to compare data.
-func VerifyBackupRestoreData(ocClient client.Client, kubeClient *kubernetes.Clientset, kubeConfig *rest.Config, artifactDir string, namespace string, routeName string, serviceName string, app string, prebackupState bool, twoVol bool) error {
+// skipReadyz skips the post-restore readyz endpoint check (use for VM-based tests where the
+// app route is not directly reachable from the test harness).
+func VerifyBackupRestoreData(ocClient client.Client, kubeClient *kubernetes.Clientset, kubeConfig *rest.Config, artifactDir string, namespace string, routeName string, serviceName string, app string, prebackupState bool, twoVol bool, skipReadyz ...bool) error {
 	log.Printf("Verifying backup/restore data of %s", app)
 	appEndpointURL, proxyPodParams, err := getAppEndpointURLAndProxyParams(ocClient, kubeClient, kubeConfig, namespace, serviceName, routeName)
 	log.Printf("App endpoint URL: %s", appEndpointURL)
@@ -492,7 +494,8 @@ func VerifyBackupRestoreData(ocClient client.Client, kubeClient *kubernetes.Clie
 	} else {
 		//restore check
 
-		if namespace == "mysql-persistent" || namespace == "mongo-persistent" {
+		shouldSkipReadyz := len(skipReadyz) > 0 && skipReadyz[0]
+		if !shouldSkipReadyz && (namespace == "mysql-persistent" || namespace == "mongo-persistent") {
 			// ensure that the application endpoint is reachable
 			requestParams := getRequestParameters(appEndpointURL+"/readyz", proxyPodParams, GET, nil)
 			const maxReadyzAttempts = 5
