@@ -421,7 +421,9 @@ func RunMustGather(artifact_dir string, clusterClient client.Client) error {
 }
 
 // VerifyBackupRestoreData verifies if app ready before backup and after restore to compare data.
-func VerifyBackupRestoreData(ocClient client.Client, kubeClient *kubernetes.Clientset, kubeConfig *rest.Config, artifactDir string, namespace string, routeName string, serviceName string, app string, prebackupState bool, twoVol bool) error {
+// skipReadyz skips the post-restore readyz endpoint check (use for VM-based tests where the
+// app route is not directly reachable from the test harness).
+func VerifyBackupRestoreData(ocClient client.Client, kubeClient *kubernetes.Clientset, kubeConfig *rest.Config, artifactDir string, namespace string, routeName string, serviceName string, app string, prebackupState bool, twoVol bool, skipReadyz ...bool) error {
 	log.Printf("Verifying backup/restore data of %s", app)
 	appEndpointURL, proxyPodParams, err := getAppEndpointURLAndProxyParams(ocClient, kubeClient, kubeConfig, namespace, serviceName, routeName)
 	log.Printf("App endpoint URL: %s", appEndpointURL)
@@ -490,19 +492,107 @@ func VerifyBackupRestoreData(ocClient client.Client, kubeClient *kubernetes.Clie
 			return err
 		}
 	} else {
-		//restore check
+		// --- Restore verification ---
+		// After a Velero restore, verify that the application is serving the same data
+		// that was captured before the backup (stored in backup-data.txt).
+		//
+		// Flow for todo apps (mysql-persistent / mongo-persistent):
+		//   1. If !shouldSkipReadyz: poll /healthz to confirm the app is alive.
+		//   2. Fetch /todo-incomplete to get the current data for comparison.
+		//      - For VM-based tests (shouldSkipReadyz=true) the route is not directly
+		//        reachable until the VM finishes cloud-init, so we poll with retries.
+		//      - For container-based tests a single request suffices after healthz passes.
+		// Flow for parks-app: single GET /clicks.
+		// Finally, compare the fetched data against backup-data.txt.
 
-		if namespace == "mysql-persistent" || namespace == "mongo-persistent" {
-			// Make request to the "todo-incomplete" endpoint
-			requestParamsTodoIncomplete := getRequestParameters(appEndpointURL+"/todo-incomplete", proxyPodParams, GET, nil)
-			respData, errResp, err = MakeRequest(*requestParamsTodoIncomplete)
-			if err != nil {
-				if errResp != "" {
-					log.Printf("Request response error msg: %s\n", errResp)
+		shouldSkipReadyz := len(skipReadyz) > 0 && skipReadyz[0]
+		isTodoApp := namespace == "mysql-persistent" || namespace == "mongo-persistent"
+
+		// Step 1: healthz gate (container-based todo apps only).
+		// Polls /healthz to confirm the app is alive and the HTTP server is responding.
+		// The todo2-go app exposes /healthz (used by all K8s probes) and /readyz (returns
+		// 503 until DB is connected). We use /healthz here because it matches the probe
+		// configuration in the app manifests and becomes available immediately on startup.
+		// Skipped for VM tests where the app runs inside a Fedora/CentOS VM and the
+		// OpenShift route proxies to a different service topology.
+		if isTodoApp && !shouldSkipReadyz {
+			// MakeRequest can return err == nil for HTTP 5xx when using the proxy (curl),
+			// so we validate the response body and errResp via isHealthzAlive.
+			requestParams := getRequestParameters(appEndpointURL+"/healthz", proxyPodParams, GET, nil)
+			const maxHealthzAttempts = 5
+			for attempt := 1; attempt <= maxHealthzAttempts; attempt++ {
+				log.Printf("healthz check attempt %d/%d: GET %s/healthz\n", attempt, maxHealthzAttempts, appEndpointURL)
+				respData, errResp, err = MakeRequest(*requestParams)
+				if err == nil && isHealthzAlive(respData, errResp) {
+					log.Printf("healthz endpoint is alive (attempt %d/%d): %s\n", attempt, maxHealthzAttempts, respData)
+					break
 				}
-				return err
+				if err != nil {
+					if errResp != "" {
+						log.Printf("Request response error msg: %s\n", errResp)
+					}
+				} else {
+					log.Printf("healthz attempt %d/%d: response not healthy (body=%q, errResp=%q)\n", attempt, maxHealthzAttempts, respData, errResp)
+				}
+				if attempt == maxHealthzAttempts {
+					log.Printf("healthz endpoint did not become alive after %d attempts: %v\n", maxHealthzAttempts, err)
+					if err != nil {
+						return err
+					}
+					return fmt.Errorf("healthz did not return healthy response after %d attempts (last body=%q, errResp=%q)", maxHealthzAttempts, respData, errResp)
+				}
+				backoff := time.Duration(attempt) * 5 * time.Second
+				log.Printf("healthz attempt %d/%d failed, retrying in %s: %v\n", attempt, maxHealthzAttempts, backoff, err)
+				time.Sleep(backoff)
 			}
 		}
+
+		// Step 2: fetch /todo-incomplete data for todo apps.
+		// In the VM (shouldSkipReadyz) case we skipped the readyz gate above, so the
+		// app may not be ready yet. Poll with retries and increasing backoff.
+		// In the container case healthz already passed, so one attempt is enough.
+		if isTodoApp {
+			requestParamsTodoIncomplete := getRequestParameters(appEndpointURL+"/todo-incomplete", proxyPodParams, GET, nil)
+			maxTodoAttempts := 1
+			todoBackoffSec := 0
+			if shouldSkipReadyz {
+				maxTodoAttempts = 10
+				todoBackoffSec = 10
+			}
+			for attempt := 1; attempt <= maxTodoAttempts; attempt++ {
+				if maxTodoAttempts > 1 {
+					log.Printf("Polling app endpoint attempt %d/%d: GET %s/todo-incomplete", attempt, maxTodoAttempts, appEndpointURL)
+				}
+				respData, errResp, err = MakeRequest(*requestParamsTodoIncomplete)
+				success := err == nil && (maxTodoAttempts == 1 || len(bytes.TrimSpace([]byte(respData))) > 0)
+				if success {
+					if maxTodoAttempts > 1 {
+						log.Printf("VIRT App endpoint responded with data (attempt %d/%d): %s", attempt, maxTodoAttempts, respData)
+					}
+					break
+				}
+				if attempt == maxTodoAttempts {
+					if err != nil {
+						if errResp != "" {
+							log.Printf("Request response error msg: %s\n", errResp)
+						}
+						return err
+					}
+					if maxTodoAttempts > 1 {
+						log.Printf("VIRT App endpoint returned empty data after %d attempts", maxTodoAttempts)
+						return errors.New("VIRT App endpoint returned empty data after max attempts")
+					}
+					if errResp != "" {
+						log.Printf("Request response error msg: %s\n", errResp)
+					}
+					return err
+				}
+				backoff := time.Duration(attempt) * time.Duration(todoBackoffSec) * time.Second
+				log.Printf("VIRT Attempt %d/%d: no data yet, retrying in %s (err=%v, resp=%q)", attempt, maxTodoAttempts, backoff, err, respData)
+				time.Sleep(backoff)
+			}
+		}
+
 		if namespace == "parks-app" {
 			// Make request to the "clicks" endpoint
 			responseParams := getRequestParameters(appEndpointURL+"/clicks", proxyPodParams, GET, nil)
@@ -537,6 +627,26 @@ func VerifyBackupRestoreData(ocClient client.Client, kubeClient *kubernetes.Clie
 	}
 
 	return nil
+}
+
+// errRespIndicatesHTTPError returns true when errResp contains HTTP error indicators (e.g. 5xx from MakeRequest).
+func errRespIndicatesHTTPError(errResp string) bool {
+	if errResp == "" {
+		return false
+	}
+	return strings.Contains(errResp, "HTTP request failed") ||
+		strings.Contains(errResp, "status code") ||
+		strings.Contains(errResp, "500") ||
+		strings.Contains(errResp, "502") ||
+		strings.Contains(errResp, "503")
+}
+
+// isHealthzAlive returns true when the /healthz response indicates the app is
+// alive: the response body is non-empty (any content is fine) and errResp
+// does not contain HTTP error indicators.
+func isHealthzAlive(respData, errResp string) bool {
+	return strings.TrimSpace(respData) != "" &&
+		!errRespIndicatesHTTPError(errResp)
 }
 
 func getRequestParameters(url string, proxyPodParams *ProxyPodParameters, method HTTPMethod, payload *string) *RequestParameters {

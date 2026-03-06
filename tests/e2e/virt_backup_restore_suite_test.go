@@ -32,7 +32,7 @@ func vmTodoListReady(preBackupState bool, twoVol bool, database string) Verifica
 		if err != nil {
 			return err
 		}
-		err = lib.VerifyBackupRestoreData(runTimeClientForSuiteRun, kubernetesClientForSuiteRun, kubeConfig, artifact_dir, namespace, "todolist-route", "todolist", "todolist", preBackupState, twoVol)
+		err = lib.VerifyBackupRestoreData(runTimeClientForSuiteRun, kubernetesClientForSuiteRun, kubeConfig, artifact_dir, namespace, "todolist-route", "todolist", "todolist", preBackupState, twoVol, true)
 		return err
 	})
 }
