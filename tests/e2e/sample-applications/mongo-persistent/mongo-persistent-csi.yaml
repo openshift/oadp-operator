@@ -84,6 +84,8 @@ items:
               capabilities:
                 drop:
                 - ALL
+              seccompProfile:
+                type: RuntimeDefault
             env:
               - name: DB_BACKEND
                 value: mongodb
