@@ -285,5 +285,5 @@ func (r *DataProtectionApplicationReconciler) getNonAdminImage() string {
 	}
 
 	// TODO https://github.com/openshift/oadp-operator/issues/1379
-	return "quay.io/konveyor/oadp-non-admin:latest"
+	return "quay.io/konveyor/oadp-non-admin:oadp-1.6"
 }

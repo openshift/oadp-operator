@@ -332,7 +332,7 @@ func (r *DataProtectionApplicationReconciler) getKubevirtDatamoverControllerImag
 		return envVar
 	}
 	// Priority 3: Default
-	return "quay.io/konveyor/kubevirt-datamover-controller:latest"
+	return "quay.io/konveyor/kubevirt-datamover-controller:oadp-1.6"
 }
 
 func (r *DataProtectionApplicationReconciler) getKubevirtDatamoverResources() corev1.ResourceRequirements {

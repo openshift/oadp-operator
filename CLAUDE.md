@@ -102,7 +102,7 @@ E2E tests require these environment variables:
 
 **Operator Configuration**:
 
-- `IMG`: Custom operator image (default: `quay.io/konveyor/oadp-operator:latest`)
+- `IMG`: Custom operator image (default: `quay.io/konveyor/oadp-operator:oadp-1.6`)
 - `VERSION`: Override version (default: `99.0.0`)
 - `OADP_TEST_NAMESPACE`: Namespace for operator (default: `openshift-adp`)
 

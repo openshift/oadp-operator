@@ -19,7 +19,7 @@ GO_TOOLCHAIN_VERSION := $(shell grep -E "^toolchain" go.mod | awk '{print $$2}')
 # To re-generate a bundle for other specific channels without changing the standard setup, you can:
 # - use the CHANNELS as arg of the bundle target (e.g make bundle CHANNELS=candidate,fast,stable)
 # - use environment variables to overwrite this value (e.g export CHANNELS="candidate,fast,stable")
-CHANNELS = "dev"
+CHANNELS = "stable"
 ifneq ($(origin CHANNELS), undefined)
 BUNDLE_CHANNELS := --channels=$(CHANNELS)
 endif
@@ -29,7 +29,7 @@ endif
 # To re-generate a bundle for any other default channel without changing the default setup, you can:
 # - use the DEFAULT_CHANNEL as arg of the bundle target (e.g make bundle DEFAULT_CHANNEL=stable)
 # - use environment variables to overwrite this value (e.g export DEFAULT_CHANNEL="stable")
-DEFAULT_CHANNEL = "dev"
+DEFAULT_CHANNEL = "stable"
 ifneq ($(origin DEFAULT_CHANNEL), undefined)
 BUNDLE_DEFAULT_CHANNEL := --default-channel=$(DEFAULT_CHANNEL)
 endif
@@ -58,7 +58,7 @@ ifeq ($(USE_IMAGE_DIGESTS), true)
 endif
 
 # Image URL to use all building/pushing image targets
-IMG ?= quay.io/konveyor/oadp-operator:latest
+IMG ?= quay.io/konveyor/oadp-operator:oadp-1.6
 
 # TTL_DURATION defines the time-to-live for temporary images pushed to ttl.sh
 # The maximum allowed value by ttl.sh is 24h. Default is 1h.
@@ -1014,7 +1014,7 @@ test-e2e-cleanup: login-required
 	rm -rf $(SETTINGS_TMP)
 
 .PHONY: update-non-admin-manifests
-update-non-admin-manifests: NON_ADMIN_CONTROLLER_IMG?=quay.io/konveyor/oadp-non-admin:latest
+update-non-admin-manifests: NON_ADMIN_CONTROLLER_IMG?=quay.io/konveyor/oadp-non-admin:oadp-1.6
 update-non-admin-manifests: yq ## Update Non Admin Controller (NAC) manifests shipped with OADP, from NON_ADMIN_CONTROLLER_PATH
 ifeq ($(NON_ADMIN_CONTROLLER_PATH),)
 	$(error You must set NON_ADMIN_CONTROLLER_PATH to run this command)
@@ -1035,10 +1035,10 @@ endif
 	@make bundle
 
 .PHONY: update-vmfr-manifests
-update-vmfr-manifests: VMFR_CONTROLLER_IMG?=quay.io/konveyor/oadp-vm-file-restore:latest
-update-vmfr-manifests: VMFR_ACCESS_IMG?=quay.io/konveyor/oadp-vmfr-access:latest
-update-vmfr-manifests: VMFR_SSH_IMG?=quay.io/konveyor/oadp-vmfr-access-sshd:latest
-update-vmfr-manifests: VMFR_BROWSER_IMG?=quay.io/konveyor/oadp-vmfr-access-filebrowser:latest
+update-vmfr-manifests: VMFR_CONTROLLER_IMG?=quay.io/konveyor/oadp-vm-file-restore:oadp-1.6
+update-vmfr-manifests: VMFR_ACCESS_IMG?=quay.io/konveyor/oadp-vmfr-access:oadp-1.6
+update-vmfr-manifests: VMFR_SSH_IMG?=quay.io/konveyor/oadp-vmfr-access-sshd:oadp-1.6
+update-vmfr-manifests: VMFR_BROWSER_IMG?=quay.io/konveyor/oadp-vmfr-access-filebrowser:oadp-1.6
 update-vmfr-manifests: yq ## Update VM File Restore (VMFR) manifests shipped with OADP, from VMFR_CONTROLLER_PATH
 ifeq ($(VMFR_CONTROLLER_PATH),)
 	$(error You must set VMFR_CONTROLLER_PATH to run this command)
@@ -1063,7 +1063,7 @@ endif
 	@make bundle
 
 .PHONY: update-kubevirt-datamover-manifests
-update-kubevirt-datamover-manifests: KUBEVIRT_DATAMOVER_CONTROLLER_IMG?=quay.io/konveyor/kubevirt-datamover-controller:latest
+update-kubevirt-datamover-manifests: KUBEVIRT_DATAMOVER_CONTROLLER_IMG?=quay.io/konveyor/kubevirt-datamover-controller:oadp-1.6
 update-kubevirt-datamover-manifests: yq ## Update KubeVirt Datamover Controller RBAC manifests shipped with OADP, from KUBEVIRT_DATAMOVER_PATH
 ifeq ($(KUBEVIRT_DATAMOVER_PATH),)
 	$(error You must set KUBEVIRT_DATAMOVER_PATH to run this command)
