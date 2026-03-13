@@ -21,10 +21,10 @@ import (
 )
 
 const (
-	defaultVMFileRestoreControllerImage = "quay.io/konveyor/oadp-vm-file-restore:latest"
-	defaultVMFileRestoreAccessImage     = "quay.io/konveyor/oadp-vmfr-access:latest"
-	defaultVMFileRestoreSSHImage        = "quay.io/konveyor/oadp-vmfr-access-sshd:latest"
-	defaultVMFileRestoreBrowserImage    = "quay.io/konveyor/oadp-vmfr-access-filebrowser:latest"
+	defaultVMFileRestoreControllerImage = "quay.io/konveyor/oadp-vm-file-restore:oadp-1.6"
+	defaultVMFileRestoreAccessImage     = "quay.io/konveyor/oadp-vmfr-access:oadp-1.6"
+	defaultVMFileRestoreSSHImage        = "quay.io/konveyor/oadp-vmfr-access-sshd:oadp-1.6"
+	defaultVMFileRestoreBrowserImage    = "quay.io/konveyor/oadp-vmfr-access-filebrowser:oadp-1.6"
 )
 
 type ReconcileVMFileRestoreControllerScenario struct {
@@ -721,7 +721,7 @@ func TestBuildVMFileRestoreDeployment(t *testing.T) {
 					LogFormat: "text",
 				},
 			},
-			expectedImage:    "quay.io/konveyor/oadp-vm-file-restore:latest",
+			expectedImage:    "quay.io/konveyor/oadp-vm-file-restore:oadp-1.6",
 			expectedEnvCount: 6, // WATCH_NAMESPACE, VMFR_ACCESS_IMAGE, VMFR_SSH_IMAGE, VMFR_BROWSER_IMAGE, LOG_LEVEL, LOG_FORMAT
 			expectedReplicas: 1,
 			expectedSAName:   "oadp-vm-file-restore-controller-manager",
@@ -754,7 +754,7 @@ func TestBuildVMFileRestoreDeployment(t *testing.T) {
 					},
 				},
 			},
-			expectedImage:    "quay.io/konveyor/oadp-vm-file-restore:latest",
+			expectedImage:    "quay.io/konveyor/oadp-vm-file-restore:oadp-1.6",
 			expectedEnvCount: 5, // WATCH_NAMESPACE, VMFR_ACCESS_IMAGE, VMFR_SSH_IMAGE, VMFR_BROWSER_IMAGE, LOG_LEVEL
 			expectedReplicas: 1,
 			expectedSAName:   "oadp-vm-file-restore-controller-manager",

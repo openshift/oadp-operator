@@ -22,7 +22,7 @@ import (
 	"github.com/openshift/oadp-operator/pkg/common"
 )
 
-const defaultNonAdminImage = "quay.io/konveyor/oadp-non-admin:latest"
+const defaultNonAdminImage = "quay.io/konveyor/oadp-non-admin:oadp-1.6"
 
 type ReconcileNonAdminControllerScenario struct {
 	namespace       string
@@ -523,11 +523,11 @@ func TestDPAReconcilerGetNonAdminImage(t *testing.T) {
 		},
 		{
 			name:  "Get non admin image from unsupported overrides",
-			image: "quay.io/konveyor/another:latest",
+			image: "quay.io/konveyor/another:oadp-1.6",
 			dpa: &oadpv1alpha1.DataProtectionApplication{
 				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
 					UnsupportedOverrides: map[oadpv1alpha1.UnsupportedImageKey]string{
-						"nonAdminControllerImageFqin": "quay.io/konveyor/another:latest",
+						"nonAdminControllerImageFqin": "quay.io/konveyor/another:oadp-1.6",
 					},
 				},
 			},

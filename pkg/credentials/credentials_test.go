@@ -81,7 +81,7 @@ func TestCredentials_getPluginImage(t *testing.T) {
 				},
 			},
 			pluginName: oadpv1alpha1.DefaultPluginAWS,
-			wantImage:  "quay.io/konveyor/velero-plugin-for-aws:latest",
+			wantImage:  "quay.io/konveyor/velero-plugin-for-aws:oadp-1.6",
 			setEnvVars: map[string]string{
 				"REGISTRY":               "quay.io",
 				"PROJECT":                "konveyor",
@@ -154,7 +154,7 @@ func TestCredentials_getPluginImage(t *testing.T) {
 				},
 			},
 			pluginName: oadpv1alpha1.DefaultPluginLegacyAWS,
-			wantImage:  "quay.io/konveyor/velero-plugin-for-legacy-aws:latest",
+			wantImage:  "quay.io/konveyor/velero-plugin-for-legacy-aws:oadp-1.6",
 			setEnvVars: map[string]string{
 				"REGISTRY":                      "quay.io",
 				"PROJECT":                       "konveyor",
@@ -227,7 +227,7 @@ func TestCredentials_getPluginImage(t *testing.T) {
 				},
 			},
 			pluginName: oadpv1alpha1.DefaultPluginOpenShift,
-			wantImage:  "quay.io/konveyor/openshift-velero-plugin:latest",
+			wantImage:  "quay.io/konveyor/openshift-velero-plugin:oadp-1.6",
 			setEnvVars: map[string]string{
 				"REGISTRY":                     "quay.io",
 				"PROJECT":                      "konveyor",
@@ -300,7 +300,7 @@ func TestCredentials_getPluginImage(t *testing.T) {
 				},
 			},
 			pluginName: oadpv1alpha1.DefaultPluginGCP,
-			wantImage:  "quay.io/konveyor/velero-plugin-for-gcp:latest",
+			wantImage:  "quay.io/konveyor/velero-plugin-for-gcp:oadp-1.6",
 			setEnvVars: map[string]string{
 				"REGISTRY":               "quay.io",
 				"PROJECT":                "konveyor",
@@ -373,7 +373,7 @@ func TestCredentials_getPluginImage(t *testing.T) {
 				},
 			},
 			pluginName: oadpv1alpha1.DefaultPluginMicrosoftAzure,
-			wantImage:  "quay.io/konveyor/velero-plugin-for-microsoft-azure:latest",
+			wantImage:  "quay.io/konveyor/velero-plugin-for-microsoft-azure:oadp-1.6",
 			setEnvVars: map[string]string{
 				"REGISTRY":                 "quay.io",
 				"PROJECT":                  "konveyor",

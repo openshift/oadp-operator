@@ -66,15 +66,15 @@ var DefaultRestoreResourcePriorities = types.Priorities{
 
 // Images
 const (
-	VeleroImage                  = "quay.io/konveyor/velero:latest"
-	OpenshiftPluginImage         = "quay.io/konveyor/openshift-velero-plugin:latest"
-	AWSPluginImage               = "quay.io/konveyor/velero-plugin-for-aws:latest"
-	LegacyAWSPluginImage         = "quay.io/konveyor/velero-plugin-for-legacy-aws:latest"
-	AzurePluginImage             = "quay.io/konveyor/velero-plugin-for-microsoft-azure:latest"
-	GCPPluginImage               = "quay.io/konveyor/velero-plugin-for-gcp:latest"
+	VeleroImage                  = "quay.io/konveyor/velero:oadp-1.6"
+	OpenshiftPluginImage         = "quay.io/konveyor/openshift-velero-plugin:oadp-1.6"
+	AWSPluginImage               = "quay.io/konveyor/velero-plugin-for-aws:oadp-1.6"
+	LegacyAWSPluginImage         = "quay.io/konveyor/velero-plugin-for-legacy-aws:oadp-1.6"
+	AzurePluginImage             = "quay.io/konveyor/velero-plugin-for-microsoft-azure:oadp-1.6"
+	GCPPluginImage               = "quay.io/konveyor/velero-plugin-for-gcp:oadp-1.6"
 	RegistryImage                = "quay.io/konveyor/registry:latest"
 	KubeVirtPluginImage          = "quay.io/konveyor/kubevirt-velero-plugin:latest"
-	KubeVirtDatamoverPluginImage = "quay.io/konveyor/kubevirt-datamover-plugin:latest"
+	KubeVirtDatamoverPluginImage = "quay.io/konveyor/kubevirt-datamover-plugin:oadp-1.6"
 	HypershiftPluginImage        = "quay.io/redhat-user-workloads/ocp-art-tenant/oadp-hypershift-oadp-plugin-main:main"
 )
 

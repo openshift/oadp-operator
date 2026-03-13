@@ -371,7 +371,7 @@ func (r *DataProtectionApplicationReconciler) getVMFileRestoreControllerImage() 
 		return environmentVariable
 	}
 
-	return "quay.io/konveyor/oadp-vm-file-restore:latest"
+	return "quay.io/konveyor/oadp-vm-file-restore:oadp-1.6"
 }
 
 func (r *DataProtectionApplicationReconciler) getVMFileRestoreAccessImage() string {
@@ -386,7 +386,7 @@ func (r *DataProtectionApplicationReconciler) getVMFileRestoreAccessImage() stri
 		return environmentVariable
 	}
 
-	return "quay.io/konveyor/oadp-vmfr-access:latest"
+	return "quay.io/konveyor/oadp-vmfr-access:oadp-1.6"
 }
 
 func (r *DataProtectionApplicationReconciler) getVMFileRestoreSSHImage() string {
@@ -401,7 +401,7 @@ func (r *DataProtectionApplicationReconciler) getVMFileRestoreSSHImage() string 
 		return environmentVariable
 	}
 
-	return "quay.io/konveyor/oadp-vmfr-access-sshd:latest"
+	return "quay.io/konveyor/oadp-vmfr-access-sshd:oadp-1.6"
 }
 
 func (r *DataProtectionApplicationReconciler) getVMFileRestoreBrowserImage() string {
@@ -416,7 +416,7 @@ func (r *DataProtectionApplicationReconciler) getVMFileRestoreBrowserImage() str
 		return environmentVariable
 	}
 
-	return "quay.io/konveyor/oadp-vmfr-access-filebrowser:latest"
+	return "quay.io/konveyor/oadp-vmfr-access-filebrowser:oadp-1.6"
 }
 
 func (r *DataProtectionApplicationReconciler) getVMFileRestoreResources() corev1.ResourceRequirements {

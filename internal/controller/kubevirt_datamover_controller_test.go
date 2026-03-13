@@ -21,7 +21,7 @@ import (
 )
 
 const (
-	defaultKubevirtDatamoverImage = "quay.io/konveyor/kubevirt-datamover-controller:latest"
+	defaultKubevirtDatamoverImage = "quay.io/konveyor/kubevirt-datamover-controller:oadp-1.6"
 )
 
 type ReconcileKubevirtDatamoverControllerScenario struct {
