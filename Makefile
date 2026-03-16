@@ -552,6 +552,8 @@ GIT_REV:=$(shell git rev-parse --short HEAD)
 
 # Namespace to deploy OADP operator, used by Makefile commands
 OADP_TEST_NAMESPACE ?= openshift-adp
+# Namespace to install CatalogSource (openshift-marketplace is the standard location)
+CATALOG_SOURCE_NAMESPACE ?= openshift-marketplace
 
 .PHONY: deploy-olm
 deploy-olm: THIS_OPERATOR_IMAGE?=ttl.sh/oadp-operator-$(GIT_REV):$(TTL_DURATION) # Set target specific variable
@@ -568,12 +570,12 @@ deploy-olm: undeploy-olm ## Build current branch operator image, bundle image, p
 	chmod -R 777 $(DEPLOY_TMP) && rm -rf $(DEPLOY_TMP)
 	# Create CatalogSource with restricted security context
 	@echo "Creating CatalogSource $(CATALOG_SOURCE_NAME)..."
-	@echo -e "apiVersion: operators.coreos.com/v1alpha1\nkind: CatalogSource\nmetadata:\n  name: $(CATALOG_SOURCE_NAME)\n  namespace: $(OADP_TEST_NAMESPACE)\nspec:\n  sourceType: grpc\n  image: $(THIS_CATALOG_IMAGE)\n  displayName: OADP Operator Catalog\n  publisher: OADP Team\n  grpcPodConfig:\n    securityContextConfig: restricted" | $(OC_CLI) apply -f -
+	@echo -e "apiVersion: operators.coreos.com/v1alpha1\nkind: CatalogSource\nmetadata:\n  name: $(CATALOG_SOURCE_NAME)\n  namespace: $(CATALOG_SOURCE_NAMESPACE)\nspec:\n  sourceType: grpc\n  image: $(THIS_CATALOG_IMAGE)\n  displayName: OADP Operator Catalog\n  publisher: OADP Team\n  grpcPodConfig:\n    securityContextConfig: restricted" | $(OC_CLI) apply -f -
 	# Wait for CatalogSource to be ready
 	@echo "Waiting for CatalogSource to be ready..."
 	@timeout=120; \
 	while [ $$timeout -gt 0 ]; do \
-		STATE=$$($(OC_CLI) get catalogsource $(CATALOG_SOURCE_NAME) -n $(OADP_TEST_NAMESPACE) -o jsonpath='{.status.connectionState.lastObservedState}' 2>/dev/null); \
+		STATE=$$($(OC_CLI) get catalogsource $(CATALOG_SOURCE_NAME) -n $(CATALOG_SOURCE_NAMESPACE) -o jsonpath='{.status.connectionState.lastObservedState}' 2>/dev/null); \
 		if [ "$$STATE" = "READY" ]; then \
 			echo "CatalogSource is ready"; \
 			break; \
@@ -585,11 +587,11 @@ deploy-olm: undeploy-olm ## Build current branch operator image, bundle image, p
 	if [ $$timeout -le 0 ]; then \
 		echo "Timeout waiting for CatalogSource"; \
 		echo "=== CatalogSource status ==="; \
-		$(OC_CLI) get catalogsource $(CATALOG_SOURCE_NAME) -n $(OADP_TEST_NAMESPACE) -o yaml; \
+		$(OC_CLI) get catalogsource $(CATALOG_SOURCE_NAME) -n $(CATALOG_SOURCE_NAMESPACE) -o yaml; \
 		echo "=== Catalog pod status ==="; \
-		$(OC_CLI) get pods -n $(OADP_TEST_NAMESPACE) -l olm.catalogSource=$(CATALOG_SOURCE_NAME) 2>/dev/null || true; \
+		$(OC_CLI) get pods -n $(CATALOG_SOURCE_NAMESPACE) -l olm.catalogSource=$(CATALOG_SOURCE_NAME) 2>/dev/null || true; \
 		echo "=== Catalog pod logs ==="; \
-		$(OC_CLI) logs -n $(OADP_TEST_NAMESPACE) -l olm.catalogSource=$(CATALOG_SOURCE_NAME) --tail=50 2>/dev/null || true; \
+		$(OC_CLI) logs -n $(CATALOG_SOURCE_NAMESPACE) -l olm.catalogSource=$(CATALOG_SOURCE_NAME) --tail=50 2>/dev/null || true; \
 		exit 1; \
 	fi
 	# Create OperatorGroup if not exists
@@ -603,7 +605,7 @@ deploy-olm: undeploy-olm ## Build current branch operator image, bundle image, p
 	fi
 	# Create Subscription
 	@echo "Creating Subscription..."
-	@echo -e "apiVersion: operators.coreos.com/v1alpha1\nkind: Subscription\nmetadata:\n  name: oadp-operator\n  namespace: $(OADP_TEST_NAMESPACE)\nspec:\n  channel: $(DEFAULT_CHANNEL)\n  name: oadp-operator\n  source: $(CATALOG_SOURCE_NAME)\n  sourceNamespace: $(OADP_TEST_NAMESPACE)\n  installPlanApproval: Automatic" | $(OC_CLI) apply -f -
+	@echo -e "apiVersion: operators.coreos.com/v1alpha1\nkind: Subscription\nmetadata:\n  name: oadp-operator\n  namespace: $(OADP_TEST_NAMESPACE)\nspec:\n  channel: $(DEFAULT_CHANNEL)\n  name: oadp-operator\n  source: $(CATALOG_SOURCE_NAME)\n  sourceNamespace: $(CATALOG_SOURCE_NAMESPACE)\n  installPlanApproval: Automatic" | $(OC_CLI) apply -f -
 	# Wait for operator to be ready
 	@echo "Waiting for InstallPlan to be created..."
 	@timeout=60; \
@@ -662,7 +664,7 @@ undeploy-olm: login-required ## Uninstall current branch operator via OLM
 	# Delete any CSV starting with oadp-operator
 	-$(OC_CLI) get csv -n $(OADP_TEST_NAMESPACE) -o name 2>/dev/null | grep oadp-operator | xargs -I {} $(OC_CLI) delete {} -n $(OADP_TEST_NAMESPACE) --ignore-not-found=true || true
 	# Delete CatalogSource
-	-$(OC_CLI) delete catalogsource $(CATALOG_SOURCE_NAME) -n $(OADP_TEST_NAMESPACE) --ignore-not-found=true
+	-$(OC_CLI) delete catalogsource $(CATALOG_SOURCE_NAME) -n $(CATALOG_SOURCE_NAMESPACE) --ignore-not-found=true
 	# Delete OperatorGroup (only if we created it)
 	-$(OC_CLI) delete operatorgroup oadp-operator-group -n $(OADP_TEST_NAMESPACE) --ignore-not-found=true
 
@@ -679,7 +681,7 @@ create-sts-subscription = \
 	echo "  channel: $(DEFAULT_CHANNEL)" >> $(1) && \
 	echo "  name: oadp-operator" >> $(1) && \
 	echo "  source: $(CATALOG_SOURCE_NAME)" >> $(1) && \
-	echo "  sourceNamespace: $(OADP_TEST_NAMESPACE)" >> $(1) && \
+	echo "  sourceNamespace: $(CATALOG_SOURCE_NAMESPACE)" >> $(1) && \
 	echo "  installPlanApproval: Automatic" >> $(1) && \
 	echo "  config:" >> $(1) && \
 	echo "    env:" >> $(1)
