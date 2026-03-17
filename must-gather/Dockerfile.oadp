@@ -4,8 +4,8 @@
 #@follow_tag(registry-proxy.engineering.redhat.com/rh-osbs/openshift-ose-cli-rhel9:v4.19)
 FROM brew.registry.redhat.io/rh-osbs/openshift-ose-cli-rhel9:v4.19 AS ose-cli
 
-#@follow_tag(registry-proxy.engineering.redhat.com/rh-osbs/openshift-golang-builder:rhel_9_golang_1.23)
-FROM brew.registry.redhat.io/rh-osbs/openshift-golang-builder:rhel_9_golang_1.23 AS builder
+#@follow_tag(registry-proxy.engineering.redhat.com/rh-osbs/openshift-golang-builder:rhel_9_golang_1.25)
+FROM brew.registry.redhat.io/rh-osbs/openshift-golang-builder:rhel_9_golang_1.25 AS builder
 
 COPY . /workspace
 USER root
