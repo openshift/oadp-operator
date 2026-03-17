@@ -2,6 +2,7 @@ package lib
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"log"
@@ -85,20 +86,19 @@ func MakeRequest(params RequestParameters) (string, string, error) {
 
 	if params.URL == "" {
 		errMsg := "URL in a request can not be empty"
-		log.Printf(errMsg)
-		return "", "", fmt.Errorf(errMsg)
+		log.Println(errMsg)
+		return "", "", errors.New(errMsg)
 	}
 
 	// Check if the Payload is provided when using POST
 	if requestMethod == POST && (params.Payload == nil || *params.Payload == "") {
 		errMsg := "Payload is required while performing POST Request"
-		log.Printf(errMsg)
-		return "", "", fmt.Errorf(errMsg)
+		log.Println(errMsg)
+		return "", "", errors.New(errMsg)
 	} else if requestMethod == POST {
 		if !isPayloadValidJSON(*params.Payload) {
-			errMsg := fmt.Sprintf("Invalid JSON payload: %s", *params.Payload)
-			fmt.Println(errMsg)
-			return "", "", fmt.Errorf(errMsg)
+			fmt.Printf("Invalid JSON payload: %s\n", *params.Payload)
+			return "", "", fmt.Errorf("Invalid JSON payload: %s", *params.Payload)
 		}
 	}
 
@@ -256,9 +256,8 @@ func MakeHTTPRequest(url string, requestMethod HTTPMethod, payload string) (stri
 		}
 
 	} else {
-		errMsg := fmt.Sprintf("Invalid request method: %s", requestMethod)
-		log.Printf(errMsg)
-		return "", "", fmt.Errorf(errMsg)
+		log.Printf("Invalid request method: %s", requestMethod)
+		return "", "", fmt.Errorf("Invalid request method: %s", requestMethod)
 	}
 
 	if err != nil {
