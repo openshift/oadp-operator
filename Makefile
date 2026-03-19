@@ -49,6 +49,11 @@ PREVIOUS_CHANNEL ?= oadp-1.3
 PREVIOUS_CHANNEL_GO_VERSION ?= 1.21
 # Extract the toolchain directive from go.mod
 GO_TOOLCHAIN_VERSION := $(shell grep -E "^toolchain" go.mod | awk '{print $$2}')
+# Workaround for golang/go#75031: force GOTOOLCHAIN to the version from go.mod
+# to avoid "no such tool covdata" when system Go < 1.25 auto-downloads a 1.25+ toolchain.
+ifneq (,$(GO_TOOLCHAIN_VERSION))
+export GOTOOLCHAIN := $(GO_TOOLCHAIN_VERSION)
+endif
 
 # Set GOPROXY to use the proxy.golang.org mirror to avoid rate limiting issues
 export GOPROXY ?= https://proxy.golang.org,direct
