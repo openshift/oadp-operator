@@ -21,7 +21,7 @@ var errorIgnorePatterns = []string{
 	// https://prow.ci.openshift.org/view/gs/origin-ci-test/pr-logs/pull/openshift_oadp-operator/1126/pull-ci-openshift-oadp-operator-master-4.10-operator-e2e-aws/1690109468546699264#1:build-log.txt%3A686
 	"level=error msg=\"error patch for managed fields ",
 	"VolumeSnapshot has a temporary error Failed to create snapshot: error updating status for volume snapshot content snapcontent-",
-	"Skipping hypershift plugin execution",
+	"Skipping hypershift plugin execution - not a hypershift backup: error checking for HostedControlPlane CRD",
 }
 
 type FlakePattern struct {
