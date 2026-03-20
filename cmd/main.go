@@ -311,8 +311,17 @@ func main() {
 			setupLog.Error(err, "unable to add CLI download setup")
 			os.Exit(1)
 		}
+		if err := mgr.Add(&controller.VMDPDownloadSetup{
+			Client:            mgr.GetClient(),
+			Namespace:         watchNamespace,
+			OperatorName:      "openshift-adp-controller-manager",
+			OperatorNamespace: watchNamespace,
+		}); err != nil {
+			setupLog.Error(err, "unable to add VMDP download setup")
+			os.Exit(1)
+		}
 	} else {
-		setupLog.Info("Skipping CLI download setup - watchNamespace not set")
+		setupLog.Info("Skipping CLI and VMDP download setup - watchNamespace not set")
 	}
 
 	if err := mgr.AddHealthzCheck("healthz", healthz.Ping); err != nil {
