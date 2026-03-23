@@ -1013,6 +1013,8 @@ test-e2e-cleanup: login-required
 	$(OC_CLI) delete datadownload -n $(OADP_TEST_NAMESPACE) --all
 	$(OC_CLI) delete restore -n $(OADP_TEST_NAMESPACE) --all --wait=false
 	for restore_name in $(shell $(OC_CLI) get restore -n $(OADP_TEST_NAMESPACE) -o name);do $(OC_CLI) patch "$$restore_name" -n $(OADP_TEST_NAMESPACE) -p '{"metadata":{"finalizers":null}}' --type=merge;done
+	$(OC_CLI) delete ns mongo-persistent --ignore-not-found=true
+	$(OC_CLI) delete ns mysql-persistent --ignore-not-found=true
 	rm -rf $(SETTINGS_TMP)
 
 .PHONY: update-non-admin-manifests
