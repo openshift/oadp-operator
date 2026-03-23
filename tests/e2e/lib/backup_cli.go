@@ -121,7 +121,6 @@ func GetBackupViaCLI(name string) (*velero.Backup, error) {
 // IsBackupDoneViaCLI checks if backup is done using the OADP CLI
 func IsBackupDoneViaCLI(name string) wait.ConditionFunc {
 	return func() (bool, error) {
-		// Use CLI to get backup status
 		cmd := &CLICommand{
 			Resource: "backup",
 			Action:   "get",
@@ -133,29 +132,13 @@ func IsBackupDoneViaCLI(name string) wait.ConditionFunc {
 			return false, fmt.Errorf("failed to get backup status via CLI: %v", err)
 		}
 
-		// Parse phase from YAML output
 		phase := ParsePhaseFromYAML(string(output))
 
 		if len(phase) > 0 {
 			log.Printf("backup phase: %s", phase)
 		}
 
-		var phasesNotDone = []string{
-			string(velero.BackupPhaseNew),
-			string(velero.BackupPhaseInProgress),
-			string(velero.BackupPhaseWaitingForPluginOperations),
-			string(velero.BackupPhaseWaitingForPluginOperationsPartiallyFailed),
-			string(velero.BackupPhaseFinalizing),
-			string(velero.BackupPhaseFinalizingPartiallyFailed),
-			"",
-		}
-
-		for _, notDonePhase := range phasesNotDone {
-			if phase == notDonePhase {
-				return false, nil
-			}
-		}
-		return true, nil
+		return !IsBackupPhaseNotDone(phase), nil
 	}
 }
 
