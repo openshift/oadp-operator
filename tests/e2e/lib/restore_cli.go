@@ -96,7 +96,6 @@ func GetRestoreViaCLI(name string) (*velero.Restore, error) {
 // IsRestoreDoneViaCLI checks if restore is done using the OADP CLI
 func IsRestoreDoneViaCLI(name string) wait.ConditionFunc {
 	return func() (bool, error) {
-		// Use CLI to get restore status
 		cmd := &CLICommand{
 			Resource: "restore",
 			Action:   "get",
@@ -108,29 +107,13 @@ func IsRestoreDoneViaCLI(name string) wait.ConditionFunc {
 			return false, fmt.Errorf("failed to get restore status via CLI: %v", err)
 		}
 
-		// Parse phase from YAML output
 		phase := ParsePhaseFromYAML(string(output))
 
 		if len(phase) > 0 {
 			log.Printf("restore phase: %s", phase)
 		}
 
-		var phasesNotDone = []string{
-			string(velero.RestorePhaseNew),
-			string(velero.RestorePhaseInProgress),
-			string(velero.RestorePhaseWaitingForPluginOperations),
-			string(velero.RestorePhaseWaitingForPluginOperationsPartiallyFailed),
-			string(velero.RestorePhaseFinalizing),
-			string(velero.RestorePhaseFinalizingPartiallyFailed),
-			"",
-		}
-
-		for _, notDonePhase := range phasesNotDone {
-			if phase == notDonePhase {
-				return false, nil
-			}
-		}
-		return true, nil
+		return !IsRestorePhaseNotDone(phase), nil
 	}
 }
 
