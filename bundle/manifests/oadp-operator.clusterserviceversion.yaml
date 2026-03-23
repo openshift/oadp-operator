@@ -310,7 +310,7 @@ metadata:
     features.operators.openshift.io/token-auth-aws: "true"
     features.operators.openshift.io/token-auth-azure: "true"
     features.operators.openshift.io/token-auth-gcp: "true"
-    olm.skipRange: '>=0.0.0 <99.0.0'
+    olm.skipRange: '>=1.5.0 <1.6.0'
     operatorframework.io/suggested-namespace: openshift-adp
     operators.openshift.io/infrastructure-features: '["Disconnected"]'
     operators.openshift.io/valid-subscription: '["OpenShift Kubernetes Engine", "OpenShift
@@ -324,7 +324,7 @@ metadata:
     operatorframework.io/arch.arm64: supported
     operatorframework.io/arch.ppc64le: supported
     operatorframework.io/arch.s390x: supported
-  name: oadp-operator.v99.0.0
+  name: oadp-operator.v1.6.0
   namespace: openshift-adp
 spec:
   apiservicedefinitions: {}
@@ -1717,4 +1717,4 @@ spec:
     name: console-cli-download
   - image: quay.io/konveyor/kubevirt-datamover-controller:oadp-1.6
     name: kubevirt-datamover-controller
-  version: 99.0.0
+  version: 1.6.0
