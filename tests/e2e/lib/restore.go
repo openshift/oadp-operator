@@ -66,6 +66,28 @@ func GetRestore(c client.Client, namespace string, name string) (*velero.Restore
 	return &restore, nil
 }
 
+// restorePhasesNotDone is the shared list of restore phases that indicate a restore is still in progress.
+var restorePhasesNotDone = []velero.RestorePhase{
+	velero.RestorePhaseNew,
+	"ReadyToStart",
+	velero.RestorePhaseInProgress,
+	velero.RestorePhaseWaitingForPluginOperations,
+	velero.RestorePhaseWaitingForPluginOperationsPartiallyFailed,
+	velero.RestorePhaseFinalizing,
+	velero.RestorePhaseFinalizingPartiallyFailed,
+	"",
+}
+
+// IsRestorePhaseNotDone returns true if the given phase string represents a restore still in progress.
+func IsRestorePhaseNotDone(phase string) bool {
+	for _, notDonePhase := range restorePhasesNotDone {
+		if phase == string(notDonePhase) {
+			return true
+		}
+	}
+	return false
+}
+
 func IsRestoreDone(ocClient client.Client, veleroNamespace, name string) wait.ConditionFunc {
 	return func() (bool, error) {
 		restore, err := GetRestore(ocClient, veleroNamespace, name)
@@ -75,21 +97,7 @@ func IsRestoreDone(ocClient client.Client, veleroNamespace, name string) wait.Co
 		if len(restore.Status.Phase) > 0 {
 			log.Printf("restore phase: %s", restore.Status.Phase)
 		}
-		var phasesNotDone = []velero.RestorePhase{
-			velero.RestorePhaseNew,
-			velero.RestorePhaseInProgress,
-			velero.RestorePhaseWaitingForPluginOperations,
-			velero.RestorePhaseWaitingForPluginOperationsPartiallyFailed,
-			velero.RestorePhaseFinalizing,
-			velero.RestorePhaseFinalizingPartiallyFailed,
-			"",
-		}
-		for _, notDonePhase := range phasesNotDone {
-			if restore.Status.Phase == notDonePhase {
-				return false, nil
-			}
-		}
-		return true, nil
+		return !IsRestorePhaseNotDone(string(restore.Status.Phase)), nil
 
 	}
 }

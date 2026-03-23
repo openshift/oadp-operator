@@ -62,6 +62,29 @@ func GetBackup(c client.Client, namespace string, name string) (*velero.Backup, 
 	return &backup, nil
 }
 
+// backupPhasesNotDone is the shared list of backup phases that indicate a backup is still in progress.
+var backupPhasesNotDone = []velero.BackupPhase{
+	velero.BackupPhaseNew,
+	velero.BackupPhaseQueued,
+	velero.BackupPhaseReadyToStart,
+	velero.BackupPhaseInProgress,
+	velero.BackupPhaseWaitingForPluginOperations,
+	velero.BackupPhaseWaitingForPluginOperationsPartiallyFailed,
+	velero.BackupPhaseFinalizing,
+	velero.BackupPhaseFinalizingPartiallyFailed,
+	"",
+}
+
+// IsBackupPhaseNotDone returns true if the given phase string represents a backup still in progress.
+func IsBackupPhaseNotDone(phase string) bool {
+	for _, notDonePhase := range backupPhasesNotDone {
+		if phase == string(notDonePhase) {
+			return true
+		}
+	}
+	return false
+}
+
 func IsBackupDone(ocClient client.Client, veleroNamespace, name string) wait.ConditionFunc {
 	return func() (bool, error) {
 		backup, err := GetBackup(ocClient, veleroNamespace, name)
@@ -71,23 +94,7 @@ func IsBackupDone(ocClient client.Client, veleroNamespace, name string) wait.Con
 		if len(backup.Status.Phase) > 0 {
 			log.Printf("backup phase: %s", backup.Status.Phase)
 		}
-		var phasesNotDone = []velero.BackupPhase{
-			velero.BackupPhaseNew,
-			velero.BackupPhaseQueued,
-			velero.BackupPhaseReadyToStart,
-			velero.BackupPhaseInProgress,
-			velero.BackupPhaseWaitingForPluginOperations,
-			velero.BackupPhaseWaitingForPluginOperationsPartiallyFailed,
-			velero.BackupPhaseFinalizing,
-			velero.BackupPhaseFinalizingPartiallyFailed,
-			"",
-		}
-		for _, notDonePhase := range phasesNotDone {
-			if backup.Status.Phase == notDonePhase {
-				return false, nil
-			}
-		}
-		return true, nil
+		return !IsBackupPhaseNotDone(string(backup.Status.Phase)), nil
 	}
 }
 
