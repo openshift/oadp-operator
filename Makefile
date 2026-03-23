@@ -1,14 +1,14 @@
 # TOOL VERSIONS
 # All version-related variables are defined here for easy maintenance
-DEFAULT_VERSION := 99.0.0
+DEFAULT_VERSION := 1.6.0
 VERSION ?= $(DEFAULT_VERSION) # the version of the operator
 OPERATOR_SDK_VERSION ?= v1.35.0
-ENVTEST_K8S_VERSION = 1.32 #refers to the version of kubebuilder assets to be downloaded by envtest binary # Kubernetes version from OpenShift 4.19.x
+ENVTEST_K8S_VERSION = 1.35 #refers to the version of kubebuilder assets to be downloaded by envtest binary # Kubernetes version from OpenShift 4.22.x
 GOLANGCI_LINT_VERSION ?= v2.9.0
 KUSTOMIZE_VERSION ?= v5.2.1
 CONTROLLER_TOOLS_VERSION ?= v0.16.5
 OPM_VERSION ?= v1.23.0
-BRANCH_VERSION = oadp-dev
+BRANCH_VERSION = oadp-1.6
 PREVIOUS_CHANNEL ?= oadp-1.5
 PREVIOUS_CHANNEL_GO_VERSION ?= 1.23
 # Extract the toolchain directive from go.mod
