@@ -46,7 +46,7 @@ spec:
   - name: oadp-hypershift-velero-plugin-rhel9
     from:
       kind: DockerImage
-      name: quay.io/redhat-user-workloads/ocp-art-tenant/oadp-hypershift-oadp-plugin-oadp-1-6:oadp-1.6
+      name: quay.io/redhat-user-workloads/ocp-art-tenant/oadp-hypershift-oadp-plugin-oadp-1-5:oadp-1.5
   - name: oadp-vm-file-restore-rhel9
     from:
       kind: DockerImage
