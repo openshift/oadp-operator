@@ -961,6 +961,7 @@ type DataProtectionApplicationStatus struct {
 
 //+kubebuilder:object:root=true
 //+kubebuilder:subresource:status
+//+kubebuilder:storageversion
 //+kubebuilder:resource:path=dataprotectionapplications,shortName=dpa
 // +kubebuilder:printcolumn:name="Reconciled",type="string",JSONPath=".status.conditions[?(@.type=='Reconciled')].status",description="DataProtectionApplication Reconciled Status"
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp",description="DataProtectionApplication creation timestamp"
