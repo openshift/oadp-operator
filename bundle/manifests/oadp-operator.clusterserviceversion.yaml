@@ -477,6 +477,17 @@ spec:
         displayName: Conditions
         path: conditions
       version: v1alpha1
+    - description: DataProtectionApplication represents configuration to install a
+        data protection application to safely backup and restore, perform disaster
+        recovery and migrate Kubernetes cluster resources and persistent volumes.
+      displayName: Data Protection Application
+      kind: DataProtectionApplication
+      name: dataprotectionapplications.oadp.openshift.io
+      statusDescriptors:
+      - description: Conditions defines the observed state of DataProtectionApplication
+        displayName: Conditions
+        path: conditions
+      version: v1alpha2
     - description: DataProtectionTest is the Schema for the dataprotectiontests API
       displayName: Data Protection Test
       kind: DataProtectionTest
@@ -1488,6 +1499,10 @@ spec:
                   initialDelaySeconds: 15
                   periodSeconds: 20
                 name: manager
+                ports:
+                - containerPort: 9443
+                  name: webhook-server
+                  protocol: TCP
                 readinessProbe:
                   httpGet:
                     path: /readyz
@@ -1515,6 +1530,9 @@ spec:
                   periodSeconds: 10
                 terminationMessagePolicy: FallbackToLogsOnError
                 volumeMounts:
+                - mountPath: /tmp/k8s-webhook-server/serving-certs
+                  name: cert
+                  readOnly: true
                 - mountPath: /var/run/secrets/openshift/serviceaccount
                   name: bound-sa-token
                   readOnly: true
@@ -1525,6 +1543,10 @@ spec:
               serviceAccountName: openshift-adp-controller-manager
               terminationGracePeriodSeconds: 10
               volumes:
+              - name: cert
+                secret:
+                  defaultMode: 420
+                  secretName: webhook-server-cert
               - name: bound-sa-token
                 projected:
                   sources:
@@ -1636,13 +1658,13 @@ spec:
         serviceAccountName: openshift-adp-controller-manager
     strategy: deployment
   installModes:
-  - supported: true
+  - supported: false
     type: OwnNamespace
   - supported: false
     type: SingleNamespace
   - supported: false
     type: MultiNamespace
-  - supported: false
+  - supported: true
     type: AllNamespaces
   keywords:
   - disaster backup
@@ -1722,3 +1744,15 @@ spec:
   - image: quay.io/konveyor/kubevirt-datamover-controller:latest
     name: kubevirt-datamover-controller
   version: 99.0.0
+  webhookdefinitions:
+  - admissionReviewVersions:
+    - v1
+    containerPort: 443
+    conversionCRDs:
+    - dataprotectionapplications.oadp.openshift.io
+    deploymentName: openshift-adp-controller-manager
+    generateName: cdataprotectionapplications.kb.io
+    sideEffects: None
+    targetPort: 9443
+    type: ConversionWebhook
+    webhookPath: /convert
