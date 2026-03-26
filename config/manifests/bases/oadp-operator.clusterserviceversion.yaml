@@ -426,6 +426,17 @@ spec:
       - description: Conditions defines the observed state of DataProtectionApplication
         displayName: Conditions
         path: conditions
+      version: v1alpha2
+    - description: DataProtectionApplication represents configuration to install a
+        data protection application to safely backup and restore, perform disaster
+        recovery and migrate Kubernetes cluster resources and persistent volumes.
+      displayName: Data Protection Application
+      kind: DataProtectionApplication
+      name: dataprotectionapplications.oadp.openshift.io
+      statusDescriptors:
+      - description: Conditions defines the observed state of DataProtectionApplication
+        displayName: Conditions
+        path: conditions
       version: v1alpha1
     - description: DataProtectionTest is the Schema for the dataprotectiontests API
       displayName: Data Protection Test
@@ -465,13 +476,13 @@ spec:
       deployments: null
     strategy: ""
   installModes:
-  - supported: true
+  - supported: false
     type: OwnNamespace
   - supported: false
     type: SingleNamespace
   - supported: false
     type: MultiNamespace
-  - supported: false
+  - supported: true
     type: AllNamespaces
   keywords:
   - disaster backup

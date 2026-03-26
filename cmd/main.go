@@ -132,6 +132,15 @@ func main() {
 			"the manager will watch and manage resources in all namespaces")
 	}
 
+	// Determine the operator's own namespace for PSA labels and resource creation.
+	// In AllNamespaces mode (conversion webhooks), WATCH_NAMESPACE may be empty
+	// but the operator still needs to know its own namespace.
+	operatorNamespace := watchNamespace
+	if operatorNamespace == "" {
+		operatorNamespace = getOperatorNamespace()
+		setupLog.Info("WATCH_NAMESPACE is empty (AllNamespaces mode), using operator namespace", "namespace", operatorNamespace)
+	}
+
 	clientset, err := kubernetes.NewForConfig(kubeconf)
 	if err != nil {
 		setupLog.Error(err, "problem getting client")
@@ -139,7 +148,7 @@ func main() {
 	}
 
 	// setting privileged pod security labels to operator ns
-	err = addPodSecurityPrivilegedLabels(watchNamespace, clientset)
+	err = addPodSecurityPrivilegedLabels(operatorNamespace, clientset)
 	if err != nil {
 		setupLog.Error(err, "error setting privileged pod security labels to operator namespace")
 		os.Exit(1)
@@ -205,7 +214,7 @@ func main() {
 		LeaderElectionReleaseOnCancel: true,
 		Cache: cache.Options{
 			DefaultNamespaces: map[string]cache.Config{
-				watchNamespace: {},
+				operatorNamespace: {},
 			},
 		},
 	})
@@ -306,15 +315,23 @@ func main() {
 	//+kubebuilder:scaffold:builder
 
 	// Add CLI download setup runnable
-	// Only add if watchNamespace is set (skip for cluster-scoped mode)
-	if watchNamespace != "" {
+	if operatorNamespace != "" {
 		if err := mgr.Add(&controller.CLIDownloadSetup{
 			Client:            mgr.GetClient(),
-			Namespace:         watchNamespace,
+			Namespace:         operatorNamespace,
 			OperatorName:      "openshift-adp-controller-manager",
-			OperatorNamespace: watchNamespace,
+			OperatorNamespace: operatorNamespace,
 		}); err != nil {
 			setupLog.Error(err, "unable to add CLI download setup")
+			os.Exit(1)
+		}
+		if err := mgr.Add(&controller.VMDPDownloadSetup{
+			Client:            mgr.GetClient(),
+			Namespace:         operatorNamespace,
+			OperatorName:      "openshift-adp-controller-manager",
+			OperatorNamespace: operatorNamespace,
+		}); err != nil {
+			setupLog.Error(err, "unable to add VMDP download setup")
 			os.Exit(1)
 		}
 		if err := mgr.Add(&controller.VMDPDownloadSetup{
@@ -358,6 +375,17 @@ func getWatchNamespace() (string, error) {
 		return "", fmt.Errorf("%s must be set", watchNamespaceEnvVar)
 	}
 	return ns, nil
+}
+
+// getOperatorNamespace returns the namespace the operator pod is running in.
+// It reads the namespace from the service account mount, which is always available
+// in a pod running on Kubernetes.
+func getOperatorNamespace() string {
+	nsBytes, err := os.ReadFile("/var/run/secrets/kubernetes.io/serviceaccount/namespace")
+	if err != nil {
+		return ""
+	}
+	return string(nsBytes)
 }
 
 // setting Pod security admission (PSA) labels to privileged in OADP operator namespace

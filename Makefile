@@ -599,7 +599,7 @@ deploy-olm: undeploy-olm ## Build current branch operator image, bundle image, p
 	@OG_COUNT=$$($(OC_CLI) get operatorgroup -n $(OADP_TEST_NAMESPACE) --no-headers 2>/dev/null | wc -l | tr -d ' '); \
 	if [ "$$OG_COUNT" -eq "0" ]; then \
 		echo "Creating OperatorGroup..."; \
-		echo -e "apiVersion: operators.coreos.com/v1\nkind: OperatorGroup\nmetadata:\n  name: oadp-operator-group\n  namespace: $(OADP_TEST_NAMESPACE)\nspec:\n  targetNamespaces:\n    - $(OADP_TEST_NAMESPACE)" | $(OC_CLI) apply -f -; \
+		echo -e "apiVersion: operators.coreos.com/v1\nkind: OperatorGroup\nmetadata:\n  name: oadp-operator-group\n  namespace: $(OADP_TEST_NAMESPACE)" | $(OC_CLI) apply -f -; \
 	else \
 		echo "OperatorGroup already exists"; \
 	fi
