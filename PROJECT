@@ -23,6 +23,18 @@ resources:
 - api:
     crdVersion: v1
     namespaced: true
+  controller: false
+  domain: openshift.io
+  group: oadp
+  kind: DataProtectionApplication
+  path: github.com/openshift/oadp-operator/api/v1alpha2
+  version: v1alpha2
+  webhooks:
+    conversion: true
+    webhookVersion: v1
+- api:
+    crdVersion: v1
+    namespaced: true
   controller: true
   domain: openshift.io
   group: oadp

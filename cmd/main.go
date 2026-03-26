@@ -55,6 +55,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 
 	oadpv1alpha1 "github.com/openshift/oadp-operator/api/v1alpha1"
+	oadpv1alpha2 "github.com/openshift/oadp-operator/api/v1alpha2"
 	"github.com/openshift/oadp-operator/internal/controller"
 	pkgclient "github.com/openshift/oadp-operator/pkg/client"
 	//+kubebuilder:scaffold:imports
@@ -93,6 +94,7 @@ func init() {
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
 
 	utilruntime.Must(oadpv1alpha1.AddToScheme(scheme))
+	utilruntime.Must(oadpv1alpha2.AddToScheme(scheme))
 	//+kubebuilder:scaffold:scheme
 }
 
@@ -295,6 +297,10 @@ func main() {
 		ClusterWideClient: uncachedClient,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "DataProtectionTest")
+		os.Exit(1)
+	}
+	if err = (&oadpv1alpha2.DataProtectionApplication{}).SetupWebhookWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create webhook", "webhook", "DataProtectionApplication")
 		os.Exit(1)
 	}
 	//+kubebuilder:scaffold:builder
