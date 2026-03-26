@@ -39,35 +39,38 @@ spec:
     from:
       kind: DockerImage
       name: quay.io/konveyor/velero-plugin-for-microsoft-azure:oadp-1.6
-  - name: oadp-kubevirt-velero-plugin-rhel9
-    from:
-      kind: DockerImage
-      name: quay.io/konveyor/kubevirt-velero-plugin:v0.7.0
-  - name: oadp-hypershift-velero-plugin-rhel9
-    from:
-      kind: DockerImage
-      name: quay.io/redhat-user-workloads/ocp-art-tenant/oadp-hypershift-oadp-plugin-oadp-1-5:oadp-1.5
-  - name: oadp-vm-file-restore-rhel9
-    from:
-      kind: DockerImage
-      name: quay.io/konveyor/oadp-vm-file-restore:oadp-1.6
-  - name: oadp-vmfr-access-rhel9
-    from:
-      kind: DockerImage
-      name: quay.io/konveyor/oadp-vmfr-access:oadp-1.6
-  - name: oadp-vmfr-access-sshd-rhel9
-    from:
-      kind: DockerImage
-      name: quay.io/konveyor/oadp-vmfr-access-sshd:oadp-1.6
-  - name: oadp-vmfr-access-filebrowser-rhel9
-    from:
-      kind: DockerImage
-      name: quay.io/konveyor/oadp-vmfr-access-filebrowser:oadp-1.6
-  - name: oadp-cli-binaries-rhel9
-    from:
-      kind: DockerImage
-      name: quay.io/konveyor/oadp-cli-binaries:oadp-1.6
-  - name: oadp-kubevirt-datamover-rhel9
-    from:
-      kind: DockerImage
-      name: quay.io/konveyor/kubevirt-datamover-controller:oadp-1.6
+
+# will add back after initial build
+#
+#  - name: oadp-kubevirt-velero-plugin-rhel9
+#    from:
+#      kind: DockerImage
+#      name: quay.io/konveyor/kubevirt-velero-plugin:v0.7.0
+#  - name: oadp-hypershift-velero-plugin-rhel9
+#    from:
+#      kind: DockerImage
+#      name: quay.io/redhat-user-workloads/ocp-art-tenant/oadp-hypershift-oadp-plugin-oadp-1-5:oadp-1.5
+#  - name: oadp-vm-file-restore-rhel9
+#    from:
+#      kind: DockerImage
+#      name: quay.io/konveyor/oadp-vm-file-restore:oadp-1.6
+#  - name: oadp-vmfr-access-rhel9
+#    from:
+#      kind: DockerImage
+#      name: quay.io/konveyor/oadp-vmfr-access:oadp-1.6
+#  - name: oadp-vmfr-access-sshd-rhel9
+#    from:
+#      kind: DockerImage
+#      name: quay.io/konveyor/oadp-vmfr-access-sshd:oadp-1.6
+#  - name: oadp-vmfr-access-filebrowser-rhel9
+#    from:
+#      kind: DockerImage
+#      name: quay.io/konveyor/oadp-vmfr-access-filebrowser:oadp-1.6
+#  - name: oadp-cli-binaries-rhel9
+#    from:
+#      kind: DockerImage
+#      name: quay.io/konveyor/oadp-cli-binaries:oadp-1.6
+#  - name: oadp-kubevirt-datamover-rhel9
+#    from:
+#      kind: DockerImage
+#      name: quay.io/konveyor/kubevirt-datamover-controller:oadp-1.6
