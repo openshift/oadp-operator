@@ -175,5 +175,6 @@ No new attack surface is introduced.
 
 ## Open Issues
 
+- **OLM install mode conflict**: OLM requires `AllNamespaces` install mode when the CSV declares `conversionCRDs` in `webhookdefinitions`. OADP currently only supports `OwnNamespace`. Switching to `AllNamespaces` doesn't change the operator's runtime behavior (it still watches a single namespace via `watchNamespace`), but it changes what OLM allows users to select at install time. This needs team discussion before proceeding — it may affect how the operator is presented in the OpenShift console and could have implications for multi-tenancy expectations.
 - Should v1alpha2 be promoted to storage version in a future release? If so, a `StorageVersionMigrator` run would be needed to rewrite existing etcd objects. This is out of scope for the initial implementation.
 - The `AutoCorrect()` method currently assigns `*time.Duration` to `PodVolumeOperationTimeout`. This logic lives in v1alpha1 and applies to the hub, so it does not need changes. However, if v1alpha2 becomes the hub in the future, it would need updating.
