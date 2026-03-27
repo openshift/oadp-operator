@@ -88,6 +88,50 @@ if len(federatedTokenFile) > 0 {
 }
 ```
 
+### Example BSL with per-BSL Azure Workload Identity credential
+
+The per-BSL credential file is referenced via `spec.credential` on the BSL, and `useAAD: "true"` must be set in the config to use Azure AD authentication instead of storage account keys.
+
+```yaml
+apiVersion: velero.io/v1
+kind: BackupStorageLocation
+metadata:
+  name: tenant-a-bsl
+  namespace: openshift-adp
+spec:
+  provider: velero.io/azure
+  credential:
+    name: nonadmin-creds-tenant-a
+    key: cloud
+  objectStorage:
+    bucket: tenant-a-backups    # Azure Blob container name
+    prefix: velero
+  config:
+    useAAD: "true"              # Required: use Azure AD auth, not storage account keys
+    storageAccount: mybackupsa
+    storageAccountKeyEnvName: ""  # Ensure no key-based fallback
+```
+
+The referenced Secret contains the per-BSL credential file:
+
+```yaml
+apiVersion: v1
+kind: Secret
+metadata:
+  name: nonadmin-creds-tenant-a
+  namespace: openshift-adp
+type: Opaque
+stringData:
+  cloud: |
+    AZURE_SUBSCRIPTION_ID=<subscription-id>
+    AZURE_TENANT_ID=<tenant-id>
+    AZURE_CLIENT_ID=<tenant-a-managed-identity-client-id>
+    AZURE_CLOUD_NAME=AzurePublicCloud
+    AZURE_FEDERATED_TOKEN_FILE=/var/run/secrets/openshift/serviceaccount/token
+```
+
+Each tenant BSL references a different Secret with a different `AZURE_CLIENT_ID`, pointing to a different User-Assigned Managed Identity scoped to that tenant's blob container.
+
 ### Why this is safe
 
 1. When no per-BSL credential file is provided, `LoadCredentials()` returns an empty map, so `creds["AZURE_FEDERATED_TOKEN_FILE"]` is empty, and the function falls back to `os.Getenv()` — existing behavior preserved.
