@@ -2,7 +2,7 @@
 
 ## Abstract
 
-Fix `NewCredential()` in `pkg/util/azure/credential.go` to read Azure Workload Identity parameters (`AZURE_CLIENT_ID`, `AZURE_TENANT_ID`, `AZURE_FEDERATED_TOKEN_FILE`) from the per-BSL credential file (the `creds` map) instead of exclusively from environment variables.
+Fix `NewCredential()` in [`pkg/util/azure/credential.go`](https://github.com/vmware-tanzu/velero/blob/6e91e72e655568dd6944ca7bb3cf00b6c7fbb3c8/pkg/util/azure/credential.go) to read Azure Workload Identity parameters (`AZURE_CLIENT_ID`, `AZURE_TENANT_ID`, `AZURE_FEDERATED_TOKEN_FILE`) from the per-BSL credential file (the `creds` map) instead of exclusively from environment variables.
 This enables multiple BackupStorageLocations to use different Azure Workload Identity managed identities within a single Velero deployment.
 
 ## Background
@@ -10,10 +10,10 @@ This enables multiple BackupStorageLocations to use different Azure Workload Ide
 Velero supports per-BSL credentials since v1.6 ([design doc](design/Implemented/secrets.md)).
 When a BSL specifies `spec.credential`, Velero's `FileStore.Path()` materializes the Secret to a temp file and passes the file path as `config["credentialsFile"]` to the plugin's `Init()`.
 
-For Azure, `LoadCredentials()` in `pkg/util/azure/util.go` correctly reads this per-BSL credential file via `godotenv.Read()` into a `creds` map.
-This map is then passed to `NewCredential()` in `pkg/util/azure/credential.go`.
+For Azure, [`LoadCredentials()`](https://github.com/vmware-tanzu/velero/blob/6e91e72e655568dd6944ca7bb3cf00b6c7fbb3c8/pkg/util/azure/util.go#L57-L76) in `pkg/util/azure/util.go` correctly reads this per-BSL credential file via `godotenv.Read()` into a `creds` map.
+This map is then passed to [`NewCredential()`](https://github.com/vmware-tanzu/velero/blob/6e91e72e655568dd6944ca7bb3cf00b6c7fbb3c8/pkg/util/azure/credential.go#L31) in `pkg/util/azure/credential.go`.
 
-However, the Workload Identity branch of `NewCredential()` (lines 48-54) ignores the `creds` map entirely:
+However, the Workload Identity branch of [`NewCredential()` (lines 48-54)](https://github.com/vmware-tanzu/velero/blob/6e91e72e655568dd6944ca7bb3cf00b6c7fbb3c8/pkg/util/azure/credential.go#L48-L54) ignores the `creds` map entirely:
 
 ```go
 // workload identity credential
@@ -29,7 +29,7 @@ if len(os.Getenv("AZURE_FEDERATED_TOKEN_FILE")) > 0 {
 - `NewWorkloadIdentityCredential` with no explicit `ClientID`/`TenantID`/`TokenFilePath` falls back to env vars
 - All BSLs share the same pod-level Azure identity regardless of per-BSL credential file content
 
-This is inconsistent with the service principal/certificate branch (lines 38-46) which correctly reads from the `creds` map, and with how the AWS and GCP plugins handle per-BSL credentials.
+This is inconsistent with the [service principal/certificate branch (lines 38-46)](https://github.com/vmware-tanzu/velero/blob/6e91e72e655568dd6944ca7bb3cf00b6c7fbb3c8/pkg/util/azure/credential.go#L38-L46) which correctly reads from the `creds` map, and with how the AWS and GCP plugins handle per-BSL credentials.
 
 ## Goals
 
@@ -43,12 +43,12 @@ This is inconsistent with the service principal/certificate branch (lines 38-46)
 
 ## High-Level Design
 
-Modify `NewCredential()` in `pkg/util/azure/credential.go` to check the `creds` map first for Workload Identity parameters, falling back to environment variables when the map values are empty.
+Modify [`NewCredential()`](https://github.com/vmware-tanzu/velero/blob/6e91e72e655568dd6944ca7bb3cf00b6c7fbb3c8/pkg/util/azure/credential.go#L31) in `pkg/util/azure/credential.go` to check the `creds` map first for Workload Identity parameters, falling back to environment variables when the map values are empty.
 Pass the resolved values explicitly to `azidentity.NewWorkloadIdentityCredentialOptions`.
 
 ## Detailed Design
 
-### Current code (`pkg/util/azure/credential.go`, lines 48-54)
+### Current code ([`pkg/util/azure/credential.go`, lines 48-54](https://github.com/vmware-tanzu/velero/blob/6e91e72e655568dd6944ca7bb3cf00b6c7fbb3c8/pkg/util/azure/credential.go#L48-L54))
 
 ```go
 // workload identity credential
@@ -138,7 +138,7 @@ Each tenant BSL references a different Secret with a different `AZURE_CLIENT_ID`
 2. When a per-BSL credential file IS provided, `LoadCredentials()` parses the KEY=VALUE file via `godotenv.Read()`, populating the map with per-BSL values.
 3. The `azidentity.WorkloadIdentityCredentialOptions` struct already has `TenantID`, `ClientID`, and `TokenFilePath` fields — they are simply unused in the current code. The Azure SDK falls back to env vars when these fields are empty strings.
 
-### Test changes (`pkg/util/azure/credential_test.go`)
+### Test changes ([`pkg/util/azure/credential_test.go`](https://github.com/vmware-tanzu/velero/blob/6e91e72e655568dd6944ca7bb3cf00b6c7fbb3c8/pkg/util/azure/credential_test.go))
 
 Add a test case verifying that per-BSL WI credentials from the `creds` map take precedence over environment variables:
 
@@ -192,6 +192,6 @@ Fully backward compatible:
 ## Implementation
 
 Single PR to `vmware-tanzu/velero`:
-1. Modify `pkg/util/azure/credential.go` (~15 lines changed)
-2. Add test case to `pkg/util/azure/credential_test.go`
-3. Update `pkg/util/azure/storage_test.go` if needed for integration coverage
+1. Modify [`pkg/util/azure/credential.go`](https://github.com/vmware-tanzu/velero/blob/6e91e72e655568dd6944ca7bb3cf00b6c7fbb3c8/pkg/util/azure/credential.go#L48-L54) (~15 lines changed)
+2. Add test case to [`pkg/util/azure/credential_test.go`](https://github.com/vmware-tanzu/velero/blob/6e91e72e655568dd6944ca7bb3cf00b6c7fbb3c8/pkg/util/azure/credential_test.go)
+3. Update [`pkg/util/azure/storage_test.go`](https://github.com/vmware-tanzu/velero/blob/6e91e72e655568dd6944ca7bb3cf00b6c7fbb3c8/pkg/util/azure/storage_test.go) if needed for integration coverage

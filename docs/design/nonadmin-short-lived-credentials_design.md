@@ -27,7 +27,7 @@ features.operators.openshift.io/token-auth-azure: "true"
 features.operators.openshift.io/token-auth-gcp: "true"
 ```
 
-The standardized STS flow (`pkg/credentials/stsflow/stsflow.go`) detects environment variables set by OLM during installation and creates provider-specific credential secrets:
+The standardized STS flow ([`pkg/credentials/stsflow/stsflow.go`](https://github.com/openshift/oadp-operator/blob/f2f8c5ed3c610dbede4a087347d6bc776038ca8f/pkg/credentials/stsflow/stsflow.go)) detects environment variables set by OLM during installation and creates provider-specific credential secrets:
 
 | Provider | Secret Name | Credential Type | Key Mechanism |
 |----------|------------|-----------------|---------------|
@@ -160,7 +160,7 @@ web_identity_token_file = /var/run/secrets/openshift/serviceaccount/token
 }
 ```
 
-**BSL config requirement:** `enableSharedConfig: "true"` must be set for STS credential files to work (already implemented in `internal/controller/bsl.go`).
+**BSL config requirement:** `enableSharedConfig: "true"` must be set for STS credential files to work (already implemented in [`internal/controller/bsl.go`](https://github.com/openshift/oadp-operator/blob/f2f8c5ed3c610dbede4a087347d6bc776038ca8f/internal/controller/bsl.go)).
 
 #### GCP WIF
 
@@ -228,7 +228,7 @@ az role assignment create \
 ```
 
 **Azure requires an upstream Velero fix.**
-Code-level analysis of `velero/pkg/util/azure/credential.go:48-54` confirms that the Workload Identity path reads **only from environment variables**, ignoring the per-BSL `creds` map entirely:
+Code-level analysis of [`velero/pkg/util/azure/credential.go:48-54`](https://github.com/vmware-tanzu/velero/blob/6e91e72e655568dd6944ca7bb3cf00b6c7fbb3c8/pkg/util/azure/credential.go#L48-L54) confirms that the Workload Identity path reads **only from environment variables**, ignoring the per-BSL `creds` map entirely:
 
 ```go
 // Current code (BROKEN for per-BSL WI):
@@ -241,7 +241,7 @@ if len(os.Getenv("AZURE_FEDERATED_TOKEN_FILE")) > 0 {
 ```
 
 The `azidentity.NewWorkloadIdentityCredential` with no explicit `TenantID`/`ClientID`/`TokenFilePath` options falls back to reading `AZURE_TENANT_ID`, `AZURE_CLIENT_ID`, `AZURE_FEDERATED_TOKEN_FILE` from environment variables.
-Even though `LoadCredentials()` (`util.go:57-76`) correctly parses the per-BSL credential file via `godotenv.Read()` into the `creds` map, the WI branch never reads from `creds`.
+Even though [`LoadCredentials()`](https://github.com/vmware-tanzu/velero/blob/6e91e72e655568dd6944ca7bb3cf00b6c7fbb3c8/pkg/util/azure/util.go#L57-L76) correctly parses the per-BSL credential file via `godotenv.Read()` into the `creds` map, the WI branch never reads from `creds`.
 All BSLs share the same pod-level Azure identity regardless of what's in their per-BSL credential file.
 See [Upstream Prerequisites](#upstream-prerequisites-azure-workload-identity-fix) for the required fix.
 
@@ -319,7 +319,7 @@ This reduces DPA configuration burden but requires a labeling convention.
 
 ### 3. Non-Admin Controller Changes
 
-The non-admin controller (in `migtools/oadp-non-admin`) needs these changes:
+The non-admin controller (in [`migtools/oadp-non-admin`](https://github.com/migtools/oadp-non-admin)) needs these changes:
 
 #### 3a. Credential Secret Resolution
 
@@ -332,7 +332,7 @@ When creating a Velero BSL from a NonAdminBSL, the non-admin controller must:
 #### 3b. BSL Config Injection
 
 For AWS STS credentials, the controller must ensure `enableSharedConfig: "true"` is set in the BSL config.
-This is already implemented for admin-level BSLs in `internal/controller/bsl.go` but needs to be replicated in the non-admin flow.
+This is already implemented for admin-level BSLs in [`internal/controller/bsl.go`](https://github.com/openshift/oadp-operator/blob/f2f8c5ed3c610dbede4a087347d6bc776038ca8f/internal/controller/bsl.go) but needs to be replicated in the non-admin flow.
 
 #### 3c. Prefix Enforcement
 
@@ -375,7 +375,7 @@ type NonAdminCredentialMapping struct {
 
 ### 5. Projected Token Volume
 
-The existing projected SA token volume in the Velero deployment (`internal/controller/velero.go` lines 321-336) is sufficient.
+The existing projected SA token volume in the Velero deployment ([`internal/controller/velero.go` lines 321-336](https://github.com/openshift/oadp-operator/blob/f2f8c5ed3c610dbede4a087347d6bc776038ca8f/internal/controller/velero.go#L321-L336)) is sufficient.
 All per-namespace credential files reference the same token path `/var/run/secrets/openshift/serviceaccount/token`.
 No changes needed to the token volume configuration.
 
@@ -396,10 +396,10 @@ The non-admin controller should validate:
 
 ## Upstream Prerequisites: Azure Workload Identity Fix
 
-Per-BSL Azure Workload Identity requires a targeted fix in upstream Velero at `pkg/util/azure/credential.go`.
+Per-BSL Azure Workload Identity requires a targeted fix in upstream Velero at [`pkg/util/azure/credential.go`](https://github.com/vmware-tanzu/velero/blob/6e91e72e655568dd6944ca7bb3cf00b6c7fbb3c8/pkg/util/azure/credential.go).
 The `NewCredential` function must read WI parameters from the `creds` map (populated from the per-BSL credential file) instead of exclusively from environment variables.
 
-**Required change in `velero/pkg/util/azure/credential.go`:**
+**Required change in [`velero/pkg/util/azure/credential.go`](https://github.com/vmware-tanzu/velero/blob/6e91e72e655568dd6944ca7bb3cf00b6c7fbb3c8/pkg/util/azure/credential.go#L48-L54):**
 
 ```go
 // Fixed code: read from creds map (per-BSL) with env var fallback
@@ -440,7 +440,7 @@ The following analysis is based on code-level tracing through Velero's credentia
 
 ### Common Flow
 
-When a BSL has `spec.credential` set, Velero's `persistence/object_store.go:170-178` calls `credentialStore.Path()` which:
+When a BSL has `spec.credential` set, Velero's [`persistence/object_store.go:170-178`](https://github.com/vmware-tanzu/velero/blob/6e91e72e655568dd6944ca7bb3cf00b6c7fbb3c8/pkg/persistence/object_store.go#L170-L178) calls `credentialStore.Path()` which:
 1. Reads the referenced Secret from Kubernetes
 2. Writes the secret data to a temp file at `<fsRoot>/<namespace>/<secretName>-<key>`
 3. Injects the temp file path as `config["credentialsFile"]` into the plugin's `Init()` config map
@@ -483,7 +483,7 @@ This affects `velero backup download` / download URL functionality but does NOT 
 
 ### Azure WI: Verified Broken, Fix Required
 
-**Code path:** `velero/pkg/util/azure/storage.go:63` → `util.go:57` → `credential.go:31`
+**Code path:** [`storage.go:63`](https://github.com/vmware-tanzu/velero/blob/6e91e72e655568dd6944ca7bb3cf00b6c7fbb3c8/pkg/util/azure/storage.go#L63) → [`util.go:57`](https://github.com/vmware-tanzu/velero/blob/6e91e72e655568dd6944ca7bb3cf00b6c7fbb3c8/pkg/util/azure/util.go#L57) → [`credential.go:31`](https://github.com/vmware-tanzu/velero/blob/6e91e72e655568dd6944ca7bb3cf00b6c7fbb3c8/pkg/util/azure/credential.go#L31)
 
 1. `NewStorageClient()` calls `LoadCredentials(config)` which reads the per-BSL credential file via `godotenv.Read()` into a `creds` map — this step works correctly ✅
 2. `NewCredential(creds, clientOptions)` is called at `credential.go:31`
@@ -751,7 +751,7 @@ Unlike GCP, Azure requires an **explicit** FIC on each MI — but the FIC only v
 
 5. **`useAAD: "true"` on BSL config:** For Azure WI with per-BSL credentials, the BSL config MUST include `useAAD: "true"` to prevent the Azure plugin from attempting storage account key exchange (which requires `resourceGroup` and management plane permissions). The non-admin controller should automatically set this.
 
-6. **FIC audience must match projected token:** The federated identity credential's `audience` field MUST match the projected SA token's `aud` claim. For OADP, the projected token uses audience `"openshift"` (configured in `internal/controller/velero.go` lines 321-336), so the FIC must specify `"openshift"` — NOT Azure's default `"api://AzureADTokenExchange"`. Mismatched audiences cause silent authentication failures (`AADSTS70021`).
+6. **FIC audience must match projected token:** The federated identity credential's `audience` field MUST match the projected SA token's `aud` claim. For OADP, the projected token uses audience `"openshift"` (configured in [`internal/controller/velero.go` lines 321-336](https://github.com/openshift/oadp-operator/blob/f2f8c5ed3c610dbede4a087347d6bc776038ca8f/internal/controller/velero.go#L321-L336)), so the FIC must specify `"openshift"` — NOT Azure's default `"api://AzureADTokenExchange"`. Mismatched audiences cause silent authentication failures (`AADSTS70021`).
 
 7. **Disable shared key access on storage accounts:** Set `--allow-shared-key-access false` on the storage account to force Azure AD-only authentication. This prevents bypass of RBAC scoping via storage account access keys or SAS tokens.
 
@@ -798,10 +798,10 @@ Even if the token were exfiltrated, it can only be used to assume roles that exp
 
 ### Velero Compatibility
 
-- Velero's per-BSL `spec.credential` field (`persistence/object_store.go:170-178`) materializes secrets into temp files and passes the path as `config["credentialsFile"]` to plugins — this mechanism works correctly for all providers
-- **AWS:** Per-BSL STS credential files verified working via `repository/config/aws.go:80-94`
-- **GCP:** Per-BSL WIF credential files verified working via `repository/config/gcp.go:41-45`
-- **Azure:** Per-BSL WI credential files verified **broken** — `NewCredential()` at `util/azure/credential.go:49` reads `AZURE_FEDERATED_TOKEN_FILE` from env var, ignoring the per-BSL `creds` map. Requires [upstream fix](#upstream-prerequisites-azure-workload-identity-fix)
+- Velero's per-BSL `spec.credential` field ([`persistence/object_store.go:170-178`](https://github.com/vmware-tanzu/velero/blob/6e91e72e655568dd6944ca7bb3cf00b6c7fbb3c8/pkg/persistence/object_store.go#L170-L178)) materializes secrets into temp files and passes the path as `config["credentialsFile"]` to plugins — this mechanism works correctly for all providers
+- **AWS:** Per-BSL STS credential files verified working via [`repository/config/aws.go:80-94`](https://github.com/vmware-tanzu/velero/blob/6e91e72e655568dd6944ca7bb3cf00b6c7fbb3c8/pkg/repository/config/aws.go#L80-L94)
+- **GCP:** Per-BSL WIF credential files verified working via [`repository/config/gcp.go:41-45`](https://github.com/vmware-tanzu/velero/blob/6e91e72e655568dd6944ca7bb3cf00b6c7fbb3c8/pkg/repository/config/gcp.go#L41-L45)
+- **Azure:** Per-BSL WI credential files verified **broken** — `NewCredential()` at [`util/azure/credential.go:49`](https://github.com/vmware-tanzu/velero/blob/6e91e72e655568dd6944ca7bb3cf00b6c7fbb3c8/pkg/util/azure/credential.go#L49) reads `AZURE_FEDERATED_TOKEN_FILE` from env var, ignoring the per-BSL `creds` map. Requires [upstream fix](#upstream-prerequisites-azure-workload-identity-fix)
 
 ### Cloud Provider Compatibility
 
@@ -815,16 +815,16 @@ Even if the token were exfiltrated, it can only be used to assume roles that exp
 
 ### Phase 0: Upstream Velero Azure Fix (prerequisite, can be parallelized)
 
-1. **Upstream PR to `vmware-tanzu/velero`** — Fix `pkg/util/azure/credential.go` `NewCredential()` to read WI parameters from the `creds` map with env var fallback (see [Upstream Prerequisites](#upstream-prerequisites-azure-workload-identity-fix))
-2. **Upstream unit test** — Add test case to `credential_test.go` verifying per-BSL WI credential resolution from `creds` map
+1. **Upstream PR to `vmware-tanzu/velero`** — Fix [`pkg/util/azure/credential.go`](https://github.com/vmware-tanzu/velero/blob/6e91e72e655568dd6944ca7bb3cf00b6c7fbb3c8/pkg/util/azure/credential.go#L48-L54) `NewCredential()` to read WI parameters from the `creds` map with env var fallback (see [Upstream Prerequisites](#upstream-prerequisites-azure-workload-identity-fix))
+2. **Upstream unit test** — Add test case to [`credential_test.go`](https://github.com/vmware-tanzu/velero/blob/6e91e72e655568dd6944ca7bb3cf00b6c7fbb3c8/pkg/util/azure/credential_test.go) verifying per-BSL WI credential resolution from `creds` map
 3. **Backport/vendor** — Once merged upstream, update Velero dependency in OADP
 
 ### Phase 1: Core OADP Infrastructure
 
-1. **DPA API extension** — Add `CredentialMappings` to `NonAdmin` struct in `api/v1alpha1/dataprotectionapplication_types.go`
+1. **DPA API extension** — Add `CredentialMappings` to `NonAdmin` struct in [`api/v1alpha1/dataprotectionapplication_types.go`](https://github.com/openshift/oadp-operator/blob/f2f8c5ed3c610dbede4a087347d6bc776038ca8f/api/v1alpha1/dataprotectionapplication_types.go)
 2. **CRD regeneration** — `make generate && make manifests && make bundle`
-3. **DPA validation** — Validate credential mappings in `internal/controller/validator.go`
-4. **Non-admin controller update** (`migtools/oadp-non-admin`) — Resolve per-namespace credentials when creating Velero BSLs, set `enableSharedConfig` for AWS, enforce prefix
+3. **DPA validation** — Validate credential mappings in [`internal/controller/validator.go`](https://github.com/openshift/oadp-operator/blob/f2f8c5ed3c610dbede4a087347d6bc776038ca8f/internal/controller/validator.go)
+4. **Non-admin controller update** ([`migtools/oadp-non-admin`](https://github.com/migtools/oadp-non-admin)) — Resolve per-namespace credentials when creating Velero BSLs, set `enableSharedConfig` for AWS, enforce prefix
 
 ### Phase 2: Cloud Provider E2E Testing
 
