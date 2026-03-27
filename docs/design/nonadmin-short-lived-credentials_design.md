@@ -569,14 +569,36 @@ This reduces IAM sprawl but requires the operator to inject session tags during 
 
 ## Alternatives Considered
 
-### Per-Namespace Kubernetes Service Accounts with IRSA/WIF
+### Alternative: Per-Namespace SA Tokens
 
-Instead of sharing the Velero SA token with different cloud roles, each non-admin namespace could get its own K8s service account with its own IRSA/WIF binding.
-This would require either:
-- Multiple Velero deployments (one per namespace) — impractical
-- A sidecar/proxy that can present different SA identities per request — complex
+Instead of sharing the Velero SA token with different cloud roles, each non-admin namespace could get its own Kubernetes ServiceAccount whose token is used for the cloud STS exchange.
+This would give each tenant a unique `sub` claim (e.g., `system:serviceaccount:team-a:sa-team-a`), enabling cloud-side per-namespace visibility.
 
-Rejected because the shared-token + cloud-scoped-roles approach achieves the same isolation with much less complexity.
+**How it would work:**
+
+1. Admin creates a ServiceAccount in each tenant namespace
+2. Admin mints a token via the TokenRequest API (`kubectl create token sa-team-a -n team-a --audience=openshift`)
+3. Admin stores the token in the credential secret in the OADP namespace
+4. The credential file references a per-namespace token path instead of the shared projected path
+5. Each cloud identity's trust policy matches the per-namespace SA subject
+
+**Token refresh responsibility comparison:**
+
+| Aspect | Current design (shared token) | Per-namespace SA tokens |
+|--------|-------------------------------|-------------------------|
+| **Token source** | Velero pod's projected SA volume | TokenRequest API per namespace SA |
+| **Token refresh performed by** | **kubelet** (automatic, via projected volume mount) | **OADP operator** (must re-mint tokens before expiry via TokenRequest API) |
+| **Token path on Velero pod** | `/var/run/secrets/openshift/serviceaccount/token` (single, shared) | `/credentials/tokens/<namespace>/token` (one per namespace) |
+| **Token delivery to Velero pod** | Projected volume (native k8s) | Operator writes token to Secret → volume mount, or sidecar writes to emptyDir |
+| **Cloud trust policy subject** | `system:serviceaccount:openshift-adp:velero` (same for all tenants) | `system:serviceaccount:<namespace>:<sa-name>` (unique per tenant) |
+| **Cloud-side namespace visibility** | None — cloud cannot distinguish tenants by token | Yes — each token has a unique `sub` claim |
+| **Complexity** | Low — no token management needed | Medium — operator must manage token lifecycle, handle refresh failures, and deliver tokens to Velero pod |
+
+**Rejected** because:
+- The OADP operator would need to manage token lifecycle (minting, refresh, delivery to the Velero pod), adding significant operational complexity
+- Token refresh failures would cause silent backup failures that are difficult to debug
+- The shared-token design achieves equivalent data isolation through cloud-side IAM scoping — the per-namespace token adds cloud-side visibility but does not improve the actual isolation boundary
+- Cloud-side audit logging (CloudTrail, GCP Audit Logs, Azure Sign-in Logs) already captures the assumed role/identity, which is sufficient for per-namespace attribution
 
 ### Operator-Managed Cloud IAM Resources
 
