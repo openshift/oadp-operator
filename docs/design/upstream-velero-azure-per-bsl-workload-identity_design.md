@@ -46,6 +46,25 @@ This is inconsistent with the [service principal/certificate branch (lines 38-46
 Modify [`NewCredential()`](https://github.com/vmware-tanzu/velero/blob/6e91e72e655568dd6944ca7bb3cf00b6c7fbb3c8/pkg/util/azure/credential.go#L31) in `pkg/util/azure/credential.go` to check the `creds` map first for Workload Identity parameters, falling back to environment variables when the map values are empty.
 Pass the resolved values explicitly to `azidentity.NewWorkloadIdentityCredentialOptions`.
 
+### Why the `creds` map is the correct mechanism
+
+Velero's per-BSL credential pipeline works as follows:
+
+1. Each BSL can specify `spec.credential`, a reference to a Kubernetes Secret containing provider-specific credentials.
+2. Velero's [`FileStore.Path()`](https://github.com/vmware-tanzu/velero/blob/6e91e72e655568dd6944ca7bb3cf00b6c7fbb3c8/internal/credentials/file_store.go#L66-L88) reads the Secret and writes its content to a unique temp file on disk (e.g., `/tmp/credentials/openshift-adp/nonadmin-creds-tenant-a-cloud`).
+3. The temp file path is injected as `config["credentialsFile"]` into the plugin's `Init()`.
+4. For Azure, [`LoadCredentials()`](https://github.com/vmware-tanzu/velero/blob/6e91e72e655568dd6944ca7bb3cf00b6c7fbb3c8/pkg/util/azure/util.go#L57-L76) reads this per-BSL credential file via `godotenv.Read()` and returns a `creds` map — a `map[string]string` containing the KEY=VALUE pairs from that specific BSL's credential file.
+5. This `creds` map is then passed to `NewCredential(creds, clientOptions)`.
+
+**The `creds` map is per-BSL** — each BSL gets its own map populated from its own credential file.
+**Environment variables are per-process** — all BSLs in the same Velero pod share the same env vars.
+
+When `NewCredential()` reads from env vars (current behavior), every BSL authenticates as the same Azure identity — the one configured at the pod level.
+When `NewCredential()` reads from the `creds` map (proposed behavior), each BSL authenticates as the identity specified in its own credential file.
+
+This is how the AWS and GCP plugins already work: they read `config["credentialsFile"]` and pass it to their respective SDKs, which parse per-BSL credentials from the file.
+The Azure plugin's `LoadCredentials()` correctly parses the file into the `creds` map, but `NewCredential()` ignores it for Workload Identity — this is the bug.
+
 ## Detailed Design
 
 ### Current code ([`pkg/util/azure/credential.go`, lines 48-54](https://github.com/vmware-tanzu/velero/blob/6e91e72e655568dd6944ca7bb3cf00b6c7fbb3c8/pkg/util/azure/credential.go#L48-L54))
