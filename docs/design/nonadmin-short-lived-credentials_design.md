@@ -396,6 +396,8 @@ The non-admin controller should validate:
 
 ## Upstream Prerequisites: Azure Workload Identity Fix
 
+**Upstream issue:** [vmware-tanzu/velero#9657](https://github.com/vmware-tanzu/velero/issues/9657)
+
 Per-BSL Azure Workload Identity requires a targeted fix in upstream Velero at [`pkg/util/azure/credential.go`](https://github.com/vmware-tanzu/velero/blob/6e91e72e655568dd6944ca7bb3cf00b6c7fbb3c8/pkg/util/azure/credential.go).
 The `NewCredential` function must read WI parameters from the `creds` map (populated from the per-BSL credential file) instead of exclusively from environment variables.
 
