@@ -1,7 +1,5 @@
 ## Append samples of your project ##
 resources:
-- oadp_v1alpha1_virtualmachinebackupsdiscovery.yaml
-- oadp_v1alpha1_virtualmachinefilerestore.yaml
 - oadp_v1alpha1_nonadminbackupstoragelocationrequest.yaml
 - oadp_v1alpha1_nonadminbackupstoragelocation.yaml
 - oadp_v1alpha1_dataprotectionapplication.yaml
