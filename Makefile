@@ -13,6 +13,11 @@ PREVIOUS_CHANNEL ?= oadp-1.4
 PREVIOUS_CHANNEL_GO_VERSION ?= 1.22
 # Extract the toolchain directive from go.mod
 GO_TOOLCHAIN_VERSION := $(shell grep -E "^toolchain" go.mod | awk '{print $$2}')
+# Workaround for golang/go#75031: force GOTOOLCHAIN to the version from go.mod
+# to avoid "no such tool covdata" when system Go < 1.25 auto-downloads a 1.25+ toolchain.
+ifneq (,$(GO_TOOLCHAIN_VERSION))
+export GOTOOLCHAIN := $(GO_TOOLCHAIN_VERSION)
+endif
 
 # CHANNELS define the bundle channels used in the bundle.
 # Add a new line here if you would like to change its default config. (E.g CHANNELS = "candidate,fast,stable")

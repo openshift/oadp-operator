@@ -168,7 +168,7 @@ func (r *DataProtectionApplicationReconciler) buildVeleroDeployment(veleroDeploy
 
 	_, err := r.ReconcileRestoreResourcesVersionPriority()
 	if err != nil {
-		return fmt.Errorf("error creating configmap for restore resource version priority:" + err.Error())
+		return fmt.Errorf("error creating configmap for restore resource version priority: %v", err)
 	}
 	// get resource requirements for velero deployment
 	// ignoring err here as it is checked in validator.go
