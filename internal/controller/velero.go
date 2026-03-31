@@ -203,6 +203,12 @@ func (r *DataProtectionApplicationReconciler) buildVeleroDeployment(veleroDeploy
 		// our secrets are appended to containers/volumeMounts in credentials.AppendPluginSpecificSpecs function
 		install.WithSecret(false),
 		install.WithServiceAccountName(common.Velero),
+		install.WithPriorityClassName(func() string {
+			if dpa.Spec.Configuration.Velero.PodConfig != nil {
+				return dpa.Spec.Configuration.Velero.PodConfig.PriorityClassName
+			}
+			return ""
+		}()),
 	)
 
 	veleroDeploymentName := veleroDeployment.Name

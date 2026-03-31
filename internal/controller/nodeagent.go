@@ -422,6 +422,12 @@ func (r *DataProtectionApplicationReconciler) buildNodeAgentDaemonset(ds *appsv1
 		install.WithNodeAgentConfigMap(configMapName),
 		install.WithLabels(map[string]string{NodeAgentCMVersionLabel: configMapGeneration}),
 		install.WithBackupRepoConfigMap(backupRepoConfigMapName),
+		install.WithPriorityClassName(func() string {
+			if dpa.Spec.Configuration.NodeAgent != nil && dpa.Spec.Configuration.NodeAgent.PodConfig != nil {
+				return dpa.Spec.Configuration.NodeAgent.PodConfig.PriorityClassName
+			}
+			return ""
+		}()),
 	)
 	ds.TypeMeta = installDs.TypeMeta
 	var err error
