@@ -1475,6 +1475,8 @@ spec:
                   value: quay.io/konveyor/oadp-vmfr-access-filebrowser:oadp-1.6
                 - name: RELATED_IMAGE_CONSOLE_CLI_DOWNLOAD
                   value: quay.io/konveyor/oadp-cli-binaries:oadp-1.6
+                - name: RELATED_IMAGE_VMDP_CLI_DOWNLOAD
+                  value: quay.io/konveyor/oadp-vmdp-binaries:oadp-1.6
                 - name: RELATED_IMAGE_KUBEVIRT_DATAMOVER_CONTROLLER
                   value: quay.io/konveyor/kubevirt-datamover-controller:oadp-1.6
                 image: quay.io/konveyor/oadp-operator:oadp-1.6
@@ -1715,6 +1717,8 @@ spec:
     name: vm-file-restore-browser
   - image: quay.io/konveyor/oadp-cli-binaries:oadp-1.6
     name: console-cli-download
+  - image: quay.io/konveyor/oadp-vmdp-binaries:oadp-1.6
+    name: vmdp-cli-download
   - image: quay.io/konveyor/kubevirt-datamover-controller:oadp-1.6
     name: kubevirt-datamover-controller
   version: 1.6.0
