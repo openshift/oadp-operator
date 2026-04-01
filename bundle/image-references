@@ -59,10 +59,10 @@ spec:
     from:
       kind: DockerImage
       name: quay.io/konveyor/oadp-vmfr-access-filebrowser:oadp-1.6
-#  - name: oadp-cli-binaries-rhel9
-#    from:
-#      kind: DockerImage
-#      name: quay.io/konveyor/oadp-cli-binaries:oadp-1.6
+  - name: oadp-cli-binaries-rhel9
+    from:
+      kind: DockerImage
+      name: quay.io/konveyor/oadp-cli-binaries:oadp-1.6
   - name: oadp-kubevirt-datamover-rhel9
     from:
       kind: DockerImage
