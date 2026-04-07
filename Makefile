@@ -320,9 +320,17 @@ $(CONTROLLER_GEN): $(LOCALBIN)
 	fi
 	@ln -sf "$(LOCALBIN)/$(BRANCH_VERSION)/controller-gen" "$(LOCALBIN)/controller-gen"
 
+# Remove setup-envtest if it exists but cannot execute on this platform.
+# This can happen when a containerized Make target (e.g. podman/docker build
+# with a different GOARCH) writes a linux binary into the shared bin/ directory,
+# replacing the native host binary needed by `make test`.
 .PHONY: envtest
 envtest: $(ENVTEST) ## Download envtest-setup locally if necessary.
 $(ENVTEST): $(LOCALBIN)
+	@if [ -f $(ENVTEST) ] && ! $(ENVTEST) --help >/dev/null 2>&1; then \
+		echo "Removing incompatible setup-envtest binary"; \
+		rm -f $(ENVTEST); \
+	fi
 	$(call go-install-tool,$(ENVTEST),sigs.k8s.io/controller-runtime/tools/setup-envtest@v0.0.0-20250308055145-5fe7bb3edc86)
 
 .PHONY: operator-sdk
