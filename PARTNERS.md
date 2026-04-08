@@ -23,7 +23,10 @@ better stability and maintainability.
 | 4.20              | 1.5          | v1.16          | released                      |
 | 4.21              | 1.5          | v1.16          | Q1 2026                       |
 | 4.22              | 1.6          | v1.18          | Q3 2026                       |
-| 4.23              | 1.6          | v1.18          | Q1 2027                       | 
+| 4.23              | 1.6          | v1.18          | Q1 2027                       |
+| 5.0               | 1.6          | v1.18          | Q3 2026                       |
+| 5.1               | 1.7          | v1.20          | Q2 2027                       |
+| 5.2               | 1.7          | v1.20          | Q3 2027                       |
 
 ### OADP Plugins of interest
 | OpenShift Version | OADP Version | Velero Version | kubevirt-velero-plugin | hypershift-oadp-plugin   | channel               |
