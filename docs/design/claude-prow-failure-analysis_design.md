@@ -63,12 +63,11 @@ RUN curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/s
     chmod +x kubectl && \
     mv kubectl /usr/local/bin/
 
-# Install Node.js and Claude CLI
-# Using NodeSource setup script for RHEL-based images
-RUN curl -fsSL https://rpm.nodesource.com/setup_20.x | bash - && \
-    dnf install -y nodejs && \
-    npm install -g @anthropic-ai/claude-code && \
-    dnf clean all
+# Install Claude CLI (native binary, no Node.js dependency)
+# Installer places binary at ~/.local/bin/claude
+RUN curl -fsSL https://claude.ai/install.sh | bash && \
+    ln -sf ~/.local/bin/claude /usr/local/bin/claude && \
+    claude --version
 
 RUN go mod download && \
     mkdir -p $(go env GOCACHE) && \
@@ -332,7 +331,7 @@ preprocess_large_artifacts() {
 # Check for Claude CLI availability
 if ! command -v claude &> /dev/null; then
     echo "⚠ Claude CLI not found in PATH"
-    echo "Skipping Claude analysis (install with: npm install -g @anthropic-ai/claude-code)"
+    echo "Skipping Claude analysis (install with: curl -fsSL https://claude.ai/install.sh | bash)"
     exit $EXIT_CODE
 fi
 
