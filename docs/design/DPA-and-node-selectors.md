@@ -133,8 +133,10 @@ spec:
 
 #### New settings specific to the `spec.configuration.nodeAgent.loadAffinity` will be added to the nodeAgent section.
 
-The `loadAffinity` section workflow is already explained in the above paragrafs of this design document. 
+The `loadAffinity` section workflow is already explained in the above paragraphs of this design document.
 The `loadAffinity` section is also explained in the upstream Velero documentation: https://velero.io/docs/main/data-movement-backup-node-selection/
+
+Starting with OADP 1.6, each `loadAffinity` entry supports an optional `storageClass` field. When set, the affinity rule applies only to DataMover operations for volumes using that specific StorageClass. Entries without `storageClass` serve as a global fallback. This allows clusters with multiple StorageClasses to direct DataMover workloads to different nodes based on the volume's StorageClass.
 
 ```yaml
 apiVersion: oadp.openshift.io/v1alpha1
@@ -157,7 +159,10 @@ spec:
                 - node2
             - key: some-label.io/critical-workload
                 operator: DoesNotExist
-          number: 1
+          storageClass: my-storage-class
+        - nodeSelector:
+          matchLabels:
+            some-label.io/custom-node-role: cpu-2
 ```
 
 #### Repository maintenance job Node Affinity
