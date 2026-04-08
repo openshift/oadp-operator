@@ -282,7 +282,10 @@ func (r *DataProtectionApplicationReconciler) customizeVeleroDeployment(veleroDe
 	if dpa.Spec.Configuration.Velero.LoadAffinityConfig != nil {
 		var terms []corev1.NodeSelectorTerm
 		for _, aff := range dpa.Spec.Configuration.Velero.LoadAffinityConfig {
-			la := &kube.LoadAffinity{NodeSelector: aff.NodeSelector}
+			la := &kube.LoadAffinity{
+				NodeSelector: aff.NodeSelector,
+				StorageClass: aff.StorageClass,
+			}
 			if a := kube.ToSystemAffinity(la, nil); a != nil {
 				terms = append(terms, a.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms...)
 			}
