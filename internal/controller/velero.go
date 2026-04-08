@@ -285,6 +285,7 @@ func (r *DataProtectionApplicationReconciler) customizeVeleroDeployment(veleroDe
 		for i, aff := range dpa.Spec.Configuration.Velero.LoadAffinityConfig {
 			veleroAffinityStruct[i] = &kube.LoadAffinity{
 				NodeSelector: aff.NodeSelector,
+				StorageClass: aff.StorageClass,
 			}
 		}
 		affinity := kube.ToSystemAffinity(veleroAffinityStruct)
