@@ -432,6 +432,12 @@ type LoadAffinity struct {
 	// NodeSelector specifies the label selector to match nodes
 	// +optional
 	NodeSelector metav1.LabelSelector `json:"nodeSelector,omitempty"`
+
+	// StorageClass specifies the storage class to which this LoadAffinity rule applies.
+	// If empty, the affinity applies globally to all data mover operations.
+	// If set, the affinity applies only to data mover operations using this specific StorageClass.
+	// +optional
+	StorageClass string `json:"storageClass,omitempty"`
 }
 
 // Below struct should be same as:
