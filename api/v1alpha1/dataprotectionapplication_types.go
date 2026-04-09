@@ -391,6 +391,9 @@ type PodConfig struct {
 	// env defines the list of environment variables to be supplied to podSpec
 	// +optional
 	Env []corev1.EnvVar `json:"env,omitempty"`
+	// priorityClassName defines the PriorityClass name to be applied to the pod
+	// +optional
+	PriorityClassName string `json:"priorityClassName,omitempty"`
 }
 
 type NodeAgentCommonFields struct {

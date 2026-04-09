@@ -256,6 +256,7 @@ type TestBuiltNodeAgentDaemonSetOptions struct {
 	toleration              []corev1.Toleration
 	nodeSelector            map[string]string
 	disableFsBackup         *bool
+	priorityClassName       string
 }
 
 func createTestBuiltNodeAgentDaemonSet(options TestBuiltNodeAgentDaemonSetOptions) *appsv1.DaemonSet {
@@ -568,6 +569,10 @@ func createTestBuiltNodeAgentDaemonSet(options TestBuiltNodeAgentDaemonSetOption
 		testBuiltNodeAgentDaemonSet.Spec.Template.Spec.Containers[0].Args = append(testBuiltNodeAgentDaemonSet.Spec.Template.Spec.Containers[0].Args, fmt.Sprintf("--log-format=%s", *options.logFormat))
 	}
 
+	if len(options.priorityClassName) > 0 {
+		testBuiltNodeAgentDaemonSet.Spec.Template.Spec.PriorityClassName = options.priorityClassName
+	}
+
 	return testBuiltNodeAgentDaemonSet
 }
 
@@ -705,6 +710,52 @@ func TestDPAReconciler_buildNodeAgentDaemonset(t *testing.T) {
 			nodeAgentDaemonSet: testNodeAgentDaemonSet.DeepCopy(),
 			wantNodeAgentDaemonSet: createTestBuiltNodeAgentDaemonSet(TestBuiltNodeAgentDaemonSetOptions{
 				annotations: map[string]string{"test-annotation": "awesome annotation"},
+			}),
+		},
+		{
+			name: "valid DPA CR with PodConfig PriorityClassName, NodeAgent DaemonSet is built with PriorityClassName",
+			dpa: createTestDpaWith(
+				nil,
+				oadpv1alpha1.DataProtectionApplicationSpec{
+					Configuration: &oadpv1alpha1.ApplicationConfig{
+						Velero: &oadpv1alpha1.VeleroConfig{},
+						NodeAgent: &oadpv1alpha1.NodeAgentConfig{
+							NodeAgentCommonFields: oadpv1alpha1.NodeAgentCommonFields{
+								PodConfig: &oadpv1alpha1.PodConfig{
+									PriorityClassName: "node-agent-critical",
+								},
+							},
+							UploaderType: "kopia",
+						},
+					},
+				},
+			),
+			clientObjects:      []client.Object{testGenericInfrastructure},
+			nodeAgentDaemonSet: testNodeAgentDaemonSet.DeepCopy(),
+			wantNodeAgentDaemonSet: createTestBuiltNodeAgentDaemonSet(TestBuiltNodeAgentDaemonSetOptions{
+				priorityClassName: "node-agent-critical",
+			}),
+		},
+		{
+			name: "valid DPA CR with PodConfig but no PriorityClassName, NodeAgent DaemonSet is built without PriorityClassName",
+			dpa: createTestDpaWith(
+				nil,
+				oadpv1alpha1.DataProtectionApplicationSpec{
+					Configuration: &oadpv1alpha1.ApplicationConfig{
+						Velero: &oadpv1alpha1.VeleroConfig{},
+						NodeAgent: &oadpv1alpha1.NodeAgentConfig{
+							NodeAgentCommonFields: oadpv1alpha1.NodeAgentCommonFields{
+								PodConfig: &oadpv1alpha1.PodConfig{},
+							},
+							UploaderType: "kopia",
+						},
+					},
+				},
+			),
+			clientObjects:      []client.Object{testGenericInfrastructure},
+			nodeAgentDaemonSet: testNodeAgentDaemonSet.DeepCopy(),
+			wantNodeAgentDaemonSet: createTestBuiltNodeAgentDaemonSet(TestBuiltNodeAgentDaemonSetOptions{
+				priorityClassName: "",
 			}),
 		},
 		{
