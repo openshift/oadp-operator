@@ -146,7 +146,7 @@ func TestRemoveHCPPluginFromDPA(t *testing.T) {
 						},
 					},
 					UnsupportedOverrides: map[oadpv1alpha1.UnsupportedImageKey]string{
-						oadpv1alpha1.HypershiftPluginImageKey: "quay.io/redhat-user-workloads/ocp-art-tenant/oadp-hypershift-oadp-plugin-main:main",
+						oadpv1alpha1.HypershiftPluginImageKey: "quay.io/konveyor/hypershift-oadp-plugin:oadp-1.6",
 					},
 				},
 			},

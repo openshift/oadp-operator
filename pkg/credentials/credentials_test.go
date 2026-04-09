@@ -464,9 +464,9 @@ func TestCredentials_getPluginImage(t *testing.T) {
 				},
 			},
 			pluginName: oadpv1alpha1.DefaultPluginHypershift,
-			wantImage:  "quay.io/redhat-user-workloads/ocp-art-tenant/oadp-hypershift-oadp-plugin-main:main",
+			wantImage:  "quay.io/konveyor/hypershift-oadp-plugin:oadp-1.6",
 			setEnvVars: map[string]string{
-				"RELATED_IMAGE_HYPERSHIFT_VELERO_PLUGIN": "quay.io/redhat-user-workloads/ocp-art-tenant/oadp-hypershift-oadp-plugin-main:main",
+				"RELATED_IMAGE_HYPERSHIFT_VELERO_PLUGIN": "quay.io/konveyor/hypershift-oadp-plugin:oadp-1.6",
 			},
 		},
 	}

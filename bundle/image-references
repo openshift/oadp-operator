@@ -75,7 +75,7 @@ spec:
     from:
       kind: DockerImage
       name: quay.io/konveyor/oadp-vmdp-binaries:oadp-1.6
-#  - name: oadp-hypershift-velero-plugin-rhel9
-#    from:
-#      kind: DockerImage
-#      name: quay.io/redhat-user-workloads/ocp-art-tenant/oadp-hypershift-oadp-plugin-oadp-1-6:oadp-1.6
+  - name: oadp-hypershift-velero-plugin-rhel9
+    from:
+      kind: DockerImage
+      name: quay.io/konveyor/hypershift-oadp-plugin:oadp-1.6
