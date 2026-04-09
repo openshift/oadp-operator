@@ -286,16 +286,25 @@ func (r *DataProtectionApplicationReconciler) customizeVeleroDeployment(veleroDe
 	}
 
 	if dpa.Spec.Configuration.Velero.LoadAffinityConfig != nil {
-		veleroAffinityStruct := make([]*kube.LoadAffinity, len(dpa.Spec.Configuration.Velero.LoadAffinityConfig))
-
-		for i, aff := range dpa.Spec.Configuration.Velero.LoadAffinityConfig {
-			veleroAffinityStruct[i] = &kube.LoadAffinity{
+		var terms []corev1.NodeSelectorTerm
+		for _, aff := range dpa.Spec.Configuration.Velero.LoadAffinityConfig {
+			la := &kube.LoadAffinity{
 				NodeSelector: aff.NodeSelector,
 				StorageClass: aff.StorageClass,
 			}
+			if a := kube.ToSystemAffinity(la, nil); a != nil {
+				terms = append(terms, a.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms...)
+			}
 		}
-		affinity := kube.ToSystemAffinity(veleroAffinityStruct)
-		veleroDeployment.Spec.Template.Spec.Affinity = affinity
+		if len(terms) > 0 {
+			veleroDeployment.Spec.Template.Spec.Affinity = &corev1.Affinity{
+				NodeAffinity: &corev1.NodeAffinity{
+					RequiredDuringSchedulingIgnoredDuringExecution: &corev1.NodeSelector{
+						NodeSelectorTerms: terms,
+					},
+				},
+			}
+		}
 	}
 
 	veleroDeployment.Spec.Template.Spec.Volumes = append(veleroDeployment.Spec.Template.Spec.Volumes,
