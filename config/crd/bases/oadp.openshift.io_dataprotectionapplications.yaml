@@ -652,6 +652,10 @@ spec:
                               type: string
                             cpuRequest:
                               type: string
+                            ephemeralStorageLimit:
+                              type: string
+                            ephemeralStorageRequest:
+                              type: string
                             memoryLimit:
                               type: string
                             memoryRequest:
@@ -753,6 +757,10 @@ spec:
                               cpuLimit:
                                 type: string
                               cpuRequest:
+                                type: string
+                              ephemeralStorageLimit:
+                                type: string
+                              ephemeralStorageRequest:
                                 type: string
                               memoryLimit:
                                 type: string
