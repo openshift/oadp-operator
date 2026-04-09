@@ -2529,43 +2529,6 @@ func TestDPAReconciler_ValidateDataProtectionCR(t *testing.T) {
 			wantErr: false,
 		},
 		{
-			name: "[valid] Only LoadAffinityConfig is set with multiple StorageClass entries",
-			dpa: &oadpv1alpha1.DataProtectionApplication{
-				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
-					BackupImages: ptr.To(false),
-					Configuration: &oadpv1alpha1.ApplicationConfig{
-						Velero: &oadpv1alpha1.VeleroConfig{
-							NoDefaultBackupLocation: true,
-						},
-						NodeAgent: &oadpv1alpha1.NodeAgentConfig{
-							NodeAgentConfigMapSettings: oadpv1alpha1.NodeAgentConfigMapSettings{
-								LoadAffinityConfig: []*oadpv1alpha1.LoadAffinity{
-									{
-										NodeSelector: metav1.LabelSelector{
-											MatchLabels: map[string]string{"node-type": "fast"},
-										},
-										StorageClass: "gp3-csi",
-									},
-									{
-										NodeSelector: metav1.LabelSelector{
-											MatchLabels: map[string]string{"node-type": "bulk"},
-										},
-										StorageClass: "standard",
-									},
-									{
-										NodeSelector: metav1.LabelSelector{
-											MatchLabels: map[string]string{"node-type": "general"},
-										},
-									},
-								},
-							},
-						},
-					},
-				},
-			},
-			wantErr: false,
-		},
-		{
 			name: "[valid] DPA CR with deprecated PodAnnotations should pass validation but log warning",
 			dpa: &oadpv1alpha1.DataProtectionApplication{
 				ObjectMeta: metav1.ObjectMeta{

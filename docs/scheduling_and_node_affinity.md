@@ -54,33 +54,6 @@ spec:
                   - node2
 ```
 
-### Per-StorageClass Load Affinity (New in OADP 1.6)
-
-When a cluster has multiple StorageClasses, you can configure different node affinity rules for DataMover operations depending on which StorageClass the volume uses. This is done by adding a `storageClass` field to a `loadAffinity` entry. Entries without `storageClass` act as a global fallback.
-
-```yaml
-spec:
-  configuration:
-    nodeAgent:
-      enable: true
-      loadAffinity:
-        - nodeSelector:
-            matchLabels:
-              my-custom-label.io/zone: zone-a
-          storageClass: gp3-csi
-        - nodeSelector:
-            matchLabels:
-              my-custom-label.io/zone: zone-b
-          storageClass: standard-csi
-        - nodeSelector:
-            matchLabels:
-              my-custom-label.io/role: worker
-```
-
-In this example, DataMover pods for volumes using `gp3-csi` are scheduled on nodes labeled `zone-a`, volumes using `standard-csi` on nodes labeled `zone-b`, and all other volumes fall back to nodes labeled `worker`.
-
-> **Note:** The `storageClass` field is also supported in `repositoryMaintenance` load affinity entries (see [section 2](#2-configuring-repository-maintenance-new-in-oadp-15)). It is **not** applicable to `velero.loadAffinity`, which controls Velero pod placement and is not volume-specific.
-
 #### Rules for NodeAgent Configuration
 
 - For simple node matching it is perfectly fine to use `podConfig.nodeSelector`.

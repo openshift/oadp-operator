@@ -1895,59 +1895,6 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 			}),
 		},
 		{
-			name: "valid DPA CR with Velero loadAffinity with StorageClass, Velero Deployment is built with loadAffinity",
-			dpa: createTestDpaWith(
-				nil,
-				oadpv1alpha1.DataProtectionApplicationSpec{
-					Configuration: &oadpv1alpha1.ApplicationConfig{
-						Velero: &oadpv1alpha1.VeleroConfig{
-							LoadAffinityConfig: []*oadpv1alpha1.LoadAffinity{
-								{
-									NodeSelector: metav1.LabelSelector{
-										MatchLabels: map[string]string{"node-type": "fast-storage"},
-									},
-									StorageClass: "gp3-csi",
-								},
-								{
-									NodeSelector: metav1.LabelSelector{
-										MatchLabels: map[string]string{"node-type": "general"},
-									},
-								},
-							},
-						},
-					},
-				},
-			),
-			veleroDeployment: testVeleroDeployment.DeepCopy(),
-			wantVeleroDeployment: createTestBuiltVeleroDeployment(TestBuiltVeleroDeploymentOptions{
-				loadAffinity: []corev1.NodeSelectorTerm{
-					{
-						MatchExpressions: []corev1.NodeSelectorRequirement{
-							{
-								Key:      "node-type",
-								Operator: corev1.NodeSelectorOpIn,
-								Values:   []string{"fast-storage"},
-							},
-						},
-					},
-					{
-						MatchExpressions: []corev1.NodeSelectorRequirement{
-							{
-								Key:      "node-type",
-								Operator: corev1.NodeSelectorOpIn,
-								Values:   []string{"general"},
-							},
-						},
-					},
-				},
-				args: []string{
-					defaultFileSystemBackupTimeout,
-					defaultRestoreResourcePriorities,
-					defaultDisableInformerCache,
-				},
-			}),
-		},
-		{
 			name: "valid DPA CR with complex Velero loadAffinity, Velero Deployment is built with loadAffinity",
 			dpa: createTestDpaWith(
 				nil,

@@ -89,61 +89,6 @@ func TestDataProtectionApplicationReconciler_updateRepositoryMaintenanceCM(t *te
 				},
 			},
 		},
-		{
-			name: "repository maintenance cm is updated with StorageClass in LoadAffinity",
-			cm: &corev1.ConfigMap{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "repository-maintenance-test-dpa",
-					Namespace: "test-ns",
-				},
-			},
-			dpa: &oadpv1alpha1.DataProtectionApplication{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "test-dpa",
-					Namespace: "test-ns",
-				},
-				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
-					BackupImages: ptr.To(false),
-					Configuration: &oadpv1alpha1.ApplicationConfig{
-						Velero: &oadpv1alpha1.VeleroConfig{
-							NoDefaultBackupLocation: true,
-						},
-						RepositoryMaintenance: map[string]oadpv1alpha1.RepositoryMaintenanceConfig{
-							"global": {
-								LoadAffinityConfig: []*oadpv1alpha1.LoadAffinity{
-									{
-										NodeSelector: metav1.LabelSelector{
-											MatchLabels: map[string]string{"node-type": "fast"},
-										},
-										StorageClass: "gp3-csi",
-									},
-									{
-										NodeSelector: metav1.LabelSelector{
-											MatchLabels: map[string]string{"node-type": "general"},
-										},
-									},
-								},
-							},
-						},
-					},
-				},
-			},
-			wantCM: &corev1.ConfigMap{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "repository-maintenance-test-dpa",
-					Namespace: "test-ns",
-					Labels: map[string]string{
-						"app.kubernetes.io/instance":   "test-dpa",
-						"app.kubernetes.io/managed-by": "oadp-operator",
-						"app.kubernetes.io/component":  "repository-maintenance-config",
-						"openshift.io/oadp":            "True",
-					},
-				},
-				Data: map[string]string{
-					"global": `{"loadAffinity":[{"nodeSelector":{"matchLabels":{"node-type":"fast"}},"storageClass":"gp3-csi"},{"nodeSelector":{"matchLabels":{"node-type":"general"}}}]}`,
-				},
-			},
-		},
 	}
 
 	for _, tt := range tests {
