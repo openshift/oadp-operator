@@ -316,7 +316,10 @@ func (r *DataProtectionApplicationReconciler) ReconcileNodeAgentDaemonset(log lo
 		if dpa.Spec.Configuration.NodeAgent.NodeAgentConfigMapSettings.LoadAffinityConfig != nil {
 			var terms []corev1.NodeSelectorTerm
 			for _, aff := range dpa.Spec.Configuration.NodeAgent.NodeAgentConfigMapSettings.LoadAffinityConfig {
-				la := &kube.LoadAffinity{NodeSelector: aff.NodeSelector}
+				la := &kube.LoadAffinity{
+					NodeSelector: aff.NodeSelector,
+					StorageClass: aff.StorageClass,
+				}
 				if a := kube.ToSystemAffinity(la, nil); a != nil {
 					terms = append(terms, a.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms...)
 				}
