@@ -75,7 +75,7 @@ const (
 	RegistryImage                = "quay.io/konveyor/registry:latest"
 	KubeVirtPluginImage          = "quay.io/konveyor/kubevirt-velero-plugin:latest"
 	KubeVirtDatamoverPluginImage = "quay.io/konveyor/kubevirt-datamover-plugin:oadp-1.6"
-	HypershiftPluginImage        = "quay.io/redhat-user-workloads/ocp-art-tenant/oadp-hypershift-oadp-plugin-main:main"
+	HypershiftPluginImage        = "quay.io/konveyor/hypershift-oadp-plugin:oadp-1.6"
 )
 
 // Plugin names
