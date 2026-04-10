@@ -1017,6 +1017,45 @@ test-e2e-cleanup: login-required
 	$(OC_CLI) delete ns mysql-persistent --ignore-not-found=true
 	rm -rf $(SETTINGS_TMP)
 
+##@ OLMv1 Tests
+
+OLMV1_PACKAGE ?= oadp-operator
+OLMV1_NAMESPACE ?= $(OADP_TEST_NAMESPACE)
+OLMV1_CHANNEL ?=
+OLMV1_VERSION ?=
+OLMV1_UPGRADE_VERSION ?=
+OLMV1_CATALOG ?= oadp-olmv1-test-catalog
+OLMV1_CATALOG_IMAGE ?=
+OLMV1_SERVICE_ACCOUNT ?= oadp-olmv1-installer
+OLMV1_FAIL_FAST ?= true
+
+OLMV1_GINKGO_FLAGS = --vv \
+	--no-color=$(OPENSHIFT_CI) \
+	--label-filter="olmv1" \
+	--junit-report="$(ARTIFACT_DIR)/junit_olmv1_report.xml" \
+	--fail-fast=$(OLMV1_FAIL_FAST) \
+	--timeout=30m
+
+.PHONY: test-olmv1
+test-olmv1: login-required install-ginkgo ## Run OLMv1 lifecycle tests (install, verify, upgrade, cleanup) against a cluster with OLMv1 enabled.
+	ginkgo run -mod=mod $(OLMV1_GINKGO_FLAGS) $(GINKGO_ARGS) tests/olmv1/ -- \
+	-namespace=$(OLMV1_NAMESPACE) \
+	-package=$(OLMV1_PACKAGE) \
+	-channel=$(OLMV1_CHANNEL) \
+	-version=$(OLMV1_VERSION) \
+	-upgrade-version=$(OLMV1_UPGRADE_VERSION) \
+	-catalog=$(OLMV1_CATALOG) \
+	-catalog-image=$(OLMV1_CATALOG_IMAGE) \
+	-service-account=$(OLMV1_SERVICE_ACCOUNT) \
+	-artifact_dir=$(ARTIFACT_DIR)
+
+.PHONY: test-olmv1-cleanup
+test-olmv1-cleanup: login-required ## Cleanup resources created by OLMv1 tests.
+	$(OC_CLI) delete clusterextension oadp-operator --ignore-not-found=true
+	$(OC_CLI) delete clustercatalog $(OLMV1_CATALOG) --ignore-not-found=true
+	$(OC_CLI) delete clusterrolebinding $(OLMV1_SERVICE_ACCOUNT)-cluster-admin --ignore-not-found=true
+	$(OC_CLI) delete sa $(OLMV1_SERVICE_ACCOUNT) -n $(OLMV1_NAMESPACE) --ignore-not-found=true
+
 .PHONY: update-non-admin-manifests
 update-non-admin-manifests: NON_ADMIN_CONTROLLER_IMG?=quay.io/konveyor/oadp-non-admin:latest
 update-non-admin-manifests: yq ## Update Non Admin Controller (NAC) manifests shipped with OADP, from NON_ADMIN_CONTROLLER_PATH

@@ -4,5 +4,5 @@ apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 images:
 - name: controller
-  newName: quay.io/konveyor/oadp-operator
-  newTag: latest
+  newName: ttl.sh/oadp-operator-7e53a850
+  newTag: 1h
