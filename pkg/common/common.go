@@ -13,6 +13,8 @@ import (
 	"github.com/openshift/oadp-operator/pkg/storage/aws"
 )
 
+// KICK IT
+
 const (
 	// From config/default/kustomization.yaml namePrefix field
 	OADPOperatorPrefix         = "openshift-adp-"
