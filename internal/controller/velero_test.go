@@ -1275,7 +1275,7 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 							DefaultItemOperationTimeout: "2h",
 							DefaultSnapshotMoveData:     ptr.To(false),
 							NoDefaultBackupLocation:     true,
-							DefaultVolumesToFSBackup:    ptr.To(true),
+							DefaultVolumesToFsBackup:    ptr.To(true),
 							DefaultPlugins:              []oadpv1alpha1.DefaultPlugin{oadpv1alpha1.DefaultPluginCSI},
 						},
 					},
@@ -1343,7 +1343,29 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 			}),
 		},
 		{
-			name: "valid DPA CR with DefaultVolumesToFSBackup true, Velero Deployment is built with DefaultVolumesToFSBackup true",
+			name: "valid DPA CR with DefaultVolumesToFsBackup true (new field), Velero Deployment is built with default-volumes-to-fs-backup true",
+			dpa: createTestDpaWith(
+				nil,
+				oadpv1alpha1.DataProtectionApplicationSpec{
+					Configuration: &oadpv1alpha1.ApplicationConfig{
+						Velero: &oadpv1alpha1.VeleroConfig{
+							DefaultVolumesToFsBackup: ptr.To(true),
+						},
+					},
+				},
+			),
+			veleroDeployment: testVeleroDeployment.DeepCopy(),
+			wantVeleroDeployment: createTestBuiltVeleroDeployment(TestBuiltVeleroDeploymentOptions{
+				args: []string{
+					defaultFileSystemBackupTimeout,
+					defaultRestoreResourcePriorities,
+					"--default-volumes-to-fs-backup=true",
+					defaultDisableInformerCache,
+				},
+			}),
+		},
+		{
+			name: "valid DPA CR with DefaultVolumesToFSBackup true (deprecated field, backwards compat), Velero Deployment is built with default-volumes-to-fs-backup true",
 			dpa: createTestDpaWith(
 				nil,
 				oadpv1alpha1.DataProtectionApplicationSpec{
@@ -1360,6 +1382,29 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 					defaultFileSystemBackupTimeout,
 					defaultRestoreResourcePriorities,
 					"--default-volumes-to-fs-backup=true",
+					defaultDisableInformerCache,
+				},
+			}),
+		},
+		{
+			name: "valid DPA CR with both DefaultVolumesToFsBackup and DefaultVolumesToFSBackup set, new field takes precedence",
+			dpa: createTestDpaWith(
+				nil,
+				oadpv1alpha1.DataProtectionApplicationSpec{
+					Configuration: &oadpv1alpha1.ApplicationConfig{
+						Velero: &oadpv1alpha1.VeleroConfig{
+							DefaultVolumesToFsBackup: ptr.To(false),
+							DefaultVolumesToFSBackup: ptr.To(true), // deprecated, should be ignored
+						},
+					},
+				},
+			),
+			veleroDeployment: testVeleroDeployment.DeepCopy(),
+			wantVeleroDeployment: createTestBuiltVeleroDeployment(TestBuiltVeleroDeploymentOptions{
+				args: []string{
+					defaultFileSystemBackupTimeout,
+					defaultRestoreResourcePriorities,
+					"--default-volumes-to-fs-backup=false",
 					defaultDisableInformerCache,
 				},
 			}),

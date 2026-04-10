@@ -420,7 +420,7 @@ func (r *DataProtectionApplicationReconciler) customizeVeleroDeployment(veleroDe
 	// check for default-snapshot-move-data parameter
 	defaultSnapshotMoveData := getDefaultSnapshotMoveDataValue(dpa)
 	// check for default-volumes-to-fs-backup
-	defaultVolumesToFSBackup := getDefaultVolumesToFSBackup(dpa)
+	defaultVolumesToFsBackup := getDefaultVolumesToFsBackup(dpa)
 
 	// check for default-snapshot-move-data
 	if len(defaultSnapshotMoveData) > 0 {
@@ -428,8 +428,8 @@ func (r *DataProtectionApplicationReconciler) customizeVeleroDeployment(veleroDe
 	}
 
 	// check for default-volumes-to-fs-backup
-	if len(defaultVolumesToFSBackup) > 0 {
-		veleroContainer.Args = append(veleroContainer.Args, fmt.Sprintf("--default-volumes-to-fs-backup=%s", defaultVolumesToFSBackup))
+	if len(defaultVolumesToFsBackup) > 0 {
+		veleroContainer.Args = append(veleroContainer.Args, fmt.Sprintf("--default-volumes-to-fs-backup=%s", defaultVolumesToFsBackup))
 	}
 
 	// check for disable-informer-cache flag
@@ -735,15 +735,22 @@ func getDefaultSnapshotMoveDataValue(dpa *oadpv1alpha1.DataProtectionApplication
 	return ""
 }
 
-func getDefaultVolumesToFSBackup(dpa *oadpv1alpha1.DataProtectionApplication) string {
-	if dpa.Spec.Configuration.Velero != nil && boolptr.IsSetToTrue(dpa.Spec.Configuration.Velero.DefaultVolumesToFSBackup) {
+func getDefaultVolumesToFsBackup(dpa *oadpv1alpha1.DataProtectionApplication) string {
+	velero := dpa.Spec.Configuration.Velero
+	if velero == nil {
+		return ""
+	}
+	// Prefer new field (matches Velero backup.spec.defaultVolumesToFsBackup), fall back to deprecated field
+	val := velero.DefaultVolumesToFsBackup
+	if val == nil {
+		val = velero.DefaultVolumesToFSBackup
+	}
+	if boolptr.IsSetToTrue(val) {
 		return TrueVal
 	}
-
-	if dpa.Spec.Configuration.Velero != nil && boolptr.IsSetToFalse(dpa.Spec.Configuration.Velero.DefaultVolumesToFSBackup) {
+	if boolptr.IsSetToFalse(val) {
 		return FalseVal
 	}
-
 	return ""
 }
 
