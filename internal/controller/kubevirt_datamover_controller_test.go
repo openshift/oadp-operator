@@ -386,7 +386,7 @@ func TestGetKubevirtDatamoverControllerImage(t *testing.T) {
 
 			if tt.overrideValue != "" {
 				dpa.Spec.UnsupportedOverrides = map[oadpv1alpha1.UnsupportedImageKey]string{
-					oadpv1alpha1.KubeVirtDatamoverImageKey: tt.overrideValue,
+					oadpv1alpha1.KubeVirtDatamoverControllerImageKey: tt.overrideValue,
 				}
 			}
 
@@ -398,6 +398,24 @@ func TestGetKubevirtDatamoverControllerImage(t *testing.T) {
 			}
 		})
 	}
+
+	// Verify plugin image override does not affect controller image
+	t.Run("Should not use plugin image override for controller", func(t *testing.T) {
+		dpa := &oadpv1alpha1.DataProtectionApplication{
+			Spec: oadpv1alpha1.DataProtectionApplicationSpec{
+				UnsupportedOverrides: map[oadpv1alpha1.UnsupportedImageKey]string{
+					oadpv1alpha1.KubeVirtDatamoverPluginImageKey: "quay.io/some-user/plugin-image:latest",
+				},
+			},
+		}
+
+		r := &DataProtectionApplicationReconciler{dpa: dpa}
+		result := r.getKubevirtDatamoverControllerImage()
+
+		if result != defaultKubevirtDatamoverImage {
+			t.Errorf("plugin override should not affect controller image: expected %s, got %s", defaultKubevirtDatamoverImage, result)
+		}
+	})
 }
 
 func TestGetKubevirtDatamoverResources(t *testing.T) {
@@ -871,7 +889,7 @@ func TestBuildKubevirtDatamoverDeployment(t *testing.T) {
 						Velero: &oadpv1alpha1.VeleroConfig{},
 					},
 					UnsupportedOverrides: map[oadpv1alpha1.UnsupportedImageKey]string{
-						oadpv1alpha1.KubeVirtDatamoverImageKey: "custom-registry.io/kdm:v1.0",
+						oadpv1alpha1.KubeVirtDatamoverControllerImageKey: "custom-registry.io/kdm:v1.0",
 					},
 				},
 			},

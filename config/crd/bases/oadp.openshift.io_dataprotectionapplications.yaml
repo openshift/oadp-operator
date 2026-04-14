@@ -2774,6 +2774,7 @@ spec:
                       - gcpPluginImageFqin
                       - kubevirtPluginImageFqin
                       - kubevirtDatamoverPluginImageFqin
+                      - kubevirtDatamoverControllerImageFqin
                       - hypershiftPluginImageFqin
                       - nonAdminControllerImageFqin
                       - vmFileRestoreControllerImageFqin
