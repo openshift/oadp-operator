@@ -1479,6 +1479,8 @@ spec:
                   value: quay.io/konveyor/oadp-vmdp-binaries:oadp-1.6
                 - name: RELATED_IMAGE_KUBEVIRT_DATAMOVER_CONTROLLER
                   value: quay.io/konveyor/kubevirt-datamover-controller:oadp-1.6
+                - name: RELATED_IMAGE_KUBEVIRT_DATAMOVER_PLUGIN
+                  value: quay.io/konveyor/kubevirt-datamover-plugin:oadp-1.6
                 image: quay.io/konveyor/oadp-operator:oadp-1.6
                 imagePullPolicy: Always
                 livenessProbe:
@@ -1721,4 +1723,6 @@ spec:
     name: vmdp-cli-download
   - image: quay.io/konveyor/kubevirt-datamover-controller:oadp-1.6
     name: kubevirt-datamover-controller
+  - image: quay.io/konveyor/kubevirt-datamover-plugin:oadp-1.6
+    name: kubevirt-datamover-plugin
   version: 1.6.0
