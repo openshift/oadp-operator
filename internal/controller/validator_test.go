@@ -2467,6 +2467,48 @@ func TestDPAReconciler_ValidateDataProtectionCR(t *testing.T) {
 			wantErr: false,
 		},
 		{
+			// OADP-7017: podConfig with resourceAllocations but no nodeSelector alongside loadAffinity using matchExpressions should be valid
+			name: "[valid] PodConfig with resourceAllocations but no nodeSelector and LoadAffinityConfig with matchExpressions only",
+			dpa: &oadpv1alpha1.DataProtectionApplication{
+				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
+					BackupImages: ptr.To(false),
+					Configuration: &oadpv1alpha1.ApplicationConfig{
+						Velero: &oadpv1alpha1.VeleroConfig{
+							NoDefaultBackupLocation: true,
+						},
+						NodeAgent: &oadpv1alpha1.NodeAgentConfig{
+							NodeAgentCommonFields: oadpv1alpha1.NodeAgentCommonFields{
+								PodConfig: &oadpv1alpha1.PodConfig{
+									ResourceAllocations: corev1.ResourceRequirements{
+										Requests: corev1.ResourceList{
+											corev1.ResourceCPU:    resource.MustParse("500m"),
+											corev1.ResourceMemory: resource.MustParse("128Mi"),
+										},
+									},
+								},
+							},
+							NodeAgentConfigMapSettings: oadpv1alpha1.NodeAgentConfigMapSettings{
+								LoadAffinityConfig: []*oadpv1alpha1.LoadAffinity{
+									{
+										NodeSelector: metav1.LabelSelector{
+											MatchExpressions: []metav1.LabelSelectorRequirement{
+												{
+													Key:      "foo",
+													Operator: metav1.LabelSelectorOpIn,
+													Values:   []string{"bar"},
+												},
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			wantErr: false,
+		},
+		{
 			name: "[valid] Only LoadAffinityConfig is set with MatchExpressions",
 			dpa: &oadpv1alpha1.DataProtectionApplication{
 				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
