@@ -103,7 +103,7 @@ spec:
             - name: RELATED_IMAGE_KUBEVIRT_DATAMOVER_CONTROLLER
               value: quay.io/konveyor/kubevirt-datamover-controller:latest
             - name: RELATED_IMAGE_KUBEVIRT_DATAMOVER_PLUGIN
-              value: quay.io/konveyor/kubevirt-datamover-plugin:oadp-1.6
+              value: quay.io/konveyor/kubevirt-datamover-plugin:latest
           args:
             - --leader-elect
           image: controller:latest
