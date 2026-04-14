@@ -83,9 +83,9 @@ spec:
             - name: RELATED_IMAGE_KUBEVIRT_VELERO_PLUGIN
               value: quay.io/konveyor/kubevirt-velero-plugin:latest
             - name: RELATED_IMAGE_HYPERSHIFT_VELERO_PLUGIN
-              value: quay.io/redhat-user-workloads/ocp-art-tenant/oadp-hypershift-oadp-plugin-main:main
+              value: quay.io/konveyor/hypershift-oadp-plugin:latest
             - name: RELATED_IMAGE_MUSTGATHER
-              value: registry.redhat.io/oadp/oadp-mustgather-rhel8:v1.2
+              value: quay.io/konveyor/oadp-must-gather:latest
             - name: RELATED_IMAGE_NON_ADMIN_CONTROLLER
               value: quay.io/konveyor/oadp-non-admin:latest
             - name: RELATED_IMAGE_VM_FILE_RESTORE_CONTROLLER
