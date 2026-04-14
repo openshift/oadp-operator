@@ -323,8 +323,8 @@ func (r *DataProtectionApplicationReconciler) checkKubevirtDatamoverEnabled() bo
 }
 
 func (r *DataProtectionApplicationReconciler) getKubevirtDatamoverControllerImage() string {
-	// Priority 1: UnsupportedOverrides
-	if unsupportedOverride := r.dpa.Spec.UnsupportedOverrides[oadpv1alpha1.KubeVirtDatamoverImageKey]; unsupportedOverride != "" {
+	// Priority 1: UnsupportedOverrides (controller-specific key)
+	if unsupportedOverride := r.dpa.Spec.UnsupportedOverrides[oadpv1alpha1.KubeVirtDatamoverControllerImageKey]; unsupportedOverride != "" {
 		return unsupportedOverride
 	}
 	// Priority 2: Environment variable
