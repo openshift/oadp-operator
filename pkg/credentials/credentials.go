@@ -168,8 +168,8 @@ func getKubeVirtPluginImage(dpa *oadpv1alpha1.DataProtectionApplication) string 
 }
 
 func getKubeVirtDatamoverPluginImage(dpa *oadpv1alpha1.DataProtectionApplication) string {
-	if dpa.Spec.UnsupportedOverrides[oadpv1alpha1.KubeVirtDatamoverImageKey] != "" {
-		return dpa.Spec.UnsupportedOverrides[oadpv1alpha1.KubeVirtDatamoverImageKey]
+	if dpa.Spec.UnsupportedOverrides[oadpv1alpha1.KubeVirtDatamoverPluginImageKey] != "" {
+		return dpa.Spec.UnsupportedOverrides[oadpv1alpha1.KubeVirtDatamoverPluginImageKey]
 	}
 	if os.Getenv("RELATED_IMAGE_KUBEVIRT_DATAMOVER_PLUGIN") == "" {
 		return common.KubeVirtDatamoverPluginImage

@@ -425,6 +425,96 @@ func TestCredentials_getPluginImage(t *testing.T) {
 				"RELATED_IMAGE_KUBEVIRT_VELERO_PLUGIN": "quay.io/kubevirt/kubevirt-velero-plugin:latest",
 			},
 		},
+		// KubeVirt DataMover plugin tests
+		{
+			name: "given default Velero CR without env var set, default kubevirt datamover plugin image should be returned",
+			dpa: &oadpv1alpha1.DataProtectionApplication{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-Velero-CR",
+					Namespace: "test-ns",
+				},
+				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
+					Configuration: &oadpv1alpha1.ApplicationConfig{
+						Velero: &oadpv1alpha1.VeleroConfig{
+							DefaultPlugins: []oadpv1alpha1.DefaultPlugin{
+								oadpv1alpha1.DefaultPluginKubeVirtDataMover,
+							},
+						},
+					},
+				},
+			},
+			pluginName: oadpv1alpha1.DefaultPluginKubeVirtDataMover,
+			wantImage:  common.KubeVirtDatamoverPluginImage,
+		},
+		{
+			name: "given kubevirt datamover plugin override, custom image should be returned",
+			dpa: &oadpv1alpha1.DataProtectionApplication{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-Velero-CR",
+					Namespace: "test-ns",
+				},
+				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
+					Configuration: &oadpv1alpha1.ApplicationConfig{
+						Velero: &oadpv1alpha1.VeleroConfig{
+							DefaultPlugins: []oadpv1alpha1.DefaultPlugin{
+								oadpv1alpha1.DefaultPluginKubeVirtDataMover,
+							},
+						},
+					},
+					UnsupportedOverrides: map[oadpv1alpha1.UnsupportedImageKey]string{
+						oadpv1alpha1.KubeVirtDatamoverPluginImageKey: "quay.io/custom/datamover-plugin:v1",
+					},
+				},
+			},
+			pluginName: oadpv1alpha1.DefaultPluginKubeVirtDataMover,
+			wantImage:  "quay.io/custom/datamover-plugin:v1",
+		},
+		{
+			name: "given kubevirt datamover plugin with env var set, image should be built via env vars",
+			dpa: &oadpv1alpha1.DataProtectionApplication{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-Velero-CR",
+					Namespace: "test-ns",
+				},
+				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
+					Configuration: &oadpv1alpha1.ApplicationConfig{
+						Velero: &oadpv1alpha1.VeleroConfig{
+							DefaultPlugins: []oadpv1alpha1.DefaultPlugin{
+								oadpv1alpha1.DefaultPluginKubeVirtDataMover,
+							},
+						},
+					},
+				},
+			},
+			pluginName: oadpv1alpha1.DefaultPluginKubeVirtDataMover,
+			wantImage:  "quay.io/konveyor/kubevirt-datamover-plugin:latest",
+			setEnvVars: map[string]string{
+				"RELATED_IMAGE_KUBEVIRT_DATAMOVER_PLUGIN": "quay.io/konveyor/kubevirt-datamover-plugin:latest",
+			},
+		},
+		{
+			name: "given controller image override, plugin image should not be affected",
+			dpa: &oadpv1alpha1.DataProtectionApplication{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-Velero-CR",
+					Namespace: "test-ns",
+				},
+				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
+					Configuration: &oadpv1alpha1.ApplicationConfig{
+						Velero: &oadpv1alpha1.VeleroConfig{
+							DefaultPlugins: []oadpv1alpha1.DefaultPlugin{
+								oadpv1alpha1.DefaultPluginKubeVirtDataMover,
+							},
+						},
+					},
+					UnsupportedOverrides: map[oadpv1alpha1.UnsupportedImageKey]string{
+						oadpv1alpha1.KubeVirtDatamoverControllerImageKey: "quay.io/custom/controller:v1",
+					},
+				},
+			},
+			pluginName: oadpv1alpha1.DefaultPluginKubeVirtDataMover,
+			wantImage:  common.KubeVirtDatamoverPluginImage,
+		},
 		// Hypershift tests
 		{
 			name: "given default Velero CR with no env var, default hypershift image should be returned",

@@ -91,7 +91,8 @@ const OpenShiftPluginImageKey UnsupportedImageKey = "openshiftPluginImageFqin"
 const AzurePluginImageKey UnsupportedImageKey = "azurePluginImageFqin"
 const GCPPluginImageKey UnsupportedImageKey = "gcpPluginImageFqin"
 const KubeVirtPluginImageKey UnsupportedImageKey = "kubevirtPluginImageFqin"
-const KubeVirtDatamoverImageKey UnsupportedImageKey = "kubevirtDatamoverPluginImageFqin"
+const KubeVirtDatamoverPluginImageKey UnsupportedImageKey = "kubevirtDatamoverPluginImageFqin"
+const KubeVirtDatamoverControllerImageKey UnsupportedImageKey = "kubevirtDatamoverControllerImageFqin"
 const HypershiftPluginImageKey UnsupportedImageKey = "hypershiftPluginImageFqin"
 const NonAdminControllerImageKey UnsupportedImageKey = "nonAdminControllerImageFqin"
 const VMFileRestoreControllerImageKey UnsupportedImageKey = "vmFileRestoreControllerImageFqin"
@@ -907,6 +908,7 @@ type DataProtectionApplicationSpec struct {
 	//   - gcpPluginImageFqin
 	//   - kubevirtPluginImageFqin
 	//   - kubevirtDatamoverPluginImageFqin
+	//   - kubevirtDatamoverControllerImageFqin
 	//   - hypershiftPluginImageFqin
 	//   - nonAdminControllerImageFqin
 	//   - vmFileRestoreControllerImageFqin
