@@ -1480,6 +1480,8 @@ spec:
                   value: quay.io/konveyor/oadp-vmdp-binaries:latest
                 - name: RELATED_IMAGE_KUBEVIRT_DATAMOVER_CONTROLLER
                   value: quay.io/konveyor/kubevirt-datamover-controller:latest
+                - name: RELATED_IMAGE_KUBEVIRT_VELERO_PLUGIN
+                  value: quay.io/konveyor/kubevirt-velero-plugin:oadp-1.6
                 image: quay.io/konveyor/oadp-operator:latest
                 imagePullPolicy: Always
                 livenessProbe:
@@ -1701,7 +1703,7 @@ spec:
   - image: quay.io/konveyor/velero-plugin-for-gcp:latest
     name: velero-plugin-for-gcp
   - image: quay.io/konveyor/kubevirt-velero-plugin:latest
-    name: kubevirt-velero-plugin
+    name: openshift-adp-controller-manager-kubevirt-velero-plugin
   - image: quay.io/redhat-user-workloads/ocp-art-tenant/oadp-hypershift-oadp-plugin-main:main
     name: hypershift-velero-plugin
   - image: registry.redhat.io/oadp/oadp-mustgather-rhel8:v1.2
@@ -1722,4 +1724,6 @@ spec:
     name: vmdp-cli-download
   - image: quay.io/konveyor/kubevirt-datamover-controller:latest
     name: kubevirt-datamover-controller
+  - image: quay.io/konveyor/kubevirt-velero-plugin:oadp-1.6
+    name: openshift-adp-controller-manager-kubevirt-velero-plugin
   version: 99.0.0
