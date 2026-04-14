@@ -1699,7 +1699,7 @@ spec:
     name: velero-plugin-for-microsoft-azure
   - image: quay.io/konveyor/velero-plugin-for-gcp:oadp-1.6
     name: velero-plugin-for-gcp
-  - image: quay.io/konveyor/kubevirt-velero-plugin:latest
+  - image: quay.io/konveyor/kubevirt-velero-plugin:oadp-1.6
     name: kubevirt-velero-plugin
   - image: quay.io/konveyor/hypershift-oadp-plugin:oadp-1.6
     name: hypershift-velero-plugin
