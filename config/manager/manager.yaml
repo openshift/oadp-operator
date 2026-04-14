@@ -102,6 +102,8 @@ spec:
               value: quay.io/konveyor/oadp-vmdp-binaries:oadp-1.6
             - name: RELATED_IMAGE_KUBEVIRT_DATAMOVER_CONTROLLER
               value: quay.io/konveyor/kubevirt-datamover-controller:oadp-1.6
+            - name: RELATED_IMAGE_KUBEVIRT_DATAMOVER_PLUGIN
+              value: quay.io/konveyor/kubevirt-datamover-plugin:oadp-1.6
           args:
             - --leader-elect
           image: controller:latest
