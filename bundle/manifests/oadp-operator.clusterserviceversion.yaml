@@ -1458,7 +1458,7 @@ spec:
                 - name: RELATED_IMAGE_VELERO_PLUGIN_FOR_GCP
                   value: quay.io/konveyor/velero-plugin-for-gcp:oadp-1.6
                 - name: RELATED_IMAGE_KUBEVIRT_VELERO_PLUGIN
-                  value: quay.io/konveyor/kubevirt-velero-plugin:latest
+                  value: quay.io/konveyor/kubevirt-velero-plugin:oadp-1.6
                 - name: RELATED_IMAGE_HYPERSHIFT_VELERO_PLUGIN
                   value: quay.io/konveyor/hypershift-oadp-plugin:oadp-1.6
                 - name: RELATED_IMAGE_MUSTGATHER
@@ -1479,6 +1479,8 @@ spec:
                   value: quay.io/konveyor/oadp-vmdp-binaries:oadp-1.6
                 - name: RELATED_IMAGE_KUBEVIRT_DATAMOVER_CONTROLLER
                   value: quay.io/konveyor/kubevirt-datamover-controller:oadp-1.6
+                - name: RELATED_IMAGE_KUBEVIRT_DATAMOVER_PLUGIN
+                  value: quay.io/konveyor/kubevirt-datamover-plugin:oadp-1.6
                 image: quay.io/konveyor/oadp-operator:oadp-1.6
                 imagePullPolicy: Always
                 livenessProbe:
@@ -1699,7 +1701,7 @@ spec:
     name: velero-plugin-for-microsoft-azure
   - image: quay.io/konveyor/velero-plugin-for-gcp:oadp-1.6
     name: velero-plugin-for-gcp
-  - image: quay.io/konveyor/kubevirt-velero-plugin:latest
+  - image: quay.io/konveyor/kubevirt-velero-plugin:oadp-1.6
     name: kubevirt-velero-plugin
   - image: quay.io/konveyor/hypershift-oadp-plugin:oadp-1.6
     name: hypershift-velero-plugin
@@ -1721,4 +1723,6 @@ spec:
     name: vmdp-cli-download
   - image: quay.io/konveyor/kubevirt-datamover-controller:oadp-1.6
     name: kubevirt-datamover-controller
+  - image: quay.io/konveyor/kubevirt-datamover-plugin:oadp-1.6
+    name: kubevirt-datamover-plugin
   version: 1.6.0
