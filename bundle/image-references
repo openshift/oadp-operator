@@ -67,10 +67,10 @@ spec:
     from:
       kind: DockerImage
       name: quay.io/konveyor/kubevirt-datamover-controller:oadp-1.6
-  - name: oadp-kubevirt-datamover-plugin-rhel9
-    from:
-      kind: DockerImage
-      name: quay.io/konveyor/kubevirt-datamover-plugin:oadp-1.6
+  # - name: oadp-kubevirt-datamover-plugin-rhel9
+  #   from:
+  #     kind: DockerImage
+  #     name: quay.io/konveyor/kubevirt-datamover-plugin:oadp-1.6
   - name: oadp-vmdp-binaries-rhel9
     from:
       kind: DockerImage
