@@ -399,7 +399,7 @@ func TestValidateCSVMatchImageReferences(t *testing.T) {
 			wantMsg:  "no tags",
 		},
 		{
-			name: "invalid image-references YAML produces error",
+			name:      "invalid image-references YAML produces error",
 			imageRefs: `{{{`,
 			csv: `spec:
   install:

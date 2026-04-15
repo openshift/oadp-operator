@@ -251,7 +251,6 @@ func ReplaceClusterInformationSection(
 	summaryTemplateReplaces["OCP_VERSION"] = clusterVersion.Status.Desired.Version
 	summaryTemplateReplaces["CLUSTER_VERSION"] = createYAML(outputPath, "cluster-scoped-resources/config.openshift.io/clusterversions.yaml", clusterVersion)
 	cloudProvider := ""
-	
 
 	if infrastructureList != nil && len(infrastructureList.Items) != 0 {
 		cloudProvider = string(infrastructureList.Items[0].Spec.PlatformSpec.Type)
@@ -479,7 +478,6 @@ func humanizeDurationSince(t time.Time) string {
 	}
 	return time.Since(t).Round(time.Second).String()
 }
-
 
 func ReplaceCloudStoragesSection(outputPath string, cloudStorageList *oadpv1alpha1.CloudStorageList) {
 	if cloudStorageList != nil && len(cloudStorageList.Items) != 0 {
@@ -1668,7 +1666,7 @@ func ReplaceCustomResourceDefinitionsSection(outputPath string, clusterConfig *r
 	// CRD spec.names.plural : CRD spec.group
 	crds := map[string]string{
 		"dataprotectionapplications":            gvk.DataProtectionApplicationGVK.Group,
-		"dataprotectiontests":					 gvk.DataProtectionTestGVK.Group,
+		"dataprotectiontests":                   gvk.DataProtectionTestGVK.Group,
 		"cloudstorages":                         gvk.CloudStorageGVK.Group,
 		"backupstoragelocations":                gvk.BackupStorageLocationGVK.Group,
 		"volumesnapshotlocations":               gvk.VolumeSnapshotLocationGVK.Group,
