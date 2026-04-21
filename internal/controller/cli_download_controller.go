@@ -44,6 +44,10 @@ func (c *CLIDownloadSetup) Start(ctx context.Context) error {
 	c.Log = ctrl.Log.WithName("cli-download-setup")
 	c.Log.Info("Starting CLI download setup")
 
+	if available, err := isConsoleCRDAvailable(c.Client.RESTMapper(), c.Log); !available {
+		return err
+	}
+
 	// Get the CLI server image from environment variable
 	cliServerImage := os.Getenv("RELATED_IMAGE_CONSOLE_CLI_DOWNLOAD")
 	if cliServerImage == "" {
