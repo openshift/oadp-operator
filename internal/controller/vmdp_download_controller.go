@@ -42,10 +42,6 @@ func (v *VMDPDownloadSetup) Start(ctx context.Context) error {
 	v.Log = ctrl.Log.WithName("vmdp-download-setup")
 	v.Log.Info("Starting VMDP download setup")
 
-	if available, err := isConsoleCRDAvailable(v.Client.RESTMapper(), v.Log); !available {
-		return err
-	}
-
 	// Get the VMDP server image from environment variable
 	vmdpServerImage := os.Getenv("RELATED_IMAGE_VMDP_CLI_DOWNLOAD")
 	if vmdpServerImage == "" {
