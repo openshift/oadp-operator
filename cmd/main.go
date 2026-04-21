@@ -299,9 +299,16 @@ func main() {
 	}
 	//+kubebuilder:scaffold:builder
 
-	// Add CLI download setup runnable
-	// Only add if watchNamespace is set (skip for cluster-scoped mode)
-	if watchNamespace != "" {
+	// Add CLI download setup runnable.
+	// Skip when namespace-scoped mode is off or the ConsoleCLIDownload CRD
+	// is absent (clusters without Console capability, e.g. SNO).
+	if watchNamespace == "" {
+		setupLog.Info("Skipping CLI download setup - watchNamespace not set")
+	} else if available, err := controller.IsConsoleCRDAvailable(mgr.GetRESTMapper(), setupLog); !available {
+		if err != nil {
+			setupLog.Error(err, "unable to check ConsoleCLIDownload CRD availability, skipping CLI download setup")
+		}
+	} else {
 		if err := mgr.Add(&controller.CLIDownloadSetup{
 			Client:            mgr.GetClient(),
 			Namespace:         watchNamespace,
@@ -311,8 +318,6 @@ func main() {
 			setupLog.Error(err, "unable to add CLI download setup")
 			os.Exit(1)
 		}
-	} else {
-		setupLog.Info("Skipping CLI download setup - watchNamespace not set")
 	}
 
 	if err := mgr.AddHealthzCheck("healthz", healthz.Ping); err != nil {

@@ -42,7 +42,7 @@ func TestIsConsoleCRDAvailable(t *testing.T) {
 				mapper.Add(consolev1.GroupVersion.WithKind("ConsoleCLIDownload"), meta.RESTScopeRoot)
 			}
 
-			available, err := isConsoleCRDAvailable(mapper, log)
+			available, err := IsConsoleCRDAvailable(mapper, log)
 			require.NoError(t, err)
 			assert.Equal(t, tt.wantAvailable, available)
 		})
