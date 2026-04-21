@@ -104,11 +104,8 @@ func runVmBackupAndRestore(brCase VmBackupRestoreCase, updateLastBRcase func(brC
 	})
 	gomega.Expect(err).ToNot(gomega.HaveOccurred())
 
-	// TODO: find a better way to check for clout-init completion
-	if brCase.InitDelay > 0*time.Second {
-		log.Printf("Sleeping to wait for cloud-init to be ready...")
-		time.Sleep(brCase.InitDelay)
-	}
+	err = v.WaitForVMReady(brCase.Namespace, brCase.Name, 5*time.Minute)
+	gomega.Expect(err).ToNot(gomega.HaveOccurred())
 
 	// Check if this VM should be running or stopped for this test.
 	// Depend on pre-backup verification function to poll state.
@@ -148,6 +145,55 @@ func runVmBackupAndRestore(brCase VmBackupRestoreCase, updateLastBRcase func(brC
 	// avoid finalizers in namespace deletion
 	err = v.RemoveVm(brCase.Namespace, brCase.Name, 5*time.Minute)
 	gomega.Expect(err).To(gomega.BeNil())
+}
+
+
+func runCBTVmBackup(brCase VmBackupRestoreCase, updateLastBRcase func(brCase VmBackupRestoreCase), v *lib.VirtOperator) {
+	updateLastBRcase(brCase)
+
+	backupName, _ := prepareBackupAndRestore(brCase.BackupRestoreCase, func() {})
+
+	gomega.Eventually(lib.IsNamespaceDeleted(kubernetesClientForSuiteRun, brCase.Namespace), time.Minute*2, time.Second*5).Should(gomega.BeTrue())
+	err := lib.CreateNamespace(v.Clientset, brCase.Namespace)
+	gomega.Expect(err).To(gomega.BeNil())
+
+	err = lib.InstallApplication(v.Client, brCase.Template)
+	if err != nil {
+		fmt.Printf("Failed to install VM template %s: %v", brCase.Template, err)
+	}
+	gomega.Expect(err).To(gomega.BeNil())
+
+	err = wait.PollUntilContextTimeout(context.Background(), 10*time.Second, 10*time.Minute, true, func(ctx context.Context) (bool, error) {
+		status, err := v.GetVmStatus(brCase.Namespace, brCase.Name)
+		if err != nil {
+			log.Printf("VM %s/%s not yet available: %v", brCase.Namespace, brCase.Name, err)
+			return false, nil
+		}
+		return status == "Running", nil
+	})
+	gomega.Expect(err).ToNot(gomega.HaveOccurred())
+
+	err = v.WaitForVMReady(brCase.Namespace, brCase.Name, 5*time.Minute)
+	gomega.Expect(err).ToNot(gomega.HaveOccurred())
+
+	log.Printf("Restarting VM to activate CBT qcow2 overlay")
+	err = v.RestartVmAndWaitRunning(brCase.Namespace, brCase.Name, 10*time.Minute)
+	gomega.Expect(err).ToNot(gomega.HaveOccurred())
+
+	err = v.WaitForVMReady(brCase.Namespace, brCase.Name, 5*time.Minute)
+	gomega.Expect(err).ToNot(gomega.HaveOccurred())
+
+	log.Printf("Waiting for CBT to be enabled on VM")
+	err = v.WaitForCBTEnabled(brCase.Namespace, brCase.Name, 5*time.Minute)
+	gomega.Expect(err).ToNot(gomega.HaveOccurred())
+
+	runBackup(brCase.BackupRestoreCase, backupName)
+
+	err = v.RemoveVm(brCase.Namespace, brCase.Name, 5*time.Minute)
+	gomega.Expect(err).To(gomega.BeNil())
+	err = lib.DeleteNamespace(v.Clientset, brCase.Namespace)
+	gomega.Expect(err).To(gomega.BeNil())
+	gomega.Eventually(lib.IsNamespaceDeleted(kubernetesClientForSuiteRun, brCase.Namespace), time.Minute*5, time.Second*5).Should(gomega.BeTrue())
 }
 
 var _ = ginkgo.Describe("VM backup and restore tests", ginkgo.Ordered, func() {
@@ -194,6 +240,7 @@ var _ = ginkgo.Describe("VM backup and restore tests", ginkgo.Ordered, func() {
 			cirrosDownloadedFromTest = true
 		}
 		dpaCR.VeleroDefaultPlugins = append(dpaCR.VeleroDefaultPlugins, v1alpha1.DefaultPluginKubeVirt)
+		dpaCR.VeleroDefaultPlugins = append(dpaCR.VeleroDefaultPlugins, v1alpha1.DefaultPluginKubeVirtDataMover)
 
 		err = v.CreateImmediateModeStorageClass("test-sc-immediate")
 		gomega.Expect(err).To(gomega.BeNil())
@@ -211,6 +258,12 @@ var _ = ginkgo.Describe("VM backup and restore tests", ginkgo.Ordered, func() {
 			err = v.CreateTargetDataSourceFromPvc(pvcNamespace, "openshift-virtualization-os-images", pvcName, "fedora")
 			gomega.Expect(err).To(gomega.BeNil())
 		}
+
+		log.Printf("Enabling CBT feature gate and label selector for kubevirt-datamover tests")
+		err = v.EnableCBTFeatureGate(30 * time.Second)
+		gomega.Expect(err).To(gomega.BeNil())
+		err = v.EnableCBTLabelSelector(30 * time.Second)
+		gomega.Expect(err).To(gomega.BeNil())
 
 	})
 
@@ -359,6 +412,23 @@ var _ = ginkgo.Describe("VM backup and restore tests", ginkgo.Ordered, func() {
 				PreBackupVerify:   vmTodoListReady(true, false, "mysql"),
 				PostRestoreVerify: vmTodoListReady(false, false, "mysql"),
 				BackupTimeout:     45 * time.Minute,
+			},
+		}, nil),
+	)
+
+	ginkgo.DescribeTable("Kubevirt datamover backup with CBT",
+		func(brCase VmBackupRestoreCase, expectedError error) {
+			runCBTVmBackup(brCase, updateLastBRcase, v)
+		},
+
+		ginkgo.Entry("no-application kubevirt-datamover backup, CirrOS VM with CBT", ginkgo.Label("virt"), VmBackupRestoreCase{
+			Template: "./sample-applications/virtual-machines/cirros-test/cirros-test-cbt.yaml",
+			BackupRestoreCase: BackupRestoreCase{
+				Namespace:         "cirros-test",
+				Name:              "cirros-test",
+				SkipVerifyLogs:    true,
+				BackupRestoreType: lib.CSIDataMover,
+				BackupTimeout:     20 * time.Minute,
 			},
 		}, nil),
 	)

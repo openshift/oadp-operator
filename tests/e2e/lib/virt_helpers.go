@@ -2,6 +2,7 @@ package lib
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"log"
@@ -26,6 +27,9 @@ const (
 	emulationAnnotation = "kubevirt.kubevirt.io/jsonpatch"
 	useEmulation        = `[{"op": "add", "path": "/spec/configuration/developerConfiguration", "value": {"useEmulation": true}}]`
 	stopVmPath          = "/apis/subresources.kubevirt.io/v1/namespaces/%s/virtualmachines/%s/stop"
+	startVmPath         = "/apis/subresources.kubevirt.io/v1/namespaces/%s/virtualmachines/%s/start"
+
+	cbtJsonPatchPath = "/spec/configuration/changedBlockTrackingLabelSelectors"
 )
 
 var packageManifestsGvr = schema.GroupVersionResource{
@@ -49,6 +53,18 @@ var virtualMachineGvr = schema.GroupVersionResource{
 var csvGvr = schema.GroupVersionResource{
 	Group:    "operators.coreos.com",
 	Resource: "clusterserviceversion",
+	Version:  "v1alpha1",
+}
+
+var virtualMachineInstanceGvr = schema.GroupVersionResource{
+	Group:    "kubevirt.io",
+	Resource: "virtualmachineinstances",
+	Version:  "v1",
+}
+
+var virtualMachineBackupTrackerGvr = schema.GroupVersionResource{
+	Group:    "backup.kubevirt.io",
+	Resource: "virtualmachinebackuptrackers",
 	Version:  "v1alpha1",
 }
 
@@ -640,6 +656,31 @@ func (v *VirtOperator) GetVmStatus(namespace, name string) (string, error) {
 	return GetVmStatus(v.Dynamic, namespace, name)
 }
 
+func (v *VirtOperator) WaitForVMReady(namespace, name string, timeout time.Duration) error {
+	log.Printf("Waiting for VMI %s/%s Ready condition", namespace, name)
+	return wait.PollUntilContextTimeout(context.Background(), 10*time.Second, timeout, true, func(ctx context.Context) (bool, error) {
+		vmi, err := v.Dynamic.Resource(virtualMachineInstanceGvr).Namespace(namespace).Get(ctx, name, metav1.GetOptions{})
+		if err != nil {
+			return false, nil
+		}
+		conditions, found, err := unstructured.NestedSlice(vmi.UnstructuredContent(), "status", "conditions")
+		if err != nil || !found {
+			return false, nil
+		}
+		for _, c := range conditions {
+			cond, ok := c.(map[string]interface{})
+			if !ok {
+				continue
+			}
+			if cond["type"] == "Ready" && cond["status"] == "True" {
+				log.Printf("VMI %s/%s is Ready", namespace, name)
+				return true, nil
+			}
+		}
+		return false, nil
+	})
+}
+
 // StopVm stops a VM with a REST call to "stop". This is needed because a
 // poweroff from inside the VM results in KubeVirt restarting it.
 // From the KubeVirt API reference:
@@ -809,4 +850,200 @@ func (v *VirtOperator) EnsureVirtRemoval() error {
 func (v *VirtOperator) RemoveVm(namespace, name string, timeout time.Duration) error {
 	log.Printf("Removing virtual machine %s/%s", namespace, name)
 	return v.ensureVmRemoval(namespace, name, timeout)
+}
+
+// StartVm starts a VM with a REST call to "start".
+func (v *VirtOperator) StartVm(namespace, name string) error {
+	path := fmt.Sprintf(startVmPath, namespace, name)
+	return v.Clientset.RESTClient().Put().AbsPath(path).Do(context.Background()).Error()
+}
+
+// RestartVmAndWaitRunning stops a VM, waits for it to stop, starts it, and
+// waits for it to be running again.
+func (v *VirtOperator) RestartVmAndWaitRunning(namespace, name string, timeout time.Duration) error {
+	log.Printf("Restarting VM %s/%s", namespace, name)
+
+	if err := v.StopVm(namespace, name); err != nil {
+		return fmt.Errorf("failed to stop VM %s/%s: %w", namespace, name, err)
+	}
+
+	halfTimeout := timeout / 2
+	err := wait.PollUntilContextTimeout(context.Background(), 10*time.Second, halfTimeout, true, func(ctx context.Context) (bool, error) {
+		status, err := v.GetVmStatus(namespace, name)
+		if err != nil {
+			return false, nil
+		}
+		return status == "Stopped", nil
+	})
+	if err != nil {
+		return fmt.Errorf("timed out waiting for VM %s/%s to stop: %w", namespace, name, err)
+	}
+	log.Printf("VM %s/%s stopped, starting again", namespace, name)
+
+	if err := v.StartVm(namespace, name); err != nil {
+		return fmt.Errorf("failed to start VM %s/%s: %w", namespace, name, err)
+	}
+
+	err = wait.PollUntilContextTimeout(context.Background(), 10*time.Second, halfTimeout, true, func(ctx context.Context) (bool, error) {
+		status, err := v.GetVmStatus(namespace, name)
+		if err != nil {
+			return false, nil
+		}
+		return status == "Running", nil
+	})
+	if err != nil {
+		return fmt.Errorf("timed out waiting for VM %s/%s to start: %w", namespace, name, err)
+	}
+	log.Printf("VM %s/%s restarted successfully", namespace, name)
+
+	return nil
+}
+
+// EnableCBTFeatureGate patches the HyperConverged CR to set
+// spec.featureGates.incrementalBackup = true. This enables CBT and
+// UtilityVolumes feature gates in the KubeVirt CR.
+func (v *VirtOperator) EnableCBTFeatureGate(timeout time.Duration) error {
+	log.Printf("Enabling incrementalBackup feature gate on HCO")
+
+	err := wait.PollUntilContextTimeout(context.Background(), 5*time.Second, timeout, true, func(ctx context.Context) (bool, error) {
+		hco, err := v.Dynamic.Resource(hyperConvergedGvr).Namespace(v.Namespace).Get(ctx, "kubevirt-hyperconverged", metav1.GetOptions{})
+		if err != nil {
+			return false, fmt.Errorf("failed to get HCO: %w", err)
+		}
+
+		if err := unstructured.SetNestedField(hco.UnstructuredContent(), true, "spec", "featureGates", "incrementalBackup"); err != nil {
+			return false, fmt.Errorf("failed to set incrementalBackup feature gate: %w", err)
+		}
+
+		_, err = v.Dynamic.Resource(hyperConvergedGvr).Namespace(v.Namespace).Update(ctx, hco, metav1.UpdateOptions{})
+		if err != nil {
+			if apierrors.IsConflict(err) {
+				log.Printf("HCO modification conflict setting incrementalBackup, retrying...")
+				return false, nil
+			}
+			return false, err
+		}
+		return true, nil
+	})
+	if err != nil {
+		return fmt.Errorf("failed to enable CBT feature gate: %w", err)
+	}
+
+	log.Printf("incrementalBackup feature gate enabled on HCO")
+	return nil
+}
+
+// EnableCBTLabelSelector patches the HCO's kubevirt.kubevirt.io/jsonpatch
+// annotation to inject changedBlockTrackingLabelSelectors into the KubeVirt CR.
+// If the annotation already contains patches (e.g. emulation), the CBT patch
+// is appended to the existing array.
+func (v *VirtOperator) EnableCBTLabelSelector(timeout time.Duration) error {
+	log.Printf("Enabling CBT label selector via HCO jsonpatch annotation")
+
+	cbtPatch := map[string]interface{}{
+		"op":   "add",
+		"path": cbtJsonPatchPath,
+		"value": map[string]interface{}{
+			"virtualMachineLabelSelector": map[string]interface{}{
+				"matchLabels": map[string]interface{}{
+					"changedBlockTracking": "true",
+				},
+			},
+		},
+	}
+
+	err := wait.PollUntilContextTimeout(context.Background(), 5*time.Second, timeout, true, func(ctx context.Context) (bool, error) {
+		hco, err := v.Dynamic.Resource(hyperConvergedGvr).Namespace(v.Namespace).Get(ctx, "kubevirt-hyperconverged", metav1.GetOptions{})
+		if err != nil {
+			return false, fmt.Errorf("failed to get HCO: %w", err)
+		}
+
+		annotations, _, _ := unstructured.NestedMap(hco.UnstructuredContent(), "metadata", "annotations")
+		if annotations == nil {
+			annotations = make(map[string]interface{})
+		}
+
+		var patches []interface{}
+		if existing, ok := annotations[emulationAnnotation]; ok {
+			existingStr, isStr := existing.(string)
+			if isStr && existingStr != "" {
+				if err := json.Unmarshal([]byte(existingStr), &patches); err != nil {
+					return false, fmt.Errorf("failed to parse existing jsonpatch annotation: %w", err)
+				}
+				for _, p := range patches {
+					patchMap, ok := p.(map[string]interface{})
+					if ok && patchMap["path"] == cbtJsonPatchPath {
+						log.Printf("CBT label selector patch already present in annotation")
+						return true, nil
+					}
+				}
+			}
+		}
+
+		patches = append(patches, cbtPatch)
+		patchBytes, err := json.Marshal(patches)
+		if err != nil {
+			return false, fmt.Errorf("failed to marshal jsonpatch: %w", err)
+		}
+		annotations[emulationAnnotation] = string(patchBytes)
+
+		if err := unstructured.SetNestedMap(hco.UnstructuredContent(), annotations, "metadata", "annotations"); err != nil {
+			return false, err
+		}
+
+		_, err = v.Dynamic.Resource(hyperConvergedGvr).Namespace(v.Namespace).Update(ctx, hco, metav1.UpdateOptions{})
+		if err != nil {
+			if apierrors.IsConflict(err) {
+				log.Printf("HCO modification conflict setting CBT label selector, retrying...")
+				return false, nil
+			}
+			return false, err
+		}
+		return true, nil
+	})
+	if err != nil {
+		return fmt.Errorf("failed to enable CBT label selector: %w", err)
+	}
+
+	log.Printf("CBT label selector enabled via HCO jsonpatch annotation")
+	return nil
+}
+
+// WaitForCBTEnabled polls the VM's status.changedBlockTracking.state until it
+// equals "Enabled" or the timeout is reached.
+func (v *VirtOperator) WaitForCBTEnabled(namespace, name string, timeout time.Duration) error {
+	log.Printf("Waiting for CBT to be enabled on VM %s/%s", namespace, name)
+
+	err := wait.PollUntilContextTimeout(context.Background(), 10*time.Second, timeout, true, func(ctx context.Context) (bool, error) {
+		vm, err := v.Dynamic.Resource(virtualMachineGvr).Namespace(namespace).Get(ctx, name, metav1.GetOptions{})
+		if err != nil {
+			log.Printf("Error getting VM %s/%s: %v", namespace, name, err)
+			return false, nil
+		}
+
+		state, ok, err := unstructured.NestedString(vm.UnstructuredContent(), "status", "changedBlockTracking", "state")
+		if err != nil || !ok {
+			log.Printf("CBT state not yet available on VM %s/%s", namespace, name)
+			return false, nil
+		}
+
+		log.Printf("VM %s/%s CBT state: %s", namespace, name, state)
+		return state == "Enabled", nil
+	})
+	if err != nil {
+		return fmt.Errorf("timed out waiting for CBT to be enabled on VM %s/%s: %w", namespace, name, err)
+	}
+
+	log.Printf("CBT is enabled on VM %s/%s", namespace, name)
+	return nil
+}
+
+// CheckVMBackupTrackerExists checks if any VirtualMachineBackupTracker resources
+// exist in the given namespace. Returns true if at least one VMBT is found.
+func (v *VirtOperator) CheckVMBackupTrackerExists(namespace string) (bool, error) {
+	list, err := v.Dynamic.Resource(virtualMachineBackupTrackerGvr).Namespace(namespace).List(context.Background(), metav1.ListOptions{})
+	if err != nil {
+		return false, fmt.Errorf("failed to list VirtualMachineBackupTrackers in %s: %w", namespace, err)
+	}
+	return len(list.Items) > 0, nil
 }
