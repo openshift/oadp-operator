@@ -9,10 +9,10 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
-// isConsoleCRDAvailable checks whether the ConsoleCLIDownload CRD is registered
+// IsConsoleCRDAvailable checks whether the ConsoleCLIDownload CRD is registered
 // with the API server. Returns false when the Console capability is not enabled
 // (e.g. SNO clusters).
-func isConsoleCRDAvailable(mapper meta.RESTMapper, log logr.Logger) (bool, error) {
+func IsConsoleCRDAvailable(mapper meta.RESTMapper, log logr.Logger) (bool, error) {
 	_, err := mapper.RESTMapping(
 		schema.GroupKind{Group: consolev1.GroupVersion.Group, Kind: "ConsoleCLIDownload"},
 	)
