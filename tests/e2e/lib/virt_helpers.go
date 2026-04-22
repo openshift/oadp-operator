@@ -24,10 +24,10 @@ import (
 )
 
 const (
-	emulationAnnotation  = "kubevirt.kubevirt.io/jsonpatch"
-	emulationPatchPath   = "/spec/configuration/developerConfiguration"
-	stopVmPath           = "/apis/subresources.kubevirt.io/v1/namespaces/%s/virtualmachines/%s/stop"
-	startVmPath          = "/apis/subresources.kubevirt.io/v1/namespaces/%s/virtualmachines/%s/start"
+	emulationAnnotation = "kubevirt.kubevirt.io/jsonpatch"
+	emulationPatchPath  = "/spec/configuration/developerConfiguration"
+	stopVmPath          = "/apis/subresources.kubevirt.io/v1/namespaces/%s/virtualmachines/%s/stop"
+	startVmPath         = "/apis/subresources.kubevirt.io/v1/namespaces/%s/virtualmachines/%s/start"
 
 	cbtJsonPatchPath = "/spec/configuration/changedBlockTrackingLabelSelectors"
 )

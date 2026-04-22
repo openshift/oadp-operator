@@ -147,7 +147,6 @@ func runVmBackupAndRestore(brCase VmBackupRestoreCase, updateLastBRcase func(brC
 	gomega.Expect(err).To(gomega.BeNil())
 }
 
-
 func runCBTVmBackup(brCase VmBackupRestoreCase, updateLastBRcase func(brCase VmBackupRestoreCase), v *lib.VirtOperator) {
 	updateLastBRcase(brCase)
 
