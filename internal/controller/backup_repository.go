@@ -42,10 +42,8 @@ func (r *DataProtectionApplicationReconciler) updateBackupRepositoryCM(cm *corev
 		oadpv1alpha1.OadpOperatorLabel: "True",
 	}
 
-	// Apply user-provided resource labels (protected labels are filtered)
-	cm.Labels = applyResourceLabels(r.dpa, cm.Labels)
-
-	// Apply user-provided resource annotations
+	// Apply user-provided resource labels and annotations
+	cm.Labels, cm.Annotations = applyResourceLabels(r.dpa, cm.Labels, cm.Annotations)
 	cm.Annotations = applyResourceAnnotations(r.dpa, cm.Annotations)
 
 	if cm.Data == nil {
