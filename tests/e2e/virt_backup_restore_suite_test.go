@@ -163,6 +163,7 @@ func runCBTVmBackup(brCase VmBackupRestoreCase, updateLastBRcase func(brCase VmB
 	}
 	gomega.Expect(err).To(gomega.BeNil())
 
+	log.Printf("Waiting for VM %s/%s to reach Running status", brCase.Namespace, brCase.Name)
 	err = wait.PollUntilContextTimeout(context.Background(), 10*time.Second, 15*time.Minute, true, func(ctx context.Context) (bool, error) {
 		status, err := v.GetVmStatus(brCase.Namespace, brCase.Name)
 		if err != nil {
@@ -176,6 +177,11 @@ func runCBTVmBackup(brCase VmBackupRestoreCase, updateLastBRcase func(brCase VmB
 	err = v.WaitForVMReady(brCase.Namespace, brCase.Name, 5*time.Minute)
 	gomega.Expect(err).ToNot(gomega.HaveOccurred())
 
+	if brCase.InitDelay > 0 {
+		log.Printf("Waiting %v for VM %s/%s to finish booting (cloud-init, etc.)", brCase.InitDelay, brCase.Namespace, brCase.Name)
+		time.Sleep(brCase.InitDelay)
+	}
+
 	log.Printf("Restarting VM to activate CBT qcow2 overlay")
 	err = v.RestartVmAndWaitRunning(brCase.Namespace, brCase.Name, 10*time.Minute)
 	gomega.Expect(err).ToNot(gomega.HaveOccurred())
@@ -183,9 +189,16 @@ func runCBTVmBackup(brCase VmBackupRestoreCase, updateLastBRcase func(brCase VmB
 	err = v.WaitForVMReady(brCase.Namespace, brCase.Name, 5*time.Minute)
 	gomega.Expect(err).ToNot(gomega.HaveOccurred())
 
+	if brCase.InitDelay > 0 {
+		log.Printf("Waiting %v for VM %s/%s to settle after CBT restart", brCase.InitDelay, brCase.Namespace, brCase.Name)
+		time.Sleep(brCase.InitDelay)
+	}
+
 	log.Printf("Waiting for CBT to be enabled on VM")
 	err = v.WaitForCBTEnabled(brCase.Namespace, brCase.Name, 5*time.Minute)
 	gomega.Expect(err).ToNot(gomega.HaveOccurred())
+
+	log.Printf("VM %s/%s is fully booted, CBT enabled, proceeding with backup", brCase.Namespace, brCase.Name)
 
 	log.Printf("Creating kubevirt volume policy ConfigMap for custom action routing")
 	err = lib.EnsureKubevirtVolumePolicy(dpaCR.Client, namespace)
@@ -444,6 +457,18 @@ var _ = ginkgo.Describe("VM backup and restore tests", ginkgo.Ordered, func() {
 				SkipVerifyLogs:    true,
 				BackupRestoreType: lib.CSIDataMover,
 				BackupTimeout:     20 * time.Minute,
+			},
+		}, nil),
+
+		ginkgo.Entry("todolist kubevirt-datamover backup, Fedora VM with CBT", ginkgo.Label("virt"), VmBackupRestoreCase{
+			Template:  "./sample-applications/virtual-machines/cirros-test/kubevirt-dm/fedora-todolist-cbt.yaml",
+			InitDelay: 3 * time.Minute,
+			BackupRestoreCase: BackupRestoreCase{
+				Namespace:         "mysql-persistent",
+				Name:              "fedora-todolist",
+				SkipVerifyLogs:    true,
+				BackupRestoreType: lib.CSIDataMover,
+				BackupTimeout:     45 * time.Minute,
 			},
 		}, nil),
 	)
