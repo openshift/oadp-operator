@@ -248,13 +248,14 @@ Uses the dynamic client to list `VirtualMachineBackupTracker` resources (`backup
 
 The test entry uses the `"virt"` label (same as existing VM tests), gated by `TEST_VIRT=true`. If the HCO version doesn't support the `incrementalBackup` feature gate or CBT, the enablement steps will fail with a clear error.
 
-## Volume Policy: `custom` Action Type
+## Volume Policy: `skip` Action Type
 
-As of Velero 1.18.1, the upstream `custom` action type for volume policies has been merged ([velero-io/velero#9678](https://github.com/velero-io/velero/pull/9678), fixing [#9505](https://github.com/velero-io/velero/issues/9505)). This allows volume policies to specify a `custom` action with an action parameters map, which the kubevirt-datamover-plugin can inspect to determine if a PVC should use the kubevirt datamover path.
+The kubevirt-datamover-plugin uses Velero's volume policy mechanism to determine which PVCs it should handle. Specifically, PVCs that have the `skip` action type in the volume policy are eligible for the kubevirt datamover path. The `skip` action prevents Velero from performing CSI snapshots on these PVCs, allowing the kubevirt-datamover-plugin's `BackupItemActionV2` to create a `DataUpload` CR with `DataMover: "kubevirt"` instead.
 
-The plugin currently approximates this by checking for PVCs with "skip" policy (no snapshot), but the `custom` action type is the intended long-term mechanism. The E2E test should use a volume policy ConfigMap with the `custom` action type if the Velero version supports it. If the test environment uses Velero < 1.18.1, the existing skip-based fallback in the plugin still works.
+> **Future**: Once upstream Velero merges the `custom` action type ([velero-io/velero#9678](https://github.com/velero-io/velero/pull/9678)), the kubevirt-datamover-plugin will be updated to check for `custom` with kubevirt-specific parameters (see [kubevirt-datamover-plugin#4](https://github.com/migtools/kubevirt-datamover-plugin/issues/4)).
 
-Example volume policy with custom action (for future use):
+The E2E test creates a volume policy ConfigMap in the velero namespace with the `skip` action type:
+
 ```yaml
 version: v1
 volumePolicies:
@@ -262,16 +263,14 @@ volumePolicies:
       pvcLabels:
         changedBlockTracking: "true"
     action:
-      type: custom
-      parameters:
-        provider: kubevirt
+      type: skip
 ```
 
-For the initial E2E test, this is noted as a future enhancement — the test will rely on the plugin's current skip-based volume policy detection.
+This ConfigMap is referenced via `Spec.ResourcePolicy` on the Backup CR. When Velero evaluates volume policies for PVCs with the `changedBlockTracking: "true"` label, it matches the `skip` action and returns `shouldSnapshot=false`, which the kubevirt-datamover-plugin interprets as eligibility for the kubevirt datamover path.
+
+The helpers `EnsureKubevirtVolumePolicy` and `CreateBackupWithVolumePolicy` in `tests/e2e/lib/backup.go` manage this lifecycle.
 
 ## Out of Scope
 
 - Restore via kubevirt-datamover (DataDownload controller not implemented)
 - Raw upstream KubeVirt daily build installation
-- New BackupRestoreType for kubevirt-datamover (reuses `CSIDataMover` for `SnapshotMoveData=true`)
-- Implementing `custom` volume policy in the E2E test (plugin's skip-based fallback is sufficient for initial test; `custom` action integration tracked in [kubevirt-datamover-plugin#4](https://github.com/migtools/kubevirt-datamover-plugin/issues/4))

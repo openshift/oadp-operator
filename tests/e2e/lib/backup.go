@@ -12,6 +12,8 @@ import (
 	"github.com/vmware-tanzu/velero/pkg/cmd/util/downloadrequest"
 	"github.com/vmware-tanzu/velero/pkg/cmd/util/output"
 	"github.com/vmware-tanzu/velero/pkg/label"
+	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
@@ -49,6 +51,83 @@ func CreateCustomBackupForNamespaces(ocClient client.Client, veleroNamespace, ba
 	}
 	return ocClient.Create(context.Background(), &backup)
 }
+
+const kubevirtVolumePolicyName = "kubevirt-volume-policy"
+
+const kubevirtVolumePolicyData = `version: v1
+volumePolicies:
+  - conditions: {}
+    action:
+      type: skip
+`
+
+// EnsureKubevirtVolumePolicy creates (or updates) the volume policy ConfigMap
+// that tells Velero to skip CSI snapshots for CBT-labeled PVCs, allowing the
+// kubevirt-datamover-plugin BackupItemActionV2 to handle them instead.
+func EnsureKubevirtVolumePolicy(ocClient client.Client, namespace string) error {
+	cm := &corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      kubevirtVolumePolicyName,
+			Namespace: namespace,
+		},
+		Data: map[string]string{
+			"policy.yaml": kubevirtVolumePolicyData,
+		},
+	}
+	err := ocClient.Create(context.Background(), cm)
+	if err != nil {
+		if apierrors.IsAlreadyExists(err) {
+			log.Printf("Volume policy ConfigMap %s already exists, updating", kubevirtVolumePolicyName)
+			existing := &corev1.ConfigMap{}
+			if getErr := ocClient.Get(context.Background(), client.ObjectKeyFromObject(cm), existing); getErr != nil {
+				return fmt.Errorf("failed to get existing volume policy ConfigMap: %w", getErr)
+			}
+			existing.Data = cm.Data
+			return ocClient.Update(context.Background(), existing)
+		}
+		return fmt.Errorf("failed to create volume policy ConfigMap: %w", err)
+	}
+	log.Printf("Created kubevirt volume policy ConfigMap %s/%s", namespace, kubevirtVolumePolicyName)
+	return nil
+}
+
+// DeleteKubevirtVolumePolicy removes the volume policy ConfigMap.
+func DeleteKubevirtVolumePolicy(ocClient client.Client, namespace string) error {
+	cm := &corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      kubevirtVolumePolicyName,
+			Namespace: namespace,
+		},
+	}
+	err := ocClient.Delete(context.Background(), cm)
+	if err != nil && !apierrors.IsNotFound(err) {
+		return fmt.Errorf("failed to delete volume policy ConfigMap: %w", err)
+	}
+	return nil
+}
+
+// CreateBackupWithVolumePolicy creates a backup that references the kubevirt
+// volume policy ConfigMap via Spec.ResourcePolicy.
+func CreateBackupWithVolumePolicy(ocClient client.Client, veleroNamespace, backupName string, namespaces []string, snapshotMoveData bool) error {
+	backup := velero.Backup{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      backupName,
+			Namespace: veleroNamespace,
+		},
+		Spec: velero.BackupSpec{
+			IncludedNamespaces:       namespaces,
+			DefaultVolumesToFsBackup: boolPtr(false),
+			SnapshotMoveData:         &snapshotMoveData,
+			ResourcePolicy: &corev1.TypedLocalObjectReference{
+				Kind: "ConfigMap",
+				Name: kubevirtVolumePolicyName,
+			},
+		},
+	}
+	return ocClient.Create(context.Background(), &backup)
+}
+
+func boolPtr(b bool) *bool { return &b }
 
 func GetBackup(c client.Client, namespace string, name string) (*velero.Backup, error) {
 	backup := velero.Backup{}

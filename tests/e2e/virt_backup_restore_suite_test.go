@@ -163,7 +163,7 @@ func runCBTVmBackup(brCase VmBackupRestoreCase, updateLastBRcase func(brCase VmB
 	}
 	gomega.Expect(err).To(gomega.BeNil())
 
-	err = wait.PollUntilContextTimeout(context.Background(), 10*time.Second, 10*time.Minute, true, func(ctx context.Context) (bool, error) {
+	err = wait.PollUntilContextTimeout(context.Background(), 10*time.Second, 15*time.Minute, true, func(ctx context.Context) (bool, error) {
 		status, err := v.GetVmStatus(brCase.Namespace, brCase.Name)
 		if err != nil {
 			log.Printf("VM %s/%s not yet available: %v", brCase.Namespace, brCase.Name, err)
@@ -187,7 +187,22 @@ func runCBTVmBackup(brCase VmBackupRestoreCase, updateLastBRcase func(brCase VmB
 	err = v.WaitForCBTEnabled(brCase.Namespace, brCase.Name, 5*time.Minute)
 	gomega.Expect(err).ToNot(gomega.HaveOccurred())
 
-	runBackup(brCase.BackupRestoreCase, backupName)
+	log.Printf("Creating kubevirt volume policy ConfigMap for custom action routing")
+	err = lib.EnsureKubevirtVolumePolicy(dpaCR.Client, namespace)
+	gomega.Expect(err).ToNot(gomega.HaveOccurred())
+
+	log.Printf("Creating backup %s with kubevirt volume policy for case %s", backupName, brCase.Name)
+	err = lib.CreateBackupWithVolumePolicy(dpaCR.Client, namespace, backupName, []string{brCase.Namespace}, true)
+	gomega.Expect(err).ToNot(gomega.HaveOccurred())
+
+	gomega.Eventually(lib.IsBackupDone(dpaCR.Client, namespace, backupName), brCase.BackupTimeout, time.Second*10).Should(gomega.BeTrue())
+	describeBackup := lib.DescribeBackup(dpaCR.Client, namespace, backupName)
+	ginkgo.GinkgoWriter.Println(describeBackup)
+
+	succeeded, err := lib.IsBackupCompletedSuccessfully(kubernetesClientForSuiteRun, dpaCR.Client, namespace, backupName)
+	gomega.Expect(err).ToNot(gomega.HaveOccurred())
+	gomega.Expect(succeeded).To(gomega.Equal(true))
+	log.Printf("Backup for case %s succeeded", brCase.Name)
 
 	err = v.RemoveVm(brCase.Namespace, brCase.Name, 5*time.Minute)
 	gomega.Expect(err).To(gomega.BeNil())

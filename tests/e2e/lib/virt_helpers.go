@@ -24,13 +24,52 @@ import (
 )
 
 const (
-	emulationAnnotation = "kubevirt.kubevirt.io/jsonpatch"
-	useEmulation        = `[{"op": "add", "path": "/spec/configuration/developerConfiguration", "value": {"useEmulation": true}}]`
-	stopVmPath          = "/apis/subresources.kubevirt.io/v1/namespaces/%s/virtualmachines/%s/stop"
-	startVmPath         = "/apis/subresources.kubevirt.io/v1/namespaces/%s/virtualmachines/%s/start"
+	emulationAnnotation  = "kubevirt.kubevirt.io/jsonpatch"
+	emulationPatchPath   = "/spec/configuration/developerConfiguration"
+	stopVmPath           = "/apis/subresources.kubevirt.io/v1/namespaces/%s/virtualmachines/%s/stop"
+	startVmPath          = "/apis/subresources.kubevirt.io/v1/namespaces/%s/virtualmachines/%s/start"
 
 	cbtJsonPatchPath = "/spec/configuration/changedBlockTrackingLabelSelectors"
 )
+
+var emulationPatch = map[string]interface{}{
+	"op":    "add",
+	"path":  emulationPatchPath,
+	"value": map[string]interface{}{"useEmulation": true},
+}
+
+func parseJsonPatchAnnotation(raw string) ([]interface{}, error) {
+	if raw == "" {
+		return nil, nil
+	}
+	var patches []interface{}
+	if err := json.Unmarshal([]byte(raw), &patches); err != nil {
+		return nil, fmt.Errorf("failed to parse jsonpatch annotation: %w", err)
+	}
+	return patches, nil
+}
+
+func patchArrayContainsPath(patches []interface{}, targetPath string) bool {
+	for _, p := range patches {
+		m, ok := p.(map[string]interface{})
+		if ok && m["path"] == targetPath {
+			return true
+		}
+	}
+	return false
+}
+
+func setPatchInArray(patches []interface{}, patch map[string]interface{}) []interface{} {
+	targetPath := patch["path"]
+	for i, p := range patches {
+		m, ok := p.(map[string]interface{})
+		if ok && m["path"] == targetPath {
+			patches[i] = patch
+			return patches
+		}
+	}
+	return append(patches, patch)
+}
 
 var packageManifestsGvr = schema.GroupVersionResource{
 	Group:    "packages.operators.coreos.com",
@@ -264,7 +303,9 @@ func (v *VirtOperator) checkHco() bool {
 	return health == "healthy"
 }
 
-// Check if KVM emulation is enabled.
+// Check if KVM emulation is enabled by looking for the emulation patch inside
+// the jsonpatch annotation array. This handles annotations that contain
+// additional patches (e.g. CBT label selectors).
 func (v *VirtOperator) checkEmulation() bool {
 	hco, err := v.Dynamic.Resource(hyperConvergedGvr).Namespace(v.Namespace).Get(context.Background(), "kubevirt-hyperconverged", metav1.GetOptions{})
 	if err != nil {
@@ -274,20 +315,23 @@ func (v *VirtOperator) checkEmulation() bool {
 		return false
 	}
 
-	// Look for JSON patcher annotation that enables emulation.
-	patcher, ok, err := unstructured.NestedString(hco.UnstructuredContent(), "metadata", "annotations", emulationAnnotation)
+	raw, ok, err := unstructured.NestedString(hco.UnstructuredContent(), "metadata", "annotations", emulationAnnotation)
 	if err != nil {
 		log.Printf("Failed to get KVM emulation annotation from HCO: %v", err)
 		return false
 	}
-	if !ok {
+	if !ok || raw == "" {
 		log.Printf("No KVM emulation annotation (%s) listed on HCO!", emulationAnnotation)
-	}
-	if strings.Compare(patcher, useEmulation) == 0 {
-		return true
+		return false
 	}
 
-	return false
+	patches, err := parseJsonPatchAnnotation(raw)
+	if err != nil {
+		log.Printf("Failed to parse KVM emulation annotation: %v", err)
+		return false
+	}
+
+	return patchArrayContainsPath(patches, emulationPatchPath)
 }
 
 // Creates the target namespace, likely openshift-cnv or kubevirt-hyperconverged,
@@ -389,18 +433,32 @@ func (v *VirtOperator) configureEmulation() error {
 	if !ok {
 		annotations = make(map[string]interface{})
 	}
-	annotations[emulationAnnotation] = useEmulation
+
+	var patches []interface{}
+	if existing, isSet := annotations[emulationAnnotation]; isSet {
+		existingStr, isStr := existing.(string)
+		if isStr && existingStr != "" {
+			patches, err = parseJsonPatchAnnotation(existingStr)
+			if err != nil {
+				return err
+			}
+		}
+	}
+
+	patches = setPatchInArray(patches, emulationPatch)
+
+	patchBytes, err := json.Marshal(patches)
+	if err != nil {
+		return fmt.Errorf("failed to marshal jsonpatch: %w", err)
+	}
+	annotations[emulationAnnotation] = string(patchBytes)
 
 	if err := unstructured.SetNestedMap(hco.UnstructuredContent(), annotations, "metadata", "annotations"); err != nil {
 		return err
 	}
 
 	_, err = v.Dynamic.Resource(hyperConvergedGvr).Namespace(v.Namespace).Update(context.Background(), hco, metav1.UpdateOptions{})
-	if err != nil {
-		return err
-	}
-
-	return nil
+	return err
 }
 
 // Creates target namespace if needed, and waits for it to exist
@@ -936,7 +994,7 @@ func (v *VirtOperator) EnableCBTFeatureGate(timeout time.Duration) error {
 // EnableCBTLabelSelector patches the HCO's kubevirt.kubevirt.io/jsonpatch
 // annotation to inject changedBlockTrackingLabelSelectors into the KubeVirt CR.
 // If the annotation already contains patches (e.g. emulation), the CBT patch
-// is appended to the existing array.
+// is merged into the existing array.
 func (v *VirtOperator) EnableCBTLabelSelector(timeout time.Duration) error {
 	log.Printf("Enabling CBT label selector via HCO jsonpatch annotation")
 
@@ -967,20 +1025,18 @@ func (v *VirtOperator) EnableCBTLabelSelector(timeout time.Duration) error {
 		if existing, ok := annotations[emulationAnnotation]; ok {
 			existingStr, isStr := existing.(string)
 			if isStr && existingStr != "" {
-				if err := json.Unmarshal([]byte(existingStr), &patches); err != nil {
-					return false, fmt.Errorf("failed to parse existing jsonpatch annotation: %w", err)
+				patches, err = parseJsonPatchAnnotation(existingStr)
+				if err != nil {
+					return false, err
 				}
-				for _, p := range patches {
-					patchMap, ok := p.(map[string]interface{})
-					if ok && patchMap["path"] == cbtJsonPatchPath {
-						log.Printf("CBT label selector patch already present in annotation")
-						return true, nil
-					}
+				if patchArrayContainsPath(patches, cbtJsonPatchPath) {
+					log.Printf("CBT label selector patch already present in annotation")
+					return true, nil
 				}
 			}
 		}
 
-		patches = append(patches, cbtPatch)
+		patches = setPatchInArray(patches, cbtPatch)
 		patchBytes, err := json.Marshal(patches)
 		if err != nil {
 			return false, fmt.Errorf("failed to marshal jsonpatch: %w", err)
