@@ -15,9 +15,12 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/yaml"
 )
 
 func CreateBackupForNamespaces(ocClient client.Client, veleroNamespace, backupName string, namespaces []string, defaultVolumesToFsBackup bool, snapshotMoveData bool) error {
@@ -173,6 +176,62 @@ func IsBackupDone(ocClient client.Client, veleroNamespace, name string) wait.Con
 		if len(backup.Status.Phase) > 0 {
 			log.Printf("backup phase: %s", backup.Status.Phase)
 		}
+		return !IsBackupPhaseNotDone(string(backup.Status.Phase)), nil
+	}
+}
+
+var kubevirtDMBackupGvr = schema.GroupVersionResource{
+	Group:    "backup.kubevirt.io",
+	Resource: "virtualmachinebackups",
+	Version:  "v1alpha1",
+}
+
+var kubevirtDMBackupTrackerGvr = schema.GroupVersionResource{
+	Group:    "backup.kubevirt.io",
+	Resource: "virtualmachinebackuptrackers",
+	Version:  "v1alpha1",
+}
+
+// logKubevirtDMResources lists VirtualMachineBackup and VirtualMachineBackupTracker
+// CRs across all namespaces and logs their full YAML for debugging.
+func logKubevirtDMResources(dynClient dynamic.Interface) {
+	for _, gvr := range []schema.GroupVersionResource{kubevirtDMBackupGvr, kubevirtDMBackupTrackerGvr} {
+		list, err := dynClient.Resource(gvr).Namespace("").List(context.Background(), metav1.ListOptions{})
+		if err != nil {
+			log.Printf("unable to list %s: %v", gvr.Resource, err)
+			continue
+		}
+		if len(list.Items) == 0 {
+			log.Printf("no %s resources found", gvr.Resource)
+			continue
+		}
+		for i := range list.Items {
+			item := &list.Items[i]
+			y, err := yaml.Marshal(item.Object)
+			if err != nil {
+				log.Printf("failed to marshal %s/%s to YAML: %v", item.GetNamespace(), item.GetName(), err)
+				continue
+			}
+			log.Printf("--- %s %s/%s ---\n%s", gvr.Resource, item.GetNamespace(), item.GetName(), string(y))
+		}
+	}
+}
+
+// IsKubevirtDMBackupDone polls the Velero backup status and, on each iteration,
+// logs the YAML of any VirtualMachineBackup or VirtualMachineBackupTracker CRs
+// that the kubevirt-datamover-controller has created.
+func IsKubevirtDMBackupDone(ocClient client.Client, dynClient dynamic.Interface, veleroNamespace, name string) wait.ConditionFunc {
+	return func() (bool, error) {
+		backup, err := GetBackup(ocClient, veleroNamespace, name)
+		if err != nil {
+			return false, err
+		}
+		if len(backup.Status.Phase) > 0 {
+			log.Printf("backup phase: %s", backup.Status.Phase)
+		}
+
+		logKubevirtDMResources(dynClient)
+
 		return !IsBackupPhaseNotDone(string(backup.Status.Phase)), nil
 	}
 }
