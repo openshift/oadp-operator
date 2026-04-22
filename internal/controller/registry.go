@@ -746,10 +746,8 @@ func (r *DataProtectionApplicationReconciler) patchRegistrySecret(secret *corev1
 		return err
 	}
 
-	// Apply user-provided resource labels (protected labels are filtered)
-	secret.Labels = applyResourceLabels(r.dpa, secret.Labels)
-
-	// Apply user-provided resource annotations
+	// Apply user-provided resource labels and annotations
+	secret.Labels, secret.Annotations = applyResourceLabels(r.dpa, secret.Labels, secret.Annotations)
 	secret.Annotations = applyResourceAnnotations(r.dpa, secret.Annotations)
 
 	// when updating the spec fields we update each field individually

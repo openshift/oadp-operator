@@ -3628,10 +3628,12 @@ func TestIsProtectedLabel(t *testing.T) {
 
 func TestApplyResourceLabels(t *testing.T) {
 	tests := []struct {
-		name           string
-		dpa            *oadpv1alpha1.DataProtectionApplication
-		coreLabels     map[string]string
-		expectedLabels map[string]string
+		name                string
+		dpa                 *oadpv1alpha1.DataProtectionApplication
+		coreLabels          map[string]string
+		annotations         map[string]string
+		expectedLabels      map[string]string
+		expectedAnnotations map[string]string
 	}{
 		{
 			name: "nil DPA returns core labels",
@@ -3639,9 +3641,9 @@ func TestApplyResourceLabels(t *testing.T) {
 			coreLabels: map[string]string{
 				"app.kubernetes.io/name": "velero",
 			},
-			expectedLabels: map[string]string{
-				"app.kubernetes.io/name": "velero",
-			},
+			annotations:         nil,
+			expectedLabels:      map[string]string{"app.kubernetes.io/name": "velero"},
+			expectedAnnotations: nil,
 		},
 		{
 			name: "nil resourceLabels returns core labels",
@@ -3653,9 +3655,9 @@ func TestApplyResourceLabels(t *testing.T) {
 			coreLabels: map[string]string{
 				"app.kubernetes.io/name": "velero",
 			},
-			expectedLabels: map[string]string{
-				"app.kubernetes.io/name": "velero",
-			},
+			annotations:         nil,
+			expectedLabels:      map[string]string{"app.kubernetes.io/name": "velero"},
+			expectedAnnotations: nil,
 		},
 		{
 			name: "user labels are merged with core labels",
@@ -3670,10 +3672,14 @@ func TestApplyResourceLabels(t *testing.T) {
 			coreLabels: map[string]string{
 				"app.kubernetes.io/name": "velero",
 			},
+			annotations: nil,
 			expectedLabels: map[string]string{
 				"app.kubernetes.io/name": "velero",
 				"custom-label":           "custom-value",
 				"team":                   "backup",
+			},
+			expectedAnnotations: map[string]string{
+				managedLabelKeysAnnotation: "custom-label,team",
 			},
 		},
 		{
@@ -3681,9 +3687,9 @@ func TestApplyResourceLabels(t *testing.T) {
 			dpa: &oadpv1alpha1.DataProtectionApplication{
 				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
 					ResourceLabels: map[string]string{
-						"app.kubernetes.io/name":       "user-override", // should be ignored
-						"app.kubernetes.io/managed-by": "user-manager",  // should be ignored
-						"custom-label":                 "custom-value",  // should be included
+						"app.kubernetes.io/name":       "user-override",
+						"app.kubernetes.io/managed-by": "user-manager",
+						"custom-label":                 "custom-value",
 					},
 				},
 			},
@@ -3691,10 +3697,14 @@ func TestApplyResourceLabels(t *testing.T) {
 				"app.kubernetes.io/name":       "velero",
 				"app.kubernetes.io/managed-by": common.OADPOperator,
 			},
+			annotations: nil,
 			expectedLabels: map[string]string{
-				"app.kubernetes.io/name":       "velero",            // core label preserved
-				"app.kubernetes.io/managed-by": common.OADPOperator, // core label preserved
-				"custom-label":                 "custom-value",      // user label added
+				"app.kubernetes.io/name":       "velero",
+				"app.kubernetes.io/managed-by": common.OADPOperator,
+				"custom-label":                 "custom-value",
+			},
+			expectedAnnotations: map[string]string{
+				managedLabelKeysAnnotation: "custom-label",
 			},
 		},
 		{
@@ -3709,18 +3719,217 @@ func TestApplyResourceLabels(t *testing.T) {
 			coreLabels: map[string]string{
 				"app.kubernetes.io/name": "velero",
 			},
+			annotations: nil,
 			expectedLabels: map[string]string{
 				"app.kubernetes.io/name":          "velero",
 				"argocd.argoproj.io/sync-options": "ServerSideApply=true",
+			},
+			expectedAnnotations: map[string]string{
+				managedLabelKeysAnnotation: "argocd.argoproj.io/sync-options",
+			},
+		},
+		{
+			name: "stale labels removed when resourceLabels cleared",
+			dpa: &oadpv1alpha1.DataProtectionApplication{
+				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
+					ResourceLabels: nil,
+				},
+			},
+			coreLabels: map[string]string{
+				"app.kubernetes.io/name": "velero",
+				"stale-label":            "old-value",
+			},
+			annotations: map[string]string{
+				managedLabelKeysAnnotation: "stale-label",
+			},
+			expectedLabels: map[string]string{
+				"app.kubernetes.io/name": "velero",
+			},
+			expectedAnnotations: map[string]string{},
+		},
+		{
+			name: "stale label key removed when key removed from resourceLabels",
+			dpa: &oadpv1alpha1.DataProtectionApplication{
+				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
+					ResourceLabels: map[string]string{
+						"keep-this": "val1",
+					},
+				},
+			},
+			coreLabels: map[string]string{
+				"app.kubernetes.io/name": "velero",
+				"keep-this":              "val1",
+				"remove-this":            "val2",
+			},
+			annotations: map[string]string{
+				managedLabelKeysAnnotation: "keep-this,remove-this",
+			},
+			expectedLabels: map[string]string{
+				"app.kubernetes.io/name": "velero",
+				"keep-this":              "val1",
+			},
+			expectedAnnotations: map[string]string{
+				managedLabelKeysAnnotation: "keep-this",
+			},
+		},
+		{
+			name: "tracking annotation keys are sorted",
+			dpa: &oadpv1alpha1.DataProtectionApplication{
+				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
+					ResourceLabels: map[string]string{
+						"zebra": "z",
+						"alpha": "a",
+					},
+				},
+			},
+			coreLabels: map[string]string{
+				"app.kubernetes.io/name": "velero",
+			},
+			annotations: nil,
+			expectedLabels: map[string]string{
+				"app.kubernetes.io/name": "velero",
+				"zebra":                  "z",
+				"alpha":                  "a",
+			},
+			expectedAnnotations: map[string]string{
+				managedLabelKeysAnnotation: "alpha,zebra",
+			},
+		},
+		{
+			name: "protected labels are not tracked",
+			dpa: &oadpv1alpha1.DataProtectionApplication{
+				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
+					ResourceLabels: map[string]string{
+						"app.kubernetes.io/name": "override",
+						"custom":                 "value",
+					},
+				},
+			},
+			coreLabels: map[string]string{
+				"app.kubernetes.io/name": "velero",
+			},
+			annotations: nil,
+			expectedLabels: map[string]string{
+				"app.kubernetes.io/name": "velero",
+				"custom":                 "value",
+			},
+			expectedAnnotations: map[string]string{
+				managedLabelKeysAnnotation: "custom",
+			},
+		},
+		{
+			name: "empty resourceLabels behaves like nil",
+			dpa: &oadpv1alpha1.DataProtectionApplication{
+				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
+					ResourceLabels: map[string]string{},
+				},
+			},
+			coreLabels: map[string]string{
+				"app.kubernetes.io/name": "velero",
+				"stale":                  "old",
+			},
+			annotations: map[string]string{
+				managedLabelKeysAnnotation: "stale",
+			},
+			expectedLabels: map[string]string{
+				"app.kubernetes.io/name": "velero",
+			},
+			expectedAnnotations: map[string]string{},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			resultLabels, resultAnnotations := applyResourceLabels(tt.dpa, tt.coreLabels, tt.annotations)
+			if !reflect.DeepEqual(resultLabels, tt.expectedLabels) {
+				t.Errorf("applyResourceLabels() labels = %v, expected %v", resultLabels, tt.expectedLabels)
+			}
+			if !reflect.DeepEqual(resultAnnotations, tt.expectedAnnotations) {
+				t.Errorf("applyResourceLabels() annotations = %v, expected %v", resultAnnotations, tt.expectedAnnotations)
+			}
+		})
+	}
+}
+
+func TestFilterOutResourceLabels(t *testing.T) {
+	tests := []struct {
+		name           string
+		dpa            *oadpv1alpha1.DataProtectionApplication
+		labels         map[string]string
+		annotations    map[string]string
+		expectedLabels map[string]string
+	}{
+		{
+			name: "filters current resourceLabels",
+			dpa: &oadpv1alpha1.DataProtectionApplication{
+				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
+					ResourceLabels: map[string]string{
+						"custom": "value",
+					},
+				},
+			},
+			labels: map[string]string{
+				"app.kubernetes.io/name": "velero",
+				"custom":                 "value",
+			},
+			annotations: nil,
+			expectedLabels: map[string]string{
+				"app.kubernetes.io/name": "velero",
+			},
+		},
+		{
+			name: "filters previously tracked stale labels",
+			dpa: &oadpv1alpha1.DataProtectionApplication{
+				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
+					ResourceLabels: nil,
+				},
+			},
+			labels: map[string]string{
+				"app.kubernetes.io/name": "velero",
+				"stale":                  "old-value",
+			},
+			annotations: map[string]string{
+				managedLabelKeysAnnotation: "stale",
+			},
+			expectedLabels: map[string]string{
+				"app.kubernetes.io/name": "velero",
+			},
+		},
+		{
+			name:           "nil labels returns nil",
+			dpa:            nil,
+			labels:         nil,
+			annotations:    nil,
+			expectedLabels: nil,
+		},
+		{
+			name: "filters both current and previously tracked labels",
+			dpa: &oadpv1alpha1.DataProtectionApplication{
+				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
+					ResourceLabels: map[string]string{
+						"current": "value",
+					},
+				},
+			},
+			labels: map[string]string{
+				"app.kubernetes.io/name": "velero",
+				"current":                "value",
+				"stale":                  "old",
+			},
+			annotations: map[string]string{
+				managedLabelKeysAnnotation: "stale",
+			},
+			expectedLabels: map[string]string{
+				"app.kubernetes.io/name": "velero",
 			},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := applyResourceLabels(tt.dpa, tt.coreLabels)
+			result := filterOutResourceLabels(tt.dpa, tt.labels, tt.annotations)
 			if !reflect.DeepEqual(result, tt.expectedLabels) {
-				t.Errorf("applyResourceLabels() = %v, expected %v", result, tt.expectedLabels)
+				t.Errorf("filterOutResourceLabels() = %v, expected %v", result, tt.expectedLabels)
 			}
 		})
 	}
@@ -3734,7 +3943,7 @@ func TestApplyResourceAnnotations(t *testing.T) {
 		expectedAnnotations map[string]string
 	}{
 		{
-			name: "nil DPA returns existing annotations",
+			name: "nil DPA returns existing annotations without stale keys",
 			dpa:  nil,
 			existingAnnotations: map[string]string{
 				"existing": "annotation",
@@ -3744,7 +3953,7 @@ func TestApplyResourceAnnotations(t *testing.T) {
 			},
 		},
 		{
-			name: "nil resourceAnnotations returns existing annotations",
+			name: "nil resourceAnnotations returns existing annotations without stale keys",
 			dpa: &oadpv1alpha1.DataProtectionApplication{
 				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
 					ResourceAnnotations: nil,
@@ -3758,7 +3967,7 @@ func TestApplyResourceAnnotations(t *testing.T) {
 			},
 		},
 		{
-			name: "user annotations are merged with existing",
+			name: "user annotations are merged with existing and tracking annotation set",
 			dpa: &oadpv1alpha1.DataProtectionApplication{
 				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
 					ResourceAnnotations: map[string]string{
@@ -3770,8 +3979,9 @@ func TestApplyResourceAnnotations(t *testing.T) {
 				"existing": "annotation",
 			},
 			expectedAnnotations: map[string]string{
-				"existing":          "annotation",
-				"custom-annotation": "custom-value",
+				"existing":                      "annotation",
+				"custom-annotation":             "custom-value",
+				managedAnnotationKeysAnnotation: "custom-annotation",
 			},
 		},
 		{
@@ -3787,7 +3997,8 @@ func TestApplyResourceAnnotations(t *testing.T) {
 				"existing": "annotation",
 			},
 			expectedAnnotations: map[string]string{
-				"existing": "user-value", // user value wins
+				"existing":                      "user-value",
+				managedAnnotationKeysAnnotation: "existing",
 			},
 		},
 		{
@@ -3805,10 +4016,11 @@ func TestApplyResourceAnnotations(t *testing.T) {
 			expectedAnnotations: map[string]string{
 				"prometheus.io/scrape":                       "true",
 				"argocd.argoproj.io/ignore-resource-updates": "true",
+				managedAnnotationKeysAnnotation:              "argocd.argoproj.io/ignore-resource-updates",
 			},
 		},
 		{
-			name: "nil existing annotations",
+			name: "nil existing annotations with resourceAnnotations",
 			dpa: &oadpv1alpha1.DataProtectionApplication{
 				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
 					ResourceAnnotations: map[string]string{
@@ -3818,7 +4030,116 @@ func TestApplyResourceAnnotations(t *testing.T) {
 			},
 			existingAnnotations: nil,
 			expectedAnnotations: map[string]string{
-				"custom": "value",
+				"custom":                        "value",
+				managedAnnotationKeysAnnotation: "custom",
+			},
+		},
+		{
+			name: "stale annotations removed when resourceAnnotations cleared",
+			dpa: &oadpv1alpha1.DataProtectionApplication{
+				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
+					ResourceAnnotations: nil,
+				},
+			},
+			existingAnnotations: map[string]string{
+				"existing":                      "annotation",
+				"stale-from-dpa":                "old-value",
+				managedAnnotationKeysAnnotation: "stale-from-dpa",
+			},
+			expectedAnnotations: map[string]string{
+				"existing": "annotation",
+			},
+		},
+		{
+			name: "stale annotation key removed when key removed from resourceAnnotations",
+			dpa: &oadpv1alpha1.DataProtectionApplication{
+				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
+					ResourceAnnotations: map[string]string{
+						"keep-this": "val1",
+					},
+				},
+			},
+			existingAnnotations: map[string]string{
+				"existing":                      "annotation",
+				"keep-this":                     "val1",
+				"remove-this":                   "val2",
+				managedAnnotationKeysAnnotation: "keep-this,remove-this",
+			},
+			expectedAnnotations: map[string]string{
+				"existing":                      "annotation",
+				"keep-this":                     "val1",
+				managedAnnotationKeysAnnotation: "keep-this",
+			},
+		},
+		{
+			name: "tracking annotation keys are sorted",
+			dpa: &oadpv1alpha1.DataProtectionApplication{
+				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
+					ResourceAnnotations: map[string]string{
+						"zebra": "z",
+						"alpha": "a",
+						"beta":  "b",
+					},
+				},
+			},
+			existingAnnotations: nil,
+			expectedAnnotations: map[string]string{
+				"zebra":                         "z",
+				"alpha":                         "a",
+				"beta":                          "b",
+				managedAnnotationKeysAnnotation: "alpha,beta,zebra",
+			},
+		},
+		{
+			name: "reserved tracking keys in resourceAnnotations are skipped",
+			dpa: &oadpv1alpha1.DataProtectionApplication{
+				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
+					ResourceAnnotations: map[string]string{
+						managedAnnotationKeysAnnotation: "hacker",
+						"legit":                         "value",
+					},
+				},
+			},
+			existingAnnotations: nil,
+			expectedAnnotations: map[string]string{
+				"legit":                         "value",
+				managedAnnotationKeysAnnotation: "legit",
+			},
+		},
+		{
+			name: "empty resourceAnnotations cleans up stale keys",
+			dpa: &oadpv1alpha1.DataProtectionApplication{
+				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
+					ResourceAnnotations: map[string]string{},
+				},
+			},
+			existingAnnotations: map[string]string{
+				"existing":                      "annotation",
+				"stale":                         "old",
+				managedAnnotationKeysAnnotation: "stale",
+			},
+			expectedAnnotations: map[string]string{
+				"existing": "annotation",
+			},
+		},
+		{
+			name: "idempotent when called twice with same input",
+			dpa: &oadpv1alpha1.DataProtectionApplication{
+				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
+					ResourceAnnotations: map[string]string{
+						"custom": "value",
+					},
+				},
+			},
+			existingAnnotations: map[string]string{
+				"existing":                      "annotation",
+				"custom":                        "value",
+				managedAnnotationKeysAnnotation: "custom",
+			},
+			expectedAnnotations: map[string]string{
+				"existing":                      "annotation",
+				"custom":                        "value",
+				managedAnnotationKeysAnnotation: "custom",
 			},
 		},
 	}
