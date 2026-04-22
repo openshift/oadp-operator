@@ -526,7 +526,17 @@ func (r *DataProtectionApplicationReconciler) validateAWSBackupStorageLocation(b
 		return fmt.Errorf("prefix for AWS backupstoragelocation object storage cannot be empty. It is required for backing up images")
 	}
 
-	// BSL region is required when
+	// BSL region is required when a custom s3Url is configured: the user is
+	// pointing to a non-AWS S3-compatible endpoint (IBM COS, MinIO, NooBaa,
+	// etc.) so BucketRegionIsDiscoverable cannot be trusted — it queries the
+	// AWS HeadBucket API, which either fails (validation works by accident)
+	// or returns the region for an unrelated bucket that happens to share
+	// the same name in AWS (validation passes but Velero cannot connect).
+	if bslSpec.Config != nil && len(bslSpec.Config[S3URL]) > 0 && len(bslSpec.Config[Region]) == 0 {
+		return fmt.Errorf("region is required when s3Url is set for AWS backupstoragelocation; region cannot be auto-discovered for non-AWS S3-compatible endpoints")
+	}
+
+	// BSL region is also required when
 	// - s3ForcePathStyle is true, because some velero processes requires region to be set and is not auto-discoverable when s3ForcePathStyle is true
 	//   imagestream backup in openshift-velero-plugin now uses the same method to discover region as the rest of the velero codebase
 	// - even when s3ForcePathStyle is false, some aws bucket regions may not be discoverable and the user has to set it manually
