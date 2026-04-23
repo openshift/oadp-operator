@@ -1,0 +1,13 @@
+apiVersion: velero.io/v1
+kind: Backup
+metadata:
+  name: kubevirt-dm-backup-fedora1
+  namespace: openshift-adp
+spec:
+  includedNamespaces:
+  - mysql-persistent
+  defaultVolumesToFsBackup: false
+  snapshotMoveData: true
+  resourcePolicy:
+    kind: ConfigMap
+    name: kubevirt-volume-policy

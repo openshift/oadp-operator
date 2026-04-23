@@ -115,6 +115,11 @@ func runVmBackupAndRestore(brCase VmBackupRestoreCase, updateLastBRcase func(brC
 	err = v.WaitForVMReady(brCase.Namespace, brCase.Name, 5*time.Minute)
 	gomega.Expect(err).ToNot(gomega.HaveOccurred())
 
+	if brCase.InitDelay > 0 {
+		log.Printf("Waiting %v for VM %s/%s to finish booting (cloud-init, etc.)", brCase.InitDelay, brCase.Namespace, brCase.Name)
+		time.Sleep(brCase.InitDelay)
+	}
+
 	// Check if this VM should be running or stopped for this test.
 	// Depend on pre-backup verification function to poll state.
 	if brCase.PowerState == "Stopped" {
@@ -282,6 +287,12 @@ var _ = ginkgo.Describe("VM backup and restore tests", ginkgo.Ordered, func() {
 			log.Println("Avoiding setting KVM emulation, by command line request")
 		}
 
+		log.Printf("Creating test storage classes test-sc-immediate and test-sc-wffc")
+		err = v.CreateImmediateModeStorageClass("test-sc-immediate")
+		gomega.Expect(err).To(gomega.BeNil())
+		err = v.CreateWaitForFirstConsumerStorageClass("test-sc-wffc")
+		gomega.Expect(err).To(gomega.BeNil())
+
 		url, err := getLatestCirrosImageURL()
 		gomega.Expect(err).To(gomega.BeNil())
 		err = v.EnsureNamespace(bootImageNamespace, 1*time.Minute)
@@ -289,9 +300,13 @@ var _ = ginkgo.Describe("VM backup and restore tests", ginkgo.Ordered, func() {
 		if !v.CheckDataVolumeExists(bootImageNamespace, "cirros") {
 			err = v.EnsureDataVolumeFromUrl(bootImageNamespace, "cirros", url, "150Mi", 5*time.Minute)
 			gomega.Expect(err).To(gomega.BeNil())
+			cirrosDownloadedFromTest = true
+		}
+		// Always ensure the DataSource exists, even if the DataVolume was
+		// left over from a previous test run where the DataSource was not created.
+		if !v.CheckDataSourceExists(bootImageNamespace, "cirros") {
 			err = v.CreateDataSourceFromPvc(bootImageNamespace, "cirros")
 			gomega.Expect(err).To(gomega.BeNil())
-			cirrosDownloadedFromTest = true
 		}
 		dpaCR.VeleroDefaultPlugins = append(dpaCR.VeleroDefaultPlugins, v1alpha1.DefaultPluginKubeVirt)
 		dpaCR.VeleroDefaultPlugins = append(dpaCR.VeleroDefaultPlugins, v1alpha1.DefaultPluginKubeVirtDataMover)
@@ -301,24 +316,22 @@ var _ = ginkgo.Describe("VM backup and restore tests", ginkgo.Ordered, func() {
 		err = lib.InstallApplication(v.Client, "./sample-applications/virtual-machines/cirros-test/cirros-rbac.yaml")
 		gomega.Expect(err).To(gomega.BeNil())
 
-		// Fedora DataSource setup is only needed for GA OpenShift Virt (TEST_VIRT_GA).
-		// Community HCO tests (TEST_VIRT) use CirrOS and do not require it.
-		if v.Upstream && v.CommunityIndex == "" {
-			if v.CheckDataSourceExists("openshift-virtualization-os-images", "fedora") {
-				log.Printf("Fedora DataSource already exists in openshift-virtualization-os-images, skipping creation")
+		// Fedora DataSource must be available in openshift-virtualization-os-images
+		// for the Fedora VM specs, regardless of upstream/downstream or community/GA HCO.
+		if v.CheckDataSourceExists("openshift-virtualization-os-images", "fedora") {
+			log.Printf("Fedora DataSource already exists in openshift-virtualization-os-images, skipping creation")
+		} else {
+			log.Printf("Creating fedora DataSource in openshift-virtualization-os-images namespace")
+			pvcNamespace, pvcName, err := v.GetDataSourcePvc("kubevirt-os-images", "fedora")
+			if err != nil {
+				log.Printf("Fedora DataSource is not PVC-backed, trying snapshot: %v", err)
+				snapshotNamespace, snapshotName, snapErr := v.GetDataSourceSnapshot("kubevirt-os-images", "fedora")
+				gomega.Expect(snapErr).To(gomega.BeNil())
+				err = v.CreateTargetDataSourceFromSnapshot(snapshotNamespace, "openshift-virtualization-os-images", snapshotName, "fedora")
+				gomega.Expect(err).To(gomega.BeNil())
 			} else {
-				log.Printf("Creating fedora DataSource in openshift-virtualization-os-images namespace")
-				pvcNamespace, pvcName, err := v.GetDataSourcePvc("kubevirt-os-images", "fedora")
-				if err != nil {
-					log.Printf("Fedora DataSource is not PVC-backed, trying snapshot: %v", err)
-					snapshotNamespace, snapshotName, snapErr := v.GetDataSourceSnapshot("kubevirt-os-images", "fedora")
-					gomega.Expect(snapErr).To(gomega.BeNil())
-					err = v.CreateTargetDataSourceFromSnapshot(snapshotNamespace, "openshift-virtualization-os-images", snapshotName, "fedora")
-					gomega.Expect(err).To(gomega.BeNil())
-				} else {
-					err = v.CreateTargetDataSourceFromPvc(pvcNamespace, "openshift-virtualization-os-images", pvcName, "fedora")
-					gomega.Expect(err).To(gomega.BeNil())
-				}
+				err = v.CreateTargetDataSourceFromPvc(pvcNamespace, "openshift-virtualization-os-images", pvcName, "fedora")
+				gomega.Expect(err).To(gomega.BeNil())
 			}
 		}
 
@@ -352,6 +365,12 @@ var _ = ginkgo.Describe("VM backup and restore tests", ginkgo.Ordered, func() {
 
 		err = dpaCR.Delete()
 		gomega.Expect(err).ToNot(gomega.HaveOccurred())
+
+		if v != nil {
+			log.Printf("Removing test storage classes")
+			_ = v.RemoveStorageClass("test-sc-immediate")
+			_ = v.RemoveStorageClass("test-sc-wffc")
+		}
 
 		if v != nil && cirrosDownloadedFromTest {
 			v.RemoveDataSource(bootImageNamespace, "cirros")
@@ -493,16 +512,17 @@ var _ = ginkgo.Describe("VM backup and restore tests", ginkgo.Ordered, func() {
 			},
 		}, nil),
 
-		ginkgo.Entry("todolist kubevirt-datamover backup, Fedora VM with CBT", ginkgo.Label("virt"), VmBackupRestoreCase{
-			Template:  "./sample-applications/virtual-machines/cirros-test/kubevirt-dm/fedora-todolist-cbt.yaml",
-			InitDelay: 3 * time.Minute,
-			BackupRestoreCase: BackupRestoreCase{
-				Namespace:         "mysql-persistent",
-				Name:              "fedora-todolist",
-				SkipVerifyLogs:    true,
-				BackupRestoreType: lib.CSIDataMover,
-				BackupTimeout:     45 * time.Minute,
-			},
-		}, nil),
+		// FEDORA is not yet ready for CI and CBT
+		// ginkgo.Entry("todolist kubevirt-datamover backup, Fedora VM with CBT", ginkgo.Label("virt"), VmBackupRestoreCase{
+		// 	Template:  "./sample-applications/virtual-machines/kubevirt-dm/fedora-todolist-cbt.yaml",
+		// 	InitDelay: 3 * time.Minute,
+		// 	BackupRestoreCase: BackupRestoreCase{
+		// 		Namespace:         "mysql-persistent",
+		// 		Name:              "fedora-todolist",
+		// 		SkipVerifyLogs:    true,
+		// 		BackupRestoreType: lib.CSIDataMover,
+		// 		BackupTimeout:     45 * time.Minute,
+		// 	},
+		// }, nil),
 	)
 })

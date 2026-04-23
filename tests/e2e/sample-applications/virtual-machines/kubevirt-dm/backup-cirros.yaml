@@ -1,7 +1,7 @@
 apiVersion: velero.io/v1
 kind: Backup
 metadata:
-  name: kubevirt-dm-backup
+  name: kubevirt-dm-backup-1
   namespace: openshift-adp
 spec:
   includedNamespaces:
