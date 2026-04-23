@@ -86,7 +86,15 @@ func runVmBackupAndRestore(brCase VmBackupRestoreCase, updateLastBRcase func(brC
 	// Create DPA
 	backupName, restoreName := prepareBackupAndRestore(brCase.BackupRestoreCase, func() {})
 
-	err := lib.CreateNamespace(v.Clientset, brCase.Namespace)
+	// Ensure a clean namespace before each spec. The previous spec's restore
+	// leaves the namespace populated with a VM/PVC that may use a stale storage
+	// class. Deleting it first guarantees the template creates a fresh DV.
+	_ = v.RemoveVm(brCase.Namespace, brCase.Name, 2*time.Minute)
+	err := lib.DeleteNamespace(v.Clientset, brCase.Namespace)
+	gomega.Expect(err).To(gomega.BeNil())
+	gomega.Eventually(lib.IsNamespaceDeleted(kubernetesClientForSuiteRun, brCase.Namespace), time.Minute*2, time.Second*5).Should(gomega.BeTrue())
+
+	err = lib.CreateNamespace(v.Clientset, brCase.Namespace)
 	gomega.Expect(err).To(gomega.BeNil())
 
 	err = lib.InstallApplication(v.Client, brCase.Template)
