@@ -1461,9 +1461,9 @@ spec:
                 - name: RELATED_IMAGE_KUBEVIRT_VELERO_PLUGIN
                   value: quay.io/konveyor/kubevirt-velero-plugin:latest
                 - name: RELATED_IMAGE_HYPERSHIFT_VELERO_PLUGIN
-                  value: quay.io/redhat-user-workloads/ocp-art-tenant/oadp-hypershift-oadp-plugin-main:main
+                  value: quay.io/konveyor/hypershift-oadp-plugin:latest
                 - name: RELATED_IMAGE_MUSTGATHER
-                  value: registry.redhat.io/oadp/oadp-mustgather-rhel8:v1.2
+                  value: quay.io/konveyor/oadp-must-gather:latest
                 - name: RELATED_IMAGE_NON_ADMIN_CONTROLLER
                   value: quay.io/konveyor/oadp-non-admin:latest
                 - name: RELATED_IMAGE_VM_FILE_RESTORE_CONTROLLER
@@ -1480,6 +1480,8 @@ spec:
                   value: quay.io/konveyor/oadp-vmdp-binaries:latest
                 - name: RELATED_IMAGE_KUBEVIRT_DATAMOVER_CONTROLLER
                   value: quay.io/konveyor/kubevirt-datamover-controller:latest
+                - name: RELATED_IMAGE_KUBEVIRT_DATAMOVER_PLUGIN
+                  value: quay.io/konveyor/kubevirt-datamover-plugin:latest
                 image: quay.io/konveyor/oadp-operator:latest
                 imagePullPolicy: Always
                 livenessProbe:
@@ -1702,9 +1704,9 @@ spec:
     name: velero-plugin-for-gcp
   - image: quay.io/konveyor/kubevirt-velero-plugin:latest
     name: kubevirt-velero-plugin
-  - image: quay.io/redhat-user-workloads/ocp-art-tenant/oadp-hypershift-oadp-plugin-main:main
+  - image: quay.io/konveyor/hypershift-oadp-plugin:latest
     name: hypershift-velero-plugin
-  - image: registry.redhat.io/oadp/oadp-mustgather-rhel8:v1.2
+  - image: quay.io/konveyor/oadp-must-gather:latest
     name: mustgather
   - image: quay.io/konveyor/oadp-non-admin:latest
     name: non-admin-controller
@@ -1722,4 +1724,6 @@ spec:
     name: vmdp-cli-download
   - image: quay.io/konveyor/kubevirt-datamover-controller:latest
     name: kubevirt-datamover-controller
+  - image: quay.io/konveyor/kubevirt-datamover-plugin:latest
+    name: kubevirt-datamover-plugin
   version: 99.0.0
