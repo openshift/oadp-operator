@@ -181,22 +181,6 @@ func runCBTVmBackup(brCase VmBackupRestoreCase, updateLastBRcase func(brCase VmB
 		time.Sleep(brCase.InitDelay)
 	}
 
-	log.Printf("Restarting VM to activate CBT qcow2 overlay")
-	err = v.RestartVmAndWaitRunning(brCase.Namespace, brCase.Name, 10*time.Minute)
-	gomega.Expect(err).ToNot(gomega.HaveOccurred())
-
-	err = v.WaitForVMReady(brCase.Namespace, brCase.Name, 5*time.Minute)
-	gomega.Expect(err).ToNot(gomega.HaveOccurred())
-
-	if brCase.InitDelay > 0 {
-		log.Printf("Waiting %v for VM %s/%s to settle after CBT restart", brCase.InitDelay, brCase.Namespace, brCase.Name)
-		time.Sleep(brCase.InitDelay)
-	}
-
-	log.Printf("Waiting for CBT to be enabled on VM")
-	err = v.WaitForCBTEnabled(brCase.Namespace, brCase.Name, 5*time.Minute)
-	gomega.Expect(err).ToNot(gomega.HaveOccurred())
-
 	log.Printf("VM %s/%s is fully booted, CBT enabled, proceeding with backup", brCase.Namespace, brCase.Name)
 
 	log.Printf("Creating kubevirt volume policy ConfigMap for custom action routing")
@@ -207,7 +191,26 @@ func runCBTVmBackup(brCase VmBackupRestoreCase, updateLastBRcase func(brCase VmB
 	err = lib.CreateBackupWithVolumePolicy(dpaCR.Client, namespace, backupName, []string{brCase.Namespace}, true)
 	gomega.Expect(err).ToNot(gomega.HaveOccurred())
 
+	// Verify that the kubevirt-datamover controller creates a VirtualMachineBackupTracker
+	// in the VM namespace during the backup, confirming VEP-25 incremental backup is active.
+	vmbtSeen := false
+	vmbtCheckDone := make(chan struct{})
+	go func() {
+		defer close(vmbtCheckDone)
+		for i := 0; i < 60; i++ {
+			found, checkErr := v.CheckVMBackupTrackerExists(brCase.Namespace)
+			if checkErr == nil && found {
+				log.Printf("VirtualMachineBackupTracker observed in %s — VEP-25 incremental backup confirmed", brCase.Namespace)
+				vmbtSeen = true
+				return
+			}
+			time.Sleep(5 * time.Second)
+		}
+		log.Printf("VirtualMachineBackupTracker was not observed in %s during backup window", brCase.Namespace)
+	}()
+
 	gomega.Eventually(lib.IsKubevirtDMBackupDone(dpaCR.Client, dynamicClientForSuiteRun, namespace, backupName), brCase.BackupTimeout, time.Second*10).Should(gomega.BeTrue())
+	<-vmbtCheckDone
 	describeBackup := lib.DescribeBackup(dpaCR.Client, namespace, backupName)
 	ginkgo.GinkgoWriter.Println(describeBackup)
 
@@ -215,6 +218,8 @@ func runCBTVmBackup(brCase VmBackupRestoreCase, updateLastBRcase func(brCase VmB
 	gomega.Expect(err).ToNot(gomega.HaveOccurred())
 	gomega.Expect(succeeded).To(gomega.Equal(true))
 	log.Printf("Backup for case %s succeeded", brCase.Name)
+
+	gomega.Expect(vmbtSeen).To(gomega.BeTrue(), "expected VirtualMachineBackupTracker to be observed during backup (VEP-25 incremental backup)")
 
 	err = v.RemoveVm(brCase.Namespace, brCase.Name, 5*time.Minute)
 	gomega.Expect(err).To(gomega.BeNil())
@@ -238,7 +243,15 @@ var _ = ginkgo.Describe("VM backup and restore tests", ginkgo.Ordered, func() {
 	}
 
 	var _ = ginkgo.BeforeAll(func() {
-		v, err = lib.GetVirtOperator(runTimeClientForSuiteRun, kubernetesClientForSuiteRun, dynamicClientForSuiteRun, useUpstreamHco)
+		indexTag := ""
+		if useCommunityHco {
+			indexTag = hcoIndexTag
+			log.Printf("Creating community HCO CatalogSource with index tag %s", hcoIndexTag)
+			err = lib.EnsureCommunityHcoCatalog(dynamicClientForSuiteRun, hcoIndexTag, 2*time.Minute)
+			gomega.Expect(err).To(gomega.BeNil())
+		}
+
+		v, err = lib.GetVirtOperator(runTimeClientForSuiteRun, kubernetesClientForSuiteRun, dynamicClientForSuiteRun, useUpstreamHco, indexTag)
 		gomega.Expect(err).To(gomega.BeNil())
 		gomega.Expect(v).ToNot(gomega.BeNil())
 
@@ -246,6 +259,12 @@ var _ = ginkgo.Describe("VM backup and restore tests", ginkgo.Ordered, func() {
 			err = v.EnsureVirtInstallation()
 			gomega.Expect(err).To(gomega.BeNil())
 			wasInstalledFromTest = true
+		}
+
+		// Pre-flight: require HCO >= 1.18 and backup.kubevirt.io CRDs for VEP-25.
+		if useCommunityHco {
+			err = v.RequireVEP25Support()
+			gomega.Expect(err).To(gomega.BeNil(), "VEP-25 pre-flight check failed — HCO 1.18+ and backup.kubevirt.io CRDs are required")
 		}
 
 		if kvmEmulation {
@@ -269,25 +288,34 @@ var _ = ginkgo.Describe("VM backup and restore tests", ginkgo.Ordered, func() {
 		dpaCR.VeleroDefaultPlugins = append(dpaCR.VeleroDefaultPlugins, v1alpha1.DefaultPluginKubeVirt)
 		dpaCR.VeleroDefaultPlugins = append(dpaCR.VeleroDefaultPlugins, v1alpha1.DefaultPluginKubeVirtDataMover)
 
-		err = v.CreateImmediateModeStorageClass("test-sc-immediate")
-		gomega.Expect(err).To(gomega.BeNil())
-		err = v.CreateWaitForFirstConsumerStorageClass("test-sc-wffc")
-		gomega.Expect(err).To(gomega.BeNil())
 		err = lib.DeleteBackupRepositories(runTimeClientForSuiteRun, namespace)
 		gomega.Expect(err).To(gomega.BeNil())
 		err = lib.InstallApplication(v.Client, "./sample-applications/virtual-machines/cirros-test/cirros-rbac.yaml")
 		gomega.Expect(err).To(gomega.BeNil())
 
-		if v.Upstream {
-			log.Printf("Creating fedora DataSource in openshift-virtualization-os-images namespace")
-			pvcNamespace, pvcName, err := v.GetDataSourcePvc("kubevirt-os-images", "fedora")
-			gomega.Expect(err).To(gomega.BeNil())
-			err = v.CreateTargetDataSourceFromPvc(pvcNamespace, "openshift-virtualization-os-images", pvcName, "fedora")
-			gomega.Expect(err).To(gomega.BeNil())
+		// Fedora DataSource setup is only needed for GA OpenShift Virt (TEST_VIRT_GA).
+		// Community HCO tests (TEST_VIRT) use CirrOS and do not require it.
+		if v.Upstream && v.CommunityIndex == "" {
+			if v.CheckDataSourceExists("openshift-virtualization-os-images", "fedora") {
+				log.Printf("Fedora DataSource already exists in openshift-virtualization-os-images, skipping creation")
+			} else {
+				log.Printf("Creating fedora DataSource in openshift-virtualization-os-images namespace")
+				pvcNamespace, pvcName, err := v.GetDataSourcePvc("kubevirt-os-images", "fedora")
+				if err != nil {
+					log.Printf("Fedora DataSource is not PVC-backed, trying snapshot: %v", err)
+					snapshotNamespace, snapshotName, snapErr := v.GetDataSourceSnapshot("kubevirt-os-images", "fedora")
+					gomega.Expect(snapErr).To(gomega.BeNil())
+					err = v.CreateTargetDataSourceFromSnapshot(snapshotNamespace, "openshift-virtualization-os-images", snapshotName, "fedora")
+					gomega.Expect(err).To(gomega.BeNil())
+				} else {
+					err = v.CreateTargetDataSourceFromPvc(pvcNamespace, "openshift-virtualization-os-images", pvcName, "fedora")
+					gomega.Expect(err).To(gomega.BeNil())
+				}
+			}
 		}
 
 		log.Printf("Enabling CBT feature gate and label selector for kubevirt-datamover tests")
-		err = v.EnableCBTFeatureGate(30 * time.Second)
+		err = v.EnableCBTFeatureGate(5 * time.Minute)
 		gomega.Expect(err).To(gomega.BeNil())
 		err = v.EnableCBTLabelSelector(30 * time.Second)
 		gomega.Expect(err).To(gomega.BeNil())
@@ -299,17 +327,20 @@ var _ = ginkgo.Describe("VM backup and restore tests", ginkgo.Ordered, func() {
 		// using kopia to collect more info (DaemonSet)
 		NewOADPDeploymentOperationDefault().Deploy(lib.KOPIA)
 
-		log.Printf("Creating real DataProtectionTest before must-gather")
-		bsls, err := dpaCR.ListBSLs()
-		gomega.Expect(err).ToNot(gomega.HaveOccurred())
+		log.Printf("skipMustGather: %v", skipMustGather)
+		if !skipMustGather {
+			log.Printf("Creating real DataProtectionTest before must-gather")
+			bsls, err := dpaCR.ListBSLs()
+			gomega.Expect(err).ToNot(gomega.HaveOccurred())
 
-		bslName := bsls.Items[0].Name
-		err = lib.CreateUploadTestOnlyDPT(dpaCR.Client, dpaCR.Namespace, bslName)
-		gomega.Expect(err).ToNot(gomega.HaveOccurred())
+			bslName := bsls.Items[0].Name
+			err = lib.CreateUploadTestOnlyDPT(dpaCR.Client, dpaCR.Namespace, bslName)
+			gomega.Expect(err).ToNot(gomega.HaveOccurred())
 
-		log.Printf("Running OADP must-gather")
-		err = lib.RunMustGather(artifact_dir, dpaCR.Client)
-		gomega.Expect(err).ToNot(gomega.HaveOccurred())
+			log.Printf("Running OADP must-gather")
+			err = lib.RunMustGather(artifact_dir, dpaCR.Client)
+			gomega.Expect(err).ToNot(gomega.HaveOccurred())
+		}
 
 		err = dpaCR.Delete()
 		gomega.Expect(err).ToNot(gomega.HaveOccurred())
@@ -320,13 +351,8 @@ var _ = ginkgo.Describe("VM backup and restore tests", ginkgo.Ordered, func() {
 		}
 
 		if v != nil && wasInstalledFromTest {
-			v.EnsureVirtRemoval()
+			log.Printf("Skipping HCO/virt removal — leaving installation intact for reuse")
 		}
-
-		err = v.RemoveStorageClass("test-sc-immediate")
-		gomega.Expect(err).To(gomega.BeNil())
-		err = v.RemoveStorageClass("test-sc-wffc")
-		gomega.Expect(err).To(gomega.BeNil())
 	})
 
 	var _ = ginkgo.AfterEach(func(ctx ginkgo.SpecContext) {

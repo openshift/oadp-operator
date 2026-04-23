@@ -46,6 +46,11 @@ func (v *VirtOperator) CheckDataVolumeExists(namespace, name string) bool {
 	return unstructuredDataVolume != nil
 }
 
+func (v *VirtOperator) CheckDataSourceExists(namespace, name string) bool {
+	_, err := v.Dynamic.Resource(dataSourceGVR).Namespace(namespace).Get(context.Background(), name, metav1.GetOptions{})
+	return err == nil
+}
+
 // Check the Status.Phase field of the given DataVolume, and make sure it is
 // marked "Succeeded".
 func (v *VirtOperator) checkDataVolumeReady(namespace, name string) bool {
@@ -210,6 +215,71 @@ func (v *VirtOperator) CreateTargetDataSourceFromPvc(sourceNamespace, destinatio
 	}
 
 	return nil
+}
+
+// CreateTargetDataSourceFromSnapshot creates a DataSource in destinationNamespace pointing to a snapshot source.
+func (v *VirtOperator) CreateTargetDataSourceFromSnapshot(sourceNamespace, destinationNamespace, sourceSnapshotName, destinationDataSourceName string) error {
+	unstructuredDataSource := unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"apiVersion": "cdi.kubevirt.io/v1beta1",
+			"kind":       "DataSource",
+			"metadata": map[string]interface{}{
+				"name":      destinationDataSourceName,
+				"namespace": destinationNamespace,
+			},
+			"spec": map[string]interface{}{
+				"source": map[string]interface{}{
+					"snapshot": map[string]interface{}{
+						"name":      sourceSnapshotName,
+						"namespace": sourceNamespace,
+					},
+				},
+			},
+		},
+	}
+
+	_, err := v.Dynamic.Resource(dataSourceGVR).Namespace(destinationNamespace).Create(context.Background(), &unstructuredDataSource, metav1.CreateOptions{})
+	if err != nil {
+		if apierrors.IsAlreadyExists(err) {
+			return nil
+		}
+		if strings.Contains(err.Error(), "already exists") {
+			return nil
+		}
+		log.Printf("Error creating DataSource from snapshot: %v", err)
+		return err
+	}
+
+	return nil
+}
+
+// Find the given DataSource, and return the snapshot it points to (namespace, name)
+func (v *VirtOperator) GetDataSourceSnapshot(ns, name string) (string, string, error) {
+	unstructuredDataSource, err := v.Dynamic.Resource(dataSourceGVR).Namespace(ns).Get(context.Background(), name, metav1.GetOptions{})
+	if err != nil {
+		log.Printf("Error getting DataSource %s: %v", name, err)
+		return "", "", err
+	}
+
+	snapshotName, ok, err := unstructured.NestedString(unstructuredDataSource.UnstructuredContent(), "status", "source", "snapshot", "name")
+	if err != nil {
+		log.Printf("Error getting snapshot from DataSource: %v", err)
+		return "", "", err
+	}
+	if !ok {
+		return "", "", errors.New("failed to get snapshot from " + name + " DataSource")
+	}
+
+	snapshotNamespace, ok, err := unstructured.NestedString(unstructuredDataSource.UnstructuredContent(), "status", "source", "snapshot", "namespace")
+	if err != nil {
+		log.Printf("Error getting snapshot namespace from DataSource: %v", err)
+		return "", "", err
+	}
+	if !ok {
+		return "", "", errors.New("failed to get snapshot namespace from " + name + " DataSource")
+	}
+
+	return snapshotNamespace, snapshotName, nil
 }
 
 // Find the given DataSource, and return the PVC it points to

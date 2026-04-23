@@ -107,40 +107,214 @@ var virtualMachineBackupTrackerGvr = schema.GroupVersionResource{
 	Version:  "v1alpha1",
 }
 
-type VirtOperator struct {
-	Client    client.Client
-	Clientset *kubernetes.Clientset
-	Dynamic   dynamic.Interface
-	Namespace string
-	Csv       string
-	Version   *version.Version
-	Upstream  bool
+var kubevirtCrGvr = schema.GroupVersionResource{
+	Group:    "kubevirt.io",
+	Resource: "kubevirts",
+	Version:  "v1",
 }
 
-// GetVirtOperator fills out a new VirtOperator
-func GetVirtOperator(c client.Client, clientset *kubernetes.Clientset, dynamicClient dynamic.Interface, upstream bool) (*VirtOperator, error) {
+var catalogSourceGvr = schema.GroupVersionResource{
+	Group:    "operators.coreos.com",
+	Resource: "catalogsources",
+	Version:  "v1alpha1",
+}
+
+const (
+	communityHcoCatalogName = "kubevirt-community-catalog"
+	communityHcoIndexImage  = "quay.io/kubevirt/hyperconverged-cluster-index"
+)
+
+type VirtOperator struct {
+	Client         client.Client
+	Clientset      *kubernetes.Clientset
+	Dynamic        dynamic.Interface
+	Namespace      string
+	Csv            string
+	Version        *version.Version
+	Upstream       bool
+	CommunityIndex string // HCO index image tag (e.g. "1.17.1"); empty means no custom catalog
+}
+
+// communityChannelFromTag derives the OLM subscription channel name from an HCO
+// index tag, e.g. "1.18.0" → "stable-v1.18", "1.17.1" → "stable-v1.17".
+func communityChannelFromTag(indexTag string) string {
+	parts := strings.SplitN(indexTag, ".", 3)
+	if len(parts) >= 2 {
+		return "stable-v" + parts[0] + "." + parts[1]
+	}
+	return "stable-v" + indexTag
+}
+
+// EnsureCommunityHcoCatalog creates a CatalogSource in openshift-marketplace
+// pointing to the community HCO index image with the given tag. It then waits
+// for the corresponding PackageManifest to become available, which indicates
+// the catalog's grpc pod is serving content.
+func EnsureCommunityHcoCatalog(dynamicClient dynamic.Interface, indexTag string, timeout time.Duration) error {
+	catalogSource := &unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"apiVersion": "operators.coreos.com/v1alpha1",
+			"kind":       "CatalogSource",
+			"metadata": map[string]interface{}{
+				"name":      communityHcoCatalogName,
+				"namespace": "openshift-marketplace",
+			},
+			"spec": map[string]interface{}{
+				"sourceType":  "grpc",
+				"image":       communityHcoIndexImage + ":" + indexTag,
+				"displayName": "KubeVirt Community HCO",
+				"publisher":   "KubeVirt",
+			},
+		},
+	}
+
+	existing, err := dynamicClient.Resource(catalogSourceGvr).Namespace("openshift-marketplace").Get(context.Background(), communityHcoCatalogName, metav1.GetOptions{})
+	if err == nil {
+		existingImage, _, _ := unstructured.NestedString(existing.UnstructuredContent(), "spec", "image")
+		expectedImage := communityHcoIndexImage + ":" + indexTag
+		if existingImage != expectedImage {
+			log.Printf("CatalogSource %s exists with stale image %s, updating to %s", communityHcoCatalogName, existingImage, expectedImage)
+			if err := unstructured.SetNestedField(existing.UnstructuredContent(), expectedImage, "spec", "image"); err != nil {
+				return fmt.Errorf("failed to set CatalogSource image: %w", err)
+			}
+			_, err = dynamicClient.Resource(catalogSourceGvr).Namespace("openshift-marketplace").Update(context.Background(), existing, metav1.UpdateOptions{})
+			if err != nil {
+				return fmt.Errorf("failed to update CatalogSource %s: %w", communityHcoCatalogName, err)
+			}
+		} else {
+			log.Printf("CatalogSource %s already exists with correct image %s", communityHcoCatalogName, existingImage)
+		}
+	} else {
+		log.Printf("Creating CatalogSource %s with image %s:%s", communityHcoCatalogName, communityHcoIndexImage, indexTag)
+		_, err = dynamicClient.Resource(catalogSourceGvr).Namespace("openshift-marketplace").Create(context.Background(), catalogSource, metav1.CreateOptions{})
+		if err != nil {
+			return fmt.Errorf("failed to create CatalogSource %s: %w", communityHcoCatalogName, err)
+		}
+	}
+
+	// Wait for the packagemanifest to include a channel from the community catalog.
+	// The community-kubevirt-hyperconverged manifest may already exist from the
+	// community-operators catalog (with only "stable","1.10.7","1.11.0"), so we
+	// must wait until the new catalog's channels (e.g. "stable-v1.17") appear.
+	log.Printf("Waiting for community-kubevirt-hyperconverged PackageManifest to appear")
+	err = wait.PollUntilContextTimeout(context.Background(), 5*time.Second, timeout, true, func(ctx context.Context) (bool, error) {
+		manifest, getErr := dynamicClient.Resource(packageManifestsGvr).Namespace("default").Get(context.Background(), "community-kubevirt-hyperconverged", metav1.GetOptions{})
+		if getErr != nil {
+			log.Printf("PackageManifest not yet available: %v", getErr)
+			return false, nil
+		}
+		channels, _, _ := unstructured.NestedSlice(manifest.UnstructuredContent(), "status", "channels")
+		for _, ch := range channels {
+			chMap, ok := ch.(map[string]interface{})
+			if !ok {
+				continue
+			}
+			name, _, _ := unstructured.NestedString(chMap, "name")
+			if strings.HasPrefix(name, "stable-v") {
+				log.Printf("PackageManifest has community channel: %s", name)
+				return true, nil
+			}
+		}
+		log.Printf("PackageManifest exists but community stable-v* channel not yet populated, retrying...")
+		return false, nil
+	})
+	if err != nil {
+		return fmt.Errorf("timed out waiting for PackageManifest from CatalogSource %s: %w", communityHcoCatalogName, err)
+	}
+	log.Printf("CatalogSource %s is ready", communityHcoCatalogName)
+	return nil
+}
+
+// RemoveCommunityHcoCatalog removes the custom community HCO CatalogSource.
+func RemoveCommunityHcoCatalog(dynamicClient dynamic.Interface, timeout time.Duration) error {
+	_, err := dynamicClient.Resource(catalogSourceGvr).Namespace("openshift-marketplace").Get(context.Background(), communityHcoCatalogName, metav1.GetOptions{})
+	if err != nil {
+		log.Printf("CatalogSource %s already removed, no action required", communityHcoCatalogName)
+		return nil
+	}
+
+	log.Printf("Deleting CatalogSource %s", communityHcoCatalogName)
+	err = dynamicClient.Resource(catalogSourceGvr).Namespace("openshift-marketplace").Delete(context.Background(), communityHcoCatalogName, metav1.DeleteOptions{})
+	if err != nil {
+		return fmt.Errorf("failed to delete CatalogSource %s: %w", communityHcoCatalogName, err)
+	}
+
+	err = wait.PollUntilContextTimeout(context.Background(), 5*time.Second, timeout, true, func(ctx context.Context) (bool, error) {
+		_, getErr := dynamicClient.Resource(catalogSourceGvr).Namespace("openshift-marketplace").Get(context.Background(), communityHcoCatalogName, metav1.GetOptions{})
+		return getErr != nil, nil
+	})
+	if err != nil {
+		return fmt.Errorf("timed out waiting to delete CatalogSource %s: %w", communityHcoCatalogName, err)
+	}
+	log.Printf("CatalogSource %s removed", communityHcoCatalogName)
+	return nil
+}
+
+// GetVirtOperator fills out a new VirtOperator. Set communityIndexTag to a
+// non-empty string (e.g. "1.17.1") to use a custom CatalogSource for the
+// community HCO operator. The CatalogSource must already exist before calling
+// this function (see EnsureCommunityHcoCatalog).
+func GetVirtOperator(c client.Client, clientset *kubernetes.Clientset, dynamicClient dynamic.Interface, upstream bool, communityIndexTag string) (*VirtOperator, error) {
 	namespace := "openshift-cnv"
 	manifest := "kubevirt-hyperconverged"
-	if upstream {
+	channel := "stable"
+	if communityIndexTag != "" {
+		namespace = "kubevirt-hyperconverged"
+		manifest = "community-kubevirt-hyperconverged"
+		channel = communityChannelFromTag(communityIndexTag)
+	} else if upstream {
 		namespace = "kubevirt-hyperconverged"
 		manifest = "community-kubevirt-hyperconverged"
 	}
 
-	csv, operatorVersion, err := getCsvFromPackageManifest(dynamicClient, manifest)
-	if err != nil {
-		log.Printf("Failed to get CSV from package manifest")
-		return nil, err
+	v := &VirtOperator{
+		Client:         c,
+		Clientset:      clientset,
+		Dynamic:        dynamicClient,
+		Namespace:      namespace,
+		Upstream:       upstream || communityIndexTag != "",
+		CommunityIndex: communityIndexTag,
 	}
 
-	v := &VirtOperator{
-		Client:    c,
-		Clientset: clientset,
-		Dynamic:   dynamicClient,
-		Namespace: namespace,
-		Csv:       csv,
-		Version:   operatorVersion,
-		Upstream:  upstream,
+	// If virt is already installed, read the CSV directly from the existing
+	// subscription instead of hitting the PackageManifest (which can be
+	// inconsistent across OLM PackageServer replicas).
+	if v.IsVirtInstalled() {
+		log.Printf("Virt already installed, reading CSV from existing subscription")
+		sub, subErr := v.getOperatorSubscription()
+		if subErr == nil && sub.Status.InstalledCSV != "" {
+			log.Printf("Found installed CSV: %s", sub.Status.InstalledCSV)
+			v.Csv = sub.Status.InstalledCSV
+			// Parse version from CSV name, e.g. "kubevirt-hyperconverged-operator.v1.17.1" -> "1.17.1"
+			if parts := strings.SplitN(v.Csv, ".v", 2); len(parts) == 2 {
+				if operatorVersion, parseErr := version.ParseGeneric(parts[1]); parseErr == nil {
+					v.Version = operatorVersion
+				}
+			}
+			return v, nil
+		}
+		log.Printf("Could not read CSV from subscription (%v), falling back to PackageManifest", subErr)
 	}
+
+	// Virt not yet installed (or subscription unreadable): look up CSV from
+	// the PackageManifest. Retry to tolerate OLM PackageServer replica skew.
+	var csv string
+	var operatorVersion *version.Version
+	err := wait.PollUntilContextTimeout(context.Background(), 5*time.Second, 2*time.Minute, true, func(ctx context.Context) (bool, error) {
+		var getErr error
+		csv, operatorVersion, getErr = getCsvFromPackageManifest(dynamicClient, manifest, channel)
+		if getErr != nil {
+			log.Printf("PackageManifest lookup failed, retrying: %v", getErr)
+			return false, nil
+		}
+		return true, nil
+	})
+	if err != nil {
+		log.Printf("Failed to get CSV from package manifest after retries")
+		return nil, fmt.Errorf("failed to get CSV from package manifest for channel %s: %w", channel, err)
+	}
+
+	v.Csv = csv
+	v.Version = operatorVersion
 
 	return v, nil
 }
@@ -168,14 +342,14 @@ func (v *VirtOperator) makeOperatorGroup() *operatorsv1.OperatorGroup {
 	}
 }
 
-// getCsvFromPackageManifest returns the current CSV from the first channel
+// getCsvFromPackageManifest returns the current CSV from the specified channel
 // in the given PackageManifest name. Uses the dynamic client because adding
 // the real PackageManifest API from OLM was actually more work than this.
-// Takes the name of the package manifest, and returns the currentCSV string,
-// like: kubevirt-hyperconverged-operator.v4.12.8
+// Takes the name of the package manifest and the channel name, and returns
+// the currentCSV string, like: kubevirt-hyperconverged-operator.v4.12.8
 // Also returns just the version (e.g. 4.12.8 from above) as a comparable
 // Version type, so it is easy to check against the current cluster version.
-func getCsvFromPackageManifest(dynamicClient dynamic.Interface, name string) (string, *version.Version, error) {
+func getCsvFromPackageManifest(dynamicClient dynamic.Interface, name string, channel string) (string, *version.Version, error) {
 	log.Println("Getting packagemanifest...")
 	unstructuredManifest, err := dynamicClient.Resource(packageManifestsGvr).Namespace("default").Get(context.Background(), name, metav1.GetOptions{})
 	if err != nil {
@@ -197,8 +371,8 @@ func getCsvFromPackageManifest(dynamicClient dynamic.Interface, name string) (st
 	}
 
 	var stableChannel map[string]interface{}
-	for _, channel := range channels {
-		currentChannel, ok := channel.(map[string]interface{})
+	for _, ch := range channels {
+		currentChannel, ok := ch.(map[string]interface{})
 		if !ok {
 			continue
 		}
@@ -207,13 +381,13 @@ func getCsvFromPackageManifest(dynamicClient dynamic.Interface, name string) (st
 			continue
 		}
 		log.Printf("Found channel: %s", channelName)
-		if channelName == "stable" {
+		if channelName == channel {
 			stableChannel = currentChannel
 		}
 	}
 
 	if len(stableChannel) == 0 {
-		return "", nil, errors.New("failed to get stable channel from " + name + " packagemanifest")
+		return "", nil, errors.New("failed to get channel " + channel + " from " + name + " packagemanifest")
 	}
 
 	csv, ok, err := unstructured.NestedString(stableChannel, "currentCSV")
@@ -368,7 +542,16 @@ func (v *VirtOperator) installSubscription() error {
 		StartingCSV:            v.Csv,
 		InstallPlanApproval:    operatorsv1alpha1.ApprovalAutomatic,
 	}
-	if v.Upstream {
+	if v.CommunityIndex != "" {
+		spec = &operatorsv1alpha1.SubscriptionSpec{
+			CatalogSource:          communityHcoCatalogName,
+			CatalogSourceNamespace: "openshift-marketplace",
+			Package:                "community-kubevirt-hyperconverged",
+			Channel:                communityChannelFromTag(v.CommunityIndex),
+			StartingCSV:            v.Csv,
+			InstallPlanApproval:    operatorsv1alpha1.ApprovalAutomatic,
+		}
+	} else if v.Upstream {
 		spec = &operatorsv1alpha1.SubscriptionSpec{
 			CatalogSource:          "community-operators",
 			CatalogSourceNamespace: "openshift-marketplace",
@@ -899,7 +1082,15 @@ func (v *VirtOperator) EnsureVirtRemoval() error {
 	if err := v.ensureNamespaceRemoved(v.Namespace, 3*time.Minute); err != nil {
 		return err
 	}
-	log.Printf("Deleting namespace %s", v.Namespace)
+	log.Printf("Deleted namespace %s", v.Namespace)
+
+	if v.CommunityIndex != "" {
+		log.Printf("Removing community HCO CatalogSource")
+		if err := RemoveCommunityHcoCatalog(v.Dynamic, 1*time.Minute); err != nil {
+			return err
+		}
+		log.Printf("Removed CatalogSource")
+	}
 
 	return nil
 }
@@ -957,9 +1148,38 @@ func (v *VirtOperator) RestartVmAndWaitRunning(namespace, name string, timeout t
 	return nil
 }
 
+// RequireVEP25Support is a pre-flight check that fails immediately if the
+// installed HCO version is older than 1.18 or if the backup.kubevirt.io CRDs
+// (VirtualMachineBackup, VirtualMachineBackupTracker) do not exist.
+// Call this after EnsureVirtInstallation to gate the test suite early.
+func (v *VirtOperator) RequireVEP25Support() error {
+	if v.Version == nil {
+		return fmt.Errorf("VirtOperator has no version — cannot verify VEP-25 support")
+	}
+	minVersion, err := version.ParseSemantic("1.18.0")
+	if err != nil {
+		return fmt.Errorf("failed to parse minimum version: %w", err)
+	}
+	if !v.Version.AtLeast(minVersion) {
+		return fmt.Errorf("HCO version %s is too old for VEP-25 (IncrementalBackup); need >= 1.18.0 — upgrade the community HCO or set HCO_INDEX_TAG=1.18.0", v.Version)
+	}
+	log.Printf("HCO version %s satisfies VEP-25 minimum (>= 1.18.0)", v.Version)
+
+	crdGvr := schema.GroupVersionResource{Group: "apiextensions.k8s.io", Version: "v1", Resource: "customresourcedefinitions"}
+	for _, crd := range []string{"virtualmachinebackups.backup.kubevirt.io", "virtualmachinebackuptrackers.backup.kubevirt.io"} {
+		_, err := v.Dynamic.Resource(crdGvr).Get(context.Background(), crd, metav1.GetOptions{})
+		if err != nil {
+			return fmt.Errorf("required CRD %s not found — VEP-25 is not available on this cluster: %w", crd, err)
+		}
+		log.Printf("VEP-25 CRD present: %s", crd)
+	}
+	return nil
+}
+
 // EnableCBTFeatureGate patches the HyperConverged CR to set
-// spec.featureGates.incrementalBackup = true. This enables CBT and
-// UtilityVolumes feature gates in the KubeVirt CR.
+// spec.featureGates.incrementalBackup = true, then waits for the KubeVirt CR
+// to reflect "IncrementalBackup" in its featureGates and for the
+// backup.kubevirt.io CRDs to appear (requires KubeVirt >= 1.8 / HCO >= 1.18).
 func (v *VirtOperator) EnableCBTFeatureGate(timeout time.Duration) error {
 	log.Printf("Enabling incrementalBackup feature gate on HCO")
 
@@ -968,6 +1188,9 @@ func (v *VirtOperator) EnableCBTFeatureGate(timeout time.Duration) error {
 		if err != nil {
 			return false, fmt.Errorf("failed to get HCO: %w", err)
 		}
+
+		current, _, _ := unstructured.NestedBool(hco.UnstructuredContent(), "spec", "featureGates", "incrementalBackup")
+		log.Printf("HCO spec.featureGates.incrementalBackup current value: %v — setting to true", current)
 
 		if err := unstructured.SetNestedField(hco.UnstructuredContent(), true, "spec", "featureGates", "incrementalBackup"); err != nil {
 			return false, fmt.Errorf("failed to set incrementalBackup feature gate: %w", err)
@@ -986,8 +1209,41 @@ func (v *VirtOperator) EnableCBTFeatureGate(timeout time.Duration) error {
 	if err != nil {
 		return fmt.Errorf("failed to enable CBT feature gate: %w", err)
 	}
+	log.Printf("incrementalBackup feature gate set on HCO, waiting for propagation to KubeVirt CR")
 
-	log.Printf("incrementalBackup feature gate enabled on HCO")
+	// Wait for "IncrementalBackup" to appear in the KubeVirt CR featureGates.
+	err = wait.PollUntilContextTimeout(context.Background(), 5*time.Second, timeout, true, func(ctx context.Context) (bool, error) {
+		kvList, err := v.Dynamic.Resource(kubevirtCrGvr).Namespace(v.Namespace).List(ctx, metav1.ListOptions{})
+		if err != nil || len(kvList.Items) == 0 {
+			log.Printf("KubeVirt CR not yet available: %v", err)
+			return false, nil
+		}
+		kv := &kvList.Items[0]
+		gates, _, _ := unstructured.NestedStringSlice(kv.UnstructuredContent(), "spec", "configuration", "developerConfiguration", "featureGates")
+		for _, g := range gates {
+			if g == "IncrementalBackup" {
+				log.Printf("IncrementalBackup present in KubeVirt CR featureGates")
+				return true, nil
+			}
+		}
+		log.Printf("IncrementalBackup not yet in KubeVirt CR featureGates %v, retrying...", gates)
+		return false, nil
+	})
+	if err != nil {
+		return fmt.Errorf("timed out waiting for IncrementalBackup to propagate to KubeVirt CR: %w", err)
+	}
+
+	// Verify the backup.kubevirt.io CRDs exist (VirtualMachineBackup, VirtualMachineBackupTracker).
+	for _, crd := range []string{"virtualmachinebackups.backup.kubevirt.io", "virtualmachinebackuptrackers.backup.kubevirt.io"} {
+		crdGvr := schema.GroupVersionResource{Group: "apiextensions.k8s.io", Version: "v1", Resource: "customresourcedefinitions"}
+		_, err := v.Dynamic.Resource(crdGvr).Get(context.Background(), crd, metav1.GetOptions{})
+		if err != nil {
+			return fmt.Errorf("backup CRD %s not found after enabling IncrementalBackup: %w", crd, err)
+		}
+		log.Printf("CRD %s exists", crd)
+	}
+
+	log.Printf("incrementalBackup feature gate fully enabled and verified")
 	return nil
 }
 

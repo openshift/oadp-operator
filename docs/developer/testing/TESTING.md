@@ -21,7 +21,9 @@ To get started, you need to provide the following **required** environment varia
 | `BSL_REGION` | The region of backupLocations | `us-east-1` | false |
 | `OADP_TEST_NAMESPACE` | The namespace where OADP operator is installed | `openshift-adp` | false |
 | `OPENSHIFT_CI` | Disable colored output from tests suite run | `true` | false |
-| `TEST_VIRT` | Exclusively run Virtual Machine backup/restore testing | `false` | false |
+| `TEST_VIRT` | Exclusively run VM backup/restore testing using community HCO from custom CatalogSource (mutually exclusive with TEST_VIRT_GA) | `false` | false |
+| `TEST_VIRT_GA` | Exclusively run Virtual Machine backup/restore testing (OpenShift Virtualization from redhat-operators) | `false` | false |
+| `HCO_INDEX_TAG` | HCO index image tag for the community CatalogSource (used with TEST_VIRT) | `1.18.0` | false |
 | `TEST_HCP` | Exclusively run Hypershift  backup/restore testing | `false` | false |
 | `TEST_UPGRADE` | Exclusively run upgrade tests. Need to first run `make catalog-test-upgrade`, if testing non production operator | `false` | false |
 | `TEST_CLI` | Exclusively run CLI-based backup/restore testing | `false` | false |
