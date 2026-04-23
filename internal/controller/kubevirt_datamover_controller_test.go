@@ -566,7 +566,7 @@ func TestEnsureKubevirtDatamoverRequiredSpecs(t *testing.T) {
 				},
 			},
 			existingContainers: nil,
-			expectedEnvCount:   2, // WATCH_NAMESPACE, LOG_LEVEL (empty value)
+			expectedEnvCount:   3, // WATCH_NAMESPACE, DATAMOVER_IMAGE, LOG_LEVEL (empty value)
 			expectError:        false,
 		},
 		{
@@ -584,7 +584,7 @@ func TestEnsureKubevirtDatamoverRequiredSpecs(t *testing.T) {
 				},
 			},
 			existingContainers: []corev1.Container{{Name: "manager", Image: "old"}},
-			expectedEnvCount:   2, // WATCH_NAMESPACE, LOG_LEVEL (empty value)
+			expectedEnvCount:   3, // WATCH_NAMESPACE, DATAMOVER_IMAGE, LOG_LEVEL (empty value)
 			expectError:        false,
 		},
 		{
@@ -604,7 +604,7 @@ func TestEnsureKubevirtDatamoverRequiredSpecs(t *testing.T) {
 				},
 			},
 			existingContainers: nil,
-			expectedEnvCount:   2, // WATCH_NAMESPACE, LOG_LEVEL with value
+			expectedEnvCount:   3, // WATCH_NAMESPACE, DATAMOVER_IMAGE, LOG_LEVEL with value
 			expectError:        false,
 		},
 		{
@@ -623,7 +623,7 @@ func TestEnsureKubevirtDatamoverRequiredSpecs(t *testing.T) {
 				},
 			},
 			existingContainers: nil,
-			expectedEnvCount:   3, // WATCH_NAMESPACE, LOG_LEVEL (empty), LOG_FORMAT
+			expectedEnvCount:   4, // WATCH_NAMESPACE, DATAMOVER_IMAGE, LOG_LEVEL (empty), LOG_FORMAT
 			expectError:        false,
 		},
 		{
@@ -644,7 +644,7 @@ func TestEnsureKubevirtDatamoverRequiredSpecs(t *testing.T) {
 				},
 			},
 			existingContainers: nil,
-			expectedEnvCount:   3, // WATCH_NAMESPACE, LOG_LEVEL, LOG_FORMAT
+			expectedEnvCount:   4, // WATCH_NAMESPACE, DATAMOVER_IMAGE, LOG_LEVEL, LOG_FORMAT
 			expectError:        false,
 		},
 		{
@@ -662,7 +662,7 @@ func TestEnsureKubevirtDatamoverRequiredSpecs(t *testing.T) {
 				},
 			},
 			existingContainers: nil,
-			expectedEnvCount:   2, // WATCH_NAMESPACE, LOG_LEVEL (empty value)
+			expectedEnvCount:   3, // WATCH_NAMESPACE, DATAMOVER_IMAGE, LOG_LEVEL (empty value)
 			expectError:        false,
 		},
 		{
@@ -680,7 +680,7 @@ func TestEnsureKubevirtDatamoverRequiredSpecs(t *testing.T) {
 				},
 			},
 			existingContainers: nil,
-			expectedEnvCount:   2, // WATCH_NAMESPACE, LOG_LEVEL (empty)
+			expectedEnvCount:   3, // WATCH_NAMESPACE, DATAMOVER_IMAGE, LOG_LEVEL (empty)
 			expectError:        false,
 		},
 		{
@@ -779,6 +779,21 @@ func TestEnsureKubevirtDatamoverRequiredSpecs(t *testing.T) {
 				t.Error("WATCH_NAMESPACE env var not found")
 			}
 
+			// Verify DATAMOVER_IMAGE is always present and matches the image
+			hasDatamoverImage := false
+			for _, env := range container.Env {
+				if env.Name == "DATAMOVER_IMAGE" {
+					hasDatamoverImage = true
+					if env.Value != defaultKubevirtDatamoverImage {
+						t.Errorf("DATAMOVER_IMAGE: expected %s, got %s", defaultKubevirtDatamoverImage, env.Value)
+					}
+					break
+				}
+			}
+			if !hasDatamoverImage {
+				t.Error("DATAMOVER_IMAGE env var not found")
+			}
+
 			// Verify security contexts (only checked for new deployments)
 			// Note: The function only sets security contexts when creating new containers,
 			// not when updating existing ones (static fields are not changed)
@@ -871,7 +886,7 @@ func TestBuildKubevirtDatamoverDeployment(t *testing.T) {
 				},
 			},
 			expectedImage:    defaultKubevirtDatamoverImage,
-			expectedEnvCount: 2, // WATCH_NAMESPACE, LOG_LEVEL (empty)
+			expectedEnvCount: 3, // WATCH_NAMESPACE, DATAMOVER_IMAGE, LOG_LEVEL (empty)
 			expectedReplicas: 1,
 			expectedSAName:   kubevirtDatamoverObjectName,
 			expectError:      false,
@@ -894,7 +909,7 @@ func TestBuildKubevirtDatamoverDeployment(t *testing.T) {
 				},
 			},
 			expectedImage:    "custom-registry.io/kdm:v1.0",
-			expectedEnvCount: 2, // WATCH_NAMESPACE, LOG_LEVEL (empty)
+			expectedEnvCount: 3, // WATCH_NAMESPACE, DATAMOVER_IMAGE, LOG_LEVEL (empty)
 			expectedReplicas: 1,
 			expectedSAName:   kubevirtDatamoverObjectName,
 			expectError:      false,
@@ -917,7 +932,7 @@ func TestBuildKubevirtDatamoverDeployment(t *testing.T) {
 				"RELATED_IMAGE_KUBEVIRT_DATAMOVER_CONTROLLER": "env-registry.io/kdm:v2.0",
 			},
 			expectedImage:    "env-registry.io/kdm:v2.0",
-			expectedEnvCount: 2, // WATCH_NAMESPACE, LOG_LEVEL (empty)
+			expectedEnvCount: 3, // WATCH_NAMESPACE, DATAMOVER_IMAGE, LOG_LEVEL (empty)
 			expectedReplicas: 1,
 			expectedSAName:   kubevirtDatamoverObjectName,
 			expectError:      false,
@@ -940,7 +955,7 @@ func TestBuildKubevirtDatamoverDeployment(t *testing.T) {
 				},
 			},
 			expectedImage:    defaultKubevirtDatamoverImage,
-			expectedEnvCount: 3, // WATCH_NAMESPACE, LOG_LEVEL, LOG_FORMAT
+			expectedEnvCount: 4, // WATCH_NAMESPACE, DATAMOVER_IMAGE, LOG_LEVEL, LOG_FORMAT
 			expectedReplicas: 1,
 			expectedSAName:   kubevirtDatamoverObjectName,
 			expectError:      false,
@@ -960,7 +975,7 @@ func TestBuildKubevirtDatamoverDeployment(t *testing.T) {
 				},
 			},
 			expectedImage:    defaultKubevirtDatamoverImage,
-			expectedEnvCount: 2, // WATCH_NAMESPACE, LOG_LEVEL (empty)
+			expectedEnvCount: 3, // WATCH_NAMESPACE, DATAMOVER_IMAGE, LOG_LEVEL (empty)
 			expectedReplicas: 1,
 			expectedSAName:   kubevirtDatamoverObjectName,
 			expectError:      false,
@@ -1028,6 +1043,21 @@ func TestBuildKubevirtDatamoverDeployment(t *testing.T) {
 			// Verify environment variables
 			if len(container.Env) != tt.expectedEnvCount {
 				t.Errorf("env var count: expected %d, got %d", tt.expectedEnvCount, len(container.Env))
+			}
+
+			// Verify DATAMOVER_IMAGE env var matches the container image
+			hasDatamoverImage := false
+			for _, env := range container.Env {
+				if env.Name == "DATAMOVER_IMAGE" {
+					hasDatamoverImage = true
+					if env.Value != tt.expectedImage {
+						t.Errorf("DATAMOVER_IMAGE: expected %s, got %s", tt.expectedImage, env.Value)
+					}
+					break
+				}
+			}
+			if !hasDatamoverImage {
+				t.Error("DATAMOVER_IMAGE env var not found")
 			}
 
 			// Verify security contexts

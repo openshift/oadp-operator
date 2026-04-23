@@ -152,6 +152,10 @@ func ensureKubevirtDatamoverRequiredSpecs(
 			Name:  "WATCH_NAMESPACE",
 			Value: deploymentObject.Namespace,
 		},
+		{
+			Name:  "DATAMOVER_IMAGE",
+			Value: image,
+		},
 	}
 
 	// Add log level if configured
