@@ -5,7 +5,9 @@ CBT backup flow that the E2E test `"Kubevirt datamover backup with CBT"` automat
 
 ## Prerequisites
 
-- OpenShift cluster with OpenShift Virtualization (HCO) installed (KubeVirt >= v1.7)
+- OpenShift cluster with OpenShift Virtualization (HCO >= 1.18) installed (KubeVirt >= v1.8.2)
+  - HCO 1.18+ and the `backup.kubevirt.io` CRDs are required for VEP-25 (IncrementalBackup / CBT) support
+  - KubeVirt >= v1.8.2 is required for the QEMU backup-abort fix (KubeVirt PR #16426)
 - OADP operator installed
 - A working BackupStorageLocation (S3 bucket with credentials)
 
@@ -24,7 +26,7 @@ spec:
     incrementalBackup: true
 '
 ```
-
+**note:** this may be outdated
 This enables both the `IncrementalBackup` and `UtilityVolumes` feature gates on
 the KubeVirt CR automatically.
 
@@ -117,10 +119,13 @@ Wait for the VM to be Running:
 oc get vm -n cirros-test cirros-test -w
 ```
 
-## Step 4: Restart the VM to activate CBT
+## Step 4: Verify CBT is enabled on the VM
 
-A restart cycle is required for KubeVirt to create the qcow2 overlay and enable
-CBT on the VM's disks.
+With KubeVirt >= v1.8.2 and the feature gate + label selector configured in Step 1,
+CBT is activated when the VM first boots — no manual restart cycle is required.
+
+If you are on an older KubeVirt version or CBT does not appear enabled after boot,
+you can trigger activation with a stop/start cycle:
 
 ```bash
 virtctl stop cirros-test -n cirros-test
@@ -132,7 +137,7 @@ virtctl start cirros-test -n cirros-test
 oc wait vm cirros-test -n cirros-test --for=jsonpath='{.status.printableStatus}'=Running --timeout=5m
 ```
 
-### Verify CBT is enabled on the VM
+Check that CBT is active:
 
 ```bash
 oc get vm cirros-test -n cirros-test -o jsonpath='{.status.changedBlockTracking.state}'
@@ -152,13 +157,13 @@ oc apply -f volume-policy.yaml
 ## Step 6: Create the backup
 
 ```bash
-oc apply -f backup.yaml
+oc apply -f backup-cirros.yaml
 ```
 
 ### Monitor the backup
 
 ```bash
-oc get backup kubevirt-dm-backup -n openshift-adp -w
+oc get backup kubevirt-dm-backup-1 -n openshift-adp -w
 ```
 
 ### Check for kubevirt-datamover CRs
@@ -174,15 +179,27 @@ oc get virtualmachinebackups -A -o yaml
 ### Verify backup completed
 
 ```bash
-oc get backup kubevirt-dm-backup -n openshift-adp -o jsonpath='{.status.phase}'
+oc get backup kubevirt-dm-backup-1 -n openshift-adp -o jsonpath='{.status.phase}'
 ```
 
 Expected output: `Completed`
 
+## Additional VM manifests
+
+This directory also contains VM manifests for other guest OS options that use the
+same CBT + datamover flow. They are not yet exercised by automated CI but can be
+used for manual testing following the same steps above.
+
+| File | VM name | Namespace | Notes |
+|------|---------|-----------|-------|
+| `fedora-todolist-cbt.yaml` | `fedora-todolist` | `mysql-persistent` | Fedora VM running a todolist/mariadb workload |
+| `centos-stream10-cbt.yaml` | `centos-stream10-todolist` | `mysql-persistent` | CentOS Stream 10 VM running a todolist/mariadb workload |
+| `backup-fedora.yaml` | — | `mysql-persistent` | Velero Backup CR for the Fedora/CentOS VMs; adjust `storageLocation` to match your DPA's BSL name |
+
 ## Cleanup
 
 ```bash
-oc delete backup kubevirt-dm-backup -n openshift-adp
+oc delete backup kubevirt-dm-backup-1 -n openshift-adp
 oc delete configmap kubevirt-volume-policy -n openshift-adp
 oc delete namespace cirros-test
 ```
