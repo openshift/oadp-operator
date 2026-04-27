@@ -336,8 +336,19 @@ wait_for_hco_operator() {
 # ---------------------------------------------------------------------------
 # Step 6: Create the HyperConverged CR
 #
-# Uses the HCO v1.18 API structure where:
-#   - spec.featureGates is []Object {name, state}
+# NOTE on featureGates: HCO v1.18 nightly builds (e.g. v1.18.0-202604*) have a
+# CRD/webhook mismatch — the CRD schema declares featureGates as []Object{name,state}
+# but the running webhook Go struct still expects the old map/struct format.  Any
+# featureGates entry (even an empty list) causes the webhook to reject the CR with
+# "failed to parse the HyperConverged".  Omit featureGates entirely; the two gates we
+# care about (decentralizedLiveMigration, videoConfig) are beta-phase and on by default.
+# incrementalBackup (alpha) can be re-added once the nightly build stabilises.
+#
+# NOTE on KVM emulation: spec.virtualization has no developerConfiguration field.
+# useEmulation is set on the KubeVirt CR (spec.configuration.developerConfiguration)
+# via a jsonpatch annotation on the HyperConverged CR after initial creation.
+#
+# API structure for v1.18:
 #   - virtualization settings live under spec.virtualization.*
 #   - cert config lives under spec.security.certConfig
 #   - workloadSources.enableCommonBootImageImport replaces spec.enableCommonBootImageImport
@@ -345,12 +356,13 @@ wait_for_hco_operator() {
 apply_hco_cr() {
     log "Creating HyperConverged CR..."
 
-    local kvm_developer_config=""
+    # KVM emulation annotation: HCO forwards this jsonpatch to the KubeVirt CR
+    local kvm_annotation=""
     if [[ "${KVM_EMULATION}" == "true" ]]; then
-        log "  KVM_EMULATION=true: enabling software emulation"
-        kvm_developer_config="
-    developerConfiguration:
-      useEmulation: true"
+        log "  KVM_EMULATION=true: will patch KubeVirt CR for software emulation"
+        kvm_annotation='  annotations:
+    kubevirt.kubevirt.io/jsonpatch: >
+      [{"op":"add","path":"/spec/configuration/developerConfiguration","value":{"useEmulation":true}}]'
     fi
 
     ${OC_TOOL} apply -f - <<EOF
@@ -359,13 +371,8 @@ kind: HyperConverged
 metadata:
   name: kubevirt-hyperconverged
   namespace: ${HCO_NAMESPACE}
+${kvm_annotation}
 spec:
-  # Feature gates: []Object {name, state:"Enabled"|"Disabled"}
-  # Omit state to use the default (Enabled when listed)
-  featureGates:
-  - name: incrementalBackup
-  - name: decentralizedLiveMigration
-  - name: videoConfig
   security:
     certConfig:
       ca:
@@ -381,7 +388,7 @@ spec:
     workloadUpdateStrategy:
       batchEvictionInterval: 1m0s
       batchEvictionSize: 10
-      workloadUpdateMethods: []${kvm_developer_config}
+      workloadUpdateMethods: []
   workloadSources:
     enableCommonBootImageImport: true
 EOF
