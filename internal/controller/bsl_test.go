@@ -2083,6 +2083,12 @@ func newContextForTest() context.Context {
 }
 
 func TestDPAReconciler_updateBSLFromSpec(t *testing.T) {
+	originalGetBucketRegionFunc := aws.GetBucketRegionFunc
+	aws.GetBucketRegionFunc = func(bucket string) (string, error) {
+		return "", fmt.Errorf("bucket region not discoverable")
+	}
+	defer func() { aws.GetBucketRegionFunc = originalGetBucketRegionFunc }()
+
 	tests := []struct {
 		name    string
 		bsl     *velerov1.BackupStorageLocation
@@ -2174,7 +2180,7 @@ func TestDPAReconciler_updateBSLFromSpec(t *testing.T) {
 			wantErr: false,
 		},
 		{
-			name: "BSL spec config is nil, no BSL spec update",
+			name: "BSL spec config is nil, config initialized with checksumAlgorithm",
 			bsl: &velerov1.BackupStorageLocation{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "foo-1",
@@ -2232,6 +2238,9 @@ func TestDPAReconciler_updateBSLFromSpec(t *testing.T) {
 				},
 				Spec: velerov1.BackupStorageLocationSpec{
 					Provider: "aws",
+					Config: map[string]string{
+						"checksumAlgorithm": "",
+					},
 					StorageType: velerov1.StorageType{
 						ObjectStorage: &velerov1.ObjectStorageLocation{
 							Bucket: "test-aws-bucket",
