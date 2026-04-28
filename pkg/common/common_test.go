@@ -533,6 +533,67 @@ func TestUpdateBackupStorageLocation(t *testing.T) {
 			},
 		},
 		{
+			name: "AWS region auto-detection - nil config with discoverable bucket",
+			bsl:  &velerov1.BackupStorageLocation{},
+			bslSpec: velerov1.BackupStorageLocationSpec{
+				Provider: "aws",
+				StorageType: velerov1.StorageType{
+					ObjectStorage: &velerov1.ObjectStorageLocation{
+						Bucket: "openshift-velero-plugin-s3-auto-region-test-1",
+					},
+				},
+			},
+			expectedBsl: &velerov1.BackupStorageLocation{
+				ObjectMeta: metav1.ObjectMeta{
+					Labels: map[string]string{
+						RegistryDeploymentLabel: "True",
+					},
+				},
+				Spec: velerov1.BackupStorageLocationSpec{
+					Provider: "aws",
+					Config: map[string]string{
+						"region":            "us-east-1",
+						"checksumAlgorithm": "",
+					},
+					StorageType: velerov1.StorageType{
+						ObjectStorage: &velerov1.ObjectStorageLocation{
+							Bucket: "openshift-velero-plugin-s3-auto-region-test-1",
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "AWS region auto-detection - nil config with undiscoverable bucket",
+			bsl:  &velerov1.BackupStorageLocation{},
+			bslSpec: velerov1.BackupStorageLocationSpec{
+				Provider: "aws",
+				StorageType: velerov1.StorageType{
+					ObjectStorage: &velerov1.ObjectStorageLocation{
+						Bucket: "some-nonexistent-bucket",
+					},
+				},
+			},
+			expectedBsl: &velerov1.BackupStorageLocation{
+				ObjectMeta: metav1.ObjectMeta{
+					Labels: map[string]string{
+						RegistryDeploymentLabel: "True",
+					},
+				},
+				Spec: velerov1.BackupStorageLocationSpec{
+					Provider: "aws",
+					Config: map[string]string{
+						"checksumAlgorithm": "",
+					},
+					StorageType: velerov1.StorageType{
+						ObjectStorage: &velerov1.ObjectStorageLocation{
+							Bucket: "some-nonexistent-bucket",
+						},
+					},
+				},
+			},
+		},
+		{
 			name: "AWS region auto-detection - real bucket (openshift-velero-plugin-s3-auto-region-test-1)",
 			bsl:  &velerov1.BackupStorageLocation{},
 			bslSpec: velerov1.BackupStorageLocationSpec{
