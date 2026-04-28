@@ -96,7 +96,7 @@ items:
             source:
               registry:
                 pullMethod: node
-                url: docker://quay.io/kubevirt/fedora-with-test-tooling-container-disk
+                url: docker://quay.io/kubevirt/fedora-with-test-tooling-container-disk:v1.8.2
             storage:
               resources:
                 requests:
