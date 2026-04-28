@@ -347,14 +347,15 @@ func UpdateBackupStorageLocation(bsl *velerov1.BackupStorageLocation, bslSpec ve
 			// Auto-detect region for actual AWS S3 buckets (not S3-compatible storage)
 			// This only applies when:
 			// 1. No custom s3Url is configured (meaning it's real AWS S3)
-			// 2. No region is already specified in the config
-			// 3. A bucket name is provided in ObjectStorage
+			// 2. No region is already specified in the DPA spec config
+			// 3. No region was previously auto-detected (stored in existing BSL)
+			// 4. A bucket name is provided in ObjectStorage
+			// If the bucket is recreated in a different region, delete the BSL to trigger re-detection.
 			if _, hasS3Url := bslSpec.Config["s3Url"]; !hasS3Url {
 				if _, hasRegion := bslSpec.Config["region"]; !hasRegion {
-					if bslSpec.ObjectStorage != nil && bslSpec.ObjectStorage.Bucket != "" {
-						// Attempt to auto-detect the bucket's region
-						// AWS Security confirmed that GetBucketRegion works with anonymous credentials
-						// for both public and private buckets (Engagement ID: CACenGS4Mha_KeJ=e3jBSLD6rPZ2iNtfuJUv9QJViaCOt7GVNDg)
+					if existingRegion := bsl.Spec.Config["region"]; existingRegion != "" {
+						bslSpec.Config["region"] = existingRegion
+					} else if bslSpec.ObjectStorage != nil && bslSpec.ObjectStorage.Bucket != "" {
 						detectedRegion, err := aws.GetBucketRegion(bslSpec.ObjectStorage.Bucket)
 						if err != nil {
 							logger.Error(err, "Failed to auto-detect AWS bucket region", "bucket", bslSpec.ObjectStorage.Bucket)
