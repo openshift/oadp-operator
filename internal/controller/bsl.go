@@ -413,7 +413,7 @@ func (r *DataProtectionApplicationReconciler) updateBSLFromSpec(bsl *velerov1.Ba
 	}
 
 	// Update BSL spec and registry-deployment label
-	if err := common.UpdateBackupStorageLocation(bsl, bslSpec); err != nil {
+	if err := common.UpdateBackupStorageLocation(bsl, bslSpec, r.Log); err != nil {
 		return err
 	}
 
