@@ -103,10 +103,10 @@ func (r *DataProtectionApplicationReconciler) buildKubevirtDatamoverDeployment(d
 		return err
 	}
 
-	// Apply user-provided resource labels (protected labels are filtered)
+	// Apply user-provided resource labels and annotations
 	// Note: NOT applied to Spec.Selector.MatchLabels as those are immutable after creation
-	deploymentObject.Labels = applyResourceLabels(r.dpa, deploymentObject.Labels)
-	deploymentObject.Spec.Template.Labels = applyResourceLabels(r.dpa, deploymentObject.Spec.Template.Labels)
+	deploymentObject.Labels, deploymentObject.Annotations = applyResourceLabels(r.dpa, deploymentObject.Labels, deploymentObject.Annotations)
+	deploymentObject.Spec.Template.Labels, deploymentObject.Spec.Template.Annotations = applyResourceLabels(r.dpa, deploymentObject.Spec.Template.Labels, deploymentObject.Spec.Template.Annotations)
 
 	// Re-assert selector labels to ensure template labels match selector
 	// This prevents user resourceLabels from overriding selector-critical labels
@@ -119,7 +119,6 @@ func (r *DataProtectionApplicationReconciler) buildKubevirtDatamoverDeployment(d
 		}
 	}
 
-	// Apply user-provided resource annotations to both deployment and pod template
 	deploymentObject.Annotations = applyResourceAnnotations(r.dpa, deploymentObject.Annotations)
 	deploymentObject.Spec.Template.Annotations = applyResourceAnnotations(r.dpa, deploymentObject.Spec.Template.Annotations)
 

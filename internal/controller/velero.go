@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"reflect"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -51,6 +52,9 @@ const (
 	caCertMountPath       = "/etc/velero/ca-certs"
 	caBundleFileName      = "ca-bundle.pem"
 	caBundleConfigMapName = "velero-ca-bundle"
+
+	managedAnnotationKeysAnnotation = "oadp.openshift.io/managed-resource-annotation-keys"
+	managedLabelKeysAnnotation      = "oadp.openshift.io/managed-resource-label-keys"
 )
 
 var (
@@ -171,14 +175,9 @@ func (r *DataProtectionApplicationReconciler) buildVeleroDeployment(veleroDeploy
 	// get resource requirements for velero deployment
 	// ignoring err here as it is checked in validator.go
 	veleroResourceReqs, _ := r.getVeleroResourceReqs()
-	veleroAnnotations := make(map[string]string)
+	var podAnnotations map[string]string
 	if dpa.Spec.Configuration != nil && dpa.Spec.Configuration.Velero != nil && dpa.Spec.Configuration.Velero.PodConfig != nil {
-		veleroAnnotations = dpa.Spec.Configuration.Velero.PodConfig.Annotations
-	}
-
-	podAnnotations, err := common.AppendUniqueKeyTOfTMaps(veleroAnnotations, veleroDeployment.Annotations)
-	if err != nil {
-		return fmt.Errorf("error appending pod annotations: %v", err)
+		podAnnotations = dpa.Spec.Configuration.Velero.PodConfig.Annotations
 	}
 
 	uploaderType := ""
@@ -188,7 +187,7 @@ func (r *DataProtectionApplicationReconciler) buildVeleroDeployment(veleroDeploy
 
 	// Filter out resourceLabels before passing to install.Deployment
 	// This ensures matchLabels don't contain resourceLabels (which would cause immutable selector errors on reconcile)
-	labelsForInstall := filterOutResourceLabels(dpa, veleroDeployment.Labels)
+	labelsForInstall := filterOutResourceLabels(dpa, veleroDeployment.Labels, veleroDeployment.Annotations)
 
 	installDeployment := install.Deployment(veleroDeployment.Namespace,
 		install.WithResources(veleroResourceReqs),
@@ -244,7 +243,7 @@ func (r *DataProtectionApplicationReconciler) customizeVeleroDeployment(veleroDe
 	}
 	// Filter out resourceLabels from veleroDeployment.Labels before adding to matchLabels
 	// matchLabels are immutable, so we must not include resourceLabels which are user-configurable
-	labelsForMatchLabels := filterOutResourceLabels(dpa, veleroDeployment.Labels)
+	labelsForMatchLabels := filterOutResourceLabels(dpa, veleroDeployment.Labels, veleroDeployment.Annotations)
 	veleroDeployment.Spec.Selector.MatchLabels, err = common.AppendUniqueKeyTOfTMaps(veleroDeployment.Spec.Selector.MatchLabels, labelsForMatchLabels, getDpaAppLabels(dpa))
 	if err != nil {
 		return fmt.Errorf("velero deployment selector label: %v", err)
@@ -263,8 +262,8 @@ func (r *DataProtectionApplicationReconciler) customizeVeleroDeployment(veleroDe
 
 	// Apply user-provided resource labels (protected labels are filtered)
 	// Note: NOT applied to Spec.Selector.MatchLabels as those are immutable after creation
-	veleroDeployment.Labels = applyResourceLabels(dpa, veleroDeployment.Labels)
-	veleroDeployment.Spec.Template.Labels = applyResourceLabels(dpa, veleroDeployment.Spec.Template.Labels)
+	veleroDeployment.Labels, veleroDeployment.Annotations = applyResourceLabels(dpa, veleroDeployment.Labels, veleroDeployment.Annotations)
+	veleroDeployment.Spec.Template.Labels, veleroDeployment.Spec.Template.Annotations = applyResourceLabels(dpa, veleroDeployment.Spec.Template.Labels, veleroDeployment.Spec.Template.Annotations)
 
 	// Apply user-provided resource annotations to both deployment and pod template
 	veleroDeployment.Annotations = applyResourceAnnotations(dpa, veleroDeployment.Annotations)
@@ -840,33 +839,59 @@ func isProtectedLabel(key string) bool {
 	return false
 }
 
-// applyResourceLabels merges DPA resourceLabels with core labels.
-// Core labels take precedence - protected labels from user input are filtered out.
-// Returns a new map containing core labels plus non-protected user labels.
-func applyResourceLabels(dpa *oadpv1alpha1.DataProtectionApplication, coreLabels map[string]string) map[string]string {
-	if dpa == nil || dpa.Spec.ResourceLabels == nil {
-		return coreLabels
-	}
-
-	// Start with core labels
-	result := make(map[string]string)
+// applyResourceLabels applies DPA resourceLabels to a resource's labels,
+// using a tracking annotation to clean up stale keys when labels are removed from the DPA spec.
+// Returns updated labels and annotations (annotations carry the tracking key).
+func applyResourceLabels(dpa *oadpv1alpha1.DataProtectionApplication, coreLabels map[string]string, annotations map[string]string) (map[string]string, map[string]string) {
+	labelResult := make(map[string]string)
 	for k, v := range coreLabels {
-		result[k] = v
+		labelResult[k] = v
 	}
 
-	// Add user labels, skipping protected ones
-	for k, v := range dpa.Spec.ResourceLabels {
-		if !isProtectedLabel(k) {
-			result[k] = v
+	if tracked, ok := annotations[managedLabelKeysAnnotation]; ok {
+		for _, k := range strings.Split(tracked, ",") {
+			if k = strings.TrimSpace(k); k != "" && !isProtectedLabel(k) {
+				delete(labelResult, k)
+			}
+		}
+		if annotations != nil {
+			annCopy := make(map[string]string)
+			for k, v := range annotations {
+				annCopy[k] = v
+			}
+			delete(annCopy, managedLabelKeysAnnotation)
+			annotations = annCopy
 		}
 	}
 
-	return result
+	if dpa == nil || len(dpa.Spec.ResourceLabels) == 0 {
+		return labelResult, annotations
+	}
+
+	var keys []string
+	for k, v := range dpa.Spec.ResourceLabels {
+		if !isProtectedLabel(k) {
+			labelResult[k] = v
+			keys = append(keys, k)
+		}
+	}
+
+	if len(keys) > 0 {
+		annResult := make(map[string]string)
+		for k, v := range annotations {
+			annResult[k] = v
+		}
+		slices.Sort(keys)
+		annResult[managedLabelKeysAnnotation] = strings.Join(keys, ",")
+		return labelResult, annResult
+	}
+
+	return labelResult, annotations
 }
 
-// filterOutResourceLabels removes resourceLabels from the given labels map.
-// This is used to get labels that are safe for matchLabels (which are immutable).
-func filterOutResourceLabels(dpa *oadpv1alpha1.DataProtectionApplication, labels map[string]string) map[string]string {
+// filterOutResourceLabels removes resourceLabels (current and previously-tracked) from the given
+// labels map. This is used to get labels that are safe for matchLabels (which are immutable).
+func filterOutResourceLabels(dpa *oadpv1alpha1.DataProtectionApplication, labels map[string]string, annotations map[string]string) map[string]string {
 	if labels == nil {
 		return nil
 	}
@@ -876,8 +901,6 @@ func filterOutResourceLabels(dpa *oadpv1alpha1.DataProtectionApplication, labels
 		result[k] = v
 	}
 
-	// Remove resourceLabels if present, but skip protected labels
-	// Protected labels should always be preserved in matchLabels
 	if dpa != nil && dpa.Spec.ResourceLabels != nil {
 		for k := range dpa.Spec.ResourceLabels {
 			if !isProtectedLabel(k) {
@@ -886,14 +909,24 @@ func filterOutResourceLabels(dpa *oadpv1alpha1.DataProtectionApplication, labels
 		}
 	}
 
+	if tracked, ok := annotations[managedLabelKeysAnnotation]; ok {
+		for _, k := range strings.Split(tracked, ",") {
+			if k = strings.TrimSpace(k); k != "" && !isProtectedLabel(k) {
+				delete(result, k)
+			}
+		}
+	}
+
 	return result
 }
 
-// applyResourceAnnotations merges DPA resourceAnnotations with existing annotations.
-// User-provided annotations are added to existing annotations. User annotations take precedence
-// for any conflicting keys.
+// applyResourceAnnotations applies DPA resourceAnnotations to a resource's annotations,
+// using a tracking annotation to clean up stale keys when annotations are removed from the DPA spec.
 func applyResourceAnnotations(dpa *oadpv1alpha1.DataProtectionApplication, existingAnnotations map[string]string) map[string]string {
-	if dpa == nil || dpa.Spec.ResourceAnnotations == nil {
+	_, hasTracking := existingAnnotations[managedAnnotationKeysAnnotation]
+	hasNewAnnotations := dpa != nil && len(dpa.Spec.ResourceAnnotations) > 0
+
+	if !hasTracking && !hasNewAnnotations {
 		return existingAnnotations
 	}
 
@@ -902,8 +935,31 @@ func applyResourceAnnotations(dpa *oadpv1alpha1.DataProtectionApplication, exist
 		result[k] = v
 	}
 
+	if tracked, ok := result[managedAnnotationKeysAnnotation]; ok {
+		for _, k := range strings.Split(tracked, ",") {
+			if k = strings.TrimSpace(k); k != "" {
+				delete(result, k)
+			}
+		}
+		delete(result, managedAnnotationKeysAnnotation)
+	}
+
+	if !hasNewAnnotations {
+		return result
+	}
+
+	var keys []string
 	for k, v := range dpa.Spec.ResourceAnnotations {
+		if k == managedAnnotationKeysAnnotation || k == managedLabelKeysAnnotation {
+			continue
+		}
 		result[k] = v
+		keys = append(keys, k)
+	}
+
+	if len(keys) > 0 {
+		slices.Sort(keys)
+		result[managedAnnotationKeysAnnotation] = strings.Join(keys, ",")
 	}
 
 	return result
