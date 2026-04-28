@@ -743,7 +743,7 @@ func TestEnsureKubevirtDatamoverRequiredSpecs(t *testing.T) {
 			existingContainers: []corev1.Container{{
 				Name:  "manager",
 				Image: "old",
-				Args:  []string{"--leader-elect", "--old-arg"},
+				Args:  []string{"--leader-elect", "--max-incremental-backups=2", "--old-arg"},
 			}},
 			expectedEnvCount: 3,
 			expectError:      false,
@@ -865,14 +865,20 @@ func TestEnsureKubevirtDatamoverRequiredSpecs(t *testing.T) {
 				expectedArg := fmt.Sprintf("--max-incremental-backups=%d",
 					*tt.dpa.Spec.Configuration.KubevirtDatamover.MaxIncrementalBackups)
 				hasArg := false
+				maxArgCount := 0
 				for _, arg := range container.Args {
+					if strings.HasPrefix(arg, "--max-incremental-backups=") {
+						maxArgCount++
+					}
 					if arg == expectedArg {
 						hasArg = true
-						break
 					}
 				}
 				if !hasArg {
 					t.Errorf("expected arg %s in container args %v", expectedArg, container.Args)
+				}
+				if maxArgCount != 1 {
+					t.Errorf("expected exactly one --max-incremental-backups arg, got %d in %v", maxArgCount, container.Args)
 				}
 			} else {
 				for _, arg := range container.Args {
