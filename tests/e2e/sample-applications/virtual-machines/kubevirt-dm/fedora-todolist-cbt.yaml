@@ -14,19 +14,6 @@ items:
       namespace: mysql-persistent
       labels:
         component: mysql-persistent
-  - apiVersion: v1
-    kind: PersistentVolumeClaim
-    metadata:
-      name: mysql
-      namespace: mysql-persistent
-      labels:
-        app: mysql
-    spec:
-      accessModes:
-      - ReadWriteOnce
-      resources:
-        requests:
-          storage: 1Gi
   - kind: SecurityContextConstraints
     apiVersion: security.openshift.io/v1
     metadata:
@@ -103,11 +90,13 @@ items:
           kind: DataVolume
           metadata:
             name: fedora-todolist-disk
+            annotations:
+              cdi.kubevirt.io/storage.deleteAfterCompletion: "false"
           spec:
-            sourceRef:
-              kind: DataSource
-              name: fedora
-              namespace: openshift-virtualization-os-images
+            source:
+              registry:
+                pullMethod: node
+                url: docker://quay.io/kubevirt/fedora-with-test-tooling-container-disk
             storage:
               resources:
                 requests:
