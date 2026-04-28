@@ -6,6 +6,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/go-logr/logr"
 	velerov1 "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
 	"github.com/vmware-tanzu/velero/pkg/types"
 	corev1 "k8s.io/api/core/v1"
@@ -303,7 +304,7 @@ func ApplyUnsupportedServerArgsOverride(container *corev1.Container, unsupported
 // UpdateBackupStorageLocation updates the BackupStorageLocation spec and config.
 //
 //nolint:unparam // Keeping error return type for making the public function flexible for future usage
-func UpdateBackupStorageLocation(bsl *velerov1.BackupStorageLocation, bslSpec velerov1.BackupStorageLocationSpec) error {
+func UpdateBackupStorageLocation(bsl *velerov1.BackupStorageLocation, bslSpec velerov1.BackupStorageLocationSpec, logger logr.Logger) error {
 	if bsl.ObjectMeta.Labels == nil {
 		bsl.ObjectMeta.Labels = make(map[string]string)
 	}
@@ -350,13 +351,13 @@ func UpdateBackupStorageLocation(bsl *velerov1.BackupStorageLocation, bslSpec ve
 						// Attempt to auto-detect the bucket's region
 						// AWS Security confirmed that GetBucketRegion works with anonymous credentials
 						// for both public and private buckets (Engagement ID: CACenGS4Mha_KeJ=e3jBSLD6rPZ2iNtfuJUv9QJViaCOt7GVNDg)
-						if detectedRegion, err := aws.GetBucketRegion(bslSpec.ObjectStorage.Bucket); err == nil && detectedRegion != "" {
+						detectedRegion, err := aws.GetBucketRegion(bslSpec.ObjectStorage.Bucket)
+						if err != nil {
+							logger.Error(err, "Failed to auto-detect AWS bucket region", "bucket", bslSpec.ObjectStorage.Bucket)
+						} else if detectedRegion != "" {
+							logger.Info("Auto-detected AWS bucket region", "bucket", bslSpec.ObjectStorage.Bucket, "region", detectedRegion)
 							bslSpec.Config["region"] = detectedRegion
-							// Note: We successfully auto-detected the region. This is logged at a higher level
-							// to avoid importing logging dependencies here.
 						}
-						// If auto-detection fails, we continue without setting the region.
-						// The user can still manually specify it if needed.
 					}
 				}
 			}

@@ -5,6 +5,7 @@ import (
 	"reflect"
 	"testing"
 
+	"github.com/go-logr/logr"
 	velerov1 "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -580,7 +581,7 @@ func TestUpdateBackupStorageLocation(t *testing.T) {
 			bslCopy := tt.bsl.DeepCopy()
 			bslSpecCopy := tt.bslSpec.DeepCopy()
 
-			UpdateBackupStorageLocation(bslCopy, *bslSpecCopy)
+			UpdateBackupStorageLocation(bslCopy, *bslSpecCopy, logr.Discard())
 
 			if !reflect.DeepEqual(bslCopy, tt.expectedBsl) {
 				t.Errorf("UpdateBackupStorageLocation() = %v, want %v", bslCopy, tt.expectedBsl)
