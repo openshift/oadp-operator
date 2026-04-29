@@ -98,6 +98,7 @@ items:
                 pullMethod: node
                 url: docker://quay.io/kubevirt/fedora-with-test-tooling-container-disk:v1.8.2
             storage:
+              storageClassName: gp3-csi
               resources:
                 requests:
                   storage: 30Gi
@@ -128,11 +129,6 @@ items:
               rng: {}
             features:
               acpi: {}
-              smm:
-                enabled: true
-            firmware:
-              bootloader:
-                efi: {}
             machine:
               type: pc-q35-rhel9.2.0
             memory:

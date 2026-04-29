@@ -24,6 +24,7 @@ spec:
         resources:
           requests:
             storage: 150Mi
+        storageClassName: gp3-csi
         volumeMode: Block
       source:
         registry:
