@@ -378,15 +378,11 @@ func PrintNamespaceEventsAfterTime(c *kubernetes.Clientset, namespace string, st
 }
 
 func RunMustGather(artifact_dir string, clusterClient client.Client) error {
-	// Get must-gather image from environment variable, default to latest
-	// For version-specific images, set MUST_GATHER_IMAGE to a tagged version:
-	// e.g., quay.io/konveyor/oadp-must-gather:oadp-1.4
 	mustGatherImage := os.Getenv("MUST_GATHER_IMAGE")
 	if mustGatherImage == "" {
 		mustGatherImage = "quay.io/konveyor/oadp-must-gather:latest"
 	}
 
-	// Run oc adm must-gather with the specified image
 	log.Printf("Running must-gather with image: %s", mustGatherImage)
 	cmd := exec.Command("oc", "adm", "must-gather",
 		"--image="+mustGatherImage,
@@ -396,7 +392,6 @@ func RunMustGather(artifact_dir string, clusterClient client.Client) error {
 		return fmt.Errorf("must-gather command failed: %w, output: %s", err, string(output))
 	}
 
-	// Get cluster ID for path validation
 	clusterVersionList := &openshiftconfigv1.ClusterVersionList{}
 	err = clusterClient.List(context.Background(), clusterVersionList)
 	if err != nil {
@@ -406,26 +401,25 @@ func RunMustGather(artifact_dir string, clusterClient client.Client) error {
 		return errors.New("no ClusterVersion found in cluster")
 	}
 	clusterVersion := &clusterVersionList.Items[0]
-	clusterID := string(clusterVersion.Spec.ClusterID[:8])
+	clusterID := string(clusterVersion.Spec.ClusterID)
+	if len(clusterID) > 8 {
+		clusterID = clusterID[:8]
+	}
 
-	// Find the must-gather output directory
-	// oc adm must-gather creates a directory based on the image name with registry separators
-	// replaced by hyphens. E.g., quay.io/konveyor/oadp-must-gather:latest -> quay-io-konveyor-oadp-must-gather-*
-	// We need to derive the pattern from the actual image being used
-	imagePattern := strings.ReplaceAll(mustGatherImage, ":", "-")
-	imagePattern = strings.ReplaceAll(imagePattern, "/", "-")
-	imagePattern = strings.ReplaceAll(imagePattern, ".", "-")
-	pattern := filepath.Join(artifact_dir, imagePattern+"-*", "clusters", clusterID, "oadp-must-gather-summary.md")
+	pattern := filepath.Join(artifact_dir, "*", "clusters", clusterID, "oadp-must-gather-summary.md")
 	matches, err := filepath.Glob(pattern)
 	if err != nil {
 		return fmt.Errorf("error finding must-gather summary: %w", err)
 	}
 	if len(matches) == 0 {
-		return fmt.Errorf("no must-gather summary found at pattern: %s", pattern)
+		dirs, _ := filepath.Glob(filepath.Join(artifact_dir, "*"))
+		return fmt.Errorf("no must-gather summary found at pattern: %s\nDirectories in artifact_dir: %v", pattern, dirs)
 	}
 
-	// Read and validate the summary
-	mustGatherSummaryContent, err := os.ReadFile(matches[0])
+	sort.Strings(matches)
+	summaryPath := matches[len(matches)-1]
+	log.Printf("Reading must-gather summary from: %s", summaryPath)
+	mustGatherSummaryContent, err := os.ReadFile(summaryPath)
 	if err != nil {
 		return err
 	}
@@ -435,8 +429,6 @@ func RunMustGather(artifact_dir string, clusterClient client.Client) error {
 	if !strings.Contains(mustGatherSummaryText, "No errors happened or were found while running OADP must-gather") {
 		return errors.New("expected no errors in must-gather Errors section")
 	}
-
-	// TODO validate that everything was collected
 
 	return nil
 }
