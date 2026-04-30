@@ -552,6 +552,12 @@ func (r *DPAReconciler) customizeVeleroContainer(dpa *oadpv1alpha1.DataProtectio
 			Value: "true",
 		}})
 	}
+	if dpa.Spec.Configuration.Velero == nil || !dpa.Spec.Configuration.Velero.DisableCSISnapshotEarlyFrequentPolling {
+		veleroContainer.Env = common.AppendUniqueEnvVars(veleroContainer.Env, []corev1.EnvVar{{
+			Name:  "CSI_SNAPSHOT_EARLY_FREQUENT_POLLING",
+			Value: "true",
+		}})
+	}
 
 	// Enable user to specify --fs-backup-timeout (defaults to 4h)
 	// Append FS timeout option manually. Not configurable via install package, missing from podTemplateConfig struct. See: https://github.com/vmware-tanzu/velero/blob/8d57215ded1aa91cdea2cf091d60e072ce3f340f/pkg/install/deployment.go#L34-L45
