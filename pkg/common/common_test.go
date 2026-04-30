@@ -3,8 +3,11 @@ package common
 import (
 	"errors"
 	"reflect"
+	"strings"
 	"testing"
 
+	"github.com/go-logr/logr"
+	"github.com/go-logr/logr/funcr"
 	velerov1 "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -532,6 +535,67 @@ func TestUpdateBackupStorageLocation(t *testing.T) {
 			},
 		},
 		{
+			name: "AWS region auto-detection - nil config with discoverable bucket",
+			bsl:  &velerov1.BackupStorageLocation{},
+			bslSpec: velerov1.BackupStorageLocationSpec{
+				Provider: "aws",
+				StorageType: velerov1.StorageType{
+					ObjectStorage: &velerov1.ObjectStorageLocation{
+						Bucket: "openshift-velero-plugin-s3-auto-region-test-1",
+					},
+				},
+			},
+			expectedBsl: &velerov1.BackupStorageLocation{
+				ObjectMeta: metav1.ObjectMeta{
+					Labels: map[string]string{
+						RegistryDeploymentLabel: "True",
+					},
+				},
+				Spec: velerov1.BackupStorageLocationSpec{
+					Provider: "aws",
+					Config: map[string]string{
+						"region":            "us-east-1",
+						"checksumAlgorithm": "",
+					},
+					StorageType: velerov1.StorageType{
+						ObjectStorage: &velerov1.ObjectStorageLocation{
+							Bucket: "openshift-velero-plugin-s3-auto-region-test-1",
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "AWS region auto-detection - nil config with undiscoverable bucket",
+			bsl:  &velerov1.BackupStorageLocation{},
+			bslSpec: velerov1.BackupStorageLocationSpec{
+				Provider: "aws",
+				StorageType: velerov1.StorageType{
+					ObjectStorage: &velerov1.ObjectStorageLocation{
+						Bucket: "some-nonexistent-bucket",
+					},
+				},
+			},
+			expectedBsl: &velerov1.BackupStorageLocation{
+				ObjectMeta: metav1.ObjectMeta{
+					Labels: map[string]string{
+						RegistryDeploymentLabel: "True",
+					},
+				},
+				Spec: velerov1.BackupStorageLocationSpec{
+					Provider: "aws",
+					Config: map[string]string{
+						"checksumAlgorithm": "",
+					},
+					StorageType: velerov1.StorageType{
+						ObjectStorage: &velerov1.ObjectStorageLocation{
+							Bucket: "some-nonexistent-bucket",
+						},
+					},
+				},
+			},
+		},
+		{
 			name: "AWS region auto-detection - real bucket (openshift-velero-plugin-s3-auto-region-test-1)",
 			bsl:  &velerov1.BackupStorageLocation{},
 			bslSpec: velerov1.BackupStorageLocationSpec{
@@ -580,11 +644,119 @@ func TestUpdateBackupStorageLocation(t *testing.T) {
 			bslCopy := tt.bsl.DeepCopy()
 			bslSpecCopy := tt.bslSpec.DeepCopy()
 
-			UpdateBackupStorageLocation(bslCopy, *bslSpecCopy)
+			UpdateBackupStorageLocation(bslCopy, *bslSpecCopy, logr.Discard())
 
 			if !reflect.DeepEqual(bslCopy, tt.expectedBsl) {
 				t.Errorf("UpdateBackupStorageLocation() = %v, want %v", bslCopy, tt.expectedBsl)
 			}
 		})
+	}
+}
+
+func TestUpdateBackupStorageLocation_ExistingRegionSkipsAutoDetect(t *testing.T) {
+	originalGetBucketRegionFunc := aws.GetBucketRegionFunc
+	defer func() { aws.GetBucketRegionFunc = originalGetBucketRegionFunc }()
+
+	callCount := 0
+	aws.GetBucketRegionFunc = func(bucket string) (string, error) {
+		callCount++
+		return "us-east-1", nil
+	}
+
+	bsl := &velerov1.BackupStorageLocation{
+		Spec: velerov1.BackupStorageLocationSpec{
+			Provider: "aws",
+			Config: map[string]string{
+				"region":            "us-east-1",
+				"checksumAlgorithm": "",
+			},
+			StorageType: velerov1.StorageType{
+				ObjectStorage: &velerov1.ObjectStorageLocation{
+					Bucket: "my-bucket",
+				},
+			},
+		},
+	}
+
+	bslSpec := velerov1.BackupStorageLocationSpec{
+		Provider: "aws",
+		StorageType: velerov1.StorageType{
+			ObjectStorage: &velerov1.ObjectStorageLocation{
+				Bucket: "my-bucket",
+			},
+		},
+	}
+
+	UpdateBackupStorageLocation(bsl, bslSpec, logr.Discard())
+
+	if callCount != 0 {
+		t.Errorf("GetBucketRegion called %d times, expected 0 (should reuse existing BSL region)", callCount)
+	}
+	if bsl.Spec.Config["region"] != "us-east-1" {
+		t.Errorf("region = %q, want %q", bsl.Spec.Config["region"], "us-east-1")
+	}
+}
+
+func TestUpdateBackupStorageLocation_ReconcileLoopPrevention(t *testing.T) {
+	originalGetBucketRegionFunc := aws.GetBucketRegionFunc
+	defer func() { aws.GetBucketRegionFunc = originalGetBucketRegionFunc }()
+
+	callCount := 0
+	aws.GetBucketRegionFunc = func(bucket string) (string, error) {
+		callCount++
+		return "us-west-2", nil
+	}
+
+	var logMessages []string
+	logger := funcr.NewJSON(func(obj string) {
+		logMessages = append(logMessages, obj)
+	}, funcr.Options{})
+
+	bsl := &velerov1.BackupStorageLocation{}
+
+	bslSpec := velerov1.BackupStorageLocationSpec{
+		Provider: "aws",
+		StorageType: velerov1.StorageType{
+			ObjectStorage: &velerov1.ObjectStorageLocation{
+				Bucket: "my-bucket",
+			},
+		},
+	}
+
+	// First reconcile: auto-detect should fire
+	UpdateBackupStorageLocation(bsl, *bslSpec.DeepCopy(), logger)
+
+	if callCount != 1 {
+		t.Fatalf("first reconcile: GetBucketRegion called %d times, expected 1", callCount)
+	}
+	if bsl.Spec.Config["region"] != "us-west-2" {
+		t.Fatalf("first reconcile: region = %q, want %q", bsl.Spec.Config["region"], "us-west-2")
+	}
+
+	autoDetectLogs := 0
+	for _, msg := range logMessages {
+		if strings.Contains(msg, "Auto-detected AWS bucket region") {
+			autoDetectLogs++
+		}
+	}
+	if autoDetectLogs != 1 {
+		t.Fatalf("first reconcile: expected 1 auto-detect log, got %d", autoDetectLogs)
+	}
+
+	// Second reconcile: BSL now has region, DPA spec still has none
+	logMessages = nil
+	UpdateBackupStorageLocation(bsl, *bslSpec.DeepCopy(), logger)
+
+	if callCount != 1 {
+		t.Errorf("second reconcile: GetBucketRegion called %d total times, expected still 1", callCount)
+	}
+	if bsl.Spec.Config["region"] != "us-west-2" {
+		t.Errorf("second reconcile: region = %q, want %q", bsl.Spec.Config["region"], "us-west-2")
+	}
+
+	for _, msg := range logMessages {
+		if strings.Contains(msg, "Auto-detected AWS bucket region") {
+			t.Errorf("second reconcile: unexpected auto-detect log emitted: %s", msg)
+		}
 	}
 }
