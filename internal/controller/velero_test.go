@@ -98,6 +98,7 @@ var (
 		},
 		{Name: common.LDLibraryPathEnvKey, Value: "/plugins"},
 		{Name: "OPENSHIFT_IMAGESTREAM_BACKUP", Value: "true"},
+		{Name: "CSI_SNAPSHOT_EARLY_FREQUENT_POLLING", Value: "true"},
 	}
 
 	baseVolumeMounts = []corev1.VolumeMount{
@@ -2588,6 +2589,55 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 					},
 					{Name: common.LDLibraryPathEnvKey, Value: "/plugins"},
 					// Note: OPENSHIFT_IMAGESTREAM_BACKUP is NOT included when BackupImages is false
+					{Name: "CSI_SNAPSHOT_EARLY_FREQUENT_POLLING", Value: "true"},
+				},
+			}),
+		},
+		{
+			name: "valid DPA CR with DisableCSISnapshotEarlyFrequentPolling true, no CSI_SNAPSHOT_EARLY_FREQUENT_POLLING",
+			dpa: createTestDpaWith(
+				nil,
+				oadpv1alpha1.DataProtectionApplicationSpec{
+					Configuration: &oadpv1alpha1.ApplicationConfig{
+						Velero: &oadpv1alpha1.VeleroConfig{
+							DisableCSISnapshotEarlyFrequentPolling: true,
+						},
+					},
+					BackupImages: ptr.To(false),
+					BackupLocations: []oadpv1alpha1.BackupLocation{
+						{
+							Velero: &velerov1.BackupStorageLocationSpec{
+								Provider: "aws",
+								StorageType: velerov1.StorageType{
+									ObjectStorage: &velerov1.ObjectStorageLocation{
+										CACert: []byte("test-ca-cert"),
+									},
+								},
+							},
+						},
+					},
+				},
+			),
+			veleroDeployment: testVeleroDeployment.DeepCopy(),
+			wantVeleroDeployment: createTestBuiltVeleroDeployment(TestBuiltVeleroDeploymentOptions{
+				args: []string{
+					defaultFileSystemBackupTimeout,
+					defaultRestoreResourcePriorities,
+					defaultDisableInformerCache,
+				},
+				// When BackupImages is false, OPENSHIFT_IMAGESTREAM_BACKUP env var is not set
+				env: []corev1.EnvVar{
+					{Name: common.VeleroScratchDirEnvKey, Value: "/scratch"},
+					{
+						Name: common.VeleroNamespaceEnvKey,
+						ValueFrom: &corev1.EnvVarSource{
+							FieldRef: &corev1.ObjectFieldSelector{
+								APIVersion: "v1",
+								FieldPath:  "metadata.namespace",
+							},
+						},
+					},
+					{Name: common.LDLibraryPathEnvKey, Value: "/plugins"},
 				},
 			}),
 		},
