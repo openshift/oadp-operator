@@ -191,6 +191,12 @@ else
 fi
 
 echo ""
+echo "bounce the oadp-kubevirt-datamover controller"
+oc delete deployment.apps/oadp-kubevirt-datamover-controller-manager
+echo "bounce the virt controlers in openshift-cnv"
+oc delete deployment virt-controller -n openshift-cnv
+
+
 ok "=== Cleanup complete ==="
 echo ""
 info "Remaining kubevirt-dm resources:"
