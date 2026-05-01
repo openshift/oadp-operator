@@ -1221,6 +1221,12 @@ spec:
                             Use pod volume file system backup by default for volumes.
                             Matches backup.spec.defaultVolumesToFsBackup in Velero API.
                           type: boolean
+                        disableCSISnapshotEarlyFrequentPolling:
+                          description: |-
+                            set DisableCSISnapshotEarlyFrequentPolling to true to omit
+                            the 1-second polling interval for the first 10 seconds while waiting
+                            for the snaphandle
+                          type: boolean
                         disableFsBackup:
                           default: false
                           description: |-
