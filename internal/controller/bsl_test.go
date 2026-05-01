@@ -1460,6 +1460,131 @@ func TestDPAReconciler_ValidateBackupStorageLocations(t *testing.T) {
 			wantErr: false,
 		},
 		{
+			name: "BSL with s3Url and no region expect to fail",
+			dpa: &oadpv1alpha1.DataProtectionApplication{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "foo",
+					Namespace: "test-ns",
+				},
+				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
+					Configuration: &oadpv1alpha1.ApplicationConfig{
+						Velero: &oadpv1alpha1.VeleroConfig{},
+					},
+					BackupImages: ptr.To(false),
+					BackupLocations: []oadpv1alpha1.BackupLocation{
+						{
+							Velero: &velerov1.BackupStorageLocationSpec{
+								Provider: "aws",
+								Config: map[string]string{
+									S3URL: "https://s3.us-south.cloud-object-storage.appdomain.cloud",
+								},
+								StorageType: velerov1.StorageType{
+									ObjectStorage: &velerov1.ObjectStorageLocation{
+										Bucket: DiscoverableBucket,
+										Prefix: "prefix",
+									},
+								},
+								Default: true,
+							},
+						},
+					},
+				},
+			},
+			secret: &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "cloud-credentials",
+					Namespace: "test-ns",
+				},
+				Data: map[string][]byte{"cloud": []byte("[default]\naws_access_key_id=AKIAIOSFODNN7EXAMPLE\naws_secret_access_key=wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY")},
+			},
+			want:    false,
+			wantErr: true,
+		},
+		{
+			name: "BSL with s3Url and region set expect to succeed",
+			dpa: &oadpv1alpha1.DataProtectionApplication{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "foo",
+					Namespace: "test-ns",
+				},
+				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
+					Configuration: &oadpv1alpha1.ApplicationConfig{
+						Velero: &oadpv1alpha1.VeleroConfig{},
+					},
+					BackupImages: ptr.To(false),
+					BackupLocations: []oadpv1alpha1.BackupLocation{
+						{
+							Velero: &velerov1.BackupStorageLocationSpec{
+								Provider: "aws",
+								Config: map[string]string{
+									S3URL:  "https://s3.us-south.cloud-object-storage.appdomain.cloud",
+									Region: "us-south",
+								},
+								StorageType: velerov1.StorageType{
+									ObjectStorage: &velerov1.ObjectStorageLocation{
+										Bucket: "ibm-cos-bucket",
+										Prefix: "prefix",
+									},
+								},
+								Default: true,
+							},
+						},
+					},
+				},
+			},
+			secret: &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "cloud-credentials",
+					Namespace: "test-ns",
+				},
+				Data: map[string][]byte{"cloud": []byte("[default]\naws_access_key_id=AKIAIOSFODNN7EXAMPLE\naws_secret_access_key=wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY")},
+			},
+			want:    true,
+			wantErr: false,
+		},
+		{
+			name: "BSL with s3Url and s3ForcePathStyle but no region expect to fail",
+			dpa: &oadpv1alpha1.DataProtectionApplication{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "foo",
+					Namespace: "test-ns",
+				},
+				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
+					Configuration: &oadpv1alpha1.ApplicationConfig{
+						Velero: &oadpv1alpha1.VeleroConfig{},
+					},
+					BackupImages: ptr.To(false),
+					BackupLocations: []oadpv1alpha1.BackupLocation{
+						{
+							Velero: &velerov1.BackupStorageLocationSpec{
+								Provider: "aws",
+								Config: map[string]string{
+									S3URL:            "https://s3.us-south.cloud-object-storage.appdomain.cloud",
+									S3ForcePathStyle: "true",
+								},
+								StorageType: velerov1.StorageType{
+									ObjectStorage: &velerov1.ObjectStorageLocation{
+										Bucket: "ibm-cos-bucket",
+										Prefix: "prefix",
+									},
+								},
+								Default: true,
+							},
+						},
+					},
+				},
+			},
+			secret: &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "cloud-credentials",
+					Namespace: "test-ns",
+				},
+				Data: map[string][]byte{"cloud": []byte("[default]\naws_access_key_id=AKIAIOSFODNN7EXAMPLE\naws_secret_access_key=wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY")},
+			},
+			want:    false,
+			wantErr: true,
+		},
+		{
 			name: "CloudStorage with different providers - AWS",
 			dpa: &oadpv1alpha1.DataProtectionApplication{
 				ObjectMeta: metav1.ObjectMeta{
@@ -1958,6 +2083,12 @@ func newContextForTest() context.Context {
 }
 
 func TestDPAReconciler_updateBSLFromSpec(t *testing.T) {
+	originalGetBucketRegionFunc := aws.GetBucketRegionFunc
+	aws.GetBucketRegionFunc = func(bucket string) (string, error) {
+		return "", fmt.Errorf("bucket region not discoverable")
+	}
+	defer func() { aws.GetBucketRegionFunc = originalGetBucketRegionFunc }()
+
 	tests := []struct {
 		name    string
 		bsl     *velerov1.BackupStorageLocation
@@ -2049,7 +2180,7 @@ func TestDPAReconciler_updateBSLFromSpec(t *testing.T) {
 			wantErr: false,
 		},
 		{
-			name: "BSL spec config is nil, no BSL spec update",
+			name: "BSL spec config is nil, config initialized with checksumAlgorithm",
 			bsl: &velerov1.BackupStorageLocation{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "foo-1",
@@ -2107,6 +2238,9 @@ func TestDPAReconciler_updateBSLFromSpec(t *testing.T) {
 				},
 				Spec: velerov1.BackupStorageLocationSpec{
 					Provider: "aws",
+					Config: map[string]string{
+						"checksumAlgorithm": "",
+					},
 					StorageType: velerov1.StorageType{
 						ObjectStorage: &velerov1.ObjectStorageLocation{
 							Bucket: "test-aws-bucket",

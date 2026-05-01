@@ -6,6 +6,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/go-logr/logr"
 	velerov1 "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
 	"github.com/vmware-tanzu/velero/pkg/types"
 	corev1 "k8s.io/api/core/v1"
@@ -303,14 +304,18 @@ func ApplyUnsupportedServerArgsOverride(container *corev1.Container, unsupported
 // UpdateBackupStorageLocation updates the BackupStorageLocation spec and config.
 //
 //nolint:unparam // Keeping error return type for making the public function flexible for future usage
-func UpdateBackupStorageLocation(bsl *velerov1.BackupStorageLocation, bslSpec velerov1.BackupStorageLocationSpec) error {
+func UpdateBackupStorageLocation(bsl *velerov1.BackupStorageLocation, bslSpec velerov1.BackupStorageLocationSpec, logger logr.Logger) error {
 	if bsl.ObjectMeta.Labels == nil {
 		bsl.ObjectMeta.Labels = make(map[string]string)
 	}
 
 	bsl.ObjectMeta.Labels[RegistryDeploymentLabel] = "True"
 
-	if bslSpec.Config != nil {
+	if bslSpec.Config == nil {
+		bslSpec.Config = make(map[string]string)
+	}
+
+	{
 		// While using Service Principal as Azure credentials, `storageAccountKeyEnvVar` value is not required to be set.
 		// However, the registry deployment fails without a valid storage account key.
 		// This logic prevents the registry pods from being deployed if Azure SP is used as an auth mechanism.
@@ -342,21 +347,22 @@ func UpdateBackupStorageLocation(bsl *velerov1.BackupStorageLocation, bslSpec ve
 			// Auto-detect region for actual AWS S3 buckets (not S3-compatible storage)
 			// This only applies when:
 			// 1. No custom s3Url is configured (meaning it's real AWS S3)
-			// 2. No region is already specified in the config
-			// 3. A bucket name is provided in ObjectStorage
+			// 2. No region is already specified in the DPA spec config
+			// 3. No region was previously auto-detected (stored in existing BSL)
+			// 4. A bucket name is provided in ObjectStorage
+			// If the bucket is recreated in a different region, delete the BSL to trigger re-detection.
 			if _, hasS3Url := bslSpec.Config["s3Url"]; !hasS3Url {
 				if _, hasRegion := bslSpec.Config["region"]; !hasRegion {
-					if bslSpec.ObjectStorage != nil && bslSpec.ObjectStorage.Bucket != "" {
-						// Attempt to auto-detect the bucket's region
-						// AWS Security confirmed that GetBucketRegion works with anonymous credentials
-						// for both public and private buckets (Engagement ID: CACenGS4Mha_KeJ=e3jBSLD6rPZ2iNtfuJUv9QJViaCOt7GVNDg)
-						if detectedRegion, err := aws.GetBucketRegion(bslSpec.ObjectStorage.Bucket); err == nil && detectedRegion != "" {
+					if existingRegion := bsl.Spec.Config["region"]; existingRegion != "" {
+						bslSpec.Config["region"] = existingRegion
+					} else if bslSpec.ObjectStorage != nil && bslSpec.ObjectStorage.Bucket != "" {
+						detectedRegion, err := aws.GetBucketRegion(bslSpec.ObjectStorage.Bucket)
+						if err != nil {
+							logger.Error(err, "Failed to auto-detect AWS bucket region", "bucket", bslSpec.ObjectStorage.Bucket)
+						} else if detectedRegion != "" {
+							logger.Info("Auto-detected AWS bucket region", "bucket", bslSpec.ObjectStorage.Bucket, "region", detectedRegion)
 							bslSpec.Config["region"] = detectedRegion
-							// Note: We successfully auto-detected the region. This is logged at a higher level
-							// to avoid importing logging dependencies here.
 						}
-						// If auto-detection fails, we continue without setting the region.
-						// The user can still manually specify it if needed.
 					}
 				}
 			}
