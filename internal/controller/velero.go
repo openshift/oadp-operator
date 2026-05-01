@@ -588,6 +588,12 @@ func (r *DataProtectionApplicationReconciler) customizeVeleroContainer(veleroCon
 			Value: "true",
 		}})
 	}
+	if dpa.Spec.Configuration.Velero == nil || !dpa.Spec.Configuration.Velero.DisableCSISnapshotEarlyFrequentPolling {
+		veleroContainer.Env = common.AppendUniqueEnvVars(veleroContainer.Env, []corev1.EnvVar{{
+			Name:  "CSI_SNAPSHOT_EARLY_FREQUENT_POLLING",
+			Value: "true",
+		}})
+	}
 
 	// Add Azure workload identity environment variables if using Azure STS
 	azureClientID := os.Getenv(stsflow.ClientIDEnvKey)
