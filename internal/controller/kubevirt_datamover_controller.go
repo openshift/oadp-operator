@@ -250,7 +250,7 @@ func ensureKubevirtDatamoverRequiredSpecs(
 		ImagePullPolicy: imagePullPolicy,
 		Command:         []string{"/manager"},
 		Args:            args,
-		Env: envVars,
+		Env:             envVars,
 		Ports: []corev1.ContainerPort{
 			{
 				Name:          "https",
