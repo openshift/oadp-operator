@@ -228,6 +228,20 @@ func ensureKubevirtDatamoverRequiredSpecs(
 		}
 	}
 
+	// Build container args
+	args := []string{
+		"--leader-elect",
+		"--health-probe-bind-address=:8081",
+		"--metrics-bind-address=:8443",
+		"--metrics-secure=true",
+	}
+	if dpa.Spec.Configuration != nil && dpa.Spec.Configuration.KubevirtDatamover != nil {
+		if dpa.Spec.Configuration.KubevirtDatamover.MaxIncrementalBackups != nil {
+			args = append(args, fmt.Sprintf("--max-incremental-backups=%d",
+				*dpa.Spec.Configuration.KubevirtDatamover.MaxIncrementalBackups))
+		}
+	}
+
 	// Build container spec
 	kubevirtDatamoverContainerFound := false
 	containerSpec := corev1.Container{
@@ -235,13 +249,8 @@ func ensureKubevirtDatamoverRequiredSpecs(
 		Image:           image,
 		ImagePullPolicy: imagePullPolicy,
 		Command:         []string{"/manager"},
-		Args: []string{
-			"--leader-elect",
-			"--health-probe-bind-address=:8081",
-			"--metrics-bind-address=:8443",
-			"--metrics-secure=true",
-		},
-		Env: envVars,
+		Args:            args,
+		Env:             envVars,
 		Ports: []corev1.ContainerPort{
 			{
 				Name:          "https",
@@ -288,11 +297,12 @@ func ensureKubevirtDatamoverRequiredSpecs(
 	} else {
 		for index, container := range deploymentObject.Spec.Template.Spec.Containers {
 			if container.Name == "manager" {
-				// Update only dynamic fields that can change based on DPA configuration
-				// Static fields (Command, Args, Ports, SecurityContext, Probes) are left as-is
+				// Update dynamic fields that can change based on DPA configuration
+				// Static fields (Command, Ports, SecurityContext, Probes) are left as-is
 				kubevirtDatamoverContainer := &deploymentObject.Spec.Template.Spec.Containers[index]
 				kubevirtDatamoverContainer.Image = image
 				kubevirtDatamoverContainer.ImagePullPolicy = imagePullPolicy
+				kubevirtDatamoverContainer.Args = args
 				kubevirtDatamoverContainer.Env = envVars
 				kubevirtDatamoverContainer.Resources = resources
 				kubevirtDatamoverContainer.TerminationMessagePolicy = corev1.TerminationMessageFallbackToLogsOnError

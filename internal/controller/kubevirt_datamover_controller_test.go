@@ -2,6 +2,7 @@ package controller
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"strings"
 	"testing"
@@ -684,6 +685,70 @@ func TestEnsureKubevirtDatamoverRequiredSpecs(t *testing.T) {
 			expectError:        false,
 		},
 		{
+			name: "Should include --max-incremental-backups arg when configured",
+			dpa: &oadpv1alpha1.DataProtectionApplication{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:            "test-dpa",
+					Namespace:       "test-namespace",
+					ResourceVersion: "12345",
+				},
+				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
+					Configuration: &oadpv1alpha1.ApplicationConfig{
+						Velero: &oadpv1alpha1.VeleroConfig{},
+						KubevirtDatamover: &oadpv1alpha1.KubevirtDatamoverConfig{
+							MaxIncrementalBackups: ptr.To(int32(5)),
+						},
+					},
+				},
+			},
+			existingContainers: nil,
+			expectedEnvCount:   3,
+			expectError:        false,
+		},
+		{
+			name: "Should not include --max-incremental-backups arg when not configured",
+			dpa: &oadpv1alpha1.DataProtectionApplication{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:            "test-dpa",
+					Namespace:       "test-namespace",
+					ResourceVersion: "12345",
+				},
+				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
+					Configuration: &oadpv1alpha1.ApplicationConfig{
+						Velero: &oadpv1alpha1.VeleroConfig{},
+					},
+				},
+			},
+			existingContainers: nil,
+			expectedEnvCount:   3,
+			expectError:        false,
+		},
+		{
+			name: "Should update --max-incremental-backups arg on existing container",
+			dpa: &oadpv1alpha1.DataProtectionApplication{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:            "test-dpa",
+					Namespace:       "test-namespace",
+					ResourceVersion: "12345",
+				},
+				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
+					Configuration: &oadpv1alpha1.ApplicationConfig{
+						Velero: &oadpv1alpha1.VeleroConfig{},
+						KubevirtDatamover: &oadpv1alpha1.KubevirtDatamoverConfig{
+							MaxIncrementalBackups: ptr.To(int32(10)),
+						},
+					},
+				},
+			},
+			existingContainers: []corev1.Container{{
+				Name:  "manager",
+				Image: "old",
+				Args:  []string{"--leader-elect", "--max-incremental-backups=2", "--old-arg"},
+			}},
+			expectedEnvCount: 3,
+			expectError:      false,
+		},
+		{
 			name: "Should error when manager container not found",
 			dpa: &oadpv1alpha1.DataProtectionApplication{
 				ObjectMeta: metav1.ObjectMeta{
@@ -792,6 +857,35 @@ func TestEnsureKubevirtDatamoverRequiredSpecs(t *testing.T) {
 			}
 			if !hasDatamoverImage {
 				t.Error("DATAMOVER_IMAGE env var not found")
+			}
+
+			// Verify --max-incremental-backups arg
+			if tt.dpa.Spec.Configuration != nil && tt.dpa.Spec.Configuration.KubevirtDatamover != nil &&
+				tt.dpa.Spec.Configuration.KubevirtDatamover.MaxIncrementalBackups != nil {
+				expectedArg := fmt.Sprintf("--max-incremental-backups=%d",
+					*tt.dpa.Spec.Configuration.KubevirtDatamover.MaxIncrementalBackups)
+				hasArg := false
+				maxArgCount := 0
+				for _, arg := range container.Args {
+					if strings.HasPrefix(arg, "--max-incremental-backups=") {
+						maxArgCount++
+					}
+					if arg == expectedArg {
+						hasArg = true
+					}
+				}
+				if !hasArg {
+					t.Errorf("expected arg %s in container args %v", expectedArg, container.Args)
+				}
+				if maxArgCount != 1 {
+					t.Errorf("expected exactly one --max-incremental-backups arg, got %d in %v", maxArgCount, container.Args)
+				}
+			} else {
+				for _, arg := range container.Args {
+					if strings.Contains(arg, "--max-incremental-backups") {
+						t.Errorf("unexpected --max-incremental-backups arg found: %s", arg)
+					}
+				}
 			}
 
 			// Verify security contexts (only checked for new deployments)
