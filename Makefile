@@ -310,7 +310,7 @@ check-envtest-arch:
 	fi
 
 $(ENVTEST): check-envtest-arch ## Download envtest-setup locally if necessary.
-	$(call go-install-tool,$(ENVTEST),sigs.k8s.io/controller-runtime/tools/setup-envtest@latest)
+	$(call go-install-tool,$(ENVTEST),sigs.k8s.io/controller-runtime/tools/setup-envtest@v0.0.0-20250308055145-5fe7bb3edc86)
 
 .PHONY: envtest
 envtest: $(ENVTEST)
