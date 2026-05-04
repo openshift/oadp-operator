@@ -936,6 +936,33 @@ func TestEnsureKubevirtDatamoverRequiredSpecs(t *testing.T) {
 				}
 			}
 
+			// Verify /tmp emptyDir volume is present on pod spec
+			volumes := deployment.Spec.Template.Spec.Volumes
+			hasTmpVolume := false
+			for _, v := range volumes {
+				if v.Name == "tmp" && v.VolumeSource.EmptyDir != nil {
+					hasTmpVolume = true
+					break
+				}
+			}
+			if !hasTmpVolume {
+				t.Error("expected /tmp emptyDir volume on pod spec")
+			}
+
+			// Verify /tmp volume mount on container (only for new containers)
+			if len(tt.existingContainers) == 0 {
+				hasTmpMount := false
+				for _, vm := range container.VolumeMounts {
+					if vm.Name == "tmp" && vm.MountPath == "/tmp" {
+						hasTmpMount = true
+						break
+					}
+				}
+				if !hasTmpMount {
+					t.Error("expected /tmp volumeMount on container")
+				}
+			}
+
 			// Verify template labels include control-plane
 			if deployment.Spec.Template.Labels == nil {
 				t.Error("expected template labels to be set")
@@ -1174,6 +1201,29 @@ func TestBuildKubevirtDatamoverDeployment(t *testing.T) {
 
 			if container.ReadinessProbe == nil {
 				t.Error("expected readiness probe to be set")
+			}
+
+			// Verify /tmp emptyDir volume and mount
+			hasTmpVolume := false
+			for _, v := range deployment.Spec.Template.Spec.Volumes {
+				if v.Name == "tmp" && v.VolumeSource.EmptyDir != nil {
+					hasTmpVolume = true
+					break
+				}
+			}
+			if !hasTmpVolume {
+				t.Error("expected /tmp emptyDir volume on pod spec")
+			}
+
+			hasTmpMount := false
+			for _, vm := range container.VolumeMounts {
+				if vm.Name == "tmp" && vm.MountPath == "/tmp" {
+					hasTmpMount = true
+					break
+				}
+			}
+			if !hasTmpMount {
+				t.Error("expected /tmp volumeMount on container")
 			}
 
 			// Verify labels
