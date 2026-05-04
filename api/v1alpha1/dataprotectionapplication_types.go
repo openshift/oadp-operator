@@ -494,6 +494,12 @@ type NodeAgentConfigMapSettings struct {
 	// If storageClass is omitted, the cluster's default StorageClass is used.
 	// +optional
 	CachePVCConfig *types.CachePVC `json:"cachePVC,omitempty"`
+	// PodAnnotations are annotations to be added to pods created by node-agent, i.e., data mover pods.
+	// +optional
+	PodAnnotations map[string]string `json:"podAnnotations,omitempty"`
+	// PodLabels are labels to be added to pods created by node-agent, i.e., data mover pods.
+	// +optional
+	PodLabels map[string]string `json:"podLabels,omitempty"`
 }
 
 // DeepCopyInto is a manual deepcopy function, copying the receiver, writing into out. in must be non-nil.
@@ -548,6 +554,20 @@ func (in *NodeAgentConfigMapSettings) DeepCopyInto(out *NodeAgentConfigMapSettin
 		in, out := &in.CachePVCConfig, &out.CachePVCConfig
 		*out = new(types.CachePVC)
 		**out = **in
+	}
+	if in.PodAnnotations != nil {
+		in, out := &in.PodAnnotations, &out.PodAnnotations
+		*out = make(map[string]string, len(*in))
+		for key, val := range *in {
+			(*out)[key] = val
+		}
+	}
+	if in.PodLabels != nil {
+		in, out := &in.PodLabels, &out.PodLabels
+		*out = make(map[string]string, len(*in))
+		for key, val := range *in {
+			(*out)[key] = val
+		}
 	}
 }
 
@@ -617,6 +637,16 @@ type RepositoryMaintenanceConfig struct {
 	// PodResources is the config for the CPU and memory resources setting.
 	// +optional
 	PodResources *kube.PodResources `json:"podResources,omitempty"`
+
+	// PodAnnotations are annotations to be added to maintenance job pods.
+	// This is only read from the global configuration, not per-repository.
+	// +optional
+	PodAnnotations map[string]string `json:"podAnnotations,omitempty"`
+
+	// PodLabels are labels to be added to maintenance job pods.
+	// This is only read from the global configuration, not per-repository.
+	// +optional
+	PodLabels map[string]string `json:"podLabels,omitempty"`
 }
 
 // KubevirtDatamoverConfig configures the kubevirt-datamover-controller.
