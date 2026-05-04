@@ -228,6 +228,19 @@ spec:
                 configuration:
                   description: configuration is used to configure the data protection application's server config
                   properties:
+                    kubevirtDatamover:
+                      description: KubevirtDatamover configures the kubevirt-datamover-controller for VM backup/restore.
+                      properties:
+                        maxIncrementalBackups:
+                          description: |-
+                            MaxIncrementalBackups is the maximum number of incremental backups per VM
+                            before forcing a full backup. 0 means unlimited (default behavior).
+                            Can be overridden per-VM via the kubevirt-datamover.io/max-incremental-backups
+                            annotation on the VirtualMachine CR.
+                          format: int32
+                          minimum: 0
+                          type: integer
+                      type: object
                     nodeAgent:
                       description: NodeAgent is needed to allow selection between kopia or restic
                       properties:

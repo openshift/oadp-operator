@@ -619,6 +619,17 @@ type RepositoryMaintenanceConfig struct {
 	PodResources *kube.PodResources `json:"podResources,omitempty"`
 }
 
+// KubevirtDatamoverConfig configures the kubevirt-datamover-controller.
+type KubevirtDatamoverConfig struct {
+	// MaxIncrementalBackups is the maximum number of incremental backups per VM
+	// before forcing a full backup. 0 means unlimited (default behavior).
+	// Can be overridden per-VM via the kubevirt-datamover.io/max-incremental-backups
+	// annotation on the VirtualMachine CR.
+	// +kubebuilder:validation:Minimum=0
+	// +optional
+	MaxIncrementalBackups *int32 `json:"maxIncrementalBackups,omitempty"`
+}
+
 // ApplicationConfig defines the configuration for the Data Protection Application
 type ApplicationConfig struct {
 	Velero *VeleroConfig `json:"velero,omitempty"`
@@ -630,6 +641,10 @@ type ApplicationConfig struct {
 	// NodeAgent is needed to allow selection between kopia or restic
 	// +optional
 	NodeAgent *NodeAgentConfig `json:"nodeAgent,omitempty"`
+
+	// KubevirtDatamover configures the kubevirt-datamover-controller for VM backup/restore.
+	// +optional
+	KubevirtDatamover *KubevirtDatamoverConfig `json:"kubevirtDatamover,omitempty"`
 
 	// RepositoryMaintenance maps a BackupRepository identifier to its configuration.
 	// Keys can be:
