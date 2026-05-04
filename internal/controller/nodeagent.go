@@ -123,6 +123,8 @@ func isNodeAgentCMRequired(config oadpv1alpha1.NodeAgentConfigMapSettings, disab
 		config.PodResources != nil ||
 		config.LoadAffinityConfig != nil ||
 		config.CachePVCConfig != nil ||
+		len(config.PodAnnotations) > 0 ||
+		len(config.PodLabels) > 0 ||
 		disableFsBackup == nil ||
 		!*disableFsBackup
 }
