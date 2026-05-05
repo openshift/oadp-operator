@@ -2049,6 +2049,53 @@ func TestDPAReconciler_updateNodeAgentCM(t *testing.T) {
 			}),
 		},
 		{
+			name: "Given DPA CR instance, appropriate NodeAgent config cm is created with PodLabels and PodAnnotations",
+			nodeAgentConfigMap: &corev1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      common.NodeAgentConfigMapPrefix + testCmName,
+					Namespace: testCmNs,
+				},
+			},
+			dpa: &oadpv1alpha1.DataProtectionApplication{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      testCmName,
+					Namespace: testCmNs,
+				},
+				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
+					Configuration: &oadpv1alpha1.ApplicationConfig{
+						Velero: &oadpv1alpha1.VeleroConfig{
+							DefaultPlugins: []oadpv1alpha1.DefaultPlugin{
+								oadpv1alpha1.DefaultPluginAWS,
+							},
+						},
+						NodeAgent: &oadpv1alpha1.NodeAgentConfig{
+							NodeAgentCommonFields: oadpv1alpha1.NodeAgentCommonFields{},
+							NodeAgentConfigMapSettings: oadpv1alpha1.NodeAgentConfigMapSettings{
+								PodLabels: map[string]string{
+									"network-access": "allowed",
+								},
+								PodAnnotations: map[string]string{
+									"sidecar.istio.io/inject": "false",
+								},
+							},
+						},
+					},
+				},
+			},
+			wantErr: false,
+			wantNodeAgentConfigMap: createTestBuiltNodeAgentCM(map[string]string{
+				"node-agent-config": `{
+					"podAnnotations": {
+						"sidecar.istio.io/inject": "false"
+					},
+					"podLabels": {
+						"network-access": "allowed"
+					},
+					"privilegedFsBackup": true
+				}`,
+			}),
+		},
+		{
 			name: "Given DPA CR instance, appropriate NodeAgent config cm is created with LoadAffinity including StorageClass",
 			nodeAgentConfigMap: &corev1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
@@ -2195,6 +2242,18 @@ func Test_isNodeAgentCMRequired_CachePVCConfig(t *testing.T) {
 			config:          oadpv1alpha1.NodeAgentConfigMapSettings{},
 			disableFsBackup: ptr.To(true),
 			want:            false,
+		},
+		{
+			name:            "PodLabels set, fs-backup disabled, CM should be required",
+			config:          oadpv1alpha1.NodeAgentConfigMapSettings{PodLabels: map[string]string{"network-access": "allowed"}},
+			disableFsBackup: ptr.To(true),
+			want:            true,
+		},
+		{
+			name:            "PodAnnotations set, fs-backup disabled, CM should be required",
+			config:          oadpv1alpha1.NodeAgentConfigMapSettings{PodAnnotations: map[string]string{"sidecar.istio.io/inject": "false"}},
+			disableFsBackup: ptr.To(true),
+			want:            true,
 		},
 		{
 			name:            "CachePVCConfig set, fs-backup enabled, CM should be required",

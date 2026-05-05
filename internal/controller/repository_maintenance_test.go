@@ -144,6 +144,58 @@ func TestDataProtectionApplicationReconciler_updateRepositoryMaintenanceCM(t *te
 				},
 			},
 		},
+		{
+			name: "repository maintenance cm is updated with podLabels and podAnnotations",
+			cm: &corev1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "repository-maintenance-test-dpa",
+					Namespace: "test-ns",
+				},
+			},
+			dpa: &oadpv1alpha1.DataProtectionApplication{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-dpa",
+					Namespace: "test-ns",
+				},
+				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
+					BackupImages: ptr.To(false),
+					Configuration: &oadpv1alpha1.ApplicationConfig{
+						Velero: &oadpv1alpha1.VeleroConfig{
+							NoDefaultBackupLocation: true,
+						},
+						RepositoryMaintenance: map[string]oadpv1alpha1.RepositoryMaintenanceConfig{
+							"global": {
+								PodLabels: map[string]string{
+									"network-access": "allowed",
+								},
+								PodAnnotations: map[string]string{
+									"sidecar.istio.io/inject": "false",
+								},
+								PodResources: &kube.PodResources{
+									CPURequest:    "100m",
+									MemoryRequest: "128Mi",
+								},
+							},
+						},
+					},
+				},
+			},
+			wantCM: &corev1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "repository-maintenance-test-dpa",
+					Namespace: "test-ns",
+					Labels: map[string]string{
+						"app.kubernetes.io/instance":   "test-dpa",
+						"app.kubernetes.io/managed-by": "oadp-operator",
+						"app.kubernetes.io/component":  "repository-maintenance-config",
+						"openshift.io/oadp":            "True",
+					},
+				},
+				Data: map[string]string{
+					"global": `{"podResources":{"cpuRequest":"100m","memoryRequest":"128Mi"},"podAnnotations":{"sidecar.istio.io/inject":"false"},"podLabels":{"network-access":"allowed"}}`,
+				},
+			},
+		},
 	}
 
 	for _, tt := range tests {
