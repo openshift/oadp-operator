@@ -93,12 +93,11 @@ items:
             annotations:
               cdi.kubevirt.io/storage.deleteAfterCompletion: "false"
           spec:
-            source:
-              registry:
-                pullMethod: node
-                url: docker://quay.io/kubevirt/fedora-with-test-tooling-container-disk:v1.8.2
+            sourceRef:
+              kind: DataSource
+              name: fedora
+              namespace: openshift-virtualization-os-images
             storage:
-              storageClassName: gp3-csi
               resources:
                 requests:
                   storage: 30Gi
@@ -145,12 +144,23 @@ items:
             - cloudInitConfigDrive:
                 userData: |-
                   #cloud-config
-                  user: fedora
-                  password: dog8code
-                  chpasswd: { expire: False }
-                  user: test
-                  password: dog8code
-                  chpasswd: { expire: False }
+                  ssh_pwauth: true
+                  users:
+                    - default
+                    - name: test
+                      lock_passwd: false
+                      shell: /bin/bash
+                      sudo: ALL=(ALL) NOPASSWD:ALL
+                      homedir: /home/test
+                  chpasswd:
+                    expire: false
+                    users:
+                      - name: fedora
+                        password: dog8code
+                        type: text
+                      - name: test
+                        password: dog8code
+                        type: text
                   packages:
                     - mariadb-server
                     - unzip
