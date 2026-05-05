@@ -1026,7 +1026,8 @@ OLMV1_VERSION ?=
 OLMV1_UPGRADE_VERSION ?=
 OLMV1_CATALOG ?= oadp-olmv1-test-catalog
 OLMV1_CATALOG_IMAGE ?=
-OLMV1_SERVICE_ACCOUNT ?= oadp-olmv1-installer
+OLMV1_SERVICE_ACCOUNT ?= $(OLMV1_PACKAGE)-installer
+OLMV1_INSTALLER_BINDING ?= $(OLMV1_SERVICE_ACCOUNT)-binding
 OLMV1_FAIL_FAST ?= true
 
 OLMV1_GINKGO_FLAGS = --vv \
@@ -1051,10 +1052,107 @@ test-olmv1: login-required install-ginkgo ## Run OLMv1 lifecycle tests (install,
 
 .PHONY: test-olmv1-cleanup
 test-olmv1-cleanup: login-required ## Cleanup resources created by OLMv1 tests.
-	$(OC_CLI) delete clusterextension oadp-operator --ignore-not-found=true
+	$(OC_CLI) delete clusterextension $(OLMV1_PACKAGE) --ignore-not-found=true
 	$(OC_CLI) delete clustercatalog $(OLMV1_CATALOG) --ignore-not-found=true
-	$(OC_CLI) delete clusterrolebinding $(OLMV1_SERVICE_ACCOUNT)-cluster-admin --ignore-not-found=true
+	$(OC_CLI) delete clusterrolebinding $(OLMV1_INSTALLER_BINDING) --ignore-not-found=true
 	$(OC_CLI) delete sa $(OLMV1_SERVICE_ACCOUNT) -n $(OLMV1_NAMESPACE) --ignore-not-found=true
+
+OLMV1_MANIFEST ?= oadp-olmv1-manifest.yaml
+
+.PHONY: generate-olmv1-manifest
+generate-olmv1-manifest: ## Generate OLMv1 install manifest (Namespace, SA, CRB, ClusterExtension) per OCPSTRAT-2268 template.
+	@printf '%s\n' \
+		'---' \
+		'apiVersion: v1' \
+		'kind: Namespace' \
+		'metadata:' \
+		'  name: $(OLMV1_NAMESPACE)' \
+		'---' \
+		'apiVersion: v1' \
+		'kind: ServiceAccount' \
+		'metadata:' \
+		'  name: $(OLMV1_SERVICE_ACCOUNT)' \
+		'  namespace: $(OLMV1_NAMESPACE)' \
+		'---' \
+		'apiVersion: rbac.authorization.k8s.io/v1' \
+		'kind: ClusterRoleBinding' \
+		'metadata:' \
+		'  name: $(OLMV1_INSTALLER_BINDING)' \
+		'roleRef:' \
+		'  apiGroup: rbac.authorization.k8s.io' \
+		'  kind: ClusterRole' \
+		'  name: cluster-admin' \
+		'subjects:' \
+		'- kind: ServiceAccount' \
+		'  name: $(OLMV1_SERVICE_ACCOUNT)' \
+		'  namespace: $(OLMV1_NAMESPACE)' \
+		'---' \
+		'apiVersion: olm.operatorframework.io/v1' \
+		'kind: ClusterExtension' \
+		'metadata:' \
+		'  name: $(OLMV1_PACKAGE)' \
+		'spec:' \
+		'  namespace: $(OLMV1_NAMESPACE)' \
+		'  serviceAccount:' \
+		'    name: $(OLMV1_SERVICE_ACCOUNT)' \
+		'  config:' \
+		'    configType: Inline' \
+		'    inline:' \
+		'      watchNamespace: $(OLMV1_NAMESPACE)' \
+		'  source:' \
+		'    sourceType: Catalog' \
+		'    catalog:' \
+		'      packageName: $(OLMV1_PACKAGE)' \
+		> $(OLMV1_MANIFEST)
+	@if [ -n "$(OLMV1_CHANNEL)" ]; then \
+		printf '      channel: %s\n' '$(OLMV1_CHANNEL)' >> $(OLMV1_MANIFEST); \
+	fi
+	@if [ -n "$(OLMV1_VERSION)" ]; then \
+		printf '      version: "%s"\n' '$(OLMV1_VERSION)' >> $(OLMV1_MANIFEST); \
+	fi
+	@echo "Generated $(OLMV1_MANIFEST)"
+
+.PHONY: upgrade-v0-to-olmv1
+upgrade-v0-to-olmv1: login-required ## Migrate an existing OLMv0 OADP install to OLMv1 (ClusterExtension). Requires OCP 4.20+.
+	$(OC_CLI) whoami
+	@echo "=== Phase 1: Removing OLMv0 resources ==="
+	-$(OC_CLI) delete subscription oadp-operator -n $(OADP_TEST_NAMESPACE) --ignore-not-found=true
+	-$(OC_CLI) get subscription -n $(OADP_TEST_NAMESPACE) -o name 2>/dev/null | \
+		xargs -I {} sh -c '$(OC_CLI) get {} -n $(OADP_TEST_NAMESPACE) -o jsonpath='"'"'{.metadata.name}{"\t"}{.spec.source}{"\n"}'"'"' 2>/dev/null' | \
+		grep "$(CATALOG_SOURCE_NAME)" | cut -f1 | \
+		xargs -I {} $(OC_CLI) delete subscription {} -n $(OADP_TEST_NAMESPACE) --ignore-not-found=true || true
+	-$(OC_CLI) delete csv -l operators.coreos.com/oadp-operator.$(OADP_TEST_NAMESPACE) -n $(OADP_TEST_NAMESPACE) --ignore-not-found=true
+	-$(OC_CLI) get csv -n $(OADP_TEST_NAMESPACE) -o name 2>/dev/null | grep oadp-operator | \
+		xargs -I {} $(OC_CLI) delete {} -n $(OADP_TEST_NAMESPACE) --ignore-not-found=true || true
+	-$(OC_CLI) delete operatorgroup oadp-operator-group -n $(OADP_TEST_NAMESPACE) --ignore-not-found=true
+	-$(OC_CLI) delete catalogsource $(CATALOG_SOURCE_NAME) -n $(CATALOG_SOURCE_NAMESPACE) --ignore-not-found=true
+	@echo "=== Phase 2: Removing orphaned OADP/Velero CRDs ==="
+	# OLMv1 cannot adopt CRDs it did not create
+	-$(OC_CLI) get crd -o name 2>/dev/null | grep -E '\.oadp\.openshift\.io|\.velero\.io' | \
+		xargs -r $(OC_CLI) delete --ignore-not-found=true || true
+	@echo "=== Phase 3: Applying OLMv1 manifest ==="
+	$(MAKE) generate-olmv1-manifest
+	$(OC_CLI) apply -f $(OLMV1_MANIFEST)
+	@echo "=== Phase 4: Waiting for ClusterExtension Installed=True ==="
+	$(OC_CLI) wait clusterextension/$(OLMV1_PACKAGE) \
+		--for=condition=Installed=True --timeout=600s
+	@echo "Migration complete."
+	$(OC_CLI) get clusterextension $(OLMV1_PACKAGE)
+
+.PHONY: test-upgrade-v0-to-olmv1
+test-upgrade-v0-to-olmv1: login-required install-ginkgo ## Test OLMv0->OLMv1 migration path. Expects a pre-existing OLMv0 OADP install (run make deploy-olm first).
+	ginkgo run -mod=mod $(OLMV1_GINKGO_FLAGS) \
+		--label-filter="olmv1-migrate" \
+		$(GINKGO_ARGS) tests/olmv1/ -- \
+		-namespace=$(OLMV1_NAMESPACE) \
+		-package=$(OLMV1_PACKAGE) \
+		-channel=$(OLMV1_CHANNEL) \
+		-version=$(OLMV1_VERSION) \
+		-catalog=$(OLMV1_CATALOG) \
+		-catalog-image=$(OLMV1_CATALOG_IMAGE) \
+		-service-account=$(OLMV1_SERVICE_ACCOUNT) \
+		-migrate=true \
+		-artifact_dir=$(ARTIFACT_DIR)
 
 .PHONY: update-non-admin-manifests
 update-non-admin-manifests: NON_ADMIN_CONTROLLER_IMG?=quay.io/konveyor/oadp-non-admin:latest

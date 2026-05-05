@@ -1639,7 +1639,7 @@ spec:
   installModes:
   - supported: true
     type: OwnNamespace
-  - supported: false
+  - supported: true
     type: SingleNamespace
   - supported: false
     type: MultiNamespace

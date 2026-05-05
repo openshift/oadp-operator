@@ -32,6 +32,7 @@ var (
 	catalogImage       string
 	serviceAccountName string
 	artifactDir        string
+	migrate            bool
 
 	createdCatalog bool
 
@@ -59,8 +60,9 @@ func init() {
 	flag.StringVar(&upgradeVersion, "upgrade-version", "", "Version to upgrade to (optional)")
 	flag.StringVar(&catalogName, "catalog", "oadp-olmv1-test-catalog", "ClusterCatalog name to create or reference")
 	flag.StringVar(&catalogImage, "catalog-image", "", "Catalog image to use for creating a ClusterCatalog (required when package is not in default catalogs)")
-	flag.StringVar(&serviceAccountName, "service-account", "oadp-olmv1-installer", "ServiceAccount name for ClusterExtension")
+	flag.StringVar(&serviceAccountName, "service-account", "oadp-operator-installer", "ServiceAccount name for ClusterExtension")
 	flag.StringVar(&artifactDir, "artifact_dir", "/tmp", "Directory for test artifacts")
+	flag.BoolVar(&migrate, "migrate", false, "Run OLMv0-to-OLMv1 migration tests (expects pre-existing OLMv0 install)")
 }
 
 func TestOADPOLMv1(t *testing.T) {
@@ -108,7 +110,7 @@ func ensureServiceAccount(ctx context.Context, name, ns string) {
 // ensureClusterAdminBinding grants cluster-admin to the installer SA.
 // This is intentionally broad for testing; production should use least-privilege RBAC.
 func ensureClusterAdminBinding(ctx context.Context, saName, ns string) {
-	bindingName := saName + "-cluster-admin"
+	bindingName := saName + "-binding"
 	crb := &rbacv1.ClusterRoleBinding{
 		ObjectMeta: metav1.ObjectMeta{Name: bindingName},
 		RoleRef: rbacv1.RoleRef{
@@ -257,7 +259,7 @@ func crdExists(ctx context.Context, name string) (bool, error) {
 }
 
 func cleanupClusterRoleBinding(ctx context.Context, saName string) {
-	bindingName := saName + "-cluster-admin"
+	bindingName := saName + "-binding"
 	err := kubeClient.RbacV1().ClusterRoleBindings().Delete(ctx, bindingName, metav1.DeleteOptions{})
 	if err != nil && !apierrors.IsNotFound(err) {
 		log.Printf("Warning: failed to delete ClusterRoleBinding %s: %v", bindingName, err)
