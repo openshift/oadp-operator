@@ -93,10 +93,9 @@ items:
             annotations:
               cdi.kubevirt.io/storage.deleteAfterCompletion: "false"
           spec:
-            sourceRef:
-              kind: DataSource
-              name: fedora
-              namespace: openshift-virtualization-os-images
+            source:
+              registry:
+                url: docker://quay.io/containerdisks/fedora:44
             storage:
               resources:
                 requests:
