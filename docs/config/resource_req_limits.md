@@ -55,3 +55,7 @@ pod(s) is:
   ```
 
 This differs from upstream Velero/Node Agent pod(s) in that the default resources which [has resource limits as well as resource requests](https://velero.io/docs/v1.9/customize-installation/#customize-resource-requests-and-limits).
+
+### Other podConfig Options
+
+The `podConfig` field also supports `tolerations`, `nodeSelector`, `labels`, and `env`. See [pod_config.md](pod_config.md) for full documentation.

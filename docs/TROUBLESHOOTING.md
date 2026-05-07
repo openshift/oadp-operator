@@ -304,3 +304,27 @@ oc delete backuprepository <backupRepositoryName> -n openshift-adp
   
   - This error can occur regardless of the SCC if the application is not aligned with the security standards. Please ensure that the security standards for the application pods are aligned, as provided in the link below, to prevent deployment warnings.  
   https://access.redhat.com/solutions/7002730
+
+### Warning: unknown field in DPA CR
+
+When applying a DPA CR you may see warnings like:
+
+```
+Warning: unknown field "spec.configuration.nodeAgent.<fieldName>"
+```
+
+This means the field is placed at the wrong level in the DPA spec. Use `oc explain` to discover available fields at any level:
+
+```
+oc explain dataprotectionapplication.spec.configuration.nodeAgent
+oc explain dataprotectionapplication.spec.configuration.nodeAgent.podConfig
+oc explain dataprotectionapplication.spec.configuration.velero
+```
+
+You can also inspect the full CRD schema with:
+
+```
+oc get crd dataprotectionapplications.oadp.openshift.io -o yaml
+```
+
+See [docs/config/pod_config.md](config/pod_config.md) and the [Red Hat PodConfig API reference](https://docs.redhat.com/en/documentation/openshift_container_platform/4.18/html/backup_and_restore/oadp-application-backup-and-restore#podconfig-type_oadp-api) for full documentation on `podConfig` fields.
