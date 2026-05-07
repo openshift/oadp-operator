@@ -1115,7 +1115,17 @@ generate-olmv1-manifest: ## Generate OLMv1 install manifest (Namespace, SA, CRB,
 .PHONY: upgrade-v0-to-olmv1
 upgrade-v0-to-olmv1: login-required ## Migrate an existing OLMv0 OADP install to OLMv1 (ClusterExtension). Requires OCP 4.20+.
 	$(OC_CLI) whoami
-	@echo "=== Phase 1: Removing OLMv0 resources ==="
+	@echo "=== Phase 1: Capturing CatalogSource image for ClusterCatalog migration ==="
+	@# FBC image format is identical between OLMv0 CatalogSource and OLMv1 ClusterCatalog
+	@CATALOG_IMG=$${OLMV1_CATALOG_IMAGE:-$$($(OC_CLI) get catalogsource $(CATALOG_SOURCE_NAME) -n $(CATALOG_SOURCE_NAMESPACE) -o jsonpath='{.spec.image}' 2>/dev/null)}; \
+	if [ -n "$$CATALOG_IMG" ]; then \
+		echo "Captured catalog image: $$CATALOG_IMG"; \
+		echo "$$CATALOG_IMG" > /tmp/oadp-migrate-catalog-image; \
+	else \
+		echo "No custom CatalogSource found — will use default ClusterCatalogs"; \
+		rm -f /tmp/oadp-migrate-catalog-image; \
+	fi
+	@echo "=== Phase 2: Removing OLMv0 resources ==="
 	-$(OC_CLI) delete subscription oadp-operator -n $(OADP_TEST_NAMESPACE) --ignore-not-found=true
 	-$(OC_CLI) get subscription -n $(OADP_TEST_NAMESPACE) -o name 2>/dev/null | \
 		xargs -I {} sh -c '$(OC_CLI) get {} -n $(OADP_TEST_NAMESPACE) -o jsonpath='"'"'{.metadata.name}{"\t"}{.spec.source}{"\n"}'"'"' 2>/dev/null' | \
@@ -1126,14 +1136,35 @@ upgrade-v0-to-olmv1: login-required ## Migrate an existing OLMv0 OADP install to
 		xargs -I {} $(OC_CLI) delete {} -n $(OADP_TEST_NAMESPACE) --ignore-not-found=true || true
 	-$(OC_CLI) delete operatorgroup oadp-operator-group -n $(OADP_TEST_NAMESPACE) --ignore-not-found=true
 	-$(OC_CLI) delete catalogsource $(CATALOG_SOURCE_NAME) -n $(CATALOG_SOURCE_NAMESPACE) --ignore-not-found=true
-	@echo "=== Phase 2: Removing orphaned OADP/Velero CRDs ==="
+	@echo "=== Phase 3: Removing orphaned OADP/Velero CRDs ==="
 	# OLMv1 cannot adopt CRDs it did not create
 	-$(OC_CLI) get crd -o name 2>/dev/null | grep -E '\.oadp\.openshift\.io|\.velero\.io' | \
 		xargs -r $(OC_CLI) delete --ignore-not-found=true || true
-	@echo "=== Phase 3: Applying OLMv1 manifest ==="
+	@echo "=== Phase 4: Creating ClusterCatalog (if custom catalog was detected) ==="
+	@if [ -f /tmp/oadp-migrate-catalog-image ]; then \
+		CATALOG_IMG=$$(cat /tmp/oadp-migrate-catalog-image); \
+		echo "Creating ClusterCatalog $(OLMV1_CATALOG) from image $$CATALOG_IMG"; \
+		printf '%s\n' \
+			'apiVersion: olm.operatorframework.io/v1' \
+			'kind: ClusterCatalog' \
+			'metadata:' \
+			'  name: $(OLMV1_CATALOG)' \
+			'spec:' \
+			'  source:' \
+			'    type: Image' \
+			'    image:' \
+			"      ref: $$CATALOG_IMG" \
+			| $(OC_CLI) apply -f -; \
+		echo "Waiting for ClusterCatalog to be serving..."; \
+		$(OC_CLI) wait clustercatalog/$(OLMV1_CATALOG) --for=condition=Serving=True --timeout=120s; \
+		rm -f /tmp/oadp-migrate-catalog-image; \
+	else \
+		echo "Skipping — no custom catalog to migrate"; \
+	fi
+	@echo "=== Phase 5: Applying OLMv1 manifest ==="
 	$(MAKE) generate-olmv1-manifest
 	$(OC_CLI) apply -f $(OLMV1_MANIFEST)
-	@echo "=== Phase 4: Waiting for ClusterExtension Installed=True ==="
+	@echo "=== Phase 6: Waiting for ClusterExtension Installed=True ==="
 	$(OC_CLI) wait clusterextension/$(OLMV1_PACKAGE) \
 		--for=condition=Installed=True --timeout=600s
 	@echo "Migration complete."
