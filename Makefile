@@ -1140,6 +1140,10 @@ upgrade-v0-to-olmv1: login-required ## Migrate an existing OLMv0 OADP install to
 	# OLMv1 cannot adopt CRDs it did not create
 	-$(OC_CLI) get crd -o name 2>/dev/null | grep -E '\.oadp\.openshift\.io|\.velero\.io' | \
 		xargs -r $(OC_CLI) delete --ignore-not-found=true || true
+	@echo "=== Phase 3b: Removing OLMv0-managed remnant resources ==="
+	# OLMv1 cannot adopt resources created by OLMv0's CSV (labeled olm.managed=true)
+	-$(OC_CLI) delete sa,roles,rolebindings,deployments -l olm.managed=true -n $(OADP_TEST_NAMESPACE) --ignore-not-found=true || true
+	-$(OC_CLI) delete clusterroles,clusterrolebindings -l olm.managed=true --ignore-not-found=true || true
 	@echo "=== Phase 4: Creating ClusterCatalog (if custom catalog was detected) ==="
 	@if [ -f /tmp/oadp-migrate-catalog-image ]; then \
 		CATALOG_IMG=$$(cat /tmp/oadp-migrate-catalog-image); \
