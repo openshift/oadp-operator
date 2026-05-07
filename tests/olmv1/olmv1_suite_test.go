@@ -340,15 +340,30 @@ func waitForClusterCatalogServing(ctx context.Context, name string) {
 			if !ok {
 				continue
 			}
-			if cond["type"] == "Serving" {
-				status, _ := cond["status"].(string)
-				reason, _ := cond["reason"].(string)
+			condType, _ := cond["type"].(string)
+			status, _ := cond["status"].(string)
+			reason, _ := cond["reason"].(string)
+			message, _ := cond["message"].(string)
+			switch condType {
+			case "Serving":
 				log.Printf("ClusterCatalog %s Serving: status=%s reason=%s", name, status, reason)
+				if status != "True" && message != "" {
+					log.Printf("  message: %s", message)
+				}
 				return status == "True"
+			case "Progressing":
+				if reason == "Failed" || status == "False" {
+					imageRef, _, _ := unstructured.NestedString(obj.Object, "spec", "source", "image", "ref")
+					log.Printf("ClusterCatalog %s Progressing: status=%s reason=%s (image: %s)", name, status, reason, imageRef)
+					if message != "" {
+						log.Printf("  message: %s", message)
+					}
+				}
 			}
 		}
 		return false
-	}, 5*time.Minute, 10*time.Second).Should(gomega.BeTrue(), "ClusterCatalog should be Serving")
+	}, 5*time.Minute, 10*time.Second).Should(gomega.BeTrue(),
+		"ClusterCatalog %s should be Serving — if using ttl.sh, the catalog image may have expired", name)
 }
 
 func deleteClusterCatalog(ctx context.Context, name string) {
