@@ -276,6 +276,9 @@ func (r *DataProtectionApplicationReconciler) ReconcileNodeAgentDaemonset(log lo
 		// no errors means there is already an existing DaemonSet.
 		// TODO: Check if NodeAgent is in use, a backup is running, so don't blindly delete NodeAgent.
 		if err := r.Delete(deleteContext, ds, &client.DeleteOptions{PropagationPolicy: ptr.To(metav1.DeletePropagationForeground)}); err != nil {
+			if errors.IsNotFound(err) {
+				return true, nil
+			}
 			// TODO: Come back and fix event recording to be consistent
 			r.EventRecorder.Event(ds, corev1.EventTypeNormal, "DeleteDaemonSetFailed", "Got DaemonSet to delete but could not delete err:"+err.Error())
 			return false, err
