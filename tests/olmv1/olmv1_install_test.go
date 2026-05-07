@@ -11,6 +11,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 )
 
 const (
@@ -170,14 +171,8 @@ var _ = ginkgo.Describe("OADP OLMv1 lifecycle", ginkgo.Ordered, ginkgo.Label("ol
 			previousBundleName, previousVersion, _ := getInstalledBundle(obj)
 			log.Printf("Current installed bundle: name=%s version=%s", previousBundleName, previousVersion)
 
-			catalogSpec, _, _ := unstructuredNestedMap(obj.Object, "spec", "source", "catalog")
-			gomega.Expect(catalogSpec).NotTo(gomega.BeNil())
-			catalogSpec["version"] = upgradeVersion
-			catalogSpec["upgradeConstraintPolicy"] = "SelfCertified"
-			err = unstructuredSetNestedMap(obj.Object, catalogSpec, "spec", "source", "catalog")
-			gomega.Expect(err).NotTo(gomega.HaveOccurred())
-
-			_, err = dynamicClient.Resource(clusterExtensionGVR).Update(ctx, obj, metav1.UpdateOptions{})
+			patch := []byte(fmt.Sprintf(`{"spec":{"source":{"catalog":{"version":"%s","upgradeConstraintPolicy":"SelfCertified"}}}}`, upgradeVersion))
+			_, err = dynamicClient.Resource(clusterExtensionGVR).Patch(ctx, clusterExtensionName, types.MergePatchType, patch, metav1.PatchOptions{})
 			gomega.Expect(err).NotTo(gomega.HaveOccurred())
 			log.Printf("Patched ClusterExtension version to %s", upgradeVersion)
 
@@ -228,37 +223,3 @@ var _ = ginkgo.Describe("OADP OLMv1 lifecycle", ginkgo.Ordered, ginkgo.Label("ol
 	})
 })
 
-func unstructuredNestedMap(obj map[string]interface{}, fields ...string) (map[string]interface{}, bool, error) {
-	var current interface{} = obj
-	for _, field := range fields {
-		m, ok := current.(map[string]interface{})
-		if !ok {
-			return nil, false, fmt.Errorf("expected map at field %s", field)
-		}
-		current, ok = m[field]
-		if !ok {
-			return nil, false, nil
-		}
-	}
-	result, ok := current.(map[string]interface{})
-	if !ok {
-		return nil, false, fmt.Errorf("final value is not a map")
-	}
-	return result, true, nil
-}
-
-func unstructuredSetNestedMap(obj map[string]interface{}, value map[string]interface{}, fields ...string) error {
-	if len(fields) == 0 {
-		return fmt.Errorf("no fields specified")
-	}
-	current := obj
-	for _, field := range fields[:len(fields)-1] {
-		next, ok := current[field].(map[string]interface{})
-		if !ok {
-			return fmt.Errorf("expected map at field %s", field)
-		}
-		current = next
-	}
-	current[fields[len(fields)-1]] = value
-	return nil
-}

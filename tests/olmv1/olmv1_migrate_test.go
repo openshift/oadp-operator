@@ -24,6 +24,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"strings"
 	"time"
 
 	"github.com/onsi/ginkgo/v2"
@@ -213,10 +214,13 @@ var _ = ginkgo.Describe("OADP OLMv0 to OLMv1 migration", ginkgo.Ordered, ginkgo.
 			}
 		}
 
-		ginkgo.By("Deleting OLMv0-managed cluster-scoped resources")
+		ginkgo.By("Deleting OLMv0-managed cluster-scoped resources related to OADP")
 		crs, _ := kubeClient.RbacV1().ClusterRoles().List(ctx, olmSelector)
 		if crs != nil {
 			for _, cr := range crs.Items {
+				if !isOADPRelatedResource(cr.Name, namespace) {
+					continue
+				}
 				log.Printf("Deleting remnant ClusterRole %s", cr.Name)
 				_ = kubeClient.RbacV1().ClusterRoles().Delete(ctx, cr.Name, metav1.DeleteOptions{})
 			}
@@ -224,6 +228,9 @@ var _ = ginkgo.Describe("OADP OLMv0 to OLMv1 migration", ginkgo.Ordered, ginkgo.
 		crbs, _ := kubeClient.RbacV1().ClusterRoleBindings().List(ctx, olmSelector)
 		if crbs != nil {
 			for _, crb := range crbs.Items {
+				if !isOADPRelatedResource(crb.Name, namespace) {
+					continue
+				}
 				log.Printf("Deleting remnant ClusterRoleBinding %s", crb.Name)
 				_ = kubeClient.RbacV1().ClusterRoleBindings().Delete(ctx, crb.Name, metav1.DeleteOptions{})
 			}
@@ -371,4 +378,10 @@ func isDefaultCatalogSource(name string) bool {
 		return true
 	}
 	return false
+}
+
+func isOADPRelatedResource(name, ns string) bool {
+	return strings.Contains(name, "oadp") ||
+		strings.Contains(name, "velero") ||
+		strings.Contains(name, ns)
 }

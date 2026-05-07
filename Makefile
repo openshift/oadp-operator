@@ -1109,6 +1109,44 @@ test-olmv1-cleanup: login-required ## Cleanup resources created by OLMv1 tests.
 	$(OC_CLI) delete clusterrolebinding $(OLMV1_INSTALLER_BINDING) --ignore-not-found=true
 	$(OC_CLI) delete sa $(OLMV1_SERVICE_ACCOUNT) -n $(OLMV1_NAMESPACE) --ignore-not-found=true
 
+# deploy-olmv1-mirror-catalog: Deploy a ClusterCatalog from a productized index
+# image for testing when the current OCP version's redhat-operator-index does
+# not include redhat-oadp-operator (e.g., 4.22 only ships OLMv1-curated packages).
+#
+# Usage:
+#   make deploy-olmv1-mirror-catalog                                    # defaults to v4.21
+#   make deploy-olmv1-mirror-catalog OLMV1_MIRROR_INDEX=registry.redhat.io/redhat/redhat-operator-index:v4.20
+#   make deploy-olmv1-mirror-catalog OLMV1_MIRROR_PACKAGE=redhat-oadp-operator
+OLMV1_MIRROR_INDEX ?= registry.redhat.io/redhat/redhat-operator-index:v4.21
+OLMV1_MIRROR_CATALOG ?= oadp-v0-mirror-test-catalog
+OLMV1_MIRROR_PACKAGE ?= redhat-oadp-operator
+
+.PHONY: deploy-olmv1-mirror-catalog
+deploy-olmv1-mirror-catalog: login-required ## Deploy a ClusterCatalog from a productized index image for OLMv1 testing.
+	@echo "=== Deploying mirror ClusterCatalog from $(OLMV1_MIRROR_INDEX) ==="
+	@printf '%s\n' \
+		'apiVersion: olm.operatorframework.io/v1' \
+		'kind: ClusterCatalog' \
+		'metadata:' \
+		'  name: $(OLMV1_MIRROR_CATALOG)' \
+		'spec:' \
+		'  source:' \
+		'    type: Image' \
+		'    image:' \
+		'      ref: $(OLMV1_MIRROR_INDEX)' \
+		| $(OC_CLI) apply -f -
+	@echo "Waiting for ClusterCatalog $(OLMV1_MIRROR_CATALOG) to be serving..."
+	$(OC_CLI) wait clustercatalog/$(OLMV1_MIRROR_CATALOG) --for=condition=Serving=True --timeout=300s
+	@echo ""
+	@echo "Mirror catalog ready. Install $(OLMV1_MIRROR_PACKAGE) via OLMv1:"
+	@echo "  make test-olmv1 OLMV1_PACKAGE=$(OLMV1_MIRROR_PACKAGE) OLMV1_CATALOG=$(OLMV1_MIRROR_CATALOG) OLMV1_CATALOG_IMAGE=$(OLMV1_MIRROR_INDEX)"
+	@echo "  # or for migration test:"
+	@echo "  make test-upgrade-v0-to-olmv1 OLMV1_PACKAGE=$(OLMV1_MIRROR_PACKAGE) OLMV1_CATALOG=$(OLMV1_MIRROR_CATALOG) OLMV1_CATALOG_IMAGE=$(OLMV1_MIRROR_INDEX)"
+
+.PHONY: undeploy-olmv1-mirror-catalog
+undeploy-olmv1-mirror-catalog: login-required ## Remove the mirror ClusterCatalog.
+	$(OC_CLI) delete clustercatalog $(OLMV1_MIRROR_CATALOG) --ignore-not-found=true
+
 OLMV1_MANIFEST ?= oadp-olmv1-manifest.yaml
 
 .PHONY: generate-olmv1-manifest
@@ -1162,7 +1200,8 @@ generate-olmv1-manifest: ## Generate OLMv1 install manifest (Namespace, SA, CRB,
 		printf '          olm.operatorframework.io/metadata.name: %s\n' '$(OLMV1_PIN_CATALOG)' >> $(OLMV1_MANIFEST); \
 	fi
 	@if [ -n "$(OLMV1_CHANNEL)" ]; then \
-		printf '      channel: %s\n' '$(OLMV1_CHANNEL)' >> $(OLMV1_MANIFEST); \
+		printf '      channels:\n' >> $(OLMV1_MANIFEST); \
+		printf '      - %s\n' '$(OLMV1_CHANNEL)' >> $(OLMV1_MANIFEST); \
 	fi
 	@if [ -n "$(OLMV1_VERSION)" ]; then \
 		printf '      version: "%s"\n' '$(OLMV1_VERSION)' >> $(OLMV1_MANIFEST); \
@@ -1216,7 +1255,11 @@ upgrade-v0-to-olmv1: login-required ## Migrate an existing OLMv0 OADP install to
 	@echo "=== Phase 3b: Removing OLMv0-managed remnant resources ==="
 	# OLMv1 cannot adopt resources created by OLMv0's CSV (labeled olm.managed=true)
 	-$(OC_CLI) delete sa,roles,rolebindings,deployments -l olm.managed=true -n $(OADP_TEST_NAMESPACE) --ignore-not-found=true || true
-	-$(OC_CLI) delete clusterroles,clusterrolebindings -l olm.managed=true --ignore-not-found=true || true
+	# Only delete cluster-scoped resources related to OADP (avoid breaking other operators in shared clusters)
+	-$(OC_CLI) get clusterroles -l olm.managed=true -o name 2>/dev/null | grep -E 'oadp|velero|$(OADP_TEST_NAMESPACE)' | \
+		xargs -r $(OC_CLI) delete --ignore-not-found=true || true
+	-$(OC_CLI) get clusterrolebindings -l olm.managed=true -o name 2>/dev/null | grep -E 'oadp|velero|$(OADP_TEST_NAMESPACE)' | \
+		xargs -r $(OC_CLI) delete --ignore-not-found=true || true
 	@echo "=== Phase 4: Creating ClusterCatalog ==="
 	@if [ -f /tmp/oadp-migrate-catalog-image ]; then \
 		CATALOG_IMG=$$(cat /tmp/oadp-migrate-catalog-image); \

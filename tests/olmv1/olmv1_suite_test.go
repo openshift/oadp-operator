@@ -316,7 +316,13 @@ func ensureClusterCatalog(ctx context.Context, name, image string) {
 	}
 	_, err := dynamicClient.Resource(clusterCatalogGVR).Create(ctx, cc, metav1.CreateOptions{})
 	if apierrors.IsAlreadyExists(err) {
-		log.Printf("ClusterCatalog %s already exists", name)
+		existing, getErr := dynamicClient.Resource(clusterCatalogGVR).Get(ctx, name, metav1.GetOptions{})
+		if getErr == nil {
+			existingImage, _, _ := unstructured.NestedString(existing.Object, "spec", "source", "image", "ref")
+			log.Printf("ClusterCatalog %s already exists with image %s (expected %s)", name, existingImage, image)
+			gomega.Expect(existingImage).To(gomega.Equal(image),
+				"Existing ClusterCatalog %s has image %s but expected %s — delete it first or use matching image", name, existingImage, image)
+		}
 		return
 	}
 	gomega.Expect(err).NotTo(gomega.HaveOccurred())
