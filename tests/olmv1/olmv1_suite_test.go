@@ -323,6 +323,7 @@ func ensureClusterCatalog(ctx context.Context, name, image string) {
 			gomega.Expect(existingImage).To(gomega.Equal(image),
 				"Existing ClusterCatalog %s has image %s but expected %s — delete it first or use matching image", name, existingImage, image)
 		}
+		createdCatalog = true
 		return
 	}
 	gomega.Expect(err).NotTo(gomega.HaveOccurred())
