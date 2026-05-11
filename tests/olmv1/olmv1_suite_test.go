@@ -130,7 +130,7 @@ func ensureClusterAdminBinding(ctx context.Context, saName, ns string) {
 	log.Printf("Created ClusterRoleBinding %s", bindingName)
 }
 
-func buildClusterExtension(name, pkg, ns, sa string) *unstructured.Unstructured {
+func buildClusterExtension(name, pkg, ns, sa string, opts ...func(map[string]interface{})) *unstructured.Unstructured {
 	spec := map[string]interface{}{
 		"namespace": ns,
 		"serviceAccount": map[string]interface{}{
@@ -178,8 +178,21 @@ func buildClusterExtension(name, pkg, ns, sa string) *unstructured.Unstructured 
 	if version != "" {
 		catalogSpec["version"] = version
 	}
+	for _, opt := range opts {
+		opt(catalogSpec)
+	}
 
 	return ce
+}
+
+func withCatalogSelector(catalog string) func(map[string]interface{}) {
+	return func(catalogSpec map[string]interface{}) {
+		catalogSpec["selector"] = map[string]interface{}{
+			"matchLabels": map[string]interface{}{
+				"olm.operatorframework.io/metadata.name": catalog,
+			},
+		}
+	}
 }
 
 func getClusterExtension(ctx context.Context, name string) (*unstructured.Unstructured, error) {

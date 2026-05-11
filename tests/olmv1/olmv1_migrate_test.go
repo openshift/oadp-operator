@@ -264,7 +264,11 @@ var _ = ginkgo.Describe("OADP OLMv0 to OLMv1 migration", ginkgo.Ordered, ginkgo.
 		_ = deleteClusterExtension(ctx, packageName)
 
 		ginkgo.By("Creating the ClusterExtension")
-		ce := buildClusterExtension(packageName, packageName, namespace, serviceAccountName)
+		var ceOpts []func(map[string]interface{})
+		if migratedCatalogImage != "" {
+			ceOpts = append(ceOpts, withCatalogSelector(catalogName))
+		}
+		ce := buildClusterExtension(packageName, packageName, namespace, serviceAccountName, ceOpts...)
 		_, err := dynamicClient.Resource(clusterExtensionGVR).Create(ctx, ce, metav1.CreateOptions{})
 		gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
