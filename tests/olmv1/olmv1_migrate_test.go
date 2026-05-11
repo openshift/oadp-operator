@@ -260,6 +260,9 @@ var _ = ginkgo.Describe("OADP OLMv0 to OLMv1 migration", ginkgo.Ordered, ginkgo.
 		ensureServiceAccount(ctx, serviceAccountName, namespace)
 		ensureClusterAdminBinding(ctx, serviceAccountName, namespace)
 
+		ginkgo.By("Cleaning up any existing ClusterExtension from previous runs")
+		_ = deleteClusterExtension(ctx, packageName)
+
 		ginkgo.By("Creating the ClusterExtension")
 		ce := buildClusterExtension(packageName, packageName, namespace, serviceAccountName)
 		_, err := dynamicClient.Resource(clusterExtensionGVR).Create(ctx, ce, metav1.CreateOptions{})

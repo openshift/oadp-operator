@@ -15,8 +15,6 @@ import (
 )
 
 const (
-	clusterExtensionName = "oadp-operator"
-
 	oadpCRDName    = "dataprotectionapplications.oadp.openshift.io"
 	veleroCRDName  = "backups.velero.io"
 	restoreCRDName = "restores.velero.io"
@@ -45,13 +43,13 @@ var _ = ginkgo.Describe("OADP OLMv1 lifecycle", ginkgo.Ordered, ginkgo.Label("ol
 
 	ginkgo.AfterAll(func() {
 		ginkgo.By("Cleaning up OLMv1 test resources")
-		err := deleteClusterExtension(ctx, clusterExtensionName)
+		err := deleteClusterExtension(ctx, packageName)
 		if err != nil {
 			log.Printf("Warning: failed to delete ClusterExtension: %v", err)
 		}
 
 		gomega.Eventually(func() bool {
-			_, err := getClusterExtension(ctx, clusterExtensionName)
+			_, err := getClusterExtension(ctx, packageName)
 			return apierrors.IsNotFound(err)
 		}, 3*time.Minute, 5*time.Second).Should(gomega.BeTrue(), "ClusterExtension should be deleted")
 
@@ -64,11 +62,14 @@ var _ = ginkgo.Describe("OADP OLMv1 lifecycle", ginkgo.Ordered, ginkgo.Label("ol
 	})
 
 	ginkgo.It("should install OADP operator via ClusterExtension", func() {
+		ginkgo.By("Cleaning up any existing ClusterExtension from previous runs")
+		_ = deleteClusterExtension(ctx, packageName)
+
 		ginkgo.By("Creating the ClusterExtension")
-		ce := buildClusterExtension(clusterExtensionName, packageName, namespace, serviceAccountName)
+		ce := buildClusterExtension(packageName, packageName, namespace, serviceAccountName)
 		_, err := dynamicClient.Resource(clusterExtensionGVR).Create(ctx, ce, metav1.CreateOptions{})
 		gomega.Expect(err).NotTo(gomega.HaveOccurred())
-		log.Printf("Created ClusterExtension %s (package=%s, namespace=%s)", clusterExtensionName, packageName, namespace)
+		log.Printf("Created ClusterExtension %s (package=%s, namespace=%s)", packageName, packageName, namespace)
 
 		ginkgo.By("Waiting for ClusterExtension to be installed")
 		terminalReasons := map[string]bool{
@@ -76,7 +77,7 @@ var _ = ginkgo.Describe("OADP OLMv1 lifecycle", ginkgo.Ordered, ginkgo.Label("ol
 			"Failed":               true,
 		}
 		gomega.Eventually(func(g gomega.Gomega) {
-			obj, err := getClusterExtension(ctx, clusterExtensionName)
+			obj, err := getClusterExtension(ctx, packageName)
 			g.Expect(err).NotTo(gomega.HaveOccurred(), "ClusterExtension should exist")
 
 			logAllConditions(obj)
@@ -96,7 +97,7 @@ var _ = ginkgo.Describe("OADP OLMv1 lifecycle", ginkgo.Ordered, ginkgo.Label("ol
 		}, 10*time.Minute, 10*time.Second).Should(gomega.Succeed())
 
 		ginkgo.By("Checking installed bundle info")
-		obj, err := getClusterExtension(ctx, clusterExtensionName)
+		obj, err := getClusterExtension(ctx, packageName)
 		gomega.Expect(err).NotTo(gomega.HaveOccurred())
 		bundleName, bundleVersion, found := getInstalledBundle(obj)
 		gomega.Expect(found).To(gomega.BeTrue(), "installed bundle should be present in status")
@@ -143,7 +144,7 @@ var _ = ginkgo.Describe("OADP OLMv1 lifecycle", ginkgo.Ordered, ginkgo.Label("ol
 	})
 
 	ginkgo.It("should not report deprecation warnings", func() {
-		obj, err := getClusterExtension(ctx, clusterExtensionName)
+		obj, err := getClusterExtension(ctx, packageName)
 		gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
 		for _, condType := range []string{"Deprecated", "PackageDeprecated", "ChannelDeprecated", "BundleDeprecated"} {
@@ -165,20 +166,20 @@ var _ = ginkgo.Describe("OADP OLMv1 lifecycle", ginkgo.Ordered, ginkgo.Label("ol
 
 		ginkgo.It("should upgrade the ClusterExtension to the target version", func() {
 			ginkgo.By(fmt.Sprintf("Patching ClusterExtension version to %s", upgradeVersion))
-			obj, err := getClusterExtension(ctx, clusterExtensionName)
+			obj, err := getClusterExtension(ctx, packageName)
 			gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
 			previousBundleName, previousVersion, _ := getInstalledBundle(obj)
 			log.Printf("Current installed bundle: name=%s version=%s", previousBundleName, previousVersion)
 
 			patch := []byte(fmt.Sprintf(`{"spec":{"source":{"catalog":{"version":"%s","upgradeConstraintPolicy":"SelfCertified"}}}}`, upgradeVersion))
-			_, err = dynamicClient.Resource(clusterExtensionGVR).Patch(ctx, clusterExtensionName, types.MergePatchType, patch, metav1.PatchOptions{})
+			_, err = dynamicClient.Resource(clusterExtensionGVR).Patch(ctx, packageName, types.MergePatchType, patch, metav1.PatchOptions{})
 			gomega.Expect(err).NotTo(gomega.HaveOccurred())
 			log.Printf("Patched ClusterExtension version to %s", upgradeVersion)
 
 			ginkgo.By("Waiting for upgrade to complete")
 			gomega.Eventually(func() string {
-				updated, err := getClusterExtension(ctx, clusterExtensionName)
+				updated, err := getClusterExtension(ctx, packageName)
 				if err != nil {
 					return ""
 				}
