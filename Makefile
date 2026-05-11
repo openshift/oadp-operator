@@ -1250,16 +1250,16 @@ upgrade-v0-to-olmv1: login-required ## Migrate an existing OLMv0 OADP install to
 	-$(OC_CLI) delete catalogsource --all -n $(OADP_TEST_NAMESPACE) --ignore-not-found=true || true
 	@echo "=== Phase 3: Removing orphaned OADP/Velero CRDs ==="
 	# OLMv1 cannot adopt CRDs it did not create
-	-$(OC_CLI) get crd -o name 2>/dev/null | grep -E '\.oadp\.openshift\.io|\.velero\.io' | \
-		xargs -r $(OC_CLI) delete --ignore-not-found=true || true
+	-CRDS=$$($(OC_CLI) get crd -o name 2>/dev/null | grep -E '\.oadp\.openshift\.io|\.velero\.io'); \
+		if [ -n "$$CRDS" ]; then echo "$$CRDS" | xargs $(OC_CLI) delete --ignore-not-found=true; fi || true
 	@echo "=== Phase 3b: Removing OLMv0-managed remnant resources ==="
 	# OLMv1 cannot adopt resources created by OLMv0's CSV (labeled olm.managed=true)
 	-$(OC_CLI) delete sa,roles,rolebindings,deployments -l olm.managed=true -n $(OADP_TEST_NAMESPACE) --ignore-not-found=true || true
 	# Only delete cluster-scoped resources related to OADP (avoid breaking other operators in shared clusters)
-	-$(OC_CLI) get clusterroles -l olm.managed=true -o name 2>/dev/null | grep -E 'oadp|velero|$(OADP_TEST_NAMESPACE)' | \
-		xargs -r $(OC_CLI) delete --ignore-not-found=true || true
-	-$(OC_CLI) get clusterrolebindings -l olm.managed=true -o name 2>/dev/null | grep -E 'oadp|velero|$(OADP_TEST_NAMESPACE)' | \
-		xargs -r $(OC_CLI) delete --ignore-not-found=true || true
+	-CRS=$$($(OC_CLI) get clusterroles -l olm.managed=true -o name 2>/dev/null | grep -E 'oadp|velero|$(OADP_TEST_NAMESPACE)'); \
+		if [ -n "$$CRS" ]; then echo "$$CRS" | xargs $(OC_CLI) delete --ignore-not-found=true; fi || true
+	-CRBS=$$($(OC_CLI) get clusterrolebindings -l olm.managed=true -o name 2>/dev/null | grep -E 'oadp|velero|$(OADP_TEST_NAMESPACE)'); \
+		if [ -n "$$CRBS" ]; then echo "$$CRBS" | xargs $(OC_CLI) delete --ignore-not-found=true; fi || true
 	@echo "=== Phase 4: Creating ClusterCatalog ==="
 	@if [ -f /tmp/oadp-migrate-catalog-image ]; then \
 		CATALOG_IMG=$$(cat /tmp/oadp-migrate-catalog-image); \
