@@ -187,29 +187,33 @@ var _ = ginkgo.Describe("OADP OLMv0 to OLMv1 migration", ginkgo.Ordered, ginkgo.
 		olmSelector := metav1.ListOptions{LabelSelector: "olm.managed=true"}
 
 		ginkgo.By("Deleting OLMv0-managed namespace-scoped resources")
-		sas, _ := kubeClient.CoreV1().ServiceAccounts(namespace).List(ctx, olmSelector)
-		if sas != nil {
+		if sas, err := kubeClient.CoreV1().ServiceAccounts(namespace).List(ctx, olmSelector); err != nil {
+			log.Printf("Warning: failed to list ServiceAccounts: %v", err)
+		} else {
 			for _, sa := range sas.Items {
 				log.Printf("Deleting remnant ServiceAccount %s/%s", namespace, sa.Name)
 				_ = kubeClient.CoreV1().ServiceAccounts(namespace).Delete(ctx, sa.Name, metav1.DeleteOptions{})
 			}
 		}
-		roles, _ := kubeClient.RbacV1().Roles(namespace).List(ctx, olmSelector)
-		if roles != nil {
+		if roles, err := kubeClient.RbacV1().Roles(namespace).List(ctx, olmSelector); err != nil {
+			log.Printf("Warning: failed to list Roles: %v", err)
+		} else {
 			for _, r := range roles.Items {
 				log.Printf("Deleting remnant Role %s/%s", namespace, r.Name)
 				_ = kubeClient.RbacV1().Roles(namespace).Delete(ctx, r.Name, metav1.DeleteOptions{})
 			}
 		}
-		rbs, _ := kubeClient.RbacV1().RoleBindings(namespace).List(ctx, olmSelector)
-		if rbs != nil {
+		if rbs, err := kubeClient.RbacV1().RoleBindings(namespace).List(ctx, olmSelector); err != nil {
+			log.Printf("Warning: failed to list RoleBindings: %v", err)
+		} else {
 			for _, rb := range rbs.Items {
 				log.Printf("Deleting remnant RoleBinding %s/%s", namespace, rb.Name)
 				_ = kubeClient.RbacV1().RoleBindings(namespace).Delete(ctx, rb.Name, metav1.DeleteOptions{})
 			}
 		}
-		deploys, _ := kubeClient.AppsV1().Deployments(namespace).List(ctx, olmSelector)
-		if deploys != nil {
+		if deploys, err := kubeClient.AppsV1().Deployments(namespace).List(ctx, olmSelector); err != nil {
+			log.Printf("Warning: failed to list Deployments: %v", err)
+		} else {
 			for _, d := range deploys.Items {
 				log.Printf("Deleting remnant Deployment %s/%s", namespace, d.Name)
 				_ = kubeClient.AppsV1().Deployments(namespace).Delete(ctx, d.Name, metav1.DeleteOptions{})
@@ -217,8 +221,9 @@ var _ = ginkgo.Describe("OADP OLMv0 to OLMv1 migration", ginkgo.Ordered, ginkgo.
 		}
 
 		ginkgo.By("Deleting OLMv0-managed cluster-scoped resources related to OADP")
-		crs, _ := kubeClient.RbacV1().ClusterRoles().List(ctx, olmSelector)
-		if crs != nil {
+		if crs, err := kubeClient.RbacV1().ClusterRoles().List(ctx, olmSelector); err != nil {
+			log.Printf("Warning: failed to list ClusterRoles: %v", err)
+		} else {
 			for _, cr := range crs.Items {
 				if !isOADPRelatedResource(cr.Name, namespace) {
 					continue
@@ -227,8 +232,9 @@ var _ = ginkgo.Describe("OADP OLMv0 to OLMv1 migration", ginkgo.Ordered, ginkgo.
 				_ = kubeClient.RbacV1().ClusterRoles().Delete(ctx, cr.Name, metav1.DeleteOptions{})
 			}
 		}
-		crbs, _ := kubeClient.RbacV1().ClusterRoleBindings().List(ctx, olmSelector)
-		if crbs != nil {
+		if crbs, err := kubeClient.RbacV1().ClusterRoleBindings().List(ctx, olmSelector); err != nil {
+			log.Printf("Warning: failed to list ClusterRoleBindings: %v", err)
+		} else {
 			for _, crb := range crbs.Items {
 				if !isOADPRelatedResource(crb.Name, namespace) {
 					continue
