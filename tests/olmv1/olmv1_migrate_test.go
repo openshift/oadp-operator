@@ -119,10 +119,11 @@ var _ = ginkgo.Describe("OADP OLMv0 to OLMv1 migration", ginkgo.Ordered, ginkgo.
 			gomega.Expect(err).NotTo(gomega.HaveOccurred())
 		}
 
-		gomega.Eventually(func() int {
-			list, _ := dynamicClient.Resource(subscriptionGVR).Namespace(namespace).List(ctx, metav1.ListOptions{})
-			return len(list.Items)
-		}, 1*time.Minute, 5*time.Second).Should(gomega.Equal(0))
+		gomega.Eventually(func(g gomega.Gomega) {
+			list, err := dynamicClient.Resource(subscriptionGVR).Namespace(namespace).List(ctx, metav1.ListOptions{})
+			g.Expect(err).NotTo(gomega.HaveOccurred())
+			g.Expect(list.Items).To(gomega.BeEmpty())
+		}, 1*time.Minute, 5*time.Second).Should(gomega.Succeed())
 	})
 
 	ginkgo.It("should remove OLMv0 CSVs", func() {
@@ -138,10 +139,11 @@ var _ = ginkgo.Describe("OADP OLMv0 to OLMv1 migration", ginkgo.Ordered, ginkgo.
 			}
 		}
 
-		gomega.Eventually(func() int {
-			list, _ := dynamicClient.Resource(csvGVR).Namespace(namespace).List(ctx, metav1.ListOptions{})
-			return len(list.Items)
-		}, 2*time.Minute, 5*time.Second).Should(gomega.Equal(0))
+		gomega.Eventually(func(g gomega.Gomega) {
+			list, err := dynamicClient.Resource(csvGVR).Namespace(namespace).List(ctx, metav1.ListOptions{})
+			g.Expect(err).NotTo(gomega.HaveOccurred())
+			g.Expect(list.Items).To(gomega.BeEmpty())
+		}, 2*time.Minute, 5*time.Second).Should(gomega.Succeed())
 	})
 
 	ginkgo.It("should remove OLMv0 OperatorGroup and CatalogSource", func() {
