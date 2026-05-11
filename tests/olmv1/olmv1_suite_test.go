@@ -280,19 +280,27 @@ func cleanupOrphanedCRDs(ctx context.Context) {
 		log.Printf("Warning: failed to list CRDs: %v", err)
 		return
 	}
-	var deleted int
+	var deletedNames []string
 	for _, crd := range crdList.Items {
 		name := crd.GetName()
 		if strings.HasSuffix(name, ".oadp.openshift.io") || strings.HasSuffix(name, ".velero.io") {
 			if err := dynamicClient.Resource(crdGVR).Delete(ctx, name, metav1.DeleteOptions{}); err != nil && !apierrors.IsNotFound(err) {
 				log.Printf("Warning: failed to delete CRD %s: %v", name, err)
 			} else {
-				deleted++
+				deletedNames = append(deletedNames, name)
 			}
 		}
 	}
-	if deleted > 0 {
-		log.Printf("Deleted %d orphaned OADP/Velero CRDs", deleted)
+	if len(deletedNames) > 0 {
+		log.Printf("Deleted %d orphaned OADP/Velero CRDs, waiting for removal", len(deletedNames))
+		for _, name := range deletedNames {
+			gomega.Eventually(func() bool {
+				_, err := dynamicClient.Resource(crdGVR).Get(ctx, name, metav1.GetOptions{})
+				return apierrors.IsNotFound(err)
+			}, 2*time.Minute, 5*time.Second).Should(gomega.BeTrue(),
+				"CRD %s should be fully removed", name)
+		}
+		log.Print("All orphaned CRDs fully removed")
 	}
 }
 
