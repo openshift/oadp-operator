@@ -904,7 +904,7 @@ OADP_BUCKET ?= $(shell cat $(OADP_BUCKET_FILE))
 SETTINGS_TMP=/tmp/test-settings
 
 .PHONY: test-e2e-setup
-test-e2e-setup: login-required build-must-gather
+test-e2e-setup: login-required
 	mkdir -p $(SETTINGS_TMP)
 	TMP_DIR=$(SETTINGS_TMP) \
 	OPENSHIFT_CI="$(OPENSHIFT_CI)" \
@@ -930,7 +930,14 @@ TEST_HCP ?= false
 TEST_HCP_EXTERNAL ?= false
 HCP_EXTERNAL_ARGS ?= ""
 TEST_CLI ?= false
-SKIP_MUST_GATHER  ?= false
+SKIP_MUST_GATHER   ?= false
+MUST_GATHER_REPO   ?=
+MUST_GATHER_BRANCH ?= oadp-dev
+ifneq ($(MUST_GATHER_REPO),)
+MUST_GATHER_IMAGE  ?= ttl.sh/oadp-must-gather-$(MUST_GATHER_BRANCH)-$(GIT_REV):$(TTL_DURATION)
+else
+MUST_GATHER_IMAGE  ?= quay.io/konveyor/oadp-must-gather:latest
+endif
 TEST_UPGRADE ?= false
 FAIL_FAST ?= true
 TEST_FILTER = (($(shell echo '! aws && ! gcp && ! azure && ! ibmcloud' | \
@@ -973,8 +980,21 @@ GINKGO_FLAGS = --vv \
 	--fail-fast=$(FAIL_FAST) \
 	--timeout=2h
 
+.PHONY: build-must-gather
+build-must-gather: ## Build must-gather image from GitHub source. Requires MUST_GATHER_REPO (e.g., openshift/oadp-must-gather). Uses MUST_GATHER_BRANCH (default: main).
+ifeq ($(MUST_GATHER_REPO),)
+	$(error MUST_GATHER_REPO is required (e.g., openshift/oadp-must-gather))
+endif
+	$(eval MUST_GATHER_TMP := $(shell mktemp -d))
+	git clone --depth=1 --branch $(MUST_GATHER_BRANCH) https://github.com/$(MUST_GATHER_REPO).git $(MUST_GATHER_TMP)
+	$(CONTAINER_TOOL) build --load -t $(MUST_GATHER_IMAGE) -f $(MUST_GATHER_TMP)/Dockerfile $(MUST_GATHER_TMP)
+	$(CONTAINER_TOOL) push $(MUST_GATHER_IMAGE)
+	rm -rf $(MUST_GATHER_TMP)
+	@echo "Must-gather image built and pushed: $(MUST_GATHER_IMAGE)"
+
 .PHONY: test-e2e
-test-e2e: test-e2e-setup install-ginkgo ## Run E2E tests against OADP operator installed in cluster. For more information, check docs/developer/testing/TESTING.md
+test-e2e: test-e2e-setup install-ginkgo $(if $(MUST_GATHER_REPO),build-must-gather) ## Run E2E tests against OADP operator installed in cluster. For more information, check docs/developer/testing/TESTING.md
+	MUST_GATHER_IMAGE=$(MUST_GATHER_IMAGE) \
 	ginkgo run -mod=mod $(GINKGO_FLAGS) $(GINKGO_ARGS) tests/e2e/ -- \
 	-settings=$(SETTINGS_TMP)/oadpcreds \
 	-provider=$(CLUSTER_TYPE) \
@@ -1079,11 +1099,3 @@ endif
 	@cp $(KUBEVIRT_DATAMOVER_PATH)/config/rbac/kustomization.yaml $(shell pwd)/config/kubevirt-datamover-controller_rbac/kustomization.yaml
 	@$(SED) -i '1i namePrefix: oadp-kubevirt-datamover-' $(shell pwd)/config/kubevirt-datamover-controller_rbac/kustomization.yaml
 	@make bundle
-
-.PHONY: build-must-gather
-build-must-gather: check-go ## Build OADP Must-gather binary must-gather/oadp-must-gather
-ifeq ($(SKIP_MUST_GATHER),true)
-	echo "Skipping must-gather build"
-else
-	cd must-gather && go build -mod=mod -a -o oadp-must-gather cmd/main.go
-endif
