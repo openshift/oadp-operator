@@ -361,6 +361,7 @@ func waitForClusterCatalogServing(ctx context.Context, name string) {
 		}
 		conditions, found, _ := unstructured.NestedSlice(obj.Object, "status", "conditions")
 		if !found {
+			log.Printf("ClusterCatalog %s: no conditions yet, waiting...", name)
 			return false
 		}
 		for _, c := range conditions {
