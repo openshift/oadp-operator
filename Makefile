@@ -1093,6 +1093,16 @@ OLMV1_GINKGO_FLAGS = --vv \
 test-olmv1: OLMV1_OPERATOR_IMAGE?=ttl.sh/oadp-operator-$(GIT_REV):$(TTL_DURATION)
 test-olmv1: OLMV1_BUNDLE_IMAGE?=ttl.sh/oadp-operator-bundle-$(GIT_REV):$(TTL_DURATION)
 test-olmv1: login-required install-ginkgo ## Run OLMv1 lifecycle tests (install, verify, upgrade, cleanup) against a cluster with OLMv1 enabled.
+	@echo "=== OLMv1 test configuration ==="
+	@echo "  Package:       $(OLMV1_PACKAGE)"
+	@echo "  Namespace:     $(OLMV1_NAMESPACE)"
+	@echo "  Channel:       $(OLMV1_CHANNEL)"
+	@echo "  Version:       $(OLMV1_VERSION)"
+	@echo "  Catalog:       $(OLMV1_CATALOG)"
+	@echo "  Catalog Image: $(OLMV1_CATALOG_IMAGE)"
+	@echo "  Operator:      $(OLMV1_OPERATOR_IMAGE)"
+	@echo "  Bundle:        $(OLMV1_BUNDLE_IMAGE)"
+	@echo "=== Building operator, bundle, and catalog images ==="
 	IMG=$(OLMV1_OPERATOR_IMAGE) BUNDLE_IMG=$(OLMV1_BUNDLE_IMAGE) BUNDLE_IMGS=$(OLMV1_BUNDLE_IMAGE) CATALOG_IMG=$(OLMV1_CATALOG_IMAGE) \
 		$(MAKE) docker-build docker-push bundle bundle-build bundle-push catalog-build catalog-push
 	ginkgo run -mod=mod $(OLMV1_GINKGO_FLAGS) $(GINKGO_ARGS) tests/olmv1/ -- \
