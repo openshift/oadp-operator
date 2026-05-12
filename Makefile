@@ -1074,7 +1074,7 @@ test-e2e-cleanup: login-required
 OLMV1_PACKAGE ?= oadp-operator
 OLMV1_NAMESPACE ?= $(OADP_TEST_NAMESPACE)
 OLMV1_CHANNEL ?= $(DEFAULT_CHANNEL)
-OLMV1_VERSION ?=
+OLMV1_VERSION ?= $(VERSION)
 OLMV1_UPGRADE_VERSION ?=
 OLMV1_CATALOG ?= oadp-olmv1-test-catalog
 OLMV1_CATALOG_IMAGE ?= ttl.sh/oadp-operator-catalog-$(GIT_REV):$(TTL_DURATION)
