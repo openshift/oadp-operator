@@ -1073,11 +1073,11 @@ test-e2e-cleanup: login-required
 
 OLMV1_PACKAGE ?= oadp-operator
 OLMV1_NAMESPACE ?= $(OADP_TEST_NAMESPACE)
-OLMV1_CHANNEL ?=
+OLMV1_CHANNEL ?= $(DEFAULT_CHANNEL)
 OLMV1_VERSION ?=
 OLMV1_UPGRADE_VERSION ?=
 OLMV1_CATALOG ?= oadp-olmv1-test-catalog
-OLMV1_CATALOG_IMAGE ?=
+OLMV1_CATALOG_IMAGE ?= ttl.sh/oadp-operator-catalog-$(GIT_REV):$(TTL_DURATION)
 OLMV1_SERVICE_ACCOUNT ?= $(OLMV1_PACKAGE)-installer
 OLMV1_INSTALLER_BINDING ?= $(OLMV1_SERVICE_ACCOUNT)-binding
 OLMV1_FAIL_FAST ?= true
@@ -1090,7 +1090,11 @@ OLMV1_GINKGO_FLAGS = --vv \
 	--timeout=30m
 
 .PHONY: test-olmv1
+test-olmv1: OLMV1_OPERATOR_IMAGE?=ttl.sh/oadp-operator-$(GIT_REV):$(TTL_DURATION)
+test-olmv1: OLMV1_BUNDLE_IMAGE?=ttl.sh/oadp-operator-bundle-$(GIT_REV):$(TTL_DURATION)
 test-olmv1: login-required install-ginkgo ## Run OLMv1 lifecycle tests (install, verify, upgrade, cleanup) against a cluster with OLMv1 enabled.
+	IMG=$(OLMV1_OPERATOR_IMAGE) BUNDLE_IMG=$(OLMV1_BUNDLE_IMAGE) BUNDLE_IMGS=$(OLMV1_BUNDLE_IMAGE) CATALOG_IMG=$(OLMV1_CATALOG_IMAGE) \
+		$(MAKE) docker-build docker-push bundle bundle-build bundle-push catalog-build catalog-push
 	ginkgo run -mod=mod $(OLMV1_GINKGO_FLAGS) $(GINKGO_ARGS) tests/olmv1/ -- \
 	-namespace=$(OLMV1_NAMESPACE) \
 	-package=$(OLMV1_PACKAGE) \
