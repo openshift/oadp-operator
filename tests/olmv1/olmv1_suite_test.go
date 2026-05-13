@@ -271,6 +271,17 @@ func crdExists(ctx context.Context, name string) (bool, error) {
 	return true, nil
 }
 
+func skipIfOLMv1NotAvailable(ctx context.Context) {
+	exists, err := crdExists(ctx, "clusterextensions.olm.operatorframework.io")
+	if err != nil || !exists {
+		ginkgo.Skip("OLMv1 not available — ClusterExtension CRD not found (requires OCP 4.20+)")
+	}
+	exists, err = crdExists(ctx, "clustercatalogs.olm.operatorframework.io")
+	if err != nil || !exists {
+		ginkgo.Skip("OLMv1 not available — ClusterCatalog CRD not found (requires OCP 4.20+)")
+	}
+}
+
 func cleanupClusterRoleBinding(ctx context.Context, saName string) {
 	bindingName := saName + "-binding"
 	err := kubeClient.RbacV1().ClusterRoleBindings().Delete(ctx, bindingName, metav1.DeleteOptions{})

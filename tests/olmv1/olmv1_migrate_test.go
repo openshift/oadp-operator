@@ -71,6 +71,7 @@ var _ = ginkgo.Describe("OADP OLMv0 to OLMv1 migration", ginkgo.Ordered, ginkgo.
 		if !migrate {
 			ginkgo.Skip("Migration tests disabled (pass -migrate=true to enable)")
 		}
+		skipIfOLMv1NotAvailable(ctx)
 
 		ginkgo.By("Verifying OLMv0 resources exist before migration")
 		subs, err := dynamicClient.Resource(subscriptionGVR).Namespace(namespace).List(ctx, metav1.ListOptions{})

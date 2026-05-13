@@ -26,6 +26,8 @@ var _ = ginkgo.Describe("OADP OLMv1 lifecycle", ginkgo.Ordered, ginkgo.Label("ol
 	ctx := context.Background()
 
 	ginkgo.BeforeAll(func() {
+		skipIfOLMv1NotAvailable(ctx)
+
 		ginkgo.By("Cleaning up orphaned OADP/Velero CRDs from previous installs")
 		cleanupOrphanedCRDs(ctx)
 
