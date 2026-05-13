@@ -204,4 +204,4 @@ require (
 
 replace github.com/vmware-tanzu/velero => github.com/openshift/velero v0.10.2-0.20260512112741-1507da80091a
 
-replace github.com/kopia/kopia => github.com/migtools/kopia v0.0.0-20260211121325-b68c22afd36d
+replace github.com/kopia/kopia => github.com/migtools/kopia v0.0.0-20260512033434-45763479a2d7
