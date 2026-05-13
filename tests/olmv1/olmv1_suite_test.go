@@ -271,6 +271,12 @@ func crdExists(ctx context.Context, name string) (bool, error) {
 	return true, nil
 }
 
+// skipIfOLMv1NotAvailable checks that OLMv1 APIs exist and the
+// NewOLMOwnSingleNamespace feature gate is enabled. Without this gate,
+// OLMv1 rejects bundles that don't declare AllNamespaces install mode —
+// OADP only supports OwnNamespace. As of 4.21 this gate requires
+// TechPreviewNoUpgrade; when it goes GA (OPRUN-4131, OCPSTRAT-1982)
+// it will be in Default and this check remains valid either way.
 func skipIfOLMv1NotAvailable(ctx context.Context) {
 	exists, err := crdExists(ctx, "clusterextensions.olm.operatorframework.io")
 	if err != nil || !exists {
@@ -280,6 +286,57 @@ func skipIfOLMv1NotAvailable(ctx context.Context) {
 	if err != nil || !exists {
 		ginkgo.Skip("OLMv1 not available — ClusterCatalog CRD not found (requires OCP 4.20+)")
 	}
+
+	if !isFeatureGateEnabled(ctx, "NewOLMOwnSingleNamespace") {
+		ginkgo.Skip(
+			"NewOLMOwnSingleNamespace feature gate is not enabled. " +
+				"OADP requires OwnNamespace install mode support in OLMv1. " +
+				"On OCP 4.21 this requires TechPreviewNoUpgrade: " +
+				"clusterbot launch 4.21.0-0.nightly aws,techpreview " +
+				"GA tracking: OPRUN-4131 / OCPSTRAT-1982")
+	}
+}
+
+func isFeatureGateEnabled(ctx context.Context, gateName string) bool {
+	featureGateGVR := schema.GroupVersionResource{
+		Group:    "config.openshift.io",
+		Version:  "v1",
+		Resource: "featuregates",
+	}
+	fg, err := dynamicClient.Resource(featureGateGVR).Get(ctx, "cluster", metav1.GetOptions{})
+	if err != nil {
+		log.Printf("Warning: could not check FeatureGate: %v (assuming enabled)", err)
+		return true
+	}
+
+	featureGates, found, _ := unstructured.NestedSlice(fg.Object, "status", "featureGates")
+	if !found || len(featureGates) == 0 {
+		log.Printf("Warning: no status.featureGates found, checking spec.featureSet fallback")
+		featureSet, _, _ := unstructured.NestedString(fg.Object, "spec", "featureSet")
+		log.Printf("Cluster FeatureSet: %s", featureSet)
+		return featureSet == "TechPreviewNoUpgrade" || featureSet == "DevPreviewNoUpgrade"
+	}
+
+	for _, fgVersion := range featureGates {
+		versionEntry, ok := fgVersion.(map[string]interface{})
+		if !ok {
+			continue
+		}
+		enabled, _, _ := unstructured.NestedSlice(versionEntry, "enabled")
+		for _, e := range enabled {
+			entry, ok := e.(map[string]interface{})
+			if !ok {
+				continue
+			}
+			name, _, _ := unstructured.NestedString(entry, "name")
+			if name == gateName {
+				log.Printf("FeatureGate %s: enabled", gateName)
+				return true
+			}
+		}
+	}
+	log.Printf("FeatureGate %s: not found in enabled gates", gateName)
+	return false
 }
 
 func cleanupClusterRoleBinding(ctx context.Context, saName string) {
