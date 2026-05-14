@@ -27,19 +27,23 @@ ARG BUNDLE_IMG
 ARG VERSION=99.0.0
 ARG DEFAULT_CHANNEL=dev
 
-RUN mkdir -p /configs/oadp-operator && \
-    /bin/opm render ${BUNDLE_IMG} -o yaml > /configs/oadp-operator/index.yaml && \
-    echo '---' >> /configs/oadp-operator/index.yaml && \
-    echo 'schema: olm.package' >> /configs/oadp-operator/index.yaml && \
-    echo 'name: oadp-operator' >> /configs/oadp-operator/index.yaml && \
-    echo "defaultChannel: ${DEFAULT_CHANNEL}" >> /configs/oadp-operator/index.yaml && \
-    echo '---' >> /configs/oadp-operator/index.yaml && \
-    echo 'schema: olm.channel' >> /configs/oadp-operator/index.yaml && \
-    echo "name: ${DEFAULT_CHANNEL}" >> /configs/oadp-operator/index.yaml && \
-    echo 'package: oadp-operator' >> /configs/oadp-operator/index.yaml && \
-    echo 'entries:' >> /configs/oadp-operator/index.yaml && \
-    echo "  - name: oadp-operator.v${VERSION}" >> /configs/oadp-operator/index.yaml && \
-    /bin/opm validate /configs/
+RUN test -n "${BUNDLE_IMG}" || (echo "BUNDLE_IMG build-arg is required" >&2; exit 1) && \
+    mkdir -p /configs/oadp-operator && \
+    /bin/opm render "${BUNDLE_IMG}" -o yaml > /configs/oadp-operator/index.yaml && \
+    cat >> /configs/oadp-operator/index.yaml <<EOF
+---
+schema: olm.package
+name: oadp-operator
+defaultChannel: ${DEFAULT_CHANNEL}
+---
+schema: olm.channel
+name: ${DEFAULT_CHANNEL}
+package: oadp-operator
+entries:
+  - name: oadp-operator.v${VERSION}
+EOF
+
+RUN /bin/opm validate /configs/
 
 FROM opm
 
