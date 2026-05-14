@@ -1,0 +1,54 @@
+# FBC (File-Based Catalog) image for OLM operator installation.
+# Renders a bundle image into an FBC catalog servable via gRPC CatalogSource.
+#
+# Usage:
+#   podman build -f build/Dockerfile.catalog \
+#     --build-arg BUNDLE_IMG=<bundle-image-ref> \
+#     -t <catalog-image-tag> .
+#
+# ci-operator: set BUNDLE_IMG via build_args in the ci-operator config.
+# The bundle image must be pushed to a registry accessible during the build.
+#
+# Reference: networking-incubator/coraza-kubernetes-operator catalog/Dockerfile
+
+ARG OPM_VERSION=v1.23.0
+
+FROM quay.io/operator-framework/opm:${OPM_VERSION} AS opm
+
+FROM registry.access.redhat.com/ubi9/ubi-minimal AS builder
+
+COPY --from=opm /bin/opm /bin/opm
+
+# Allow opm to pull bundle images from CI registries without signature verification
+RUN mkdir -p /etc/containers && \
+    echo '{"default":[{"type":"insecureAcceptAnything"}]}' > /etc/containers/policy.json
+
+ARG BUNDLE_IMG
+ARG VERSION=99.0.0
+ARG DEFAULT_CHANNEL=dev
+
+RUN mkdir -p /configs/oadp-operator && \
+    /bin/opm render ${BUNDLE_IMG} -o yaml > /configs/oadp-operator/index.yaml && \
+    echo '---' >> /configs/oadp-operator/index.yaml && \
+    echo 'schema: olm.package' >> /configs/oadp-operator/index.yaml && \
+    echo 'name: oadp-operator' >> /configs/oadp-operator/index.yaml && \
+    echo "defaultChannel: ${DEFAULT_CHANNEL}" >> /configs/oadp-operator/index.yaml && \
+    echo '---' >> /configs/oadp-operator/index.yaml && \
+    echo 'schema: olm.channel' >> /configs/oadp-operator/index.yaml && \
+    echo "name: ${DEFAULT_CHANNEL}" >> /configs/oadp-operator/index.yaml && \
+    echo 'package: oadp-operator' >> /configs/oadp-operator/index.yaml && \
+    echo 'entries:' >> /configs/oadp-operator/index.yaml && \
+    echo "  - name: oadp-operator.v${VERSION}" >> /configs/oadp-operator/index.yaml && \
+    /bin/opm validate /configs/
+
+FROM opm
+
+COPY --from=builder /configs /configs
+
+RUN ["/bin/opm", "serve", "/configs", "--cache-dir=/tmp/cache", "--cache-only"]
+
+LABEL operators.operatorframework.io.index.configs.v1=/configs
+
+EXPOSE 50051
+ENTRYPOINT ["/bin/opm"]
+CMD ["serve", "/configs", "--cache-dir=/tmp/cache"]
