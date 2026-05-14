@@ -11,7 +11,7 @@
 #
 # Reference: networking-incubator/coraza-kubernetes-operator catalog/Dockerfile
 
-ARG OPM_VERSION=v1.23.0
+ARG OPM_VERSION=v1.68.0
 
 FROM quay.io/operator-framework/opm:${OPM_VERSION} AS opm
 
