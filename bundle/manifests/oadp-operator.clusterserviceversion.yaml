@@ -281,7 +281,7 @@ metadata:
     features.operators.openshift.io/token-auth-aws: "true"
     features.operators.openshift.io/token-auth-azure: "true"
     features.operators.openshift.io/token-auth-gcp: "true"
-    olm.skipRange: '>=1.4.0 <1.5.6'
+    olm.skipRange: '>=1.4.0 <1.5.7'
     operatorframework.io/suggested-namespace: openshift-adp
     operators.openshift.io/infrastructure-features: '["Disconnected"]'
     operators.openshift.io/must-gather-image: quay.io/konveyor/oadp-must-gather:oadp-1.5
@@ -296,7 +296,7 @@ metadata:
     operatorframework.io/arch.arm64: supported
     operatorframework.io/arch.ppc64le: supported
     operatorframework.io/arch.s390x: supported
-  name: oadp-operator.v1.5.6
+  name: oadp-operator.v1.5.7
   namespace: openshift-adp
 spec:
   apiservicedefinitions: {}
@@ -1292,5 +1292,5 @@ spec:
     name: mustgather
   - image: quay.io/konveyor/oadp-non-admin:oadp-1.5
     name: non-admin-controller
-  replaces: oadp-operator.v1.5.5
-  version: 1.5.6
+  replaces: oadp-operator.v1.5.6
+  version: 1.5.7
