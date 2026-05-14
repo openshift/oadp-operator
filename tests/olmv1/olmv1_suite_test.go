@@ -274,9 +274,17 @@ func crdExists(ctx context.Context, name string) (bool, error) {
 // skipIfOLMv1NotAvailable checks that OLMv1 APIs exist and the
 // NewOLMOwnSingleNamespace feature gate is enabled. Without this gate,
 // OLMv1 rejects bundles that don't declare AllNamespaces install mode —
-// OADP only supports OwnNamespace. As of 4.21 this gate requires
-// TechPreviewNoUpgrade; when it goes GA (OPRUN-4131, OCPSTRAT-1982)
-// it will be in Default and this check remains valid either way.
+// OADP only supports OwnNamespace.
+//
+// Enable via either:
+//   - TechPreviewNoUpgrade: clusterbot launch 4.21.0-0.nightly aws,techpreview
+//   - CustomNoUpgrade (single gate only):
+//     oc patch featuregate cluster --type=json -p
+//     '[{"op":"add","path":"/spec/featureSet","value":"CustomNoUpgrade"},
+//     {"op":"add","path":"/spec/customNoUpgrade","value":{"enabled":["NewOLMOwnSingleNamespace"]}}]'
+//
+// Both options block upgrades. GA tracking: OPRUN-4131, OCPSTRAT-1982.
+// When GA, this gate moves to Default and this check passes without either.
 func skipIfOLMv1NotAvailable(ctx context.Context) {
 	exists, err := crdExists(ctx, "clusterextensions.olm.operatorframework.io")
 	if err != nil || !exists {
@@ -291,9 +299,12 @@ func skipIfOLMv1NotAvailable(ctx context.Context) {
 		ginkgo.Skip(
 			"NewOLMOwnSingleNamespace feature gate is not enabled. " +
 				"OADP requires OwnNamespace install mode support in OLMv1. " +
-				"On OCP 4.21 this requires TechPreviewNoUpgrade: " +
-				"clusterbot launch 4.21.0-0.nightly aws,techpreview " +
-				"GA tracking: OPRUN-4131 / OCPSTRAT-1982")
+				"Enable via TechPreviewNoUpgrade (clusterbot launch 4.21.0-0.nightly aws,techpreview) " +
+				"or CustomNoUpgrade with just this gate " +
+				"(oc patch featuregate cluster --type=json -p " +
+				"'[{\"op\":\"add\",\"path\":\"/spec/featureSet\",\"value\":\"CustomNoUpgrade\"}," +
+				"{\"op\":\"add\",\"path\":\"/spec/customNoUpgrade\",\"value\":{\"enabled\":[\"NewOLMOwnSingleNamespace\"]}}]'). " +
+				"Both options block upgrades. GA tracking: OPRUN-4131 / OCPSTRAT-1982")
 	}
 }
 
@@ -311,10 +322,21 @@ func isFeatureGateEnabled(ctx context.Context, gateName string) bool {
 
 	featureGates, found, _ := unstructured.NestedSlice(fg.Object, "status", "featureGates")
 	if !found || len(featureGates) == 0 {
-		log.Printf("Warning: no status.featureGates found, checking spec.featureSet fallback")
+		log.Printf("Warning: no status.featureGates found, checking spec fallback")
 		featureSet, _, _ := unstructured.NestedString(fg.Object, "spec", "featureSet")
 		log.Printf("Cluster FeatureSet: %s", featureSet)
-		return featureSet == "TechPreviewNoUpgrade" || featureSet == "DevPreviewNoUpgrade"
+		if featureSet == "TechPreviewNoUpgrade" || featureSet == "DevPreviewNoUpgrade" {
+			return true
+		}
+		if featureSet == "CustomNoUpgrade" {
+			customEnabled, _, _ := unstructured.NestedStringSlice(fg.Object, "spec", "customNoUpgrade", "enabled")
+			for _, name := range customEnabled {
+				if name == gateName {
+					return true
+				}
+			}
+		}
+		return false
 	}
 
 	for _, fgVersion := range featureGates {
