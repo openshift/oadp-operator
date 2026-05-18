@@ -1,5 +1,6 @@
 # FBC (File-Based Catalog) image for OLM operator installation.
-# Renders a bundle image into an FBC catalog servable via gRPC CatalogSource.
+# Renders a bundle image into an FBC catalog with gRPC serving for OLMv0.
+# OLMv1 only needs the /configs content (no serving required).
 #
 # Usage:
 #   make catalog-fbc-build BUNDLE_IMG=<bundle-image-ref>
@@ -59,6 +60,8 @@ FROM opm
 
 COPY --from=builder /configs /configs
 
+# OLMv0: pre-warm the serve cache and configure gRPC serving.
+# OLMv1 reads /configs directly from the image and does not use the serve entrypoint.
 RUN ["/bin/opm", "serve", "/configs", "--cache-dir=/tmp/cache", "--cache-only"]
 
 LABEL operators.operatorframework.io.index.configs.v1=/configs
