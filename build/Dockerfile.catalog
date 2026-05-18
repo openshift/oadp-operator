@@ -9,6 +9,12 @@
 #     --build-arg BUNDLE_IMG=<bundle-image-ref> \
 #     -t <catalog-image-tag> .
 #
+# After building, push and install on-cluster:
+#   make catalog-push
+#   OLMv0: make deploy-olm CATALOG_IMG=<catalog-image-tag>
+#   OLMv1: create a ClusterExtension referencing the oadp-operator package
+#          (see Makefile catalog-fbc-build comments for full example)
+#
 # ci-operator: set BUNDLE_IMG via build_args in the ci-operator config.
 # The bundle image must be pushed to a registry accessible during the build.
 #

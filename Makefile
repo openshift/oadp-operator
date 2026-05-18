@@ -419,8 +419,30 @@ catalog-build: opm ## Build a catalog image.
 
 # Build a catalog image using build/Dockerfile.catalog (self-contained, used by CI).
 # Passes OPM_VERSION from this Makefile to keep the two in sync.
+#
 # Use case: test the same Dockerfile that CI uses, locally.
 #   make catalog-fbc-build BUNDLE_IMG=quay.io/konveyor/oadp-operator-bundle:latest
+#   make catalog-push
+#
+# Then install on-cluster:
+#   OLMv0 (CatalogSource + Subscription):
+#     make deploy-olm CATALOG_IMG=$(CATALOG_IMG)
+#   OLMv1 (ClusterExtension):
+#     kubectl apply -f - <<EOF
+#     apiVersion: olm.operatorframework.io/v1
+#     kind: ClusterExtension
+#     metadata:
+#       name: oadp-operator
+#     spec:
+#       source:
+#         sourceType: Catalog
+#         catalog:
+#           packageName: oadp-operator
+#       install:
+#         namespace: openshift-adp
+#         serviceAccount:
+#           name: oadp-operator-controller-manager
+#     EOF
 .PHONY: catalog-fbc-build
 catalog-fbc-build: ## Build a catalog image from build/Dockerfile.catalog.
 	$(CONTAINER_TOOL) build --load $(DOCKER_BUILD_ARGS) \
