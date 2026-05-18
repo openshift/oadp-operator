@@ -2,6 +2,9 @@
 # Renders a bundle image into an FBC catalog servable via gRPC CatalogSource.
 #
 # Usage:
+#   make catalog-fbc-build BUNDLE_IMG=<bundle-image-ref>
+#
+# Or directly:
 #   podman build -f build/Dockerfile.catalog \
 #     --build-arg BUNDLE_IMG=<bundle-image-ref> \
 #     -t <catalog-image-tag> .
