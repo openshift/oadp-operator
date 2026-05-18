@@ -11,6 +11,7 @@
 #
 # Reference: networking-incubator/coraza-kubernetes-operator catalog/Dockerfile
 
+# Keep OPM_VERSION in sync with Makefile. Override via --build-arg or `make catalog-fbc-build`.
 ARG OPM_VERSION=v1.68.0
 
 FROM quay.io/operator-framework/opm:${OPM_VERSION} AS opm
