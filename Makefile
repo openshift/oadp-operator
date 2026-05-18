@@ -7,7 +7,8 @@ ENVTEST_K8S_VERSION = 1.32 #refers to the version of kubebuilder assets to be do
 GOLANGCI_LINT_VERSION ?= v2.9.0
 KUSTOMIZE_VERSION ?= v5.2.1
 CONTROLLER_TOOLS_VERSION ?= v0.16.5
-OPM_VERSION ?= v1.68.0 # also defined in build/Dockerfile.catalog — keep in sync
+# Also defined in build/Dockerfile.catalog — keep in sync
+OPM_VERSION ?= v1.68.0
 BRANCH_VERSION = oadp-dev
 PREVIOUS_CHANNEL ?= oadp-1.5
 PREVIOUS_CHANNEL_GO_VERSION ?= 1.23
