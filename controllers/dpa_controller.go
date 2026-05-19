@@ -32,13 +32,16 @@ import (
 	"github.com/go-logr/logr"
 	oadpv1alpha1 "github.com/openshift/oadp-operator/api/v1alpha1"
 	oadpClient "github.com/openshift/oadp-operator/pkg/client"
+	"github.com/openshift/oadp-operator/pkg/common"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/client-go/util/workqueue"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/event"
+	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
@@ -138,7 +141,7 @@ func (r *DPAReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 // SetupWithManager sets up the controller with the Manager.
 func (r *DPAReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&oadpv1alpha1.DataProtectionApplication{}).
+		For(&oadpv1alpha1.DataProtectionApplication{}, builder.WithPredicates(veleroPredicate(r.Scheme))).
 		Owns(&appsv1.Deployment{}).
 		Owns(&velerov1.BackupStorageLocation{}).
 		Owns(&velerov1.VolumeSnapshotLocation{}).
@@ -146,10 +149,35 @@ func (r *DPAReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Owns(&security.SecurityContextConstraints{}).
 		Owns(&corev1.Service{}).
 		Owns(&routev1.Route{}).
+		// Owns watches ConfigMaps created by the operator (with ownerReference to DPA).
 		Owns(&corev1.ConfigMap{}).
 		Watches(&corev1.Secret{}, &labelHandler{}).
-		WithEventFilter(veleroPredicate(r.Scheme)).
+		// Watches for user-created ConfigMaps referenced by DPA annotations
+		// (not owned by DPA, so Owns above does not cover them).
+		Watches(&corev1.ConfigMap{}, handler.EnqueueRequestsFromMapFunc(r.mapUnsupportedArgsConfigMap)).
 		Complete(r)
+}
+
+// mapUnsupportedArgsConfigMap maps ConfigMap events to DPA reconcile requests
+// when the ConfigMap is referenced by a DPA's unsupported server args annotation.
+func (r *DPAReconciler) mapUnsupportedArgsConfigMap(ctx context.Context, obj client.Object) []reconcile.Request {
+	var dpas oadpv1alpha1.DataProtectionApplicationList
+	if err := r.List(ctx, &dpas, client.InNamespace(obj.GetNamespace())); err != nil {
+		return nil
+	}
+	var requests []reconcile.Request
+	for i := range dpas.Items {
+		if dpas.Items[i].Annotations[common.UnsupportedVeleroServerArgsAnnotation] == obj.GetName() ||
+			dpas.Items[i].Annotations[common.UnsupportedNodeAgentServerArgsAnnotation] == obj.GetName() {
+			requests = append(requests, reconcile.Request{
+				NamespacedName: types.NamespacedName{
+					Name:      dpas.Items[i].Name,
+					Namespace: dpas.Items[i].Namespace,
+				},
+			})
+		}
+	}
+	return requests
 }
 
 type labelHandler struct {
