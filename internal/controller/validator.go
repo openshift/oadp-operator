@@ -72,8 +72,10 @@ func (r *DataProtectionApplicationReconciler) ValidateDataProtectionCR(log logr.
 
 	// Ensure DPA spec.configuration.nodeAgent.PodConfig is not different from spec.configuration.nodeAgent.LoadAffinityConfig
 	// If LoadAffinityConfig is set, it will be used instead of PodConfig; however, if both are set, they must be identical.
+	// Only validate when podConfig.nodeSelector is explicitly set; an empty podConfig (e.g. only resourceAllocations) is valid alongside loadAffinity.
 	if r.dpa.Spec.Configuration.NodeAgent != nil &&
 		r.dpa.Spec.Configuration.NodeAgent.PodConfig != nil &&
+		len(r.dpa.Spec.Configuration.NodeAgent.PodConfig.NodeSelector) > 0 &&
 		r.dpa.Spec.Configuration.NodeAgent.LoadAffinityConfig != nil {
 
 		if len(r.dpa.Spec.Configuration.NodeAgent.LoadAffinityConfig) > 1 {
