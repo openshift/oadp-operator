@@ -1,0 +1,71 @@
+# FBC (File-Based Catalog) image for OLM operator installation.
+# Renders a bundle image into an FBC catalog with gRPC serving for OLMv0.
+# OLMv1 only needs the /configs content (no serving required).
+#
+# Usage:
+#   make catalog-fbc-build BUNDLE_IMG=<bundle-image-ref>
+#
+# Or directly:
+#   podman build -f build/Dockerfile.catalog \
+#     --build-arg BUNDLE_IMG=<bundle-image-ref> \
+#     -t <catalog-image-tag> .
+#
+# After building, push and install on-cluster:
+#   make catalog-push
+#   OLMv0: make deploy-olm CATALOG_IMG=<catalog-image-tag>
+#   OLMv1: create a ClusterExtension referencing the oadp-operator package
+#          (see Makefile catalog-fbc-build comments for full example)
+#
+# ci-operator: set BUNDLE_IMG via build_args in the ci-operator config.
+# The bundle image must be pushed to a registry accessible during the build.
+#
+# Reference: networking-incubator/coraza-kubernetes-operator catalog/Dockerfile
+
+# Keep OPM_VERSION in sync with Makefile. Override via --build-arg or `make catalog-fbc-build`.
+ARG OPM_VERSION=v1.68.0
+
+FROM quay.io/operator-framework/opm:${OPM_VERSION} AS opm
+
+FROM registry.access.redhat.com/ubi9/ubi-minimal AS builder
+
+COPY --from=opm /bin/opm /bin/opm
+
+# Allow opm to pull bundle images from CI registries without signature verification
+RUN mkdir -p /etc/containers && \
+    echo '{"default":[{"type":"insecureAcceptAnything"}]}' > /etc/containers/policy.json
+
+ARG BUNDLE_IMG
+ARG VERSION=99.0.0
+ARG DEFAULT_CHANNEL=dev
+
+RUN test -n "${BUNDLE_IMG}" || (echo "BUNDLE_IMG build-arg is required" >&2; exit 1) && \
+    mkdir -p /configs/oadp-operator && \
+    /bin/opm render "${BUNDLE_IMG}" -o yaml > /configs/oadp-operator/index.yaml && \
+    cat >> /configs/oadp-operator/index.yaml <<EOF
+---
+schema: olm.package
+name: oadp-operator
+defaultChannel: ${DEFAULT_CHANNEL}
+---
+schema: olm.channel
+name: ${DEFAULT_CHANNEL}
+package: oadp-operator
+entries:
+  - name: oadp-operator.v${VERSION}
+EOF
+
+RUN /bin/opm validate /configs/
+
+FROM opm
+
+COPY --from=builder /configs /configs
+
+# OLMv0: pre-warm the serve cache and configure gRPC serving.
+# OLMv1 reads /configs directly from the image and does not use the serve entrypoint.
+RUN ["/bin/opm", "serve", "/configs", "--cache-dir=/tmp/cache", "--cache-only"]
+
+LABEL operators.operatorframework.io.index.configs.v1=/configs
+
+EXPOSE 50051
+ENTRYPOINT ["/bin/opm"]
+CMD ["serve", "/configs", "--cache-dir=/tmp/cache"]
