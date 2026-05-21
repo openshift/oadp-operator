@@ -399,6 +399,8 @@ undeploy-olm: login-required ## Uninstall current branch operator via OLM
 	$(OC_CLI) create namespace $(OADP_TEST_NAMESPACE) || true
 	$(OPERATOR_SDK) cleanup oadp-operator --namespace $(OADP_TEST_NAMESPACE)
 
+# Also defined in build/Dockerfile.catalog — keep in sync
+OPM_VERSION ?= v1.68.0
 .PHONY: opm
 OPM = ./bin/opm
 opm: ## Download opm locally if necessary.
@@ -408,7 +410,7 @@ ifeq (,$(shell which opm 2>/dev/null))
 	set -e ;\
 	mkdir -p $(dir $(OPM)) ;\
 	OS=$(shell go env GOOS) && ARCH=$(shell go env GOARCH) && \
-	curl -sSLo $(OPM) https://github.com/operator-framework/operator-registry/releases/download/v1.15.1/$${OS}-$${ARCH}-opm ;\
+	curl -sSLo $(OPM) https://github.com/operator-framework/operator-registry/releases/download/$(OPM_VERSION)/$${OS}-$${ARCH}-opm ;\
 	chmod +x $(OPM) ;\
 	}
 else
@@ -439,6 +441,42 @@ catalog-build: opm ## Build a catalog image.
 # opm upgrade
 catalog-build-replaces: opm ## Build a catalog image using replace mode
 	$(OPM) index add --container-tool docker --mode replaces --tag $(CATALOG_IMG) --bundles $(BUNDLE_IMGS) $(FROM_INDEX_OPT)
+
+# Build a catalog image using build/Dockerfile.catalog (self-contained, used by CI).
+# Passes OPM_VERSION from this Makefile to keep the two in sync.
+#
+# Use case: test the same Dockerfile that CI uses, locally.
+#   make catalog-fbc-build BUNDLE_IMG=quay.io/konveyor/oadp-operator-bundle:latest
+#   make catalog-push
+#
+# Then install on-cluster:
+#   OLMv0 (CatalogSource + Subscription):
+#     make deploy-olm CATALOG_IMG=$(CATALOG_IMG)
+#   OLMv1 (ClusterExtension):
+#     kubectl apply -f - <<EOF
+#     apiVersion: olm.operatorframework.io/v1
+#     kind: ClusterExtension
+#     metadata:
+#       name: oadp-operator
+#     spec:
+#       source:
+#         sourceType: Catalog
+#         catalog:
+#           packageName: oadp-operator
+#       install:
+#         namespace: openshift-adp
+#         serviceAccount:
+#           name: oadp-operator-controller-manager
+#     EOF
+.PHONY: catalog-fbc-build
+catalog-fbc-build: ## Build a catalog image from build/Dockerfile.catalog.
+	docker build --load $(DOCKER_BUILD_ARGS) \
+		-f build/Dockerfile.catalog \
+		--build-arg BUNDLE_IMG=$(BUNDLE_IMG) \
+		--build-arg OPM_VERSION=$(OPM_VERSION) \
+		--build-arg VERSION=$(VERSION) \
+		--build-arg DEFAULT_CHANNEL=$(DEFAULT_CHANNEL) \
+		-t $(CATALOG_IMG) .
 
 # Push the catalog image.
 .PHONY: catalog-push
