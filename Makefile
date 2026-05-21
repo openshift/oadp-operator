@@ -42,7 +42,8 @@ ENVTEST_K8S_VERSION = 1.29 # Kubernetes version from OpenShift 4.16.x
 GOLANGCI_LINT_VERSION ?= v1.54.2
 KUSTOMIZE_VERSION ?= v4.5.5
 CONTROLLER_TOOLS_VERSION ?= v0.16.5
-OPM_VERSION ?= v1.15.1
+# Also defined in build/Dockerfile.catalog — keep in sync
+OPM_VERSION ?= v1.68.0
 YQ_VERSION ?= v4.28.1
 BRANCH_VERSION = oadp-1.4
 PREVIOUS_CHANNEL ?= oadp-1.3
@@ -553,6 +554,42 @@ catalog-build: opm ## Build a catalog image.
 # opm upgrade
 catalog-build-replaces: opm ## Build a catalog image using replace mode
 	$(OPM) index add --container-tool docker --mode replaces --tag $(CATALOG_IMG) --bundles $(BUNDLE_IMGS) $(FROM_INDEX_OPT)
+
+# Build a catalog image using build/Dockerfile.catalog (self-contained, used by CI).
+# Passes OPM_VERSION from this Makefile to keep the two in sync.
+#
+# Use case: test the same Dockerfile that CI uses, locally.
+#   make catalog-fbc-build BUNDLE_IMG=quay.io/konveyor/oadp-operator-bundle:latest
+#   make catalog-push
+#
+# Then install on-cluster:
+#   OLMv0 (CatalogSource + Subscription):
+#     make deploy-olm CATALOG_IMG=$(CATALOG_IMG)
+#   OLMv1 (ClusterExtension):
+#     kubectl apply -f - <<EOF
+#     apiVersion: olm.operatorframework.io/v1
+#     kind: ClusterExtension
+#     metadata:
+#       name: oadp-operator
+#     spec:
+#       source:
+#         sourceType: Catalog
+#         catalog:
+#           packageName: oadp-operator
+#       install:
+#         namespace: openshift-adp
+#         serviceAccount:
+#           name: oadp-operator-controller-manager
+#     EOF
+.PHONY: catalog-fbc-build
+catalog-fbc-build: ## Build a catalog image from build/Dockerfile.catalog.
+	$(CONTAINER_TOOL) build --load $(DOCKER_BUILD_ARGS) \
+		-f build/Dockerfile.catalog \
+		--build-arg BUNDLE_IMG=$(BUNDLE_IMG) \
+		--build-arg OPM_VERSION=$(OPM_VERSION) \
+		--build-arg VERSION=$(VERSION) \
+		--build-arg DEFAULT_CHANNEL=$(DEFAULT_CHANNEL) \
+		-t $(CATALOG_IMG) .
 
 # Push the catalog image.
 .PHONY: catalog-push
