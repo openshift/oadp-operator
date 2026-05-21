@@ -35,7 +35,7 @@ RUN mkdir -p /etc/containers && \
     echo '{"default":[{"type":"insecureAcceptAnything"}]}' > /etc/containers/policy.json
 
 ARG BUNDLE_IMG
-ARG VERSION=99.0.0
+ARG VERSION=1.6.0
 ARG DEFAULT_CHANNEL=dev
 
 RUN test -n "${BUNDLE_IMG}" || (echo "BUNDLE_IMG build-arg is required" >&2; exit 1) && \
