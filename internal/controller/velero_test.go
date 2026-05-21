@@ -98,7 +98,6 @@ var (
 		},
 		{Name: common.LDLibraryPathEnvKey, Value: "/plugins"},
 		{Name: "OPENSHIFT_IMAGESTREAM_BACKUP", Value: "true"},
-		{Name: "CSI_SNAPSHOT_EARLY_FREQUENT_POLLING", Value: "true"},
 	}
 
 	baseVolumeMounts = []corev1.VolumeMount{
@@ -2575,18 +2574,17 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 					},
 					{Name: common.LDLibraryPathEnvKey, Value: "/plugins"},
 					// Note: OPENSHIFT_IMAGESTREAM_BACKUP is NOT included when BackupImages is false
-					{Name: "CSI_SNAPSHOT_EARLY_FREQUENT_POLLING", Value: "true"},
 				},
 			}),
 		},
 		{
-			name: "valid DPA CR with DisableCSISnapshotEarlyFrequentPolling true, no CSI_SNAPSHOT_EARLY_FREQUENT_POLLING",
+			name: "valid DPA CR with EnableCSISnapshotEarlyFrequentPolling true, adds CSI_SNAPSHOT_EARLY_FREQUENT_POLLING",
 			dpa: createTestDpaWith(
 				nil,
 				oadpv1alpha1.DataProtectionApplicationSpec{
 					Configuration: &oadpv1alpha1.ApplicationConfig{
 						Velero: &oadpv1alpha1.VeleroConfig{
-							DisableCSISnapshotEarlyFrequentPolling: true,
+							EnableCSISnapshotEarlyFrequentPolling: true,
 						},
 					},
 					BackupImages: ptr.To(false),
@@ -2624,6 +2622,7 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 						},
 					},
 					{Name: common.LDLibraryPathEnvKey, Value: "/plugins"},
+					{Name: "CSI_SNAPSHOT_EARLY_FREQUENT_POLLING", Value: "true"},
 				},
 			}),
 		},

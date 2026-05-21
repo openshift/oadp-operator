@@ -373,11 +373,11 @@ type VeleroConfig struct {
 	// LoadAffinityConfig is the config for data path load affinity.
 	// +optional
 	LoadAffinityConfig []*LoadAffinity `json:"loadAffinity,omitempty"`
-	// set DisableCSISnapshotEarlyFrequentPolling to true to omit
+	// set EnableCSISnapshotEarlyFrequentPolling to true to enable
 	// the 1-second polling interval for the first 10 seconds while waiting
 	// for the snaphandle
 	// +optional
-	DisableCSISnapshotEarlyFrequentPolling bool `json:"disableCSISnapshotEarlyFrequentPolling,omitempty"`
+	EnableCSISnapshotEarlyFrequentPolling bool `json:"enableCSISnapshotEarlyFrequentPolling,omitempty"`
 }
 
 // PodConfig defines the pod configuration options
