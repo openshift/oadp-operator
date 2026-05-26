@@ -552,7 +552,7 @@ func (r *DPAReconciler) customizeVeleroContainer(dpa *oadpv1alpha1.DataProtectio
 			Value: "true",
 		}})
 	}
-	if dpa.Spec.Configuration.Velero == nil || !dpa.Spec.Configuration.Velero.DisableCSISnapshotEarlyFrequentPolling {
+	if dpa.Spec.Configuration.Velero != nil && dpa.Spec.Configuration.Velero.EnableCSISnapshotEarlyFrequentPolling {
 		veleroContainer.Env = common.AppendUniqueEnvVars(veleroContainer.Env, []corev1.EnvVar{{
 			Name:  "CSI_SNAPSHOT_EARLY_FREQUENT_POLLING",
 			Value: "true",
