@@ -119,11 +119,11 @@ type VeleroConfig struct {
 	// Velero args are settings to customize velero server arguments. Overrides values in other fields.
 	// +optional
 	Args *server.Args `json:"args,omitempty"`
-	// set DisableCSISnapshotEarlyFrequentPolling to true to omit
+	// set EnableCSISnapshotEarlyFrequentPolling to true to enable
 	// the 1-second polling interval for the first 10 seconds while waiting
 	// for the snaphandle
 	// +optional
-	DisableCSISnapshotEarlyFrequentPolling bool `json:"disableCSISnapshotEarlyFrequentPolling,omitempty"`
+	EnableCSISnapshotEarlyFrequentPolling bool `json:"enableCSISnapshotEarlyFrequentPolling,omitempty"`
 }
 
 // PodConfig defines the pod configuration options

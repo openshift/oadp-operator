@@ -91,7 +91,6 @@ var (
 		},
 		{Name: common.LDLibraryPathEnvKey, Value: "/plugins"},
 		{Name: "OPENSHIFT_IMAGESTREAM_BACKUP", Value: "true"},
-		{Name: "CSI_SNAPSHOT_EARLY_FREQUENT_POLLING", Value: "true"},
 	}
 
 	baseVolumeMounts = []corev1.VolumeMount{
