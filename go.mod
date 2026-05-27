@@ -39,7 +39,7 @@ require (
 	github.com/hashicorp/go-multierror v1.1.1
 	github.com/kubernetes-csi/external-snapshotter/client/v6 v6.3.0
 	github.com/stretchr/testify v1.11.1
-	github.com/vmware-tanzu/velero v1.14.0
+	github.com/vmware-tanzu/velero v1.18.1
 	golang.org/x/exp v0.0.0-20240719175910-8a7402abbf56
 	google.golang.org/api v0.277.0
 	k8s.io/klog/v2 v2.130.1
