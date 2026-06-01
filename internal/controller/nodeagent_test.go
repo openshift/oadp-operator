@@ -939,6 +939,93 @@ func TestDPAReconciler_buildNodeAgentDaemonset(t *testing.T) {
 			errorMessage:       "configmaps \"missing-unsupported-node-agent-server-args-cm\" not found",
 		},
 		{
+			name: "valid DPA CR with NodeAgent ExtraArgs, DaemonSet is built with extra args appended",
+			dpa: createTestDpaWith(
+				nil,
+				oadpv1alpha1.DataProtectionApplicationSpec{
+					Configuration: &oadpv1alpha1.ApplicationConfig{
+						Velero: &oadpv1alpha1.VeleroConfig{},
+						NodeAgent: &oadpv1alpha1.NodeAgentConfig{
+							NodeAgentCommonFields: oadpv1alpha1.NodeAgentCommonFields{},
+							UploaderType:          "kopia",
+							ExtraArgs: map[string]string{
+								"custom-flag": "value1",
+							},
+						},
+					},
+				},
+			),
+			clientObjects:      []client.Object{testGenericInfrastructure},
+			nodeAgentDaemonSet: testNodeAgentDaemonSet.DeepCopy(),
+			wantNodeAgentDaemonSet: createTestBuiltNodeAgentDaemonSet(TestBuiltNodeAgentDaemonSetOptions{
+				args: []string{
+					"--custom-flag=value1",
+				},
+			}),
+		},
+		{
+			name: "valid DPA CR with NodeAgent ExtraArgs overriding an existing arg, DaemonSet is built with overridden value",
+			dpa: createTestDpaWith(
+				nil,
+				oadpv1alpha1.DataProtectionApplicationSpec{
+					Configuration: &oadpv1alpha1.ApplicationConfig{
+						Velero: &oadpv1alpha1.VeleroConfig{},
+						NodeAgent: &oadpv1alpha1.NodeAgentConfig{
+							NodeAgentCommonFields:   oadpv1alpha1.NodeAgentCommonFields{},
+							DataMoverPrepareTimeout: &metav1.Duration{Duration: 10 * time.Second},
+							UploaderType:            "kopia",
+							ExtraArgs: map[string]string{
+								"data-mover-prepare-timeout": "45m",
+							},
+						},
+					},
+				},
+			),
+			clientObjects:      []client.Object{testGenericInfrastructure},
+			nodeAgentDaemonSet: testNodeAgentDaemonSet.DeepCopy(),
+			wantNodeAgentDaemonSet: createTestBuiltNodeAgentDaemonSet(TestBuiltNodeAgentDaemonSetOptions{
+				args: []string{
+					"--data-mover-prepare-timeout=45m",
+				},
+			}),
+		},
+		{
+			name: "valid DPA CR with NodeAgent ExtraArgs and Unsupported Server Args, annotation takes priority",
+			dpa: createTestDpaWith(
+				map[string]string{common.UnsupportedNodeAgentServerArgsAnnotation: "unsupported-node-agent-server-args-cm"},
+				oadpv1alpha1.DataProtectionApplicationSpec{
+					Configuration: &oadpv1alpha1.ApplicationConfig{
+						Velero: &oadpv1alpha1.VeleroConfig{},
+						NodeAgent: &oadpv1alpha1.NodeAgentConfig{
+							NodeAgentCommonFields: oadpv1alpha1.NodeAgentCommonFields{},
+							UploaderType:          "kopia",
+							ExtraArgs: map[string]string{
+								"custom-flag": "value1",
+							},
+						},
+					},
+				},
+			),
+			clientObjects: []client.Object{
+				&corev1.ConfigMap{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "unsupported-node-agent-server-args-cm",
+						Namespace: testNamespaceName,
+					},
+					Data: map[string]string{
+						"unsupported-arg": "value2",
+					},
+				},
+				testGenericInfrastructure,
+			},
+			nodeAgentDaemonSet: testNodeAgentDaemonSet.DeepCopy(),
+			wantNodeAgentDaemonSet: createTestBuiltNodeAgentDaemonSet(TestBuiltNodeAgentDaemonSetOptions{
+				args: []string{
+					"--unsupported-arg=value2",
+				},
+			}),
+		},
+		{
 			name: "valid DPA CR with NodeAgent resource allocations, NodeAgent DaemonSet is built with resource allocations",
 			dpa: createTestDpaWith(
 				nil,

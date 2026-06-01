@@ -301,6 +301,76 @@ func ApplyUnsupportedServerArgsOverride(container *corev1.Container, unsupported
 	}
 }
 
+// MergeExtraArgs merges extraArgs into a copy of the existing container args.
+// Handles both --flag=value and --flag value formats.
+// If a flag already exists, its value is replaced on the first occurrence and
+// subsequent duplicates are removed. New flags are appended in sorted order.
+func MergeExtraArgs(args []string, extraArgs map[string]string) []string {
+	if len(extraArgs) == 0 {
+		return args
+	}
+
+	replaced := make(map[string]bool, len(extraArgs))
+	var result []string
+	skip := false
+
+	for i, arg := range args {
+		if skip {
+			skip = false
+			continue
+		}
+
+		flagName := extractFlagName(arg)
+		value, isExtra := extraArgs[flagName]
+		if !isExtra {
+			result = append(result, arg)
+			continue
+		}
+
+		if replaced[flagName] {
+			if !strings.Contains(arg, "=") && i+1 < len(args) && !strings.HasPrefix(args[i+1], "-") {
+				skip = true
+			}
+			continue
+		}
+
+		replaced[flagName] = true
+		if strings.Contains(arg, "=") {
+			result = append(result, fmt.Sprintf("--%s=%s", flagName, value))
+		} else {
+			result = append(result, arg)
+			if i+1 < len(args) && !strings.HasPrefix(args[i+1], "-") {
+				result = append(result, value)
+				skip = true
+			}
+		}
+	}
+
+	var extra []string
+	for key, value := range extraArgs {
+		if !replaced[key] {
+			extra = append(extra, fmt.Sprintf("--%s=%s", key, value))
+		}
+	}
+	sort.Strings(extra)
+	result = append(result, extra...)
+
+	return result
+}
+
+// extractFlagName returns the flag name from an arg like --flag=value or --flag.
+// Returns empty string for non-flag args (e.g. "server").
+func extractFlagName(arg string) string {
+	if !strings.HasPrefix(arg, "-") {
+		return ""
+	}
+	arg = strings.TrimLeft(arg, "-")
+	if idx := strings.Index(arg, "="); idx >= 0 {
+		return arg[:idx]
+	}
+	return arg
+}
+
 // UpdateBackupStorageLocation updates the BackupStorageLocation spec and config.
 //
 //nolint:unparam // Keeping error return type for making the public function flexible for future usage

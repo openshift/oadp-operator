@@ -310,6 +310,85 @@ func TestGenerateCliArgsFromConfigMap(t *testing.T) {
 	}
 }
 
+func TestMergeExtraArgs(t *testing.T) {
+	tests := []struct {
+		name      string
+		args      []string
+		extraArgs map[string]string
+		want      []string
+	}{
+		{
+			name:      "nil extraArgs is a no-op",
+			args:      []string{"server", "--log-level=info"},
+			extraArgs: nil,
+			want:      []string{"server", "--log-level=info"},
+		},
+		{
+			name:      "empty extraArgs is a no-op",
+			args:      []string{"server", "--log-level=info"},
+			extraArgs: map[string]string{},
+			want:      []string{"server", "--log-level=info"},
+		},
+		{
+			name:      "new flags are appended in sorted order",
+			args:      []string{"server", "--log-level=info"},
+			extraArgs: map[string]string{"resource-timeout": "20m", "custom-flag": "val"},
+			want:      []string{"server", "--log-level=info", "--custom-flag=val", "--resource-timeout=20m"},
+		},
+		{
+			name:      "existing equals-format flag is replaced in place",
+			args:      []string{"server", "--log-level=info", "--fs-backup-timeout=4h"},
+			extraArgs: map[string]string{"log-level": "debug"},
+			want:      []string{"server", "--log-level=debug", "--fs-backup-timeout=4h"},
+		},
+		{
+			name:      "existing space-separated flag is replaced in place",
+			args:      []string{"server", "--log-level", "info", "--fs-backup-timeout=4h"},
+			extraArgs: map[string]string{"log-level": "debug"},
+			want:      []string{"server", "--log-level", "debug", "--fs-backup-timeout=4h"},
+		},
+		{
+			name:      "mix of replace and append",
+			args:      []string{"server", "--log-level=info", "--fs-backup-timeout=4h"},
+			extraArgs: map[string]string{"log-level": "debug", "new-flag": "value"},
+			want:      []string{"server", "--log-level=debug", "--fs-backup-timeout=4h", "--new-flag=value"},
+		},
+		{
+			name:      "does not mutate input slice",
+			args:      []string{"server", "--log-level=info"},
+			extraArgs: map[string]string{"log-level": "debug"},
+			want:      []string{"server", "--log-level=debug"},
+		},
+		{
+			name:      "duplicate flags are deduplicated",
+			args:      []string{"server", "--log-level=info", "--log-level=warning"},
+			extraArgs: map[string]string{"log-level": "debug"},
+			want:      []string{"server", "--log-level=debug"},
+		},
+		{
+			name:      "duplicate space-separated flags are deduplicated",
+			args:      []string{"server", "--log-level", "info", "--log-level", "warning"},
+			extraArgs: map[string]string{"log-level": "debug"},
+			want:      []string{"server", "--log-level", "debug"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			original := make([]string, len(tt.args))
+			copy(original, tt.args)
+
+			got := MergeExtraArgs(tt.args, tt.extraArgs)
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("MergeExtraArgs() = %v, want %v", got, tt.want)
+			}
+			if !reflect.DeepEqual(tt.args, original) {
+				t.Errorf("MergeExtraArgs() mutated input: got %v, original was %v", tt.args, original)
+			}
+		})
+	}
+}
+
 func TestUpdateBackupStorageLocation(t *testing.T) {
 	tests := []struct {
 		name        string
