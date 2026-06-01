@@ -294,6 +294,14 @@ spec:
                             enable defines a boolean pointer whether we want the daemonset to
                             exist or not
                           type: boolean
+                        extraArgs:
+                          additionalProperties:
+                            type: string
+                          description: |-
+                            ExtraArgs are additional arguments to append to the node-agent server.
+                            Keys are flag names (without leading --), values are flag values.
+                            These are applied additively on top of operator defaults.
+                          type: object
                         fullMaintenanceInterval:
                           description: |-
                             fullMaintenanceInterval determines the time between kopia full maintenance operations.
@@ -1274,6 +1282,14 @@ spec:
                             the 1-second polling interval for the first 10 seconds while waiting
                             for the snaphandle
                           type: boolean
+                        extraArgs:
+                          additionalProperties:
+                            type: string
+                          description: |-
+                            ExtraArgs are additional arguments to append to the Velero server.
+                            Keys are flag names (without leading --), values are flag values.
+                            These are applied additively on top of operator defaults and Args.
+                          type: object
                         featureFlags:
                           description: featureFlags defines the list of features to enable for Velero instance
                           items:

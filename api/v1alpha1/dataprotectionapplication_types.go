@@ -370,6 +370,11 @@ type VeleroConfig struct {
 	// Velero args are settings to customize velero server arguments. Overrides values in other fields.
 	// +optional
 	Args *VeleroServerArgs `json:"args,omitempty"`
+	// ExtraArgs are additional arguments to append to the Velero server.
+	// Keys are flag names (without leading --), values are flag values.
+	// These are applied additively on top of operator defaults and Args.
+	// +optional
+	ExtraArgs map[string]string `json:"extraArgs,omitempty"`
 	// LoadAffinityConfig is the config for data path load affinity.
 	// +optional
 	LoadAffinityConfig []*LoadAffinity `json:"loadAffinity,omitempty"`
@@ -598,6 +603,11 @@ type NodeAgentConfig struct {
 	// Embedding KopiaRepoOptions
 	// +optional
 	KopiaRepoOptions `json:",inline"`
+	// ExtraArgs are additional arguments to append to the node-agent server.
+	// Keys are flag names (without leading --), values are flag values.
+	// These are applied additively on top of operator defaults.
+	// +optional
+	ExtraArgs map[string]string `json:"extraArgs,omitempty"`
 }
 
 type KopiaRepoOptions struct {
