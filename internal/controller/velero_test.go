@@ -1153,6 +1153,119 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 			errorMessage:     "configmaps \"missing-unsupported-server-args-cm\" not found",
 		},
 		{
+			name: "valid DPA CR with ExtraArgs, Velero Deployment is built with extra args appended",
+			dpa: createTestDpaWith(
+				nil,
+				oadpv1alpha1.DataProtectionApplicationSpec{
+					Configuration: &oadpv1alpha1.ApplicationConfig{
+						Velero: &oadpv1alpha1.VeleroConfig{
+							ExtraArgs: map[string]string{
+								"custom-timeout": "30m",
+								"another-flag":   "value1",
+							},
+						},
+					},
+				},
+			),
+			veleroDeployment: testVeleroDeployment.DeepCopy(),
+			wantVeleroDeployment: createTestBuiltVeleroDeployment(TestBuiltVeleroDeploymentOptions{
+				args: []string{
+					defaultFileSystemBackupTimeout,
+					defaultRestoreResourcePriorities,
+					defaultDisableInformerCache,
+					"--another-flag=value1",
+					"--custom-timeout=30m",
+				},
+			}),
+		},
+		{
+			name: "valid DPA CR with ExtraArgs overriding a default, Velero Deployment is built with overridden value",
+			dpa: createTestDpaWith(
+				nil,
+				oadpv1alpha1.DataProtectionApplicationSpec{
+					Configuration: &oadpv1alpha1.ApplicationConfig{
+						Velero: &oadpv1alpha1.VeleroConfig{
+							ExtraArgs: map[string]string{
+								"fs-backup-timeout": "8h",
+							},
+						},
+					},
+				},
+			),
+			veleroDeployment: testVeleroDeployment.DeepCopy(),
+			wantVeleroDeployment: createTestBuiltVeleroDeployment(TestBuiltVeleroDeploymentOptions{
+				args: []string{
+					"--fs-backup-timeout=8h",
+					defaultRestoreResourcePriorities,
+					defaultDisableInformerCache,
+				},
+			}),
+		},
+		{
+			name: "valid DPA CR with ExtraArgs and Unsupported Server Args, annotation takes priority",
+			dpa: createTestDpaWith(
+				map[string]string{common.UnsupportedVeleroServerArgsAnnotation: "unsupported-server-args-cm"},
+				oadpv1alpha1.DataProtectionApplicationSpec{
+					Configuration: &oadpv1alpha1.ApplicationConfig{
+						Velero: &oadpv1alpha1.VeleroConfig{
+							ExtraArgs: map[string]string{
+								"custom-flag": "value1",
+							},
+						},
+					},
+				},
+			),
+			clientObjects: []client.Object{
+				&corev1.ConfigMap{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "unsupported-server-args-cm",
+						Namespace: testNamespaceName,
+					},
+					Data: map[string]string{
+						"unsupported-arg": "value2",
+					},
+				},
+			},
+			veleroDeployment: testVeleroDeployment.DeepCopy(),
+			wantVeleroDeployment: createTestBuiltVeleroDeployment(TestBuiltVeleroDeploymentOptions{
+				args: []string{
+					"--unsupported-arg=value2",
+				},
+			}),
+		},
+		{
+			name: "valid DPA CR with Args and ExtraArgs, ExtraArgs adds on top of Args",
+			dpa: createTestDpaWith(
+				nil,
+				oadpv1alpha1.DataProtectionApplicationSpec{
+					Configuration: &oadpv1alpha1.ApplicationConfig{
+						Velero: &oadpv1alpha1.VeleroConfig{
+							Args: &oadpv1alpha1.VeleroServerArgs{
+								ServerFlags: oadpv1alpha1.ServerFlags{
+									MetricsAddress: fmt.Sprintf(":%v", argsMetricsPortTest),
+								},
+							},
+							ExtraArgs: map[string]string{
+								"custom-flag":            "custom-value",
+								"disable-informer-cache": "true",
+							},
+						},
+					},
+				},
+			),
+			veleroDeployment: testVeleroDeployment.DeepCopy(),
+			wantVeleroDeployment: createTestBuiltVeleroDeployment(TestBuiltVeleroDeploymentOptions{
+				metricsPort: argsMetricsPortTest,
+				args: []string{
+					fmt.Sprintf("--metrics-address=:%v", argsMetricsPortTest),
+					"--fs-backup-timeout=4h0m0s",
+					defaultRestoreResourcePriorities,
+					"--disable-informer-cache=true",
+					"--custom-flag=custom-value",
+				},
+			}),
+		},
+		{
 			name: "valid DPA CR with ItemOperationSyncFrequency, Velero Deployment is built with ItemOperationSyncFrequency arg",
 			dpa: createTestDpaWith(
 				nil,

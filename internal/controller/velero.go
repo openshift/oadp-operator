@@ -429,6 +429,9 @@ func (r *DataProtectionApplicationReconciler) customizeVeleroDeployment(veleroDe
 	}
 	r.appendPluginSpecificSpecs(veleroDeployment, veleroContainer, providerNeedsDefaultCreds)
 	setPodTemplateSpecDefaults(&veleroDeployment.Spec.Template)
+	if dpa.Spec.Configuration.Velero != nil && len(dpa.Spec.Configuration.Velero.ExtraArgs) > 0 {
+		veleroContainer.Args = common.MergeExtraArgs(veleroContainer.Args, dpa.Spec.Configuration.Velero.ExtraArgs)
+	}
 	if configMapName, ok := dpa.Annotations[common.UnsupportedVeleroServerArgsAnnotation]; ok {
 		if configMapName != "" {
 			unsupportedServerArgsCM := corev1.ConfigMap{}
