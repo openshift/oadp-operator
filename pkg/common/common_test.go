@@ -310,6 +310,8 @@ func TestGenerateCliArgsFromConfigMap(t *testing.T) {
 	}
 }
 
+// TestMergeExtraArgs validates the merge behavior of extra CLI args including
+// replacement, deduplication, key normalization, and sorted appending.
 func TestMergeExtraArgs(t *testing.T) {
 	tests := []struct {
 		name      string
@@ -370,6 +372,18 @@ func TestMergeExtraArgs(t *testing.T) {
 			args:      []string{"server", "--log-level", "info", "--log-level", "warning"},
 			extraArgs: map[string]string{"log-level": "debug"},
 			want:      []string{"server", "--log-level", "debug"},
+		},
+		{
+			name:      "keys with leading dashes are normalized",
+			args:      []string{"server", "--log-level=info"},
+			extraArgs: map[string]string{"--log-level": "debug"},
+			want:      []string{"server", "--log-level=debug"},
+		},
+		{
+			name:      "empty and whitespace-only keys are skipped",
+			args:      []string{"server", "--log-level=info"},
+			extraArgs: map[string]string{"": "val1", "  ": "val2", "custom": "val3"},
+			want:      []string{"server", "--log-level=info", "--custom=val3"},
 		},
 	}
 

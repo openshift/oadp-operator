@@ -9,7 +9,6 @@ import (
 	"strings"
 
 	"github.com/go-logr/logr"
-	"github.com/google/go-cmp/cmp"
 	"github.com/operator-framework/operator-lib/proxy"
 	"github.com/sirupsen/logrus"
 	"github.com/vmware-tanzu/velero/pkg/install"
@@ -89,11 +88,7 @@ func (r *DataProtectionApplicationReconciler) ReconcileVeleroDeployment(log logr
 			Namespace: dpa.Namespace,
 		},
 	}
-	var orig *appsv1.Deployment // for debugging purposes
 	op, err := controllerutil.CreateOrPatch(r.Context, r.Client, veleroDeployment, func() error {
-		if debugMode {
-			orig = veleroDeployment.DeepCopy() // for debugging purposes
-		}
 		// Setting Deployment selector if a new object is created as it is immutable
 		if veleroDeployment.ObjectMeta.CreationTimestamp.IsZero() {
 			veleroDeployment.Spec.Selector = &metav1.LabelSelector{
@@ -110,8 +105,8 @@ func (r *DataProtectionApplicationReconciler) ReconcileVeleroDeployment(log logr
 		// Setting controller owner reference on the velero deployment
 		return controllerutil.SetControllerReference(dpa, veleroDeployment, r.Scheme)
 	})
-	if debugMode && op != controllerutil.OperationResultNone { // for debugging purposes
-		fmt.Printf("DEBUG: There was a diff which resulted in an operation on Velero Deployment: %s\n", cmp.Diff(orig, veleroDeployment))
+	if debugMode && op != controllerutil.OperationResultNone {
+		log.Info("Velero Deployment reconciled with changes", "operation", op)
 	}
 
 	if err != nil {
