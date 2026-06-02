@@ -305,12 +305,18 @@ func ApplyUnsupportedServerArgsOverride(container *corev1.Container, unsupported
 // Handles both --flag=value and --flag value formats.
 // If a flag already exists, its value is replaced on the first occurrence and
 // subsequent duplicates are removed. New flags are appended in sorted order.
+// Keys are normalized by stripping leading dashes; empty or whitespace-only keys are skipped.
 func MergeExtraArgs(args []string, extraArgs map[string]string) []string {
 	if len(extraArgs) == 0 {
 		return args
 	}
 
-	replaced := make(map[string]bool, len(extraArgs))
+	normalized := normalizeExtraArgKeys(extraArgs)
+	if len(normalized) == 0 {
+		return args
+	}
+
+	replaced := make(map[string]bool, len(normalized))
 	var result []string
 	skip := false
 
@@ -321,7 +327,7 @@ func MergeExtraArgs(args []string, extraArgs map[string]string) []string {
 		}
 
 		flagName := extractFlagName(arg)
-		value, isExtra := extraArgs[flagName]
+		value, isExtra := normalized[flagName]
 		if !isExtra {
 			result = append(result, arg)
 			continue
@@ -347,7 +353,7 @@ func MergeExtraArgs(args []string, extraArgs map[string]string) []string {
 	}
 
 	var extra []string
-	for key, value := range extraArgs {
+	for key, value := range normalized {
 		if !replaced[key] {
 			extra = append(extra, fmt.Sprintf("--%s=%s", key, value))
 		}
@@ -356,6 +362,22 @@ func MergeExtraArgs(args []string, extraArgs map[string]string) []string {
 	result = append(result, extra...)
 
 	return result
+}
+
+// normalizeExtraArgKeys strips leading dashes from map keys and skips
+// empty or whitespace-only keys. This ensures keys like "--log-level"
+// are treated the same as "log-level".
+func normalizeExtraArgKeys(extraArgs map[string]string) map[string]string {
+	normalized := make(map[string]string, len(extraArgs))
+	for key, value := range extraArgs {
+		key = strings.TrimLeft(key, "-")
+		key = strings.TrimSpace(key)
+		if key == "" {
+			continue
+		}
+		normalized[key] = value
+	}
+	return normalized
 }
 
 // extractFlagName returns the flag name from an arg like --flag=value or --flag.
