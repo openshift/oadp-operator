@@ -3,6 +3,7 @@ package bucket
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"math/rand"
 	"net/http"
@@ -38,7 +39,7 @@ func (g gcpBucketClient) Exists() (bool, error) {
 	bucket := gcsClient.Bucket(g.bucket.Spec.Name)
 	_, err = bucket.Attrs(ctx)
 	if err != nil {
-		if err == storage.ErrBucketNotExist {
+		if isBucketNotFoundError(err) {
 			return false, nil
 		}
 		// Return true for permission errors - unable to determine if bucket exists
@@ -116,7 +117,7 @@ func (g gcpBucketClient) Delete() (bool, error) {
 	// Check if bucket exists first
 	_, err = bucket.Attrs(ctx)
 	if err != nil {
-		if err == storage.ErrBucketNotExist {
+		if isBucketNotFoundError(err) {
 			// Bucket doesn't exist - idempotent behavior
 			return true, nil
 		}
@@ -391,18 +392,18 @@ func (g gcpBucketClient) deleteObjectsConcurrently(ctx context.Context, bucket *
 	const batchSize = 100
 
 	objects := make(chan string, batchSize)
-	errors := make(chan error, maxWorkers)
+	errs := make(chan error, maxWorkers)
 
 	// Start workers
 	for i := 0; i < maxWorkers; i++ {
 		go func() {
 			for objName := range objects {
 				if err := bucket.Object(objName).Delete(ctx); err != nil {
-					errors <- fmt.Errorf("error deleting object %s: %v", objName, err)
+					errs <- fmt.Errorf("error deleting object %s: %v", objName, err)
 					return
 				}
 			}
-			errors <- nil
+			errs <- nil
 		}()
 	}
 
@@ -416,7 +417,7 @@ func (g gcpBucketClient) deleteObjectsConcurrently(ctx context.Context, bucket *
 				break
 			}
 			if err != nil {
-				errors <- fmt.Errorf("error listing objects: %v", err)
+				errs <- fmt.Errorf("error listing objects: %v", err)
 				return
 			}
 			objects <- objAttrs.Name
@@ -425,7 +426,7 @@ func (g gcpBucketClient) deleteObjectsConcurrently(ctx context.Context, bucket *
 
 	// Wait for all workers to complete
 	for i := 0; i < maxWorkers; i++ {
-		if err := <-errors; err != nil {
+		if err := <-errs; err != nil {
 			return err
 		}
 	}
@@ -486,7 +487,8 @@ func isGCSRetryableError(err error) bool {
 		return false
 	}
 
-	if gerr, ok := err.(*googleapi.Error); ok {
+	var gerr *googleapi.Error
+	if errors.As(err, &gerr) {
 		switch gerr.Code {
 		case http.StatusTooManyRequests: // Too Many Requests
 			return true
@@ -513,16 +515,28 @@ func isGCSRetryableError(err error) bool {
 	return false
 }
 
+// isBucketNotFoundError reports whether err indicates a GCS bucket does not exist.
+// The GCS library may return storage.ErrBucketNotExist directly, wrap it via fmt.Errorf("%w", ...),
+// or surface a *googleapi.Error with HTTP 404 — all three must be handled.
+func isBucketNotFoundError(err error) bool {
+	if errors.Is(err, storage.ErrBucketNotExist) {
+		return true
+	}
+	var gerr *googleapi.Error
+	return errors.As(err, &gerr) && gerr.Code == http.StatusNotFound
+}
+
 // handleGCSError provides consistent error handling for GCS operations
 func handleGCSError(err error, operation string, bucketName string) error {
-	if err == storage.ErrBucketNotExist {
+	if errors.Is(err, storage.ErrBucketNotExist) {
 		if operation == "exists" || operation == "delete" {
 			return nil // Expected for these operations
 		}
 		return fmt.Errorf("bucket '%s' not found", bucketName)
 	}
 
-	if gerr, ok := err.(*googleapi.Error); ok {
+	var gerr *googleapi.Error
+	if errors.As(err, &gerr) {
 		switch gerr.Code {
 		case http.StatusConflict: // Conflict - Bucket already exists
 			if operation == "create" {
