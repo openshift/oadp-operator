@@ -23,7 +23,9 @@ import (
 	"github.com/onsi/gomega"
 	"github.com/operator-framework/operator-lib/proxy"
 	"github.com/sirupsen/logrus"
+	"github.com/stretchr/testify/require"
 	velerov1 "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
+	"github.com/vmware-tanzu/velero/pkg/util/kube"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -4186,5 +4188,41 @@ func TestApplyResourceAnnotations(t *testing.T) {
 				t.Errorf("applyResourceAnnotations() = %v, expected %v", result, tt.expectedAnnotations)
 			}
 		})
+	}
+}
+
+// TestVeleroAffinityMatchExpressionsDeterministicOrder verifies that
+// matchExpressions built from a multi-label NodeSelector are always sorted
+// by key, preventing non-deterministic Deployment spec changes. See OADP-7541.
+func TestVeleroAffinityMatchExpressionsDeterministicOrder(t *testing.T) {
+	matchLabels := map[string]string{
+		"network":                      "int",
+		"node-role.kubernetes.io/infra": "",
+	}
+	wantKeys := []string{"network", "node-role.kubernetes.io/infra"}
+
+	for i := 0; i < 100; i++ {
+		la := &kube.LoadAffinity{
+			NodeSelector: metav1.LabelSelector{
+				MatchLabels: matchLabels,
+			},
+		}
+		affinity := kube.ToSystemAffinity(la, nil)
+		require.NotNil(t, affinity, "iteration %d: affinity should not be nil", i)
+
+		terms := affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms
+		require.Len(t, terms, 1, "iteration %d: expected 1 NodeSelectorTerm", i)
+
+		common.SortNodeSelectorTerms(terms)
+
+		exprs := terms[0].MatchExpressions
+		require.Len(t, exprs, len(wantKeys), "iteration %d: wrong number of matchExpressions", i)
+
+		gotKeys := make([]string, len(exprs))
+		for j, expr := range exprs {
+			gotKeys[j] = expr.Key
+		}
+		require.Equal(t, wantKeys, gotKeys,
+			"iteration %d: matchExpressions keys not in sorted order", i)
 	}
 }

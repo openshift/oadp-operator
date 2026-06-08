@@ -324,6 +324,7 @@ func (r *DataProtectionApplicationReconciler) ReconcileNodeAgentDaemonset(log lo
 					terms = append(terms, a.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms...)
 				}
 			}
+			common.SortNodeSelectorTerms(terms)
 			if len(terms) > 0 {
 				ds.Spec.Template.Spec.Affinity = &corev1.Affinity{
 					NodeAffinity: &corev1.NodeAffinity{
