@@ -2098,11 +2098,6 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 					{
 						MatchExpressions: []corev1.NodeSelectorRequirement{
 							{
-								Key:      "zone",
-								Operator: corev1.NodeSelectorOpIn,
-								Values:   []string{"east"},
-							},
-							{
 								Key:      "disk-type",
 								Operator: corev1.NodeSelectorOpIn,
 								Values:   []string{"ssd", "nvme"},
@@ -2111,19 +2106,24 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 								Key:      "gpu",
 								Operator: corev1.NodeSelectorOpDoesNotExist,
 							},
+							{
+								Key:      "zone",
+								Operator: corev1.NodeSelectorOpIn,
+								Values:   []string{"east"},
+							},
 						},
 					},
 					{
 						MatchExpressions: []corev1.NodeSelectorRequirement{
 							{
-								Key:      "instance-type",
-								Operator: corev1.NodeSelectorOpIn,
-								Values:   []string{"m5.large", "m5.xlarge"},
-							},
-							{
 								Key:      "environment",
 								Operator: corev1.NodeSelectorOpNotIn,
 								Values:   []string{"dev"},
+							},
+							{
+								Key:      "instance-type",
+								Operator: corev1.NodeSelectorOpIn,
+								Values:   []string{"m5.large", "m5.xlarge"},
 							},
 						},
 					},
