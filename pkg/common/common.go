@@ -377,15 +377,17 @@ func UpdateBackupStorageLocation(bsl *velerov1.BackupStorageLocation, bslSpec ve
 	return nil
 }
 
-// SortNodeSelectorTerms sorts MatchExpressions by key within each
-// NodeSelectorTerm to ensure deterministic ordering. Without this,
-// Go map iteration randomness in upstream kube.ToSystemAffinity
-// produces non-deterministic matchExpressions order, which Kubernetes
-// treats as a spec change and triggers unnecessary DaemonSet rollouts.
+// SortNodeSelectorTerms sorts MatchExpressions and MatchFields by key
+// within each NodeSelectorTerm to ensure deterministic ordering. Without
+// this, Go map iteration randomness in upstream kube.ToSystemAffinity
+// produces non-deterministic ordering, which Kubernetes treats as a spec
+// change and triggers unnecessary DaemonSet rollouts.
 func SortNodeSelectorTerms(terms []corev1.NodeSelectorTerm) {
+	cmpKey := func(a, b corev1.NodeSelectorRequirement) int {
+		return cmp.Compare(a.Key, b.Key)
+	}
 	for i := range terms {
-		slices.SortFunc(terms[i].MatchExpressions, func(a, b corev1.NodeSelectorRequirement) int {
-			return cmp.Compare(a.Key, b.Key)
-		})
+		slices.SortFunc(terms[i].MatchExpressions, cmpKey)
+		slices.SortFunc(terms[i].MatchFields, cmpKey)
 	}
 }
