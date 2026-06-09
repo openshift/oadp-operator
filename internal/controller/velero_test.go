@@ -4196,7 +4196,7 @@ func TestApplyResourceAnnotations(t *testing.T) {
 // by key, preventing non-deterministic Deployment spec changes. See OADP-7541.
 func TestVeleroAffinityMatchExpressionsDeterministicOrder(t *testing.T) {
 	matchLabels := map[string]string{
-		"network":                      "int",
+		"network":                       "int",
 		"node-role.kubernetes.io/infra": "",
 	}
 	wantKeys := []string{"network", "node-role.kubernetes.io/infra"}

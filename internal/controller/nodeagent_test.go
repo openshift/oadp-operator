@@ -2785,8 +2785,8 @@ func TestNodeAgentAffinityMatchExpressionsDeterministicOrder(t *testing.T) {
 		{
 			name: "two labels matching customer config from OADP-7541",
 			matchLabels: map[string]string{
-				"network":                        "int",
-				"node-role.kubernetes.io/infra":   "",
+				"network":                       "int",
+				"node-role.kubernetes.io/infra": "",
 			},
 			wantKeys: []string{"network", "node-role.kubernetes.io/infra"},
 		},
@@ -2795,7 +2795,7 @@ func TestNodeAgentAffinityMatchExpressionsDeterministicOrder(t *testing.T) {
 			matchLabels: map[string]string{
 				"zone":                           "us-east-1a",
 				"disk-type":                      "ssd",
-				"node-role.kubernetes.io/worker":  "",
+				"node-role.kubernetes.io/worker": "",
 			},
 			wantKeys: []string{"disk-type", "node-role.kubernetes.io/worker", "zone"},
 		},
