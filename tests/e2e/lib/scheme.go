@@ -8,7 +8,6 @@ import (
 	openshiftroutev1 "github.com/openshift/api/route/v1"
 	openshiftsecurityv1 "github.com/openshift/api/security/v1"
 	openshifttemplatev1 "github.com/openshift/api/template/v1"
-	hypershiftv1 "github.com/openshift/hypershift/api/hypershift/v1beta1"
 	operatorsv1 "github.com/operator-framework/api/pkg/operators/v1"
 	operatorsv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
 	velerov1 "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
@@ -35,7 +34,6 @@ func init() {
 	_ = volumesnapshotv1.AddToScheme(Scheme)
 	_ = operatorsv1alpha1.AddToScheme(Scheme)
 	_ = operatorsv1.AddToScheme(Scheme)
-	_ = hypershiftv1.AddToScheme(Scheme)
 	_ = appsv1.AddToScheme(Scheme)
 	_ = openshiftconfigv1.AddToScheme(Scheme)
 }
