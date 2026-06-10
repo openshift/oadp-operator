@@ -46,4 +46,4 @@ spec:
   - name: oadp-hypershift-velero-plugin-rhel9
     from:
       kind: DockerImage
-      name: quay.io/konveyor/hypershift-oadp-plugin:oadp-1.6
+      name: quay.io/konveyor/hypershift-oadp-plugin:oadp-1.5
