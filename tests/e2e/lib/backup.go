@@ -19,6 +19,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/utils/pointer"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/yaml"
 )
@@ -119,7 +120,7 @@ func CreateBackupWithVolumePolicy(ocClient client.Client, veleroNamespace, backu
 		},
 		Spec: velero.BackupSpec{
 			IncludedNamespaces:       namespaces,
-			DefaultVolumesToFsBackup: boolPtr(false),
+			DefaultVolumesToFsBackup: pointer.Bool(false),
 			SnapshotMoveData:         &snapshotMoveData,
 			ResourcePolicy: &corev1.TypedLocalObjectReference{
 				Kind: "ConfigMap",
@@ -129,8 +130,6 @@ func CreateBackupWithVolumePolicy(ocClient client.Client, veleroNamespace, backu
 	}
 	return ocClient.Create(context.Background(), &backup)
 }
-
-func boolPtr(b bool) *bool { return &b }
 
 func GetBackup(c client.Client, namespace string, name string) (*velero.Backup, error) {
 	backup := velero.Backup{}

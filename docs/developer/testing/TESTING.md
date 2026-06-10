@@ -159,6 +159,8 @@ make test-e2e-cleanup
 ```
 And clean the bucket in your provider.
 
+> **Note:** `make test-e2e-cleanup` does not uninstall OpenShift Virtualization or HCO. See [Virtual Machine backup/restore tests](#virtual-machine-backuprestore-tests) for what the virt suite leaves on the cluster and how to remove it manually.
+
 ## Debugging
 
 When you run `make test-e2e`, the following steps are executed
@@ -188,9 +190,43 @@ E2E tests are defined to run in the CI, so to run the locally, you may need to c
 
 If running E2E tests against operator created from `make deploy-olm`, remember its image expires, which may cause tests to fail.
 
-When running Virtual Machine backup/restore tests on IBM Cloud, it is better to manually install OpenShift Virtualization operator, instead of automatically installing it through `make test-e2e`. Because this may cause the error of Virtual Machines never starting to run. Example test log:
+### Virtual Machine backup/restore tests
+
+VM tests run when `TEST_VIRT=true` (community HCO from a custom CatalogSource) or `TEST_VIRT_GA=true` (OpenShift Virtualization from `redhat-operators`). See the environment variable table in [Prerequisites](#prerequisites).
+
+#### Suite cleanup behavior
+
+In `virt_backup_restore_suite_test.go`, `BeforeAll` installs OpenShift Virtualization via HCO only when it is not already present (`EnsureVirtInstallation()`). When that happens, the suite sets `wasInstalledFromTest`.
+
+Previously, `AfterAll` called `EnsureVirtRemoval()` in that case, uninstalling HCO, the virtualization operator subscription, the operator namespace, and (for `TEST_VIRT`) the community CatalogSource.
+
+The suite now **skips HCO/virt removal** when the tests installed virtualization, logging:
+
 ```
-...
+Skipping HCO/virt removal — leaving installation intact for reuse
+```
+
+**Still cleaned up in `AfterAll`:**
+- OADP DPA (re-deployed briefly for must-gather, then deleted)
+- Test storage classes `test-sc-immediate` and `test-sc-wffc`
+- CirrOS boot image DataVolume and DataSource, if the suite downloaded them during the run
+
+**Left on the cluster for reuse:**
+- HCO and the OpenShift Virtualization operator stack
+- HCO changes applied for kubevirt-datamover tests (`incrementalBackup` feature gate, CBT label selector via jsonpatch)
+- Community HCO CatalogSource `kubevirt-community-catalog` in `openshift-marketplace` (when using `TEST_VIRT`)
+- Boot images and DataSources that existed before the run (for example Fedora in `openshift-virtualization-os-images`)
+
+**Impact on developers:**
+- **Faster iteration:** later `TEST_VIRT` / `TEST_VIRT_GA` runs detect an existing installation and skip HCO install, which saves several minutes per run.
+- **Expect persistent virt state:** CBT and datamover-related HCO configuration remains between runs; this matches what subsequent runs need.
+- **Manual teardown when needed:** `make test-e2e-cleanup` does not remove virtualization. Uninstall manually when you need a clean cluster — delete the `HyperConverged` CR and related OLM objects (subscription, CSV, operator group, namespace). For `TEST_VIRT`, also delete CatalogSource `kubevirt-community-catalog` in `openshift-marketplace`.
+- **Pre-installed virt unchanged:** if OpenShift Virtualization was already on the cluster before the suite ran, `wasInstalledFromTest` stays false and the suite never attempted HCO removal in either the old or new behavior.
+
+#### IBM Cloud
+
+On IBM Cloud, manually install OpenShift Virtualization instead of letting the suite install it through `make test-e2e`. Automatic installation may cause VMs to never start. Example test log:
+```
 2024/07/24 15:12:57 VM cirros-test/cirros-test status is: Stopped
 2024/07/24 15:13:07 VM cirros-test/cirros-test status is: Stopped
 2024/07/24 15:13:17 VM cirros-test/cirros-test status is: Stopped
