@@ -46,7 +46,6 @@ const DefaultPluginCSI DefaultPlugin = "csi"
 const DefaultPluginVSM DefaultPlugin = "vsm"
 const DefaultPluginOpenShift DefaultPlugin = "openshift"
 const DefaultPluginKubeVirt DefaultPlugin = "kubevirt"
-const DefaultPluginHypershift DefaultPlugin = "hypershift"
 
 type CustomPlugin struct {
 	Name  string `json:"name"`

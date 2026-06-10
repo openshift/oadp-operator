@@ -5,8 +5,7 @@
           "defaultPlugins": [
             "openshift",
             "aws",
-            "kubevirt",
-            "hypershift"
+            "kubevirt"
           ]
         }
       },
