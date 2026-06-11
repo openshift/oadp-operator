@@ -6,7 +6,8 @@
             "openshift",
             "aws",
             "kubevirt",
-            "hypershift"
+            "hypershift",
+            "kubevirt-datamover"
           ]
         }
       },

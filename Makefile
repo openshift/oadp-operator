@@ -924,11 +924,16 @@ test-e2e-setup: login-required build-must-gather
 
 VELERO_INSTANCE_NAME ?= velero-test
 ARTIFACT_DIR ?= /tmp
+# virt
 HCO_UPSTREAM ?= false
+TEST_VIRT_GA ?= false
 TEST_VIRT ?= false
+HCO_INDEX_TAG ?= 1.18.0
+# hcp
 TEST_HCP ?= false
 TEST_HCP_EXTERNAL ?= false
 HCP_EXTERNAL_ARGS ?= ""
+# other
 TEST_CLI ?= false
 SKIP_MUST_GATHER  ?= false
 TEST_UPGRADE ?= false
@@ -937,6 +942,8 @@ TEST_FILTER = (($(shell echo '! aws && ! gcp && ! azure && ! ibmcloud' | \
 $(SED) -r "s/[&]* [!] $(CLUSTER_TYPE)|[!] $(CLUSTER_TYPE) [&]*//")) || $(CLUSTER_TYPE))
 #TEST_FILTER := $(shell echo '! aws && ! gcp && ! azure' | $(SED) -r "s/[&]* [!] $(CLUSTER_TYPE)|[!] $(CLUSTER_TYPE) [&]*//")
 ifeq ($(TEST_VIRT),true)
+	TEST_FILTER += && (virt)
+else ifeq ($(TEST_VIRT_GA),true)
 	TEST_FILTER += && (virt)
 else
 	TEST_FILTER += && (! virt)
@@ -985,6 +992,8 @@ test-e2e: test-e2e-setup install-ginkgo ## Run E2E tests against OADP operator i
 	-artifact_dir=$(ARTIFACT_DIR) \
 	-kvm_emulation=$(KVM_EMULATION) \
 	-hco_upstream=$(HCO_UPSTREAM) \
+	-hco_community=$(TEST_VIRT) \
+	-hco_index_tag=$(HCO_INDEX_TAG) \
 	-skipMustGather=$(SKIP_MUST_GATHER) \
 	$(HCP_EXTERNAL_ARGS) \
 	|| EXIT_CODE=$$?; \

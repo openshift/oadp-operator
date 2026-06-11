@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	corev1 "k8s.io/api/core/v1"
 	storagev1 "k8s.io/api/storage/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -44,6 +45,11 @@ func (v *VirtOperator) CheckDataVolumeExists(namespace, name string) bool {
 		return false
 	}
 	return unstructuredDataVolume != nil
+}
+
+func (v *VirtOperator) CheckDataSourceExists(namespace, name string) bool {
+	_, err := v.Dynamic.Resource(dataSourceGVR).Namespace(namespace).Get(context.Background(), name, metav1.GetOptions{})
+	return err == nil
 }
 
 // Check the Status.Phase field of the given DataVolume, and make sure it is
@@ -212,6 +218,71 @@ func (v *VirtOperator) CreateTargetDataSourceFromPvc(sourceNamespace, destinatio
 	return nil
 }
 
+// CreateTargetDataSourceFromSnapshot creates a DataSource in destinationNamespace pointing to a snapshot source.
+func (v *VirtOperator) CreateTargetDataSourceFromSnapshot(sourceNamespace, destinationNamespace, sourceSnapshotName, destinationDataSourceName string) error {
+	unstructuredDataSource := unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"apiVersion": "cdi.kubevirt.io/v1beta1",
+			"kind":       "DataSource",
+			"metadata": map[string]interface{}{
+				"name":      destinationDataSourceName,
+				"namespace": destinationNamespace,
+			},
+			"spec": map[string]interface{}{
+				"source": map[string]interface{}{
+					"snapshot": map[string]interface{}{
+						"name":      sourceSnapshotName,
+						"namespace": sourceNamespace,
+					},
+				},
+			},
+		},
+	}
+
+	_, err := v.Dynamic.Resource(dataSourceGVR).Namespace(destinationNamespace).Create(context.Background(), &unstructuredDataSource, metav1.CreateOptions{})
+	if err != nil {
+		if apierrors.IsAlreadyExists(err) {
+			return nil
+		}
+		if strings.Contains(err.Error(), "already exists") {
+			return nil
+		}
+		log.Printf("Error creating DataSource from snapshot: %v", err)
+		return err
+	}
+
+	return nil
+}
+
+// Find the given DataSource, and return the snapshot it points to (namespace, name)
+func (v *VirtOperator) GetDataSourceSnapshot(ns, name string) (string, string, error) {
+	unstructuredDataSource, err := v.Dynamic.Resource(dataSourceGVR).Namespace(ns).Get(context.Background(), name, metav1.GetOptions{})
+	if err != nil {
+		log.Printf("Error getting DataSource %s: %v", name, err)
+		return "", "", err
+	}
+
+	snapshotName, ok, err := unstructured.NestedString(unstructuredDataSource.UnstructuredContent(), "status", "source", "snapshot", "name")
+	if err != nil {
+		log.Printf("Error getting snapshot from DataSource: %v", err)
+		return "", "", err
+	}
+	if !ok {
+		return "", "", errors.New("failed to get snapshot from " + name + " DataSource")
+	}
+
+	snapshotNamespace, ok, err := unstructured.NestedString(unstructuredDataSource.UnstructuredContent(), "status", "source", "snapshot", "namespace")
+	if err != nil {
+		log.Printf("Error getting snapshot namespace from DataSource: %v", err)
+		return "", "", err
+	}
+	if !ok {
+		return "", "", errors.New("failed to get snapshot namespace from " + name + " DataSource")
+	}
+
+	return snapshotNamespace, snapshotName, nil
+}
+
 // Find the given DataSource, and return the PVC it points to
 func (v *VirtOperator) GetDataSourcePvc(ns, name string) (string, string, error) {
 	unstructuredDataSource, err := v.Dynamic.Resource(dataSourceGVR).Namespace(ns).Get(context.Background(), name, metav1.GetOptions{})
@@ -261,19 +332,62 @@ func (v *VirtOperator) GetDefaultStorageClass() (*storagev1.StorageClass, error)
 	return nil, errors.New("no default storage class found")
 }
 
+// getWorkerNodeZones returns the distinct topology zones of all worker nodes.
+// This is used to constrain Immediate-mode storage classes so that EBS PVCs
+// are never provisioned in AZs that have no schedulable worker nodes.
+func (v *VirtOperator) getWorkerNodeZones() ([]string, error) {
+	nodes, err := v.Clientset.CoreV1().Nodes().List(context.Background(), metav1.ListOptions{
+		LabelSelector: "node-role.kubernetes.io/worker",
+	})
+	if err != nil {
+		return nil, err
+	}
+	zoneSet := make(map[string]bool)
+	for _, node := range nodes.Items {
+		if zone, ok := node.Labels["topology.kubernetes.io/zone"]; ok {
+			zoneSet[zone] = true
+		}
+	}
+	zones := make([]string, 0, len(zoneSet))
+	for zone := range zoneSet {
+		zones = append(zones, zone)
+	}
+	return zones, nil
+}
+
 // Check the VolumeBindingMode of the default storage class, and make an
 // Immediate-mode copy if it is set to WaitForFirstConsumer.
+// allowedTopologies is set to the worker-node AZs so that EBS PVCs are not
+// provisioned in zones with no schedulable workers (which would deadlock
+// DataMover restore pods).
 func (v *VirtOperator) CreateImmediateModeStorageClass(name string) error {
 	defaultStorageClass, err := v.GetDefaultStorageClass()
 	if err != nil {
 		return err
 	}
 
-	immediateStorageClass := defaultStorageClass
+	immediateStorageClass := defaultStorageClass.DeepCopy()
 	immediateStorageClass.VolumeBindingMode = ptr.To[storagev1.VolumeBindingMode](storagev1.VolumeBindingImmediate)
 	immediateStorageClass.Name = name
 	immediateStorageClass.ResourceVersion = ""
 	immediateStorageClass.Annotations["storageclass.kubernetes.io/is-default-class"] = "false"
+
+	workerZones, err := v.getWorkerNodeZones()
+	if err != nil {
+		log.Printf("Warning: could not determine worker node zones for allowedTopologies: %v", err)
+	} else if len(workerZones) > 0 {
+		log.Printf("Restricting %s to worker zones: %v", name, workerZones)
+		immediateStorageClass.AllowedTopologies = []corev1.TopologySelectorTerm{
+			{
+				MatchLabelExpressions: []corev1.TopologySelectorLabelRequirement{
+					{
+						Key:    "topology.kubernetes.io/zone",
+						Values: workerZones,
+					},
+				},
+			},
+		}
+	}
 
 	_, err = v.Clientset.StorageV1().StorageClasses().Create(context.Background(), immediateStorageClass, metav1.CreateOptions{})
 	if apierrors.IsAlreadyExists(err) {
@@ -297,6 +411,9 @@ func (v *VirtOperator) CreateWaitForFirstConsumerStorageClass(name string) error
 	wffcStorageClass.Annotations["storageclass.kubernetes.io/is-default-class"] = "false"
 
 	_, err = v.Clientset.StorageV1().StorageClasses().Create(context.Background(), wffcStorageClass, metav1.CreateOptions{})
+	if apierrors.IsAlreadyExists(err) {
+		return nil
+	}
 	return err
 }
 
