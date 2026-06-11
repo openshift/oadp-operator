@@ -46,6 +46,8 @@ var (
 
 	kvmEmulation        bool
 	useUpstreamHco      bool
+	useCommunityHco     bool
+	hcoIndexTag         string
 	skipMustGather      bool
 	hcBackupRestoreMode string
 	hcName              string
@@ -65,6 +67,8 @@ func init() {
 	flag.Int64Var(&flakeAttempts, "flakeAttempts", 3, "Customize the number of flake retries (3)")
 	flag.BoolVar(&kvmEmulation, "kvm_emulation", true, "Enable or disable KVM emulation for virtualization testing")
 	flag.BoolVar(&useUpstreamHco, "hco_upstream", false, "Force use of upstream virtualization operator")
+	flag.BoolVar(&useCommunityHco, "hco_community", false, "Install community HCO from custom CatalogSource (mutually exclusive with -hco_upstream)")
+	flag.StringVar(&hcoIndexTag, "hco_index_tag", "1.17.1", "HCO index image tag for community CatalogSource (used with -hco_community)")
 	flag.BoolVar(&skipMustGather, "skipMustGather", false, "avoid errors with local execution and cluster architecture")
 	flag.StringVar(&hcBackupRestoreMode, "hc_backup_restore_mode", string(HCModeCreate), "Type of HC test to run")
 	flag.StringVar(&hcName, "hc_name", "", "Name of the HostedCluster to use for HCP tests")
@@ -119,6 +123,16 @@ func init() {
 				log.Println("Error parsing HCO_UPSTREAM, it will be disabled by default: ", err)
 			}
 		}
+		if envValue := os.Getenv("TEST_VIRT"); envValue != "" {
+			if parsedValue, err := strconv.ParseBool(envValue); err == nil {
+				useCommunityHco = parsedValue
+			} else {
+				log.Println("Error parsing TEST_VIRT, it will be disabled by default: ", err)
+			}
+		}
+		if os.Getenv("HCO_INDEX_TAG") != "" {
+			hcoIndexTag = os.Getenv("HCO_INDEX_TAG")
+		}
 		if envValue := os.Getenv("SKIP_MUST_GATHER"); envValue != "" {
 			if parsedValue, err := strconv.ParseBool(envValue); err == nil {
 				skipMustGather = parsedValue
@@ -142,6 +156,15 @@ func init() {
 
 func TestOADPE2E(t *testing.T) {
 	flag.Parse()
+
+	if os.Getenv("OPENSHIFT_CI") != "true" {
+		log.Println("OPENSHIFT_CI is not set to true, skipping must-gather")
+		skipMustGather = true
+	}
+
+	if useUpstreamHco && useCommunityHco {
+		t.Fatal("Cannot use both -hco_upstream and -hco_community at the same time")
+	}
 
 	var err error
 
