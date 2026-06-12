@@ -300,10 +300,11 @@ func main() {
 	//+kubebuilder:scaffold:builder
 
 	// Add CLI download setup runnable.
-	// Skip when namespace-scoped mode is off or the ConsoleCLIDownload CRD
-	// is absent (clusters without Console capability, e.g. SNO).
+	// Skip when WATCH_NAMESPACE is empty (cluster-wide operator mode) or when the
+	// ConsoleCLIDownload CRD is absent (clusters without Console capability, e.g. SNO).
+	// Downstream installs set WATCH_NAMESPACE from metadata.namespace (openshift-adp).
 	if watchNamespace == "" {
-		setupLog.Info("Skipping CLI download setup - watchNamespace not set")
+		setupLog.Info("Skipping CLI download setup - WATCH_NAMESPACE is empty (cluster-wide operator mode)")
 	} else if available, err := controller.IsConsoleCRDAvailable(mgr.GetRESTMapper(), setupLog); !available {
 		if err != nil {
 			setupLog.Error(err, "unable to check ConsoleCLIDownload CRD availability, skipping CLI download setup")

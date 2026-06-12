@@ -47,7 +47,7 @@ func (c *CLIDownloadSetup) Start(ctx context.Context) error {
 	// Get the CLI server image from environment variable
 	cliServerImage := os.Getenv("RELATED_IMAGE_CONSOLE_CLI_DOWNLOAD")
 	if cliServerImage == "" {
-		cliServerImage = "quay.io/konveyor/oadp-cli-binaries" // fallback default
+		cliServerImage = "quay.io/konveyor/oadp-cli-binaries:oadp-1.5" // fallback default
 		c.Log.Info("Using default CLI server image", "image", cliServerImage)
 	}
 
