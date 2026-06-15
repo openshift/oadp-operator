@@ -27,6 +27,7 @@ import (
 
 	snapshotv1api "github.com/kubernetes-csi/external-snapshotter/client/v6/apis/volumesnapshot/v1"
 	configv1 "github.com/openshift/api/config/v1"
+	consolev1 "github.com/openshift/api/console/v1"
 	routev1 "github.com/openshift/api/route/v1"
 	security "github.com/openshift/api/security/v1"
 	monitor "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
@@ -227,6 +228,11 @@ func main() {
 		os.Exit(1)
 	}
 
+	if err := consolev1.AddToScheme(mgr.GetScheme()); err != nil {
+		setupLog.Error(err, "unable to add OpenShift console API to scheme")
+		os.Exit(1)
+	}
+
 	if err := velerov1.AddToScheme(mgr.GetScheme()); err != nil {
 		setupLog.Error(err, "unable to add Velero APIs to scheme")
 		os.Exit(1)
@@ -292,6 +298,28 @@ func main() {
 		os.Exit(1)
 	}
 	//+kubebuilder:scaffold:builder
+
+	// Add CLI download setup runnable.
+	// Skip when WATCH_NAMESPACE is empty (cluster-wide operator mode) or when the
+	// ConsoleCLIDownload CRD is absent (clusters without Console capability, e.g. SNO).
+	// Downstream installs set WATCH_NAMESPACE from metadata.namespace (openshift-adp).
+	if watchNamespace == "" {
+		setupLog.Info("Skipping CLI download setup - WATCH_NAMESPACE is empty (cluster-wide operator mode)")
+	} else if available, err := controller.IsConsoleCRDAvailable(mgr.GetRESTMapper(), setupLog); !available {
+		if err != nil {
+			setupLog.Error(err, "unable to check ConsoleCLIDownload CRD availability, skipping CLI download setup")
+		}
+	} else {
+		if err := mgr.Add(&controller.CLIDownloadSetup{
+			Client:            mgr.GetClient(),
+			Namespace:         watchNamespace,
+			OperatorName:      "openshift-adp-controller-manager",
+			OperatorNamespace: watchNamespace,
+		}); err != nil {
+			setupLog.Error(err, "unable to add CLI download setup")
+			os.Exit(1)
+		}
+	}
 
 	if err := mgr.AddHealthzCheck("healthz", healthz.Ping); err != nil {
 		setupLog.Error(err, "unable to set up health check")

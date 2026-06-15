@@ -65,6 +65,18 @@ rules:
   - list
   - watch
 - apiGroups:
+  - console.openshift.io
+  resources:
+  - consoleclidownloads
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
   - coordination.k8s.io
   - corev1
   resources:

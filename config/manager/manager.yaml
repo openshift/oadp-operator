@@ -82,6 +82,8 @@ spec:
               value: quay.io/konveyor/oadp-must-gather:oadp-1.5
             - name: RELATED_IMAGE_NON_ADMIN_CONTROLLER
               value: quay.io/konveyor/oadp-non-admin:oadp-1.5
+            - name: RELATED_IMAGE_CONSOLE_CLI_DOWNLOAD
+              value: quay.io/konveyor/oadp-cli-binaries:oadp-1.5
           args:
             - --leader-elect
           image: controller:latest

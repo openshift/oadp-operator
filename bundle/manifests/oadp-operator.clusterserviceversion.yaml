@@ -898,6 +898,18 @@ spec:
           - list
           - watch
         - apiGroups:
+          - console.openshift.io
+          resources:
+          - consoleclidownloads
+          verbs:
+          - create
+          - delete
+          - get
+          - list
+          - patch
+          - update
+          - watch
+        - apiGroups:
           - coordination.k8s.io
           - corev1
           resources:
@@ -1130,6 +1142,8 @@ spec:
                   value: quay.io/konveyor/oadp-must-gather:oadp-1.5
                 - name: RELATED_IMAGE_NON_ADMIN_CONTROLLER
                   value: quay.io/konveyor/oadp-non-admin:oadp-1.5
+                - name: RELATED_IMAGE_CONSOLE_CLI_DOWNLOAD
+                  value: quay.io/konveyor/oadp-cli-binaries:oadp-1.5
                 image: quay.io/konveyor/oadp-operator:oadp-1.5
                 imagePullPolicy: Always
                 livenessProbe:
@@ -1292,5 +1306,7 @@ spec:
     name: mustgather
   - image: quay.io/konveyor/oadp-non-admin:oadp-1.5
     name: non-admin-controller
+  - image: quay.io/konveyor/oadp-cli-binaries:oadp-1.5
+    name: console-cli-download
   replaces: oadp-operator.v1.5.6
   version: 1.5.7

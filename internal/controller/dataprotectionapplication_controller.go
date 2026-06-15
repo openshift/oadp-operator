@@ -72,6 +72,7 @@ var debugMode = os.Getenv("DEBUG") == "true"
 //+kubebuilder:rbac:groups="",resources=namespaces,verbs=get;list;watch;create;update;patch
 //+kubebuilder:rbac:groups=apps,resources=deployments;daemonsets,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=route.openshift.io,resources=routes,verbs=get;list;watch;create;update;patch;delete
+//+kubebuilder:rbac:groups=console.openshift.io,resources=consoleclidownloads,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=monitoring.coreos.com,resources=servicemonitors,verbs=get;list;watch;create;update;patch;delete
 
 // Reconcile is part of the main Kubernetes reconciliation loop which aims to
