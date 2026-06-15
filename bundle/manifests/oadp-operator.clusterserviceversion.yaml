@@ -867,8 +867,6 @@ spec:
                   value: quay.io/konveyor/velero-plugin-for-gcp:oadp-1.4
                 - name: RELATED_IMAGE_KUBEVIRT_VELERO_PLUGIN
                   value: quay.io/konveyor/kubevirt-velero-plugin:v0.7.0
-                - name: RELATED_IMAGE_HYPERSHIFT_VELERO_PLUGIN
-                  value: quay.io/redhat-user-workloads/ocp-art-tenant/oadp-hypershift-oadp-plugin-oadp-1-4
                 - name: RELATED_IMAGE_MUSTGATHER
                   value: quay.io/konveyor/oadp-must-gather:oadp-1.4
                 image: quay.io/konveyor/oadp-operator:oadp-1.4
@@ -1020,8 +1018,6 @@ spec:
     name: velero-plugin-for-gcp
   - image: quay.io/konveyor/kubevirt-velero-plugin:v0.7.0
     name: kubevirt-velero-plugin
-  - image: quay.io/redhat-user-workloads/ocp-art-tenant/oadp-hypershift-oadp-plugin-oadp-1-4
-    name: hypershift-velero-plugin
   - image: quay.io/konveyor/oadp-must-gather:oadp-1.4
     name: mustgather
   replaces: oadp-operator.v1.4.9

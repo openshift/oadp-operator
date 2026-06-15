@@ -27,7 +27,6 @@ require (
 require (
 	github.com/deckarep/golang-set/v2 v2.3.0
 	github.com/google/go-cmp v0.7.0
-	github.com/openshift/hypershift/api v0.0.0-20240522104800-604a957be25e
 	github.com/vmware-tanzu/velero v1.14.0
 	k8s.io/klog/v2 v2.120.1
 )
@@ -184,5 +183,3 @@ require (
 replace github.com/vmware-tanzu/velero => github.com/openshift/velero v0.10.2-0.20240822153644-9ac863aaa452
 
 replace github.com/kopia/kopia => github.com/project-velero/kopia v0.0.0-20240417031915-e07d5b7de567
-
-replace github.com/openshift/hypershift => github.com/openshift/hypershift v0.1.52-0.20250828102706-84d7581f683c
