@@ -46,6 +46,12 @@ const (
 
 	TrueVal  = "true"
 	FalseVal = "false"
+
+	// CA certificate related constants
+	caCertVolumeName      = "ca-certificate-bundle"
+	caCertMountPath       = "/etc/velero/ca-certs"
+	caBundleFileName      = "ca-bundle.pem"
+	caBundleConfigMapName = "velero-ca-bundle"
 )
 
 var (
@@ -406,6 +412,11 @@ func (r *DPAReconciler) customizeVeleroDeployment(dpa *oadpv1alpha1.DataProtecti
 				return err
 			}
 		}
+	}
+
+	// Process CA certificates from BackupStorageLocations
+	if err := r.processCACertificatesForVelero(dpa, veleroDeployment, veleroContainer); err != nil {
+		return fmt.Errorf("failed to process CA certificates: %w", err)
 	}
 
 	return nil
@@ -815,4 +826,46 @@ func (r DPAReconciler) noDefaultCredentials(dpa oadpv1alpha1.DataProtectionAppli
 
 	return providerNeedsDefaultCreds, hasCloudStorage, nil
 
+}
+
+// processCACertificatesForVelero processes CA certificates from BSLs and configures Velero deployment
+func (r *DPAReconciler) processCACertificatesForVelero(dpa *oadpv1alpha1.DataProtectionApplication, veleroDeployment *appsv1.Deployment, veleroContainer *corev1.Container) error {
+	configMapName, err := r.processCACertForBSLs(dpa)
+	if err != nil {
+		return fmt.Errorf("failed to process CA certificates from BSLs: %w", err)
+	}
+
+	if configMapName == "" {
+		return nil
+	}
+
+	caCertVolume := corev1.Volume{
+		Name: caCertVolumeName,
+		VolumeSource: corev1.VolumeSource{
+			ConfigMap: &corev1.ConfigMapVolumeSource{
+				LocalObjectReference: corev1.LocalObjectReference{
+					Name: configMapName,
+				},
+			},
+		},
+	}
+	veleroDeployment.Spec.Template.Spec.Volumes = append(veleroDeployment.Spec.Template.Spec.Volumes, caCertVolume)
+
+	caCertVolumeMount := corev1.VolumeMount{
+		Name:      caCertVolumeName,
+		MountPath: caCertMountPath,
+		ReadOnly:  true,
+	}
+	veleroContainer.VolumeMounts = append(veleroContainer.VolumeMounts, caCertVolumeMount)
+
+	// AWS_CA_BUNDLE is a standard AWS SDK environment variable that specifies a custom CA bundle
+	// for TLS certificate validation. When set, the AWS SDK for Go automatically uses this bundle
+	// for all S3 API calls, enabling imagestream backup in air-gapped environments with custom CAs.
+	awsCABundleEnv := corev1.EnvVar{
+		Name:  "AWS_CA_BUNDLE",
+		Value: caCertMountPath + "/" + caBundleFileName,
+	}
+	veleroContainer.Env = common.AppendUniqueEnvVars(veleroContainer.Env, []corev1.EnvVar{awsCABundleEnv})
+
+	return nil
 }
