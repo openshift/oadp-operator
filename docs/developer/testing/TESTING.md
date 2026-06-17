@@ -24,7 +24,10 @@ To get started, you need to provide the following **required** environment varia
 | `TEST_VIRT` | Exclusively run Virtual Machine backup/restore testing | `false` | false |
 | `TEST_UPGRADE` | Exclusively run upgrade tests. Need to first run `make catalog-test-upgrade`, if testing non production operator | `false` | false |
 | `TEST_CLI` | Exclusively run CLI-based backup/restore testing | `false` | false |
-| `SKIP_MUST_GATHER` | must-gather is compiled locally in the Makefile, may cause issue if local and cluster arch do not match| `false` | false |
+| `SKIP_MUST_GATHER` | Skip running must-gather collection during E2E tests | `false` | false |
+| `MUST_GATHER_IMAGE` | Container image to use for must-gather collection via `oc adm must-gather` | `quay.io/konveyor/oadp-must-gather:oadp-1.5` | false |
+| `MUST_GATHER_REPO` | GitHub repo (e.g., `openshift/oadp-must-gather`) to build must-gather from source. Sets `MUST_GATHER_IMAGE` to a ttl.sh image automatically | - | false |
+| `MUST_GATHER_BRANCH` | Branch to use when building from `MUST_GATHER_REPO` | `oadp-1.5` | false |
 
 > **Note:**
 
