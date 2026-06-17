@@ -880,7 +880,7 @@ OADP_BUCKET ?= $(shell cat $(OADP_BUCKET_FILE))
 SETTINGS_TMP=/tmp/test-settings
 
 .PHONY: test-e2e-setup
-test-e2e-setup: login-required build-must-gather
+test-e2e-setup: login-required
 	mkdir -p $(SETTINGS_TMP)
 	TMP_DIR=$(SETTINGS_TMP) \
 	OPENSHIFT_CI="$(OPENSHIFT_CI)" \
@@ -894,7 +894,6 @@ test-e2e-setup: login-required build-must-gather
 	VSL_REGION="$(VSL_REGION)" \
 	BSL_REGION="$(BSL_REGION)" \
 	BSL_AWS_PROFILE="$(BSL_AWS_PROFILE)" \
-        SKIP_MUST_GATHER="$(SKIP_MUST_GATHER)" \
 	/bin/bash "tests/e2e/scripts/$(CLUSTER_TYPE)_settings.sh"
 
 VELERO_INSTANCE_NAME ?= velero-test
@@ -903,7 +902,6 @@ HCO_UPSTREAM ?= false
 TEST_VIRT ?= false
 TEST_HCP ?= false
 TEST_CLI ?= false
-SKIP_MUST_GATHER  ?= false
 TEST_UPGRADE ?= false
 TEST_FILTER = (($(shell echo '! aws && ! gcp && ! azure && ! ibmcloud' | \
 $(SED) -r "s/[&]* [!] $(CLUSTER_TYPE)|[!] $(CLUSTER_TYPE) [&]*//")) || $(CLUSTER_TYPE))
@@ -941,7 +939,6 @@ test-e2e: test-e2e-setup install-ginkgo ## Run E2E tests against OADP operator i
 	-artifact_dir=$(ARTIFACT_DIR) \
 	-kvm_emulation=$(KVM_EMULATION) \
 	-hco_upstream=$(HCO_UPSTREAM) \
-        -skipMustGather=$(SKIP_MUST_GATHER) \
 	--ginkgo.vv \
 	--ginkgo.no-color=$(OPENSHIFT_CI) \
 	--ginkgo.label-filter="$(TEST_FILTER)" \
@@ -985,6 +982,3 @@ endif
 		$(SED) -i "s%resources:%resources:\n- $$file_name%" $(shell pwd)/config/samples/kustomization.yaml;done
 	@make bundle
 
-.PHONY: build-must-gather
-build-must-gather: check-go ## Build OADP Must-gather binary must-gather/oadp-must-gather
-	cd must-gather && go build -mod=mod -a -o oadp-must-gather cmd/main.go

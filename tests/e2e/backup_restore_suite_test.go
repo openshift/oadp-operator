@@ -297,26 +297,7 @@ var _ = ginkgo.Describe("Backup and restore tests", ginkgo.Ordered, func() {
 	})
 
 	var _ = ginkgo.AfterAll(func() {
-		// DPA just needs to have BSL so gathering of backups/restores logs/describe work
-		// using kopia to collect more info (DaemonSet)
-		waitOADPReadiness(lib.KOPIA)
-
-		log.Printf("Creating real DataProtectionTest before must-gather")
-		bsls, err := dpaCR.ListBSLs()
-		gomega.Expect(err).ToNot(gomega.HaveOccurred())
-
-		bslName := bsls.Items[0].Name
-		err = lib.CreateUploadTestOnlyDPT(dpaCR.Client, dpaCR.Namespace, bslName)
-		gomega.Expect(err).ToNot(gomega.HaveOccurred())
-
-		log.Printf("skipMustGather: %v", skipMustGather)
-		if !skipMustGather {
-			log.Printf("Running OADP must-gather")
-			err = lib.RunMustGather(artifact_dir, dpaCR.Client)
-			gomega.Expect(err).ToNot(gomega.HaveOccurred())
-		}
-
-		err = dpaCR.Delete()
+		err := dpaCR.Delete()
 		gomega.Expect(err).ToNot(gomega.HaveOccurred())
 	})
 
@@ -495,10 +476,6 @@ ddummyenddummyenddummyenddummyend
 var _ = ginkgo.Describe("Multiple BSL with custom CA cert tests", ginkgo.Ordered, func() {
 	var _ = ginkgo.AfterEach(func(ctx ginkgo.SpecContext) {
 		log.Printf("Cleaning up after BSL CA cert test")
-		if !skipMustGather && ctx.SpecReport().Failed() {
-			log.Printf("Running must-gather for failed test")
-			_ = lib.RunMustGather(artifact_dir, dpaCR.Client)
-		}
 		log.Printf("Deleting DPA")
 		err := dpaCR.Delete()
 		gomega.Expect(err).NotTo(gomega.HaveOccurred())
