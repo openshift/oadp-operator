@@ -40,8 +40,5 @@ debug.test*
 # Others
 .envrc
 
-# must-gather
-must-gather/oadp-must-gather
-must-gather/must-gather/
-must-gather/must-gather.local.*/
+# must-gather e2e output
 tests/e2e/must-gather/
