@@ -385,19 +385,20 @@ func PrintNamespaceEventsAfterTime(c *kubernetes.Clientset, namespace string, st
 }
 
 func RunMustGather(artifact_dir string, clusterClient client.Client) error {
-	executablePath, err := os.Executable()
-	if err != nil {
-		return err
+	// Use MUST_GATHER_IMAGE env var, default to quay.io/konveyor/oadp-must-gather:oadp-1.4
+	// For version-specific testing: MUST_GATHER_IMAGE=quay.io/konveyor/oadp-must-gather:oadp-1.5
+	mustGatherImage := os.Getenv("MUST_GATHER_IMAGE")
+	if mustGatherImage == "" {
+		mustGatherImage = "quay.io/konveyor/oadp-must-gather:oadp-1.4"
 	}
 
-	_, err = exec.Command(filepath.Dir(filepath.Dir(filepath.Dir(executablePath))) + "/must-gather/oadp-must-gather").Output()
+	log.Printf("Running must-gather with image: %s", mustGatherImage)
+	cmd := exec.Command("oc", "adm", "must-gather",
+		"--image="+mustGatherImage,
+		"--dest-dir="+artifact_dir)
+	output, err := cmd.CombinedOutput()
 	if err != nil {
-		return err
-	}
-
-	_, err = exec.Command("mv", filepath.Dir(executablePath)+"/must-gather", artifact_dir).Output()
-	if err != nil {
-		return err
+		return fmt.Errorf("must-gather command failed: %w, output: %s", err, string(output))
 	}
 
 	clusterVersionList := &openshiftconfigv1.ClusterVersionList{}
@@ -409,9 +410,25 @@ func RunMustGather(artifact_dir string, clusterClient client.Client) error {
 		return errors.New("no ClusterVersion found in cluster")
 	}
 	clusterVersion := &clusterVersionList.Items[0]
-	mustGatherPath := fmt.Sprintf("%s/must-gather/clusters/%s/", artifact_dir, string(clusterVersion.Spec.ClusterID[:8]))
+	clusterID := string(clusterVersion.Spec.ClusterID)
+	if len(clusterID) > 8 {
+		clusterID = clusterID[:8]
+	}
 
-	mustGatherSummaryContent, err := os.ReadFile(mustGatherPath + "oadp-must-gather-summary.md")
+	pattern := filepath.Join(artifact_dir, "*", "clusters", clusterID, "oadp-must-gather-summary.md")
+	matches, err := filepath.Glob(pattern)
+	if err != nil {
+		return fmt.Errorf("error finding must-gather summary: %w", err)
+	}
+	if len(matches) == 0 {
+		dirs, _ := filepath.Glob(filepath.Join(artifact_dir, "*"))
+		return fmt.Errorf("no must-gather summary found at pattern: %s\nDirectories in artifact_dir: %v", pattern, dirs)
+	}
+
+	sort.Strings(matches)
+	summaryPath := matches[len(matches)-1]
+	log.Printf("Reading must-gather summary from: %s", summaryPath)
+	mustGatherSummaryContent, err := os.ReadFile(summaryPath)
 	if err != nil {
 		return err
 	}
@@ -421,8 +438,6 @@ func RunMustGather(artifact_dir string, clusterClient client.Client) error {
 	if !strings.Contains(mustGatherSummaryText, "No errors happened or were found while running OADP must-gather") {
 		return errors.New("expected no errors in must-gather Errors section")
 	}
-
-	// TODO validate that everything was collected
 
 	return nil
 }
