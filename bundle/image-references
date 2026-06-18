@@ -43,6 +43,10 @@ spec:
     from:
       kind: DockerImage
       name: quay.io/konveyor/kubevirt-velero-plugin:v0.7.0
+  - name: oadp-cli-binaries-rhel9
+    from:
+      kind: DockerImage
+      name: quay.io/konveyor/oadp-cli-binaries:oadp-1.5
   - name: oadp-hypershift-velero-plugin-rhel9
     from:
       kind: DockerImage
