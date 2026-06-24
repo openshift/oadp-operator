@@ -1,6 +1,6 @@
 # TOOL VERSIONS
 # All version-related variables are defined here for easy maintenance
-DEFAULT_VERSION := 1.5.7
+DEFAULT_VERSION := 1.5.8
 VERSION ?= $(DEFAULT_VERSION)
 OPERATOR_SDK_VERSION ?= v1.34.2
 ENVTEST_K8S_VERSION = 1.32 #refers to the version of kubebuilder assets to be downloaded by envtest binary # Kubernetes version from OpenShift 4.19.x
