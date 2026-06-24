@@ -167,7 +167,7 @@ ifeq ($(shell $(ENVTEST) list | grep $(ENVTEST_K8S_VERSION)),)
 	ENVTESTPATH = $(shell $(ENVTEST) --arch=amd64 use $(ENVTEST_K8S_VERSION) -p path)
 endif
 $(ENVTEST): ## Download envtest-setup locally if necessary.
-	$(call go-install-tool,$(ENVTEST),sigs.k8s.io/controller-runtime/tools/setup-envtest@v0.0.0-20240320141353-395cfc7486e6)
+	$(call go-install-tool,$(ENVTEST),sigs.k8s.io/controller-runtime/tools/setup-envtest@v0.0.0-20250308055145-5fe7bb3edc86)
 
 .PHONY: envtest
 envtest: $(ENVTEST)
