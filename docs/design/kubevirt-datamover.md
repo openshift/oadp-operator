@@ -114,9 +114,11 @@ Taking a VolumeSnapshot and then using kopia to process the entire volume and co
     - The pod running command/image will first get the list of qcow2 files to pull from object storage
 	- Process one PVC at a time:
       - Download all required qcow2 files for this PVC from object storage.
-      - Validate the chain: verify every file exists and has a valid qcow2 header
-        (`qemu-img info` succeeds). The `-u` (unsafe) rebase flag skips all validation,
-        so the downloader must check before rebasing to prevent silent data loss.
+      - Validate the checkpoint chain from the per-VM manifest (`checkpointChain`)
+        before rebasing: verify every intermediate file is present on disk and each
+        is a readable qcow2 image (`qemu-img info` succeeds). The `-u` (unsafe)
+        rebase flag skips all validation, so missing or corrupt intermediates cause
+        silent data loss.
       - Build the backing chain by rebasing each incremental onto its parent (not
         all onto the full backup — that loses intermediate changes):
         - `qemu-img rebase -b full.qcow2 -F qcow2 -f qcow2 -u inc1.qcow2`
