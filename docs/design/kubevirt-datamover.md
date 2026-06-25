@@ -126,6 +126,10 @@ Taking a VolumeSnapshot and then using kopia to process the entire volume and co
         intermediate raw file or `dd` needed):
         - `qemu-img convert -f qcow2 -O raw incN.qcow2 /dev/target_pvc_block_device`
       - Delete all qcow2 files from scratch space.
+      - References:
+        - Chained rebase approach: [KubeVirt VEP — Restore from Backup](https://github.com/kubevirt/enhancements/blob/main/veps/sig-storage/incremental-backup.md?plain=1#L443-L466)
+        - `-F` backing format flag required since [QEMU 6.1](https://wiki.qemu.org/ChangeLog/6.1#Block_layer); see [qemu-img rebase docs](https://www.qemu.org/docs/master/tools/qemu-img.html#cmdoption-qemu-img-commands-arg-F)
+        - Workflow validated with synthetic qcow2 files: [validation gist](https://gist.github.com/kaovilai/5ac5d2563d4d3c60be090475f2ac2c06)
     - Note that the various `qemu-img` actions might eventually be combined into a single kubevirt API call, but for the moment this would need to be done manually.
   - Once datamover pod has restored the VM disks, it will exit, the temporary PVCs will be deleted, leaving the restored PVs but deleting the qcow2 staging PV.
 
