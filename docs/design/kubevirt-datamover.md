@@ -21,7 +21,7 @@ Taking a VolumeSnapshot and then using kopia to process the entire volume and co
 - As a user I want to use OADP to trigger backups that will back up volume data using kubevirt tooling rather than CSI snapshots
   - Volume backups will be incremental when possible (first backup for a given volume will be full, subsequent backups for that same volume will be incremental)
   - Assuming that kubevirt incremental volume backups should be much faster than CSI snapshots followed by incremental kopia snapshot copy, the expectation is that users might run kubevirt datamover backups more frequently than they would for CSI-based backups.
-  - Users should set the volume policy action to `"kubevirt"` for VM PVCs in the backup's resource/volume policy configuration. This prevents Velero from also taking CSI snapshots or fs-backups of the same volumes (the BIA plugin skips any PVC whose action is not `"kubevirt"` or `"skip"`).
+  - Users should set the volume policy action to `"custom"` with `"datamover: kubevirt"` in the action parameters for VM PVCs in the backup's resource/volume policy configuration. This prevents Velero from also taking CSI snapshots or fs-backups of the same volumes (the BIA plugin skips any PVC whose action is not `"kubevirt"` or `"skip"`).
 
 ```
   Key Differences between CSI and KubeVirt incremental snapshots
