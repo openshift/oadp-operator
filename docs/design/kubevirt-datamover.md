@@ -113,15 +113,19 @@ Taking a VolumeSnapshot and then using kopia to process the entire volume and co
     - The pod will have temp PVC mounted, as well as PVCs mounted for each vm disk we're creating.
     - The pod running command/image will first get the list of qcow2 files to pull from object storage
 	- Process one PVC at a time:
-      - Download all required qcow2 files for this PVC.
-	  - Call `qemu-img rebase -b fullbackup.qcow2 -f qcow2 -u incrementalN.qcow2` for each incremental backup, in order
-      - FIXME: Should we use the unsafe `-u` flag? kubevirt docs suggested this, but we should confirm that this is still appropriate.
-	  - Delete the incremental qcow2 files, leaving the rebased full backup.
-      - Convert qcow2 image to raw disk image: `qemu-img convert -f qcow2 -O raw fullbackup.qcow2 restored-raw.img`
-	  - Delete the qcow2 file
-      - Finally, write this image to the PVC which contains the appropriate PV:
-	    - `dd if=/path/to/image.raw of=/dev/target_pvc_block_device bs=4M status=progress`
-	  - Delete the raw file
+      - Download all required qcow2 files for this PVC from object storage.
+      - Validate the chain: verify every file exists and has a valid qcow2 header
+        (`qemu-img info` succeeds). The `-u` (unsafe) rebase flag skips all validation,
+        so the downloader must check before rebasing to prevent silent data loss.
+      - Build the backing chain by rebasing each incremental onto its parent (not
+        all onto the full backup — that loses intermediate changes):
+        - `qemu-img rebase -b full.qcow2 -F qcow2 -f qcow2 -u inc1.qcow2`
+        - `qemu-img rebase -b inc1.qcow2 -F qcow2 -f qcow2 -u inc2.qcow2`
+        - (continue for each incremental in chain order)
+      - Convert the top-of-chain directly to the target block device (no
+        intermediate raw file or `dd` needed):
+        - `qemu-img convert -f qcow2 -O raw incN.qcow2 /dev/target_pvc_block_device`
+      - Delete all qcow2 files from scratch space.
     - Note that the various `qemu-img` actions might eventually be combined into a single kubevirt API call, but for the moment this would need to be done manually.
   - Once datamover pod has restored the VM disks, it will exit, the temporary PVCs will be deleted, leaving the restored PVs but deleting the qcow2 staging PV.
 
