@@ -43,18 +43,18 @@ Taking a VolumeSnapshot and then using kopia to process the entire volume and co
 ## High-Level design
 
 ### Upstream velero changes
-- Update velero volume policy model to allow unrecognized volume policy actions. Velero would treat unrecognized actions as "skip" (i.e. no snapshot or fs-backup), but the kubevirt datamover could only act if the policy action is "kubevirt".
+- Update velero volume policy model to allow custom volume policy actions. Velero would treat custom actions as "skip" (i.e. no snapshot or fs-backup), but the kubevirt datamover could only act if the policy action is "custom" with "datamover: kubevirt" in "parameters".
 - In `pkg/restore/actions/dataupload_retrieve_action.go` and in `DataDownload` we need to add SnapshotType.
 
 ### BackupItemAction/RestoreItemAction plugins
 - VirtualMachine BIA plugin
   - The plugin will check whether the VirtualMachine's `status.ChangedBlockTracking` is `Enabled`
   - The plugin must also determine whether the VM is running, since offline backup is not supported in the initial release.
-    - If QEMU backup is enabled, the next question is whether the user wants to use the kubevirt datamover for this VM's volumes. We will use volume policies for this, although it's a bit more complicated since a VM could have multiple PVCs. If at least one PVC for the VM has the "kubevirt" policy action specified, and no PVCs in this VM have other non-skip policies (i.e. "snapshot", etc.) then we'll use the kubevirt datamover
-	- In addition, SnapshotMoveData must be true
+    - If QEMU backup is enabled, the next question is whether the user wants to use the kubevirt datamover for this VM's volumes. We will use volume policies for this, although it's a bit more complicated since a VM could have multiple PVCs. If at least one PVC for the VM has the "custom" policy action with "datamover=kubevirt" parameter specified, and no PVCs in this VM have other non-skip policies (i.e. "snapshot", etc.) then we'll use the kubevirt datamover
+    - In addition, SnapshotMoveData must be true
     - Iterate over all PVCs for the VM
-    - If any PVC has an action other than "kubevirt" or "skip", exit without action
-    - If at least one PVC has an action of "kubevirt", then use the kubevirt datamover
+    - If any PVC has an action other than "custom" or "skip", exit without action
+    - If at least one PVC has an action of "custom" with parameter "datamover=kubevirt", then use the kubevirt datamover
   - This plugin will create a DataUpload with `Spec.SnapshotType` set to "kubevirt" and `Spec.DataMover` set to "kubevirt"
     - Note that unlike the built-in datamover, this DataUpload is tied to a VM (which could include multiple PVCs) rather than to a single PVC.
   - An annotation will be added to the DataUpload identifying the VirtualMachine we're backing up.

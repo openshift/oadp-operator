@@ -62,8 +62,9 @@ const kubevirtVolumePolicyData = `version: v1
 volumePolicies:
   - conditions: {}
     action:
-      type: skip
-`
+      type: custom
+      parameters:
+        datamover: kubevirt`
 
 // EnsureKubevirtVolumePolicy creates (or updates) the volume policy ConfigMap
 // that tells Velero to skip CSI snapshots for CBT-labeled PVCs, allowing the

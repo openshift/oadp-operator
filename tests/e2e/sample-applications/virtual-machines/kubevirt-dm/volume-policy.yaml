@@ -9,4 +9,6 @@ data:
     volumePolicies:
       - conditions: {}
         action:
-          type: skip
+          type: custom
+          parameters:
+            datamover: kubevirt
