@@ -4,14 +4,14 @@ This document outlines the files and fields that need to be updated for OADP ope
 
 ## Files to Update
 
-For a patch version update (e.g., 1.3.8 → 1.3.9), update these 4 files:
+For a patch version update (e.g., 1.3.9 → 1.3.10), update these 4 files:
 
 ### 1. Makefile
 
 Update `DEFAULT_VERSION` variable:
 
 ```makefile
-DEFAULT_VERSION := 1.3.9  # was 1.3.8
+DEFAULT_VERSION := 1.3.10  # was 1.3.9
 ```
 
 ### 2. config/manifests/bases/oadp-operator.clusterserviceversion.yaml
@@ -21,11 +21,11 @@ Update 3 fields:
 ```yaml
 metadata:
   annotations:
-    olm.skipRange: '>=0.0.0 <1.3.9'  # was <1.3.8
+    olm.skipRange: '>=0.0.0 <1.3.10'  # was <1.3.9
   name: oadp-operator.v1.3.0  # UNCHANGED - base version for 1.3.x branch
 spec:
-  replaces: oadp-operator.v1.3.8  # was v1.3.7
-  version: 1.3.9  # was 1.3.8
+  replaces: oadp-operator.v1.3.9  # was v1.3.8
+  version: 1.3.10  # was 1.3.9
 ```
 
 ### 3. bundle/manifests/oadp-operator.clusterserviceversion.yaml
@@ -35,11 +35,11 @@ Update 4 fields:
 ```yaml
 metadata:
   annotations:
-    olm.skipRange: '>=0.0.0 <1.3.9'  # was <1.3.8
-  name: oadp-operator.v1.3.9  # was v1.3.8
+    olm.skipRange: '>=0.0.0 <1.3.10'  # was <1.3.9
+  name: oadp-operator.v1.3.10  # was v1.3.9
 spec:
-  replaces: oadp-operator.v1.3.8  # was v1.3.7
-  version: 1.3.9  # was 1.3.8
+  replaces: oadp-operator.v1.3.9  # was v1.3.8
+  version: 1.3.10  # was 1.3.9
 ```
 
 ### 4. bundle/oadp-operator.package.yaml
@@ -49,7 +49,7 @@ Update 1 field:
 ```yaml
 channels:
 - name: stable-1.3
-  currentCSV: oadp-operator.v1.3.9  # was v1.3.8
+  currentCSV: oadp-operator.v1.3.10  # was v1.3.9
 ```
 
 ## Summary
