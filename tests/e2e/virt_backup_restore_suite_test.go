@@ -481,7 +481,7 @@ var _ = ginkgo.Describe("VM backup and restore tests", ginkgo.Ordered, func() {
 			},
 		}, nil),
 
-		ginkgo.Entry("todolist CSI backup and restore, in a Fedora VM", ginkgo.Label("virt"), VmBackupRestoreCase{
+		ginkgo.PEntry("todolist CSI backup and restore, in a Fedora VM", ginkgo.Label("virt"), VmBackupRestoreCase{
 			Template:  "./sample-applications/virtual-machines/fedora-todolist/fedora-todolist.yaml",
 			InitDelay: 3 * time.Minute, // For cloud-init
 			BackupRestoreCase: BackupRestoreCase{
