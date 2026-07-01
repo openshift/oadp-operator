@@ -259,12 +259,19 @@ DOCKER_BUILD_ARGS ?= --platform=linux/amd64
 ifneq ($(CLUSTER_TYPE),)
 	DOCKER_BUILD_ARGS = --platform=$(CLUSTER_OS)/$(CLUSTER_ARCH)
 endif
+.PHONY: check-container-runtime
+check-container-runtime:
+	@$(CONTAINER_TOOL) info >/dev/null 2>&1 || \
+		{ echo "Error: The container tool '$(CONTAINER_TOOL)' is installed but its runtime is not available."; \
+		  echo "Ensure the daemon or machine is running (e.g., 'podman machine start' or 'systemctl start docker')."; \
+		  exit 1; }
+
 .PHONY: docker-build
-docker-build: ## Build docker image with the manager.
+docker-build: check-container-runtime ## Build docker image with the manager.
 	$(CONTAINER_TOOL) build --load -t $(IMG) . $(DOCKER_BUILD_ARGS)
 
 .PHONY: docker-push
-docker-push: ## Push docker image with the manager.
+docker-push: check-container-runtime ## Push docker image with the manager.
 	$(CONTAINER_TOOL) push ${IMG}
 
 ##@ Deployment
@@ -356,7 +363,7 @@ bundle: manifests kustomize operator-sdk ## Generate bundle manifests and metada
 	mv bundle/manifests/oadp-operator.clusterserviceversion.yaml.tmp bundle/manifests/oadp-operator.clusterserviceversion.yaml
 
 .PHONY: bundle-build
-bundle-build: ## Build the bundle image.
+bundle-build: check-container-runtime ## Build the bundle image.
 	$(CONTAINER_TOOL) build --load -f bundle.Dockerfile -t $(BUNDLE_IMG) . $(DOCKER_BUILD_ARGS)
 
 .PHONY: bundle-push
@@ -399,7 +406,7 @@ CATALOG_SOURCE_NAME ?= oadp-operator-catalog
 # The FBC approach replaces the deprecated sqlite-based 'opm index add' method
 # and ensures correct multi-arch builds via $(DOCKER_BUILD_ARGS).
 .PHONY: catalog-build
-catalog-build: opm ## Build a catalog image.
+catalog-build: opm check-container-runtime ## Build a catalog image.
 	rm -rf catalog.Dockerfile catalog/
 	mkdir -p catalog/oadp-operator
 	$(OPM) render $(BUNDLE_IMGS) -o yaml > catalog/oadp-operator/index.yaml
@@ -445,7 +452,7 @@ catalog-build: opm ## Build a catalog image.
 #           name: oadp-operator-controller-manager
 #     EOF
 .PHONY: catalog-fbc-build
-catalog-fbc-build: ## Build a catalog image from build/Dockerfile.catalog.
+catalog-fbc-build: check-container-runtime ## Build a catalog image from build/Dockerfile.catalog.
 	$(CONTAINER_TOOL) build --load $(DOCKER_BUILD_ARGS) \
 		-f build/Dockerfile.catalog \
 		--build-arg BUNDLE_IMG=$(BUNDLE_IMG) \
@@ -597,7 +604,7 @@ deploy-olm: THIS_OPERATOR_IMAGE?=ttl.sh/oadp-operator-$(GIT_REV):$(TTL_DURATION)
 deploy-olm: THIS_BUNDLE_IMAGE?=ttl.sh/oadp-operator-bundle-$(GIT_REV):$(TTL_DURATION) # Set target specific variable
 deploy-olm: THIS_CATALOG_IMAGE?=ttl.sh/oadp-operator-catalog-$(GIT_REV):$(TTL_DURATION) # Set target specific variable
 deploy-olm: DEPLOY_TMP:=$(shell mktemp -d)/ # Set target specific variable
-deploy-olm: undeploy-olm ## Build current branch operator image, bundle image, push and install via OLM. For more information, check docs/developer/install_from_source.md
+deploy-olm: check-container-runtime undeploy-olm ## Build current branch operator image, bundle image, push and install via OLM. For more information, check docs/developer/install_from_source.md
 	@make versions
 	@echo "DEPLOY_TMP: $(DEPLOY_TMP)"
 	# build and push operator, bundle, and catalog images
@@ -861,7 +868,7 @@ catalog-test-upgrade: PREVIOUS_BUNDLE_IMAGE?=ttl.sh/oadp-operator-previous-bundl
 catalog-test-upgrade: THIS_OPERATOR_IMAGE?=ttl.sh/oadp-operator-$(GIT_REV):$(TTL_DURATION)
 catalog-test-upgrade: THIS_BUNDLE_IMAGE?=ttl.sh/oadp-operator-bundle-$(GIT_REV):$(TTL_DURATION)
 catalog-test-upgrade: CATALOG_IMAGE?=ttl.sh/oadp-operator-catalog-$(GIT_REV):$(TTL_DURATION)
-catalog-test-upgrade: opm login-required ## Prepare a catalog image with two channels: PREVIOUS_CHANNEL and from current branch. For more information, check docs/developer/testing/test_oadp_version_upgrade.md
+catalog-test-upgrade: opm login-required check-container-runtime ## Prepare a catalog image with two channels: PREVIOUS_CHANNEL and from current branch. For more information, check docs/developer/testing/test_oadp_version_upgrade.md
 	mkdir test-upgrade && rsync -a --exclude=test-upgrade ./ test-upgrade/current
 	git clone --depth=1 git@github.com:openshift/oadp-operator.git -b $(PREVIOUS_CHANNEL) test-upgrade/$(PREVIOUS_CHANNEL)
 	cd test-upgrade/$(PREVIOUS_CHANNEL) && \
@@ -1018,7 +1025,7 @@ GINKGO_FLAGS = --vv \
 	--timeout=2h
 
 .PHONY: build-must-gather
-build-must-gather: ## Build must-gather image from GitHub source. Requires MUST_GATHER_REPO (e.g., openshift/oadp-must-gather). Uses MUST_GATHER_BRANCH (default: main).
+build-must-gather: check-container-runtime ## Build must-gather image from GitHub source. Requires MUST_GATHER_REPO (e.g., openshift/oadp-must-gather). Uses MUST_GATHER_BRANCH (default: main).
 ifeq ($(MUST_GATHER_REPO),)
 	$(error MUST_GATHER_REPO is required (e.g., openshift/oadp-must-gather))
 endif
