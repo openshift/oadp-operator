@@ -2986,7 +2986,7 @@ func TestDPAReconciler_buildNodeAgentDaemonset(t *testing.T) {
 				}
 			}
 			if !reflect.DeepEqual(got, tt.want) {
-				fmt.Printf(cmp.Diff(got, tt.want))
+				fmt.Printf("%s", cmp.Diff(got, tt.want))
 				t.Errorf("DPAReconciler.buildNodeAgentDaemonset() got = %v, want %v", got, tt.want)
 			}
 		})
