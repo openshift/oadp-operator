@@ -86,7 +86,7 @@ func (s *Subscription) CsvIsInstalling(c client.Client) bool {
 }
 
 func (s *Subscription) CreateOrUpdate(c client.Client) error {
-	log.Printf(s.APIVersion)
+	log.Printf("%s", s.APIVersion)
 	var currentSubscription operators.Subscription
 	err := c.Get(context.Background(), types.NamespacedName{Namespace: s.Namespace, Name: s.Name}, &currentSubscription)
 	if apierrors.IsNotFound(err) {
