@@ -88,7 +88,7 @@ func TestOADPE2E(t *testing.T) {
 	flag.Parse()
 	errString := LoadDpaSettingsFromJson(settings)
 	if errString != "" {
-		t.Fatalf(errString)
+		t.Fatalf("%s", errString)
 	}
 
 	RegisterFailHandler(Fail)

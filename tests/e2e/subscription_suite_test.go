@@ -117,16 +117,16 @@ var _ = Describe("Subscription Config Suite Test", func() {
 					Expect(err).NotTo(HaveOccurred())
 					for _, env := range s.Spec.Config.Env {
 						for _, deployment := range vd.Items {
-							log.Printf("Checking env vars are passed to deployment " + deployment.Name)
+							log.Printf("Checking env vars are passed to deployment %s", deployment.Name)
 							for _, container := range deployment.Spec.Template.Spec.Containers {
-								log.Printf("Checking env vars are passed to container " + container.Name)
+								log.Printf("Checking env vars are passed to container %s", container.Name)
 								Expect(container.Env).To(ContainElement(env))
 							}
 						}
 						for _, daemonset := range nads.Items {
-							log.Printf("Checking env vars are passed to daemonset " + daemonset.Name)
+							log.Printf("Checking env vars are passed to daemonset %s", daemonset.Name)
 							for _, container := range daemonset.Spec.Template.Spec.Containers {
-								log.Printf("Checking env vars are passed to container " + container.Name)
+								log.Printf("Checking env vars are passed to container %s", container.Name)
 								Expect(container.Env).To(ContainElement(env))
 							}
 						}
