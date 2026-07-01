@@ -400,10 +400,6 @@ build-deploy: THIS_IMAGE=ttl.sh/oadp-operator-$(shell git rev-parse --short HEAD
 build-deploy: ## Build current branch image and deploy controller to the k8s cluster specified in ~/.kube/config.
 	IMG=$(THIS_IMAGE) make docker-build docker-push deploy
 
-CONTROLLER_GEN = $(shell pwd)/bin/controller-gen
-controller-gen: ## Download controller-gen locally if necessary.
-	$(call go-install-tool,$(CONTROLLER_GEN),sigs.k8s.io/controller-tools/cmd/controller-gen@v0.16.5)
-
 
 
 # Codecov OS String for use in download url
