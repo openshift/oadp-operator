@@ -166,7 +166,7 @@ metadata:
     features.operators.openshift.io/token-auth-aws: "true"
     features.operators.openshift.io/token-auth-azure: "false"
     features.operators.openshift.io/token-auth-gcp: "false"
-    olm.skipRange: '>=0.0.0 <1.4.10'
+    olm.skipRange: '>=0.0.0 <1.4.11'
     operatorframework.io/suggested-namespace: openshift-adp
     operators.openshift.io/infrastructure-features: '["Disconnected"]'
     operators.openshift.io/must-gather-image: quay.io/konveyor/oadp-must-gather:oadp-1.4
@@ -181,7 +181,7 @@ metadata:
     operatorframework.io/arch.arm64: supported
     operatorframework.io/arch.ppc64le: supported
     operatorframework.io/arch.s390x: supported
-  name: oadp-operator.v1.4.10
+  name: oadp-operator.v1.4.11
   namespace: openshift-adp
 spec:
   apiservicedefinitions: {}
@@ -1020,5 +1020,5 @@ spec:
     name: kubevirt-velero-plugin
   - image: quay.io/konveyor/oadp-must-gather:oadp-1.4
     name: mustgather
-  replaces: oadp-operator.v1.4.9
-  version: 1.4.10
+  replaces: oadp-operator.v1.4.10
+  version: 1.4.11
