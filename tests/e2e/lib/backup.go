@@ -65,8 +65,8 @@ func GetBackup(c client.Client, namespace string, name string) (*velero.Backup, 
 // backupPhasesNotDone is the shared list of backup phases that indicate a backup is still in progress.
 var backupPhasesNotDone = []velero.BackupPhase{
 	velero.BackupPhaseNew,
-	velero.BackupPhaseQueued,
-	velero.BackupPhaseReadyToStart,
+	"Queued",
+	"ReadyToStart",
 	velero.BackupPhaseInProgress,
 	velero.BackupPhaseWaitingForPluginOperations,
 	velero.BackupPhaseWaitingForPluginOperationsPartiallyFailed,

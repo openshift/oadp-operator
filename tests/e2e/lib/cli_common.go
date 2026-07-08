@@ -171,6 +171,7 @@ func ParsePhaseFromYAML(yamlOutput string) string {
 
 type CLISetup struct {
 	repoURL     string
+	repoBranch  string
 	installArgs []string
 	namespace   string
 }
@@ -178,6 +179,7 @@ type CLISetup struct {
 func NewOADPCLISetup() *CLISetup {
 	return &CLISetup{
 		repoURL:     "https://github.com/migtools/oadp-cli.git",
+		repoBranch:  "oadp-1.4",
 		installArgs: []string{"build"},
 		namespace:   "openshift-adp",
 	}
@@ -222,7 +224,7 @@ func (c *CLISetup) createTempDir() (string, error) {
 }
 
 func (c *CLISetup) cloneRepo(cloneDir string) error {
-	return runCommand("git", []string{"clone", c.repoURL, cloneDir}, "")
+	return runCommand("git", []string{"clone", "--branch", c.repoBranch, "--depth", "1", c.repoURL, cloneDir}, "")
 }
 
 func (c *CLISetup) buildAndInstall(cloneDir string) error {
