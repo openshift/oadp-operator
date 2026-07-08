@@ -25,6 +25,7 @@ import (
 	"time"
 
 	configv1 "github.com/openshift/api/config/v1"
+	consolev1 "github.com/openshift/api/console/v1"
 	routev1 "github.com/openshift/api/route/v1"
 	security "github.com/openshift/api/security/v1"
 	"github.com/openshift/oadp-operator/pkg/common"
@@ -247,6 +248,11 @@ func main() {
 		os.Exit(1)
 	}
 
+	if err := consolev1.AddToScheme(mgr.GetScheme()); err != nil {
+		setupLog.Error(err, "unable to add OpenShift console API to scheme")
+		os.Exit(1)
+	}
+
 	if err = (&controllers.DPAReconciler{
 		Client:        mgr.GetClient(),
 		Scheme:        mgr.GetScheme(),
@@ -265,6 +271,24 @@ func main() {
 		os.Exit(1)
 	}
 	//+kubebuilder:scaffold:builder
+
+	// Add CLI download setup runnable.
+	// Skip when the ConsoleCLIDownload CRD is absent (clusters without Console capability, e.g. SNO).
+	if available, err := controllers.IsConsoleCRDAvailable(mgr.GetRESTMapper(), setupLog); !available {
+		if err != nil {
+			setupLog.Error(err, "unable to check ConsoleCLIDownload CRD availability, skipping CLI download setup")
+		}
+	} else {
+		if err := mgr.Add(&controllers.CLIDownloadSetup{
+			Client:            mgr.GetClient(),
+			Namespace:         watchNamespace,
+			OperatorName:      "openshift-adp-controller-manager",
+			OperatorNamespace: watchNamespace,
+		}); err != nil {
+			setupLog.Error(err, "unable to add CLI download setup")
+			os.Exit(1)
+		}
+	}
 
 	if err := mgr.AddHealthzCheck("healthz", healthz.Ping); err != nil {
 		setupLog.Error(err, "unable to set up health check")

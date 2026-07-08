@@ -738,6 +738,18 @@ spec:
           - update
           - watch
         - apiGroups:
+          - console.openshift.io
+          resources:
+          - consoleclidownloads
+          verbs:
+          - create
+          - delete
+          - get
+          - list
+          - patch
+          - update
+          - watch
+        - apiGroups:
           - route.openshift.io
           resources:
           - routes
@@ -869,6 +881,8 @@ spec:
                   value: quay.io/konveyor/kubevirt-velero-plugin:v0.7.0
                 - name: RELATED_IMAGE_MUSTGATHER
                   value: quay.io/konveyor/oadp-must-gather:oadp-1.4
+                - name: RELATED_IMAGE_CONSOLE_CLI_DOWNLOAD
+                  value: quay.io/konveyor/oadp-cli-binaries:oadp-1.4
                 image: quay.io/konveyor/oadp-operator:oadp-1.4
                 imagePullPolicy: Always
                 livenessProbe:
@@ -1020,5 +1034,7 @@ spec:
     name: kubevirt-velero-plugin
   - image: quay.io/konveyor/oadp-must-gather:oadp-1.4
     name: mustgather
+  - image: quay.io/konveyor/oadp-cli-binaries:oadp-1.4
+    name: console-cli-download
   replaces: oadp-operator.v1.4.10
   version: 1.4.11
