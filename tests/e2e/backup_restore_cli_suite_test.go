@@ -210,14 +210,7 @@ var _ = ginkgo.Describe("Backup and restore tests via OADP CLI", ginkgo.Label("c
 		// Same cleanup as original
 		waitOADPReadiness(lib.KOPIA)
 
-		log.Printf("Creating real DataProtectionTest before must-gather")
-		bsls, err := dpaCR.ListBSLs()
-		gomega.Expect(err).ToNot(gomega.HaveOccurred())
-
-		bslName := bsls.Items[0].Name
-		err = lib.CreateUploadTestOnlyDPT(dpaCR.Client, dpaCR.Namespace, bslName)
-		gomega.Expect(err).ToNot(gomega.HaveOccurred())
-
+		var err error
 		log.Printf("skipMustGather: %v", skipMustGather)
 		if !skipMustGather {
 			log.Printf("Running OADP must-gather")
