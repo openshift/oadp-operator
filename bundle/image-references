@@ -43,3 +43,7 @@ spec:
     from:
       kind: DockerImage
       name: quay.io/konveyor/velero-restore-helper:oadp-1.4
+  - name: oadp-cli-binaries-rhel9
+    from:
+      kind: DockerImage
+      name: quay.io/konveyor/oadp-cli-binaries:oadp-1.4
