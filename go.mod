@@ -1,6 +1,6 @@
 module github.com/openshift/oadp-operator
 
-go 1.25.0
+go 1.25.8
 
 require (
 	github.com/aws/aws-sdk-go v1.44.253
@@ -185,7 +185,7 @@ require (
 	sigs.k8s.io/structured-merge-diff/v4 v4.2.3 // indirect
 )
 
-replace github.com/vmware-tanzu/velero => github.com/openshift/velero v0.10.2-0.20260707184635-e3ed032b0b82
+replace github.com/vmware-tanzu/velero => github.com/openshift/velero v0.10.2-0.20260713192235-49b763b1d6f3
 
 exclude github.com/kcp-dev/kcp/sdk v0.0.0-00010101000000-000000000000
 
