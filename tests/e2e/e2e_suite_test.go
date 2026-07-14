@@ -24,6 +24,7 @@ import (
 var bslCredFile, namespace, credSecretRef, instanceName, provider, vslCredFile, settings, artifact_dir, stream string
 var timeoutMultiplierInput, flakeAttempts int64
 var timeoutMultiplier time.Duration
+var skipMustGather bool
 
 func init() {
 	// TODO better descriptions to flags
@@ -40,6 +41,7 @@ func init() {
 	flag.Int64Var(&timeoutMultiplierInput, "timeout_multiplier", 1, "Customize timeout multiplier from default (1)")
 	timeoutMultiplier = time.Duration(timeoutMultiplierInput)
 	flag.Int64Var(&flakeAttempts, "flakeAttempts", 3, "Customize the number of flake retries (3)")
+	flag.BoolVar(&skipMustGather, "skipMustGather", false, "avoid errors with local execution and cluster architecture")
 
 	// helps with launching debug sessions from IDE
 	if os.Getenv("E2E_USE_ENV_FLAGS") == "true" {

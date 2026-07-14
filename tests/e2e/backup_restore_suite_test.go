@@ -24,6 +24,23 @@ type VerificationFunction func(client.Client, string) error
 type appVerificationFunction func(bool, bool, BackupRestoreType) VerificationFunction
 
 // TODO duplications with mongoready
+func todoListReady(preBackupState bool, twoVol bool, database string) VerificationFunction {
+	return VerificationFunction(func(ocClient client.Client, namespace string) error {
+		log.Printf("checking for the NAMESPACE: %s", namespace)
+		Eventually(IsDeploymentReady(ocClient, namespace, database), timeoutMultiplier*time.Minute*10, time.Second*10).Should(BeTrue())
+		Eventually(IsDCReady(ocClient, namespace, "todolist"), timeoutMultiplier*time.Minute*10, time.Second*10).Should(BeTrue())
+		Eventually(AreApplicationPodsRunning(kubernetesClientForSuiteRun, namespace), timeoutMultiplier*time.Minute*9, time.Second*5).Should(BeTrue())
+		exists, err := DoesSCCExist(ocClient, database+"-persistent-scc")
+		if err != nil {
+			return err
+		}
+		if !exists {
+			return errors.New("did not find " + database + " scc")
+		}
+		return nil
+	})
+}
+
 func mongoready(preBackupState bool, twoVol bool, backupRestoreType BackupRestoreType) VerificationFunction {
 	return VerificationFunction(func(ocClient client.Client, namespace string) error {
 		Eventually(IsDCReady(ocClient, namespace, "todolist"), timeoutMultiplier*time.Minute*10, time.Second*10).Should(BeTrue())
@@ -60,11 +77,20 @@ type BackupRestoreCase struct {
 	ApplicationTemplate  string
 	PvcSuffixName        string
 	ApplicationNamespace string
+	Namespace            string
 	Name                 string
 	BackupRestoreType    BackupRestoreType
 	PreBackupVerify      VerificationFunction
 	PostRestoreVerify    VerificationFunction
 	AppReadyDelay        time.Duration
+	BackupTimeout        time.Duration
+	SkipVerifyLogs       bool
+}
+
+type ApplicationBackupRestoreCase struct {
+	BackupRestoreCase
+	ApplicationTemplate string
+	PvcSuffixName       string
 }
 
 func waitOADPReadiness(backupRestoreType BackupRestoreType) {
@@ -231,6 +257,45 @@ func runBackupAndRestore(brCase BackupRestoreCase, expectedErr error, updateLast
 	log.Printf("Running post-restore function for case %s", brCase.Name)
 	err = brCase.PostRestoreVerify(dpaCR.Client, brCase.ApplicationNamespace)
 	Expect(err).ToNot(HaveOccurred())
+}
+
+func prepareBackupAndRestore(brCase BackupRestoreCase, updateLastInstallTime func()) (string, string) {
+	updateLastInstallTime()
+	waitOADPReadiness(brCase.BackupRestoreType)
+
+	if brCase.BackupRestoreType == CSI || brCase.BackupRestoreType == CSIDataMover {
+		if provider == "aws" || provider == "ibmcloud" || provider == "gcp" || provider == "azure" {
+			log.Printf("Creating VolumeSnapshotClass for CSI backuprestore of %s", brCase.Name)
+			snapshotClassPath := fmt.Sprintf("./sample-applications/snapclass-csi/%s.yaml", provider)
+			err := InstallApplication(dpaCR.Client, snapshotClassPath)
+			Expect(err).ToNot(HaveOccurred())
+		}
+	}
+
+	backupUid, _ := uuid.NewUUID()
+	restoreUid, _ := uuid.NewUUID()
+	backupName := fmt.Sprintf("%s-%s", brCase.Name, backupUid.String())
+	restoreName := fmt.Sprintf("%s-%s", brCase.Name, restoreUid.String())
+	return backupName, restoreName
+}
+
+func getFailedTestLogs(oadpNamespace string, appNamespace string, installTime time.Time, report SpecReport) {
+	baseReportDir := artifact_dir + "/" + report.LeafNodeText
+	log.Println("Storing failed test logs in: ", baseReportDir)
+	err := os.MkdirAll(baseReportDir, 0755)
+	Expect(err).NotTo(HaveOccurred())
+
+	log.Println("Printing OADP namespace events")
+	PrintNamespaceEventsAfterTime(kubernetesClientForSuiteRun, oadpNamespace, installTime)
+	err = SavePodLogs(kubernetesClientForSuiteRun, oadpNamespace, baseReportDir)
+	Expect(err).NotTo(HaveOccurred())
+
+	if appNamespace != "" {
+		log.Println("Printing app namespace events")
+		PrintNamespaceEventsAfterTime(kubernetesClientForSuiteRun, appNamespace, installTime)
+		err = SavePodLogs(kubernetesClientForSuiteRun, appNamespace, baseReportDir)
+		Expect(err).NotTo(HaveOccurred())
+	}
 }
 
 func tearDownBackupAndRestore(brCase BackupRestoreCase, installTime time.Time, report SpecReport) {

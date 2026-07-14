@@ -74,3 +74,25 @@ func IsRestoreCompletedSuccessfully(c *kubernetes.Clientset, ocClient client.Cli
 		GetVeleroContainerFailureLogs(c, veleroNamespace),
 	)
 }
+
+// restorePhasesNotDone is the shared list of restore phases that indicate a restore is still in progress.
+var restorePhasesNotDone = []velero.RestorePhase{
+	velero.RestorePhaseNew,
+	"ReadyToStart",
+	velero.RestorePhaseInProgress,
+	velero.RestorePhaseWaitingForPluginOperations,
+	velero.RestorePhaseWaitingForPluginOperationsPartiallyFailed,
+	"Finalizing",
+	"FinalizingPartiallyFailed",
+	"",
+}
+
+// IsRestorePhaseNotDone returns true if the given phase string represents a restore still in progress.
+func IsRestorePhaseNotDone(phase string) bool {
+	for _, notDonePhase := range restorePhasesNotDone {
+		if phase == string(notDonePhase) {
+			return true
+		}
+	}
+	return false
+}
