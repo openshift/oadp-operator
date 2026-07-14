@@ -175,7 +175,7 @@ func tearDownBackupAndRestoreViaCLI(brCase BackupRestoreCase, installTime time.T
 		gomega.Expect(err).ToNot(gomega.HaveOccurred())
 	}
 
-	err := dpaCR.Delete()
+	err := dpaCR.Delete(runTimeClientForSuiteRun)
 	gomega.Expect(err).ToNot(gomega.HaveOccurred())
 
 	err = lib.DeleteNamespace(kubernetesClientForSuiteRun, brCase.Namespace)
@@ -218,7 +218,7 @@ var _ = ginkgo.Describe("Backup and restore tests via OADP CLI", ginkgo.Label("c
 			gomega.Expect(err).ToNot(gomega.HaveOccurred())
 		}
 
-		err = dpaCR.Delete()
+		err = dpaCR.Delete(runTimeClientForSuiteRun)
 		gomega.Expect(err).ToNot(gomega.HaveOccurred())
 	})
 

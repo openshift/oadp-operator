@@ -24,6 +24,23 @@ type VerificationFunction func(client.Client, string) error
 type appVerificationFunction func(bool, bool, BackupRestoreType) VerificationFunction
 
 // TODO duplications with mongoready
+func todoListReady(preBackupState bool, twoVol bool, database string) VerificationFunction {
+	return VerificationFunction(func(ocClient client.Client, namespace string) error {
+		log.Printf("checking for the NAMESPACE: %s", namespace)
+		Eventually(IsDeploymentReady(ocClient, namespace, database), timeoutMultiplier*time.Minute*10, time.Second*10).Should(BeTrue())
+		Eventually(IsDCReady(ocClient, namespace, "todolist"), timeoutMultiplier*time.Minute*10, time.Second*10).Should(BeTrue())
+		Eventually(AreApplicationPodsRunning(kubernetesClientForSuiteRun, namespace), timeoutMultiplier*time.Minute*9, time.Second*5).Should(BeTrue())
+		exists, err := DoesSCCExist(ocClient, database+"-persistent-scc")
+		if err != nil {
+			return err
+		}
+		if !exists {
+			return errors.New("did not find " + database + " scc")
+		}
+		return nil
+	})
+}
+
 func mongoready(preBackupState bool, twoVol bool, backupRestoreType BackupRestoreType) VerificationFunction {
 	return VerificationFunction(func(ocClient client.Client, namespace string) error {
 		Eventually(IsDCReady(ocClient, namespace, "todolist"), timeoutMultiplier*time.Minute*10, time.Second*10).Should(BeTrue())

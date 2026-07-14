@@ -134,3 +134,11 @@ func GetPodContainerLogs(clientset *kubernetes.Clientset, namespace, podname, co
 	}
 	return buf.String(), nil
 }
+
+func DeleteNamespace(clientset *kubernetes.Clientset, namespace string) error {
+	err := clientset.CoreV1().Namespaces().Delete(context.Background(), namespace, metav1.DeleteOptions{})
+	if apierrors.IsNotFound(err) {
+		return nil
+	}
+	return err
+}
