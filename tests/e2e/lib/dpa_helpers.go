@@ -38,10 +38,11 @@ import (
 type BackupRestoreType string
 
 const (
-	CSI          BackupRestoreType = "csi"
-	CSIDataMover BackupRestoreType = "csi-datamover"
-	RESTIC       BackupRestoreType = "restic"
-	KOPIA        BackupRestoreType = "kopia"
+	CSI             BackupRestoreType = "csi"
+	CSIDataMover    BackupRestoreType = "csi-datamover"
+	RESTIC          BackupRestoreType = "restic"
+	KOPIA           BackupRestoreType = "kopia"
+	NativeSnapshots BackupRestoreType = "native-snapshots"
 )
 
 type DpaCustomResource struct {
