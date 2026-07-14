@@ -64,6 +64,7 @@ var debugMode = os.Getenv("DEBUG") == "true"
 //+kubebuilder:rbac:groups=velero.io,resources=backups;restores;backupstoragelocations;volumesnapshotlocations,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=oadp.openshift.io,resources=dataprotectionapplications/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups=oadp.openshift.io,resources=dataprotectionapplications/finalizers,verbs=update
+//+kubebuilder:rbac:groups=console.openshift.io,resources=consoleclidownloads,verbs=get;list;watch;create;update;patch;delete
 
 // Reconcile is part of the main Kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.

@@ -54,6 +54,8 @@ spec:
             value: quay.io/konveyor/kubevirt-velero-plugin:v0.6.2
           - name: RELATED_IMAGE_MUSTGATHER
             value: quay.io/konveyor/oadp-must-gather:oadp-1.3
+          - name: RELATED_IMAGE_CONSOLE_CLI_DOWNLOAD
+            value: quay.io/konveyor/oadp-cli-binaries:oadp-1.3
         args:
         - --leader-elect
         image: controller:latest
