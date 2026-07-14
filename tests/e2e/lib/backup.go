@@ -46,8 +46,8 @@ func IsBackupDone(ocClient client.Client, veleroNamespace, name string) wait.Con
 			velero.BackupPhaseInProgress,
 			velero.BackupPhaseWaitingForPluginOperations,
 			velero.BackupPhaseWaitingForPluginOperationsPartiallyFailed,
-			velero.BackupPhaseFinalizing,
-			velero.BackupPhaseFinalizingPartiallyFailed,
+			"Finalizing",
+			"FinalizingPartiallyFailed",
 			"",
 		}
 		for _, notDonePhase := range phasesNotDone {
@@ -86,8 +86,8 @@ var backupPhasesNotDone = []velero.BackupPhase{
 	velero.BackupPhaseInProgress,
 	velero.BackupPhaseWaitingForPluginOperations,
 	velero.BackupPhaseWaitingForPluginOperationsPartiallyFailed,
-	velero.BackupPhaseFinalizing,
-	velero.BackupPhaseFinalizingPartiallyFailed,
+	"Finalizing",
+	"FinalizingPartiallyFailed",
 	"",
 }
 

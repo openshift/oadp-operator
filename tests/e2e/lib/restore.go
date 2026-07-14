@@ -82,8 +82,8 @@ var restorePhasesNotDone = []velero.RestorePhase{
 	velero.RestorePhaseInProgress,
 	velero.RestorePhaseWaitingForPluginOperations,
 	velero.RestorePhaseWaitingForPluginOperationsPartiallyFailed,
-	velero.RestorePhaseFinalizing,
-	velero.RestorePhaseFinalizingPartiallyFailed,
+	"Finalizing",
+	"FinalizingPartiallyFailed",
 	"",
 }
 
