@@ -77,3 +77,26 @@ func IsBackupCompletedSuccessfully(c *kubernetes.Clientset, ocClient client.Clie
 		GetVeleroContainerFailureLogs(c, backup.Namespace),
 	)
 }
+
+// backupPhasesNotDone is the shared list of backup phases that indicate a backup is still in progress.
+var backupPhasesNotDone = []velero.BackupPhase{
+	velero.BackupPhaseNew,
+	"Queued",
+	"ReadyToStart",
+	velero.BackupPhaseInProgress,
+	velero.BackupPhaseWaitingForPluginOperations,
+	velero.BackupPhaseWaitingForPluginOperationsPartiallyFailed,
+	velero.BackupPhaseFinalizing,
+	velero.BackupPhaseFinalizingPartiallyFailed,
+	"",
+}
+
+// IsBackupPhaseNotDone returns true if the given phase string represents a backup still in progress.
+func IsBackupPhaseNotDone(phase string) bool {
+	for _, notDonePhase := range backupPhasesNotDone {
+		if phase == string(notDonePhase) {
+			return true
+		}
+	}
+	return false
+}

@@ -31,6 +31,7 @@ ARTIFACT_DIR ?= /tmp
 OC_CLI = $(shell which oc)
 TEST_VIRT ?= false
 TEST_UPGRADE ?= false
+TEST_CLI ?= false
 
 ifdef CLI_DIR
 	OC_CLI = ${CLI_DIR}/oc
@@ -493,6 +494,11 @@ ifeq ($(TEST_UPGRADE),true)
 	TEST_FILTER += && (upgrade)
 else
 	TEST_FILTER += && (! upgrade)
+endif
+ifeq ($(TEST_CLI),true)
+	TEST_FILTER += && (cli)
+else
+	TEST_FILTER += && (! cli)
 endif
 SETTINGS_TMP=/tmp/test-settings
 
