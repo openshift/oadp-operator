@@ -1,0 +1,19 @@
+# Example ResourceQuota matching operator defaults (create-if-absent).
+# The operator creates this object in the DPA namespace when missing; it is not
+# shipped as a CSV-owned bundle manifest so OLM upgrades cannot reset admin edits.
+# Do not add this file to config/default kustomization (keeps it out of the OLM bundle).
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: oadp-resource-quota
+  namespace: openshift-adp
+  labels:
+    app.kubernetes.io/name: oadp-operator
+    app.kubernetes.io/managed-by: oadp-operator
+  annotations:
+    oadp.openshift.io/quota-policy: create-if-absent
+spec:
+  hard:
+    pods: "200"
+    requests.cpu: "50"
+    requests.memory: 64Gi

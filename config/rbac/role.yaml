@@ -36,6 +36,15 @@ rules:
   - update
   - watch
 - apiGroups:
+  - ""
+  resources:
+  - resourcequotas
+  verbs:
+  - create
+  - get
+  - list
+  - watch
+- apiGroups:
   - apps
   resources:
   - daemonsets

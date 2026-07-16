@@ -35,6 +35,7 @@ A fixed quota is sensitive to cluster size because node-agent is a DaemonSet: po
 | Delivery | Ship defaults with the product; operator ensures object exists |
 | Admin adjustability | Create-if-absent; never update `.spec` if the named quota exists |
 | Default sizing | Generous mid-size ceiling (node-agent + Velero + operator + helpers + some backup/restore pods) |
+| Hard resources | `pods`, `requests.cpu`, `requests.memory` only — **no** `limits.*` (see below) |
 | Configuration surface | Direct edit of `ResourceQuota`; no new DPA fields |
 | Object name | `oadp-resource-quota` |
 
@@ -60,13 +61,30 @@ spec:
     pods: "200"
     requests.cpu: "50"
     requests.memory: 64Gi
-    limits.cpu: "100"
-    limits.memory: 128Gi
 ```
 
 Defaults are a **ceiling** for a typical mid-size cluster. Large clusters or heavy concurrent data-mover workloads may need higher hard limits; small clusters may lower them.
 
 Canonical default values live in operator code (or a single shared constant/source used by the operator). A matching YAML under `config/` documents the same content for review and examples.
+
+### Comparison to established OADP pod resources
+
+Default per-container resources today:
+
+| Component | Requests | Limits |
+|-----------|----------|--------|
+| Velero | 500m / 128Mi | *none* |
+| Node-agent (per pod) | 500m / 128Mi | *none* |
+| Operator manager | 500m / 128Mi | 1 / 512Mi |
+| VM file restore / kubevirt datamover | 10m / 64Mi | 500m / 128Mi |
+| CLI download | 50m / 32Mi | 100m / 64Mi |
+
+**Quota vs defaults:** The namespace hard limits are aggregate ceilings, not “barely above one Velero pod.”
+
+- Steady-state (operator + Velero, no node-agent): ~1 CPU / ~256Mi requests → well under `requests.cpu: 50` / `requests.memory: 64Gi`.
+- With node-agent (DaemonSet): each node adds 500m / 128Mi requests. Rough headroom before hitting the ceiling is on the order of ~90+ node-agent pods for `requests.cpu: 50`, or ~190+ nodes for `pods: 200` (plus operator/Velero/helpers).
+
+**Why `limits.*` are omitted from the default quota:** Default Velero and node-agent pods set **requests only** (no limits). If a ResourceQuota tracks `limits.cpu` / `limits.memory`, admission can reject pods that omit limits (unless a LimitRange supplies defaults). Shipping `limits.*` would risk breaking the default Velero/node-agent stack. Admins who set container limits everywhere may add `limits.*` to the quota themselves via `oc edit`.
 
 ### Lifecycle (create-if-absent)
 
@@ -106,7 +124,7 @@ oc edit resourcequota oadp-resource-quota -n openshift-adp
 oc patch resourcequota oadp-resource-quota -n openshift-adp --type merge -p '{"spec":{"hard":{"pods":"400"}}}'
 ```
 
-Document that node-agent is a DaemonSet and large clusters may need higher `pods` / CPU / memory limits. If pods are Pending due to quota, raise hard limits.
+Document that node-agent is a DaemonSet and large clusters may need higher `pods` / `requests.cpu` / `requests.memory`. If pods are Pending due to quota, raise hard limits. Note that default Velero/node-agent have no container limits, so the shipped quota intentionally omits `limits.*`.
 
 ## Edge cases
 
@@ -134,6 +152,7 @@ Add a short admin note under `docs/config/` covering defaults, inspect/adjust co
 2. **Docs/sample only** — No upgrade conflict, but does not ship an applied quota; rejected.
 3. **Second “override” ResourceQuota** — Cannot loosen a tight default (intersection); rejected as the primary adjust mechanism.
 4. **DPA API for quota** — Extra API surface; admins can already edit ResourceQuota; deferred/out of scope.
+5. **Include `limits.cpu` / `limits.memory` in default hard list** — Rejected for v1 because default Velero/node-agent pods lack container limits and would risk admission failure; admins can add these fields manually if their workloads all set limits.
 
 ## Implementation sketch (for planning)
 
