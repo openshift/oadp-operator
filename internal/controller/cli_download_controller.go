@@ -47,7 +47,7 @@ func (c *CLIDownloadSetup) Start(ctx context.Context) error {
 	// Get the CLI server image from environment variable
 	cliServerImage := os.Getenv("RELATED_IMAGE_CONSOLE_CLI_DOWNLOAD")
 	if cliServerImage == "" {
-		cliServerImage = "quay.io/konveyor/oadp-cli-binaries:oadp-1.5" // fallback default
+		cliServerImage = "quay.io/konveyor/oadp-cli-binaries" // fallback default
 		c.Log.Info("Using default CLI server image", "image", cliServerImage)
 	}
 
@@ -95,6 +95,16 @@ func (c *CLIDownloadSetup) reconcileCLIResources(ctx context.Context, operatorDe
 		c.Log.Info("Created CLI server deployment", "image", cliServerImage)
 	} else if err != nil {
 		return fmt.Errorf("failed to get CLI server deployment: %w", err)
+	} else if len(deployment.Spec.Template.Spec.Containers) > 0 &&
+		deployment.Spec.Template.Spec.Containers[0].ReadinessProbe == nil {
+		// Deployment exists from a version before probes were added; backfill them.
+		desired := buildCLIServerDeployment(c.Namespace, cliServerImage)
+		deployment.Spec.Template.Spec.Containers[0].ReadinessProbe = desired.Spec.Template.Spec.Containers[0].ReadinessProbe
+		deployment.Spec.Template.Spec.Containers[0].LivenessProbe = desired.Spec.Template.Spec.Containers[0].LivenessProbe
+		if err := c.Client.Update(ctx, deployment); err != nil {
+			return fmt.Errorf("failed to update CLI server deployment with probes: %w", err)
+		}
+		c.Log.Info("Updated CLI server deployment with readiness/liveness probes")
 	}
 
 	// 2. Create or update the service
@@ -322,6 +332,26 @@ func buildCLIServerDeployment(namespace, image string) *appsv1.Deployment {
 									Drop: []corev1.Capability{"ALL"},
 								},
 								ReadOnlyRootFilesystem: &readOnlyRootFilesystem,
+							},
+							ReadinessProbe: &corev1.Probe{
+								ProbeHandler: corev1.ProbeHandler{
+									HTTPGet: &corev1.HTTPGetAction{
+										Path: "/",
+										Port: intstr.FromString("http"),
+									},
+								},
+								InitialDelaySeconds: 5,
+								PeriodSeconds:       10,
+							},
+							LivenessProbe: &corev1.Probe{
+								ProbeHandler: corev1.ProbeHandler{
+									HTTPGet: &corev1.HTTPGetAction{
+										Path: "/",
+										Port: intstr.FromString("http"),
+									},
+								},
+								InitialDelaySeconds: 15,
+								PeriodSeconds:       20,
 							},
 						},
 					},
