@@ -259,6 +259,12 @@ func ensureKubevirtDatamoverRequiredSpecs(
 			},
 		},
 		Resources: resources,
+		VolumeMounts: []corev1.VolumeMount{
+			{
+				Name:      "tmp",
+				MountPath: "/tmp",
+			},
+		},
 		SecurityContext: &corev1.SecurityContext{
 			AllowPrivilegeEscalation: ptr.To(false),
 			Capabilities: &corev1.Capabilities{
@@ -316,6 +322,14 @@ func ensureKubevirtDatamoverRequiredSpecs(
 		return fmt.Errorf("could not find kubevirt-datamover container in Deployment")
 	}
 
+	deploymentObject.Spec.Template.Spec.Volumes = []corev1.Volume{
+		{
+			Name: "tmp",
+			VolumeSource: corev1.VolumeSource{
+				EmptyDir: &corev1.EmptyDirVolumeSource{},
+			},
+		},
+	}
 	deploymentObject.Spec.Template.Spec.RestartPolicy = corev1.RestartPolicyAlways
 	deploymentObject.Spec.Template.Spec.ServiceAccountName = kubevirtDatamoverObjectName
 	return nil

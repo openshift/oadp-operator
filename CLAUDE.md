@@ -61,8 +61,9 @@ make test-e2e-setup         # Setup E2E test environment
 make test-e2e-cleanup       # Cleanup after E2E tests
 
 # Test variations
-TEST_VIRT=true make test-e2e      # Run virtualization tests
-TEST_UPGRADE=true make test-e2e   # Run upgrade tests
+TEST_VIRT=true make test-e2e              # Run virtualization tests (community HCO, KubeVirt 1.8+)
+TEST_VIRT_GA=true make test-e2e           # Run virtualization tests (OpenShift Virtualization from redhat-operators)
+TEST_UPGRADE=true make test-e2e           # Run upgrade tests
 TEST_CLI=true make test-e2e       # Run CLI-based tests
 
 # Run focused tests

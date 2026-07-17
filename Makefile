@@ -1,6 +1,6 @@
 # TOOL VERSIONS
 # All version-related variables are defined here for easy maintenance
-DEFAULT_VERSION := 1.6.0
+DEFAULT_VERSION := 1.6.1
 VERSION ?= $(DEFAULT_VERSION) # the version of the operator
 OPERATOR_SDK_VERSION ?= v1.35.0
 ENVTEST_K8S_VERSION = 1.35 #refers to the version of kubebuilder assets to be downloaded by envtest binary # Kubernetes version from OpenShift 4.22.x
@@ -904,7 +904,7 @@ OADP_BUCKET ?= $(shell cat $(OADP_BUCKET_FILE))
 SETTINGS_TMP=/tmp/test-settings
 
 .PHONY: test-e2e-setup
-test-e2e-setup: login-required build-must-gather
+test-e2e-setup: login-required
 	mkdir -p $(SETTINGS_TMP)
 	TMP_DIR=$(SETTINGS_TMP) \
 	OPENSHIFT_CI="$(OPENSHIFT_CI)" \
@@ -924,19 +924,33 @@ test-e2e-setup: login-required build-must-gather
 
 VELERO_INSTANCE_NAME ?= velero-test
 ARTIFACT_DIR ?= /tmp
+# virt
 HCO_UPSTREAM ?= false
+TEST_VIRT_GA ?= false
 TEST_VIRT ?= false
+HCO_INDEX_TAG ?= 1.18.0
+# hcp
 TEST_HCP ?= false
 TEST_HCP_EXTERNAL ?= false
 HCP_EXTERNAL_ARGS ?= ""
+# other
 TEST_CLI ?= false
-SKIP_MUST_GATHER  ?= false
+SKIP_MUST_GATHER   ?= false
+MUST_GATHER_REPO   ?=
+MUST_GATHER_BRANCH ?= oadp-1.6
+ifneq ($(MUST_GATHER_REPO),)
+MUST_GATHER_IMAGE  ?= ttl.sh/oadp-must-gather-$(MUST_GATHER_BRANCH)-$(GIT_REV):$(TTL_DURATION)
+else
+MUST_GATHER_IMAGE  ?= quay.io/konveyor/oadp-must-gather:oadp-1.6
+endif
 TEST_UPGRADE ?= false
 FAIL_FAST ?= true
 TEST_FILTER = (($(shell echo '! aws && ! gcp && ! azure && ! ibmcloud' | \
 $(SED) -r "s/[&]* [!] $(CLUSTER_TYPE)|[!] $(CLUSTER_TYPE) [&]*//")) || $(CLUSTER_TYPE))
 #TEST_FILTER := $(shell echo '! aws && ! gcp && ! azure' | $(SED) -r "s/[&]* [!] $(CLUSTER_TYPE)|[!] $(CLUSTER_TYPE) [&]*//")
 ifeq ($(TEST_VIRT),true)
+	TEST_FILTER += && (virt)
+else ifeq ($(TEST_VIRT_GA),true)
 	TEST_FILTER += && (virt)
 else
 	TEST_FILTER += && (! virt)
@@ -973,8 +987,21 @@ GINKGO_FLAGS = --vv \
 	--fail-fast=$(FAIL_FAST) \
 	--timeout=2h
 
+.PHONY: build-must-gather
+build-must-gather: ## Build must-gather image from GitHub source. Requires MUST_GATHER_REPO (e.g., openshift/oadp-must-gather). Uses MUST_GATHER_BRANCH (default: oadp-1.6).
+ifeq ($(MUST_GATHER_REPO),)
+	$(error MUST_GATHER_REPO is required (e.g., openshift/oadp-must-gather))
+endif
+	$(eval MUST_GATHER_TMP := $(shell mktemp -d))
+	git clone --depth=1 --branch $(MUST_GATHER_BRANCH) https://github.com/$(MUST_GATHER_REPO).git $(MUST_GATHER_TMP)
+	$(CONTAINER_TOOL) build --load -t $(MUST_GATHER_IMAGE) -f $(MUST_GATHER_TMP)/Dockerfile $(MUST_GATHER_TMP)
+	$(CONTAINER_TOOL) push $(MUST_GATHER_IMAGE)
+	rm -rf $(MUST_GATHER_TMP)
+	@echo "Must-gather image built and pushed: $(MUST_GATHER_IMAGE)"
+
 .PHONY: test-e2e
-test-e2e: test-e2e-setup install-ginkgo ## Run E2E tests against OADP operator installed in cluster. For more information, check docs/developer/testing/TESTING.md
+test-e2e: test-e2e-setup install-ginkgo $(if $(MUST_GATHER_REPO),build-must-gather) ## Run E2E tests against OADP operator installed in cluster. For more information, check docs/developer/testing/TESTING.md
+	MUST_GATHER_IMAGE=$(MUST_GATHER_IMAGE) \
 	ginkgo run -mod=mod $(GINKGO_FLAGS) $(GINKGO_ARGS) tests/e2e/ -- \
 	-settings=$(SETTINGS_TMP)/oadpcreds \
 	-provider=$(CLUSTER_TYPE) \
@@ -985,6 +1012,8 @@ test-e2e: test-e2e-setup install-ginkgo ## Run E2E tests against OADP operator i
 	-artifact_dir=$(ARTIFACT_DIR) \
 	-kvm_emulation=$(KVM_EMULATION) \
 	-hco_upstream=$(HCO_UPSTREAM) \
+	-hco_community=$(TEST_VIRT) \
+	-hco_index_tag=$(HCO_INDEX_TAG) \
 	-skipMustGather=$(SKIP_MUST_GATHER) \
 	$(HCP_EXTERNAL_ARGS) \
 	|| EXIT_CODE=$$?; \
@@ -1078,10 +1107,3 @@ endif
 	@$(SED) -i '1i namePrefix: oadp-kubevirt-datamover-' $(shell pwd)/config/kubevirt-datamover-controller_rbac/kustomization.yaml
 	@make bundle
 
-.PHONY: build-must-gather
-build-must-gather: check-go ## Build OADP Must-gather binary must-gather/oadp-must-gather
-ifeq ($(SKIP_MUST_GATHER),true)
-	echo "Skipping must-gather build"
-else
-	cd must-gather && go build -mod=mod -a -o oadp-must-gather cmd/main.go
-endif
