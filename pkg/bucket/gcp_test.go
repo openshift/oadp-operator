@@ -2,10 +2,13 @@ package bucket
 
 import (
 	"encoding/json"
+	"errors"
+	"fmt"
 	"os"
 	"strings"
 	"testing"
 
+	"cloud.google.com/go/storage"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/api/googleapi"
@@ -407,4 +410,74 @@ func TestGCSRetryConfig(t *testing.T) {
 	assert.Equal(t, 5, defaultGCSRetryConfig.maxRetries)
 	assert.Equal(t, float64(1), defaultGCSRetryConfig.initialDelay.Seconds())
 	assert.Equal(t, float64(32), defaultGCSRetryConfig.maxDelay.Seconds())
+}
+
+func TestIsBucketNotFoundError(t *testing.T) {
+	googleapi404 := &googleapi.Error{Code: 404, Message: "The specified bucket does not exist."}
+	googleapi403 := &googleapi.Error{Code: 403, Message: "Permission Denied"}
+
+	tests := []struct {
+		name     string
+		err      error
+		expected bool
+	}{
+		{
+			name:     "exact storage.ErrBucketNotExist sentinel",
+			err:      storage.ErrBucketNotExist,
+			expected: true,
+		},
+		{
+			name:     "storage.ErrBucketNotExist wrapped with %w",
+			err:      fmt.Errorf("outer: %w", storage.ErrBucketNotExist),
+			expected: true,
+		},
+		{
+			name:     "storage.ErrBucketNotExist doubly wrapped",
+			err:      fmt.Errorf("outer: %w", fmt.Errorf("inner: %w", storage.ErrBucketNotExist)),
+			expected: true,
+		},
+		{
+			name: "GCS library style: both sentinel and googleapi.Error wrapped together",
+			// Mirrors how cloud.google.com/go/storage PR#11519 wraps the error:
+			// fmt.Errorf("%w: %w", storage.ErrBucketNotExist, googleapiErr)
+			err:      fmt.Errorf("%w: %w", storage.ErrBucketNotExist, googleapi404),
+			expected: true,
+		},
+		{
+			name:     "bare *googleapi.Error with 404",
+			err:      googleapi404,
+			expected: true,
+		},
+		{
+			name:     "*googleapi.Error with 404 wrapped with %w",
+			err:      fmt.Errorf("wrapped: %w", googleapi404),
+			expected: true,
+		},
+		{
+			name:     "*googleapi.Error with non-404 code",
+			err:      googleapi403,
+			expected: false,
+		},
+		{
+			name:     "unrelated sentinel error",
+			err:      storage.ErrObjectNotExist,
+			expected: false,
+		},
+		{
+			name:     "plain errors.New string error",
+			err:      errors.New("some other error"),
+			expected: false,
+		},
+		{
+			name:     "nil error",
+			err:      nil,
+			expected: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.expected, isBucketNotFoundError(tt.err))
+		})
+	}
 }
