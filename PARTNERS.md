@@ -27,13 +27,13 @@ better stability and maintainability.
 | 5.0               | 1.6          | v1.18          | Q3 2026                       | yes                         |
 | 5.1               | 1.7          | v1.20          | Q2 2027                       |                             |
 | 5.2               | 1.7          | v1.20          | Q3 2027                       | yes                         |
-| 5.3               | 1.8          | v1.22          | TBD                           |                             |
-| 5.4               | 1.8          | v1.22          | TBD                           | yes                         |
-| 5.5               | 1.9          | v1.24          | TBD                           |                             |
-| 5.6               | 1.9          | v1.24          | TBD                           | yes                         |
-| 5.7               | 1.10         | v1.26          | TBD                           |                             |
-| 5.8               | 1.10         | v1.26          | TBD                           | yes                         |
-| 5.9               | 1.11         | v1.28          | TBD                           |                             |
+| 5.3               | 1.8          | TBD            | TBD                           |                             |
+| 5.4               | 1.8          | TBD            | TBD                           | yes                         |
+| 5.5               | 1.9          | TBD            | TBD                           |                             |
+| 5.6               | 1.9          | TBD            | TBD                           | yes                         |
+| 5.7               | 1.10         | TBD            | TBD                           |                             |
+| 5.8               | 1.10         | TBD            | TBD                           | yes                         |
+| 5.9               | 1.11         | TBD            | TBD                           |                             |
 
 ### OADP Plugins of interest
 | OpenShift Version | OADP Version | Velero Version | kubevirt-velero-plugin | hypershift-oadp-plugin   | channel               |
