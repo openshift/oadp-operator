@@ -28,12 +28,12 @@ better stability and maintainability.
 | 5.1               | 1.7          | v1.20          | Q2 2027                       |                             |
 | 5.2               | 1.7          | v1.20          | Q3 2027                       | yes                         |
 | 5.3               | 1.8          | TBD            | TBD                           |                             |
-| 5.4               | 1.8          | TBD            | TBD                           | yes                         |
-| 5.5               | 1.9          | TBD            | TBD                           |                             |
-| 5.6               | 1.9          | TBD            | TBD                           | yes                         |
-| 5.7               | 1.10         | TBD            | TBD                           |                             |
-| 5.8               | 1.10         | TBD            | TBD                           | yes                         |
-| 5.9               | 1.11         | TBD            | TBD                           |                             |
+| 5.4               | 1.8          | TBD            | TBD                           |                             |
+| 5.5               | 1.8          | TBD            | TBD                           | yes                         |
+| 5.6               | 1.9          | TBD            | TBD                           |                             |
+| 5.7               | 1.9          | TBD            | TBD                           |                             |
+| 5.8               | 1.9          | TBD            | TBD                           | yes                         |
+| 5.9               | 1.10         | TBD            | TBD                           |                             |
 
 ### OADP Plugins of interest
 | OpenShift Version | OADP Version | Velero Version | kubevirt-velero-plugin | hypershift-oadp-plugin   | channel               |
