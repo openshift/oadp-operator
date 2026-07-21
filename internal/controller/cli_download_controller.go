@@ -22,12 +22,13 @@ import (
 )
 
 const (
-	cliServerDeploymentName = "openshift-adp-oadp-cli-server"
-	cliServerServiceName    = "openshift-adp-cli-server"
-	cliServerRouteName      = "oadp-cli-server-route"
-	cliDownloadName         = "openshift-adp-oadp-cli"
-	managedByLabel          = "app.kubernetes.io/managed-by"
-	operatorName            = "oadp-operator"
+	cliServerDeploymentName     = "openshift-adp-oadp-cli-server"
+	cliServerServiceName        = "openshift-adp-cli-server"
+	cliServerServiceAccountName = "openshift-adp-cli-server"
+	cliServerRouteName          = "oadp-cli-server-route"
+	cliDownloadName             = "openshift-adp-oadp-cli"
+	managedByLabel              = "app.kubernetes.io/managed-by"
+	operatorName                = "oadp-operator"
 )
 
 // CLIDownloadSetup is a runnable that sets up CLI download resources when the operator starts
@@ -74,9 +75,33 @@ func (c *CLIDownloadSetup) Start(ctx context.Context) error {
 // reconcileCLIResources creates or updates all CLI-related resources
 // This is idempotent - it will reuse existing resources if they already exist
 func (c *CLIDownloadSetup) reconcileCLIResources(ctx context.Context, operatorDeployment *appsv1.Deployment, cliServerImage string) error {
-	// 1. Create or update the deployment
-	deployment := &appsv1.Deployment{}
+	// 1. Create the dedicated ServiceAccount used by the CLI server pod.
+	// A non-default ServiceAccount is required (rather than relying on the
+	// namespace's "default" SA) to satisfy access-control best practices,
+	// even though this workload needs no Kubernetes API permissions.
+	serviceAccount := &corev1.ServiceAccount{}
 	err := c.Client.Get(ctx, client.ObjectKey{
+		Name:      cliServerServiceAccountName,
+		Namespace: c.Namespace,
+	}, serviceAccount)
+
+	if errors.IsNotFound(err) {
+		serviceAccount = buildCLIServerServiceAccount(c.Namespace)
+		if err := controllerutil.SetOwnerReference(operatorDeployment, serviceAccount, c.Client.Scheme()); err != nil {
+			return fmt.Errorf("failed to set owner reference on service account: %w", err)
+		}
+		err = c.Client.Create(ctx, serviceAccount)
+		if err != nil && !errors.IsAlreadyExists(err) {
+			return fmt.Errorf("failed to create CLI server service account: %w", err)
+		}
+		c.Log.Info("Created CLI server service account")
+	} else if err != nil {
+		return fmt.Errorf("failed to get CLI server service account: %w", err)
+	}
+
+	// 2. Create or update the deployment
+	deployment := &appsv1.Deployment{}
+	err = c.Client.Get(ctx, client.ObjectKey{
 		Name:      cliServerDeploymentName,
 		Namespace: c.Namespace,
 	}, deployment)
@@ -95,9 +120,36 @@ func (c *CLIDownloadSetup) reconcileCLIResources(ctx context.Context, operatorDe
 		c.Log.Info("Created CLI server deployment", "image", cliServerImage)
 	} else if err != nil {
 		return fmt.Errorf("failed to get CLI server deployment: %w", err)
+	} else {
+		// Deployment exists from a version before probes/service account were added; backfill them.
+		desired := buildCLIServerDeployment(c.Namespace, cliServerImage)
+		needsUpdate := false
+		if len(deployment.Spec.Template.Spec.Containers) > 0 {
+			desiredContainer := desired.Spec.Template.Spec.Containers[0]
+			currentContainer := &deployment.Spec.Template.Spec.Containers[0]
+			if currentContainer.ReadinessProbe == nil && desiredContainer.ReadinessProbe != nil {
+				currentContainer.ReadinessProbe = desiredContainer.ReadinessProbe
+				needsUpdate = true
+			}
+			if currentContainer.LivenessProbe == nil && desiredContainer.LivenessProbe != nil {
+				currentContainer.LivenessProbe = desiredContainer.LivenessProbe
+				needsUpdate = true
+			}
+		}
+		if deployment.Spec.Template.Spec.ServiceAccountName != cliServerServiceAccountName {
+			deployment.Spec.Template.Spec.ServiceAccountName = desired.Spec.Template.Spec.ServiceAccountName
+			deployment.Spec.Template.Spec.AutomountServiceAccountToken = desired.Spec.Template.Spec.AutomountServiceAccountToken
+			needsUpdate = true
+		}
+		if needsUpdate {
+			if err := c.Client.Update(ctx, deployment); err != nil {
+				return fmt.Errorf("failed to update CLI server deployment: %w", err)
+			}
+			c.Log.Info("Updated CLI server deployment with readiness/liveness probes and/or service account")
+		}
 	}
 
-	// 2. Create or update the service
+	// 3. Create or update the service
 	service := &corev1.Service{}
 	err = c.Client.Get(ctx, client.ObjectKey{
 		Name:      cliServerServiceName,
@@ -120,7 +172,7 @@ func (c *CLIDownloadSetup) reconcileCLIResources(ctx context.Context, operatorDe
 		return fmt.Errorf("failed to get CLI server service: %w", err)
 	}
 
-	// 3. Create or get the route
+	// 4. Create or get the route
 	route := &routev1.Route{}
 	err = c.Client.Get(ctx, client.ObjectKey{
 		Name:      cliServerRouteName,
@@ -190,7 +242,7 @@ func (c *CLIDownloadSetup) reconcileCLIResources(ctx context.Context, operatorDe
 		}
 	}
 
-	// 4. Create or update ConsoleCLIDownload (cluster-scoped)
+	// 5. Create or update ConsoleCLIDownload (cluster-scoped)
 	// Note: This is idempotent. If the ConsoleCLIDownload already exists from a previous
 	// installation, we'll reuse it and update the URL to point to our route.
 	// We use a fixed name to prevent duplicates across operator reinstalls.
@@ -268,6 +320,7 @@ func buildCLIServerDeployment(namespace, image string) *appsv1.Deployment {
 	runAsNonRoot := true
 	allowPrivilegeEscalation := false
 	readOnlyRootFilesystem := true
+	automountServiceAccountToken := false
 
 	return &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
@@ -292,6 +345,8 @@ func buildCLIServerDeployment(namespace, image string) *appsv1.Deployment {
 					},
 				},
 				Spec: corev1.PodSpec{
+					ServiceAccountName:           cliServerServiceAccountName,
+					AutomountServiceAccountToken: &automountServiceAccountToken,
 					SecurityContext: &corev1.PodSecurityContext{
 						RunAsNonRoot: &runAsNonRoot,
 					},
@@ -323,12 +378,47 @@ func buildCLIServerDeployment(namespace, image string) *appsv1.Deployment {
 								},
 								ReadOnlyRootFilesystem: &readOnlyRootFilesystem,
 							},
+							ReadinessProbe: &corev1.Probe{
+								ProbeHandler: corev1.ProbeHandler{
+									HTTPGet: &corev1.HTTPGetAction{
+										Path: "/",
+										Port: intstr.FromString("http"),
+									},
+								},
+								InitialDelaySeconds: 5,
+								PeriodSeconds:       10,
+							},
+							LivenessProbe: &corev1.Probe{
+								ProbeHandler: corev1.ProbeHandler{
+									HTTPGet: &corev1.HTTPGetAction{
+										Path: "/",
+										Port: intstr.FromString("http"),
+									},
+								},
+								InitialDelaySeconds: 15,
+								PeriodSeconds:       20,
+							},
 						},
 					},
 					TerminationGracePeriodSeconds: int64Ptr(10),
 				},
 			},
 		},
+	}
+}
+
+func buildCLIServerServiceAccount(namespace string) *corev1.ServiceAccount {
+	automountServiceAccountToken := false
+	return &corev1.ServiceAccount{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      cliServerServiceAccountName,
+			Namespace: namespace,
+			Labels: map[string]string{
+				"app":          "oadp-cli",
+				managedByLabel: operatorName,
+			},
+		},
+		AutomountServiceAccountToken: &automountServiceAccountToken,
 	}
 }
 
