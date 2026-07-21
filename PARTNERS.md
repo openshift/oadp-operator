@@ -13,20 +13,27 @@ better stability and maintainability.
 ## Version Mapping
 
 ### Current and Planned Supported Versions
-| OpenShift Version | OADP Version | Velero Version | Estimated Release Timeline [1]|
-|-------------------|--------------|----------------|-------------------------------|
-| 4.14              | 1.3, 1.4     | v1.12, v1.14   | released                      |
-| 4.16              | 1.4          | v1.14          | released                      | 
-| 4.17              | 1.4          | v1.14          | released                      |
-| 4.18              | 1.4          | v1.14          | released                      |
-| 4.19              | 1.5          | v1.16          | released                      |
-| 4.20              | 1.5          | v1.16          | released                      |
-| 4.21              | 1.5          | v1.16          | Q1 2026                       |
-| 4.22              | 1.6          | v1.18          | Q3 2026                       |
-| 4.23              | 1.6          | v1.18          | Q1 2027                       |
-| 5.0               | 1.6          | v1.18          | Q3 2026                       |
-| 5.1               | 1.7          | v1.20          | Q2 2027                       |
-| 5.2               | 1.7          | v1.20          | Q3 2027                       |
+| OpenShift Version | OADP Version | Velero Version | Estimated Release Timeline [1]| Extended lifecycle support |
+|-------------------|--------------|----------------|--------------------------------|-----------------------------|
+| 4.14              | 1.3, 1.4     | v1.12, v1.14   | released                      |                             |
+| 4.16              | 1.4          | v1.14          | released                      | yes                         |
+| 4.17              | 1.4          | v1.14          | released                      |                             |
+| 4.18              | 1.4          | v1.14          | released                      | yes                         |
+| 4.19              | 1.5          | v1.16          | released                      |                             |
+| 4.20              | 1.5          | v1.16          | released                      | yes                         |
+| 4.21              | 1.5          | v1.16          | Q1 2026                       |                             |
+| 4.22              | 1.6          | v1.18          | Q3 2026                       | yes                         |
+| 4.23              | 1.6          | v1.18          | Q1 2027                       |                             |
+| 5.0               | 1.6          | v1.18          | Q3 2026                       | yes                         |
+| 5.1               | 1.7          | v1.20          | Q2 2027                       |                             |
+| 5.2               | 1.7          | v1.20          | Q3 2027                       | yes                         |
+| 5.3               | 1.8          | TBD            | TBD                           |                             |
+| 5.4               | 1.8          | TBD            | TBD                           | yes                         |
+| 5.5               | 1.9          | TBD            | TBD                           |                             |
+| 5.6               | 1.9          | TBD            | TBD                           | yes                         |
+| 5.7               | 1.10         | TBD            | TBD                           |                             |
+| 5.8               | 1.10         | TBD            | TBD                           | yes                         |
+| 5.9               | 1.11         | TBD            | TBD                           |                             |
 
 ### OADP Plugins of interest
 | OpenShift Version | OADP Version | Velero Version | kubevirt-velero-plugin | hypershift-oadp-plugin   | channel               |
