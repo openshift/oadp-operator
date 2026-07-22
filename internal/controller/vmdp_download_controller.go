@@ -90,11 +90,11 @@ func (v *VMDPDownloadSetup) reconcileVMDPResources(ctx context.Context, operator
 		v.Log.Info("Created VMDP server deployment", "image", vmdpServerImage)
 	} else if err != nil {
 		return fmt.Errorf("failed to get VMDP server deployment: %w", err)
-	} else if len(deployment.Spec.Template.Spec.Containers) > 0 {
+	} else if idx := findContainerIndexByName(deployment.Spec.Template.Spec.Containers, "oadp-vmdp-server"); idx != -1 {
 		// Deployment exists from a version before probes were added; backfill any missing ones.
 		desired := buildVMDPServerDeployment(v.Namespace, vmdpServerImage)
 		desiredContainer := desired.Spec.Template.Spec.Containers[0]
-		currentContainer := &deployment.Spec.Template.Spec.Containers[0]
+		currentContainer := &deployment.Spec.Template.Spec.Containers[idx]
 		needsUpdate := false
 		if currentContainer.ReadinessProbe == nil && desiredContainer.ReadinessProbe != nil {
 			currentContainer.ReadinessProbe = desiredContainer.ReadinessProbe

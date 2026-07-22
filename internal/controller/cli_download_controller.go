@@ -95,11 +95,11 @@ func (c *CLIDownloadSetup) reconcileCLIResources(ctx context.Context, operatorDe
 		c.Log.Info("Created CLI server deployment", "image", cliServerImage)
 	} else if err != nil {
 		return fmt.Errorf("failed to get CLI server deployment: %w", err)
-	} else if len(deployment.Spec.Template.Spec.Containers) > 0 {
+	} else if idx := findContainerIndexByName(deployment.Spec.Template.Spec.Containers, "oadp-cli-server"); idx != -1 {
 		// Deployment exists from a version before probes were added; backfill any missing ones.
 		desired := buildCLIServerDeployment(c.Namespace, cliServerImage)
 		desiredContainer := desired.Spec.Template.Spec.Containers[0]
-		currentContainer := &deployment.Spec.Template.Spec.Containers[0]
+		currentContainer := &deployment.Spec.Template.Spec.Containers[idx]
 		needsUpdate := false
 		if currentContainer.ReadinessProbe == nil && desiredContainer.ReadinessProbe != nil {
 			currentContainer.ReadinessProbe = desiredContainer.ReadinessProbe
@@ -442,4 +442,17 @@ func buildCLIServerRoute(namespace string) *routev1.Route {
 
 func int64Ptr(i int64) *int64 {
 	return &i
+}
+
+// findContainerIndexByName returns the index of the container with the given
+// name, or -1 if no such container exists. Used to avoid assuming the target
+// server container is always at index 0, which may not hold if a sidecar is
+// injected or the container order changes.
+func findContainerIndexByName(containers []corev1.Container, name string) int {
+	for i := range containers {
+		if containers[i].Name == name {
+			return i
+		}
+	}
+	return -1
 }
