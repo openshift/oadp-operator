@@ -334,6 +334,17 @@ func buildCLIServerDeployment(namespace, image string) *appsv1.Deployment {
 									Protocol:      corev1.ProtocolTCP,
 								},
 							},
+							StartupProbe: &corev1.Probe{
+								ProbeHandler: corev1.ProbeHandler{
+									HTTPGet: &corev1.HTTPGetAction{
+										Path: "/",
+										Port: intstr.FromString("http"),
+									},
+								},
+								InitialDelaySeconds: 5,
+								PeriodSeconds:       5,
+								FailureThreshold:    12,
+							},
 							ReadinessProbe: &corev1.Probe{
 								ProbeHandler: corev1.ProbeHandler{
 									HTTPGet: &corev1.HTTPGetAction{
