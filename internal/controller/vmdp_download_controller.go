@@ -72,7 +72,7 @@ func (v *VMDPDownloadSetup) Start(ctx context.Context) error {
 
 // reconcileVMDPResources creates or updates all VMDP download-related resources
 func (v *VMDPDownloadSetup) reconcileVMDPResources(ctx context.Context, operatorDeployment *appsv1.Deployment, vmdpServerImage string) error {
-	// 1. Create the dedicated ServiceAccount used by the VMDP server pod.
+	// 1. Create or reconcile the dedicated ServiceAccount used by the VMDP server pod.
 	// A non-default ServiceAccount is required (rather than relying on the
 	// namespace's "default" SA) to satisfy access-control best practices,
 	// even though this workload needs no Kubernetes API permissions.
@@ -94,6 +94,53 @@ func (v *VMDPDownloadSetup) reconcileVMDPResources(ctx context.Context, operator
 		v.Log.Info("Created VMDP server service account")
 	} else if err != nil {
 		return fmt.Errorf("failed to get VMDP server service account: %w", err)
+	} else {
+		// ServiceAccount already exists — reconcile it to ensure desired state.
+		desired := buildVMDPServerServiceAccount(v.Namespace)
+		needsUpdate := false
+
+		// Ensure AutomountServiceAccountToken is explicitly false.
+		if serviceAccount.AutomountServiceAccountToken == nil ||
+			*serviceAccount.AutomountServiceAccountToken != *desired.AutomountServiceAccountToken {
+			serviceAccount.AutomountServiceAccountToken = desired.AutomountServiceAccountToken
+			needsUpdate = true
+		}
+
+		// Ensure required labels are present.
+		if serviceAccount.Labels == nil {
+			serviceAccount.Labels = make(map[string]string)
+		}
+		for k, val := range desired.Labels {
+			if serviceAccount.Labels[k] != val {
+				serviceAccount.Labels[k] = val
+				needsUpdate = true
+			}
+		}
+
+		// Check for the pre-existing owner reference BEFORE mutating.
+		// SetOwnerReference is idempotent and will add the reference if it's
+		// missing, so checking the list *after* calling it would always find
+		// a match and mask the fact that an update was actually needed.
+		hasOwnerRef := false
+		for _, ref := range serviceAccount.OwnerReferences {
+			if ref.UID == operatorDeployment.UID {
+				hasOwnerRef = true
+				break
+			}
+		}
+		if err := controllerutil.SetOwnerReference(operatorDeployment, serviceAccount, v.Client.Scheme()); err != nil {
+			return fmt.Errorf("failed to set owner reference on service account: %w", err)
+		}
+		if !hasOwnerRef {
+			needsUpdate = true
+		}
+
+		if needsUpdate {
+			if err := v.Client.Update(ctx, serviceAccount); err != nil {
+				return fmt.Errorf("failed to update VMDP server service account: %w", err)
+			}
+			v.Log.Info("Updated VMDP server service account")
+		}
 	}
 
 	// 2. Create or update the deployment
