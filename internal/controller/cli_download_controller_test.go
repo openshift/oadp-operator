@@ -82,7 +82,9 @@ func TestReconcileCLIResources_CreatesServiceAccountWhenMissing(t *testing.T) {
 	setup := &CLIDownloadSetup{Client: fakeClient, Namespace: ns, Log: logr.Discard()}
 	// Expect an error once reconcileCLIResources reaches the unregistered
 	// Route/ConsoleCLIDownload steps — irrelevant to this test.
-	_ = setup.reconcileCLIResources(context.Background(), operatorDeploy, "test-image")
+	if err := setup.reconcileCLIResources(context.Background(), operatorDeploy, "test-image"); err != nil {
+		t.Logf("reconcileCLIResources returned expected error (Route/ConsoleCLIDownload step unregistered in test scheme): %v", err)
+	}
 
 	got := &corev1.ServiceAccount{}
 	if err := fakeClient.Get(context.Background(), types.NamespacedName{Name: cliServerServiceAccountName, Namespace: ns}, got); err != nil {
@@ -121,7 +123,9 @@ func TestReconcileCLIResources_FixesExistingServiceAccountDrift(t *testing.T) {
 	fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(operatorDeploy, existing).Build()
 
 	setup := &CLIDownloadSetup{Client: fakeClient, Namespace: ns, Log: logr.Discard()}
-	_ = setup.reconcileCLIResources(context.Background(), operatorDeploy, "test-image")
+	if err := setup.reconcileCLIResources(context.Background(), operatorDeploy, "test-image"); err != nil {
+		t.Logf("reconcileCLIResources returned expected error (Route/ConsoleCLIDownload step unregistered in test scheme): %v", err)
+	}
 
 	got := &corev1.ServiceAccount{}
 	if err := fakeClient.Get(context.Background(), types.NamespacedName{Name: cliServerServiceAccountName, Namespace: ns}, got); err != nil {
@@ -175,7 +179,9 @@ func TestReconcileCLIResources_FixesMissingOwnerReferenceOnly(t *testing.T) {
 	fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(operatorDeploy, existing).Build()
 
 	setup := &CLIDownloadSetup{Client: fakeClient, Namespace: ns, Log: logr.Discard()}
-	_ = setup.reconcileCLIResources(context.Background(), operatorDeploy, "test-image")
+	if err := setup.reconcileCLIResources(context.Background(), operatorDeploy, "test-image"); err != nil {
+		t.Logf("reconcileCLIResources returned expected error (Route/ConsoleCLIDownload step unregistered in test scheme): %v", err)
+	}
 
 	got := &corev1.ServiceAccount{}
 	if err := fakeClient.Get(context.Background(), types.NamespacedName{Name: cliServerServiceAccountName, Namespace: ns}, got); err != nil {
@@ -215,7 +221,9 @@ func TestReconcileCLIResources_NoopWhenServiceAccountAlreadyCorrect(t *testing.T
 	}
 
 	setup := &CLIDownloadSetup{Client: fakeClient, Namespace: ns, Log: logr.Discard()}
-	_ = setup.reconcileCLIResources(context.Background(), operatorDeploy, "test-image")
+	if err := setup.reconcileCLIResources(context.Background(), operatorDeploy, "test-image"); err != nil {
+		t.Logf("reconcileCLIResources returned expected error (Route/ConsoleCLIDownload step unregistered in test scheme): %v", err)
+	}
 
 	after := &corev1.ServiceAccount{}
 	if err := fakeClient.Get(context.Background(), types.NamespacedName{Name: cliServerServiceAccountName, Namespace: ns}, after); err != nil {
