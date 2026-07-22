@@ -95,16 +95,30 @@ func (c *CLIDownloadSetup) reconcileCLIResources(ctx context.Context, operatorDe
 		c.Log.Info("Created CLI server deployment", "image", cliServerImage)
 	} else if err != nil {
 		return fmt.Errorf("failed to get CLI server deployment: %w", err)
-	} else if len(deployment.Spec.Template.Spec.Containers) > 0 &&
-		deployment.Spec.Template.Spec.Containers[0].ReadinessProbe == nil {
-		// Deployment exists from a version before probes were added; backfill them.
+	} else if len(deployment.Spec.Template.Spec.Containers) > 0 {
+		// Deployment exists from a version before probes were added; backfill any missing ones.
 		desired := buildCLIServerDeployment(c.Namespace, cliServerImage)
-		deployment.Spec.Template.Spec.Containers[0].ReadinessProbe = desired.Spec.Template.Spec.Containers[0].ReadinessProbe
-		deployment.Spec.Template.Spec.Containers[0].LivenessProbe = desired.Spec.Template.Spec.Containers[0].LivenessProbe
-		if err := c.Client.Update(ctx, deployment); err != nil {
-			return fmt.Errorf("failed to update CLI server deployment with probes: %w", err)
+		desiredContainer := desired.Spec.Template.Spec.Containers[0]
+		currentContainer := &deployment.Spec.Template.Spec.Containers[0]
+		needsUpdate := false
+		if currentContainer.ReadinessProbe == nil && desiredContainer.ReadinessProbe != nil {
+			currentContainer.ReadinessProbe = desiredContainer.ReadinessProbe
+			needsUpdate = true
 		}
-		c.Log.Info("Updated CLI server deployment with readiness/liveness probes")
+		if currentContainer.LivenessProbe == nil && desiredContainer.LivenessProbe != nil {
+			currentContainer.LivenessProbe = desiredContainer.LivenessProbe
+			needsUpdate = true
+		}
+		if currentContainer.StartupProbe == nil && desiredContainer.StartupProbe != nil {
+			currentContainer.StartupProbe = desiredContainer.StartupProbe
+			needsUpdate = true
+		}
+		if needsUpdate {
+			if err := c.Client.Update(ctx, deployment); err != nil {
+				return fmt.Errorf("failed to update CLI server deployment with probes: %w", err)
+			}
+			c.Log.Info("Updated CLI server deployment with probes")
+		}
 	}
 
 	// 2. Create or update the service
@@ -332,6 +346,17 @@ func buildCLIServerDeployment(namespace, image string) *appsv1.Deployment {
 									Drop: []corev1.Capability{"ALL"},
 								},
 								ReadOnlyRootFilesystem: &readOnlyRootFilesystem,
+							},
+							StartupProbe: &corev1.Probe{
+								ProbeHandler: corev1.ProbeHandler{
+									HTTPGet: &corev1.HTTPGetAction{
+										Path: "/",
+										Port: intstr.FromString("http"),
+									},
+								},
+								InitialDelaySeconds: 5,
+								PeriodSeconds:       5,
+								FailureThreshold:    12,
 							},
 							ReadinessProbe: &corev1.Probe{
 								ProbeHandler: corev1.ProbeHandler{
