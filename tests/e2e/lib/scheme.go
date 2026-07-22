@@ -5,6 +5,7 @@ import (
 	openshiftappsv1 "github.com/openshift/api/apps/v1"
 	openshiftbuildv1 "github.com/openshift/api/build/v1"
 	openshiftconfigv1 "github.com/openshift/api/config/v1"
+	openshiftimagev1 "github.com/openshift/api/image/v1"
 	openshiftroutev1 "github.com/openshift/api/route/v1"
 	openshiftsecurityv1 "github.com/openshift/api/security/v1"
 	openshifttemplatev1 "github.com/openshift/api/template/v1"
@@ -28,6 +29,7 @@ func init() {
 	_ = velerov1.AddToScheme(Scheme)
 	_ = openshiftappsv1.AddToScheme(Scheme)
 	_ = openshiftbuildv1.AddToScheme(Scheme)
+	_ = openshiftimagev1.AddToScheme(Scheme)
 	_ = openshiftsecurityv1.AddToScheme(Scheme)
 	_ = openshifttemplatev1.AddToScheme(Scheme)
 	_ = openshiftroutev1.AddToScheme(Scheme)
