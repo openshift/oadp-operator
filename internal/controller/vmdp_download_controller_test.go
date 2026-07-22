@@ -56,7 +56,9 @@ func TestReconcileVMDPResources_CreatesServiceAccountWhenMissing(t *testing.T) {
 	fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(operatorDeploy).Build()
 
 	setup := &VMDPDownloadSetup{Client: fakeClient, Namespace: ns, Log: logr.Discard()}
-	_ = setup.reconcileVMDPResources(context.Background(), operatorDeploy, "test-image")
+	if err := setup.reconcileVMDPResources(context.Background(), operatorDeploy, "test-image"); err != nil {
+		t.Logf("reconcileVMDPResources returned expected error (Route/ConsoleCLIDownload step unregistered in test scheme): %v", err)
+	}
 
 	got := &corev1.ServiceAccount{}
 	if err := fakeClient.Get(context.Background(), types.NamespacedName{Name: vmdpServerServiceAccountName, Namespace: ns}, got); err != nil {
@@ -95,7 +97,9 @@ func TestReconcileVMDPResources_FixesExistingServiceAccountDrift(t *testing.T) {
 	fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(operatorDeploy, existing).Build()
 
 	setup := &VMDPDownloadSetup{Client: fakeClient, Namespace: ns, Log: logr.Discard()}
-	_ = setup.reconcileVMDPResources(context.Background(), operatorDeploy, "test-image")
+	if err := setup.reconcileVMDPResources(context.Background(), operatorDeploy, "test-image"); err != nil {
+		t.Logf("reconcileVMDPResources returned expected error (Route/ConsoleCLIDownload step unregistered in test scheme): %v", err)
+	}
 
 	got := &corev1.ServiceAccount{}
 	if err := fakeClient.Get(context.Background(), types.NamespacedName{Name: vmdpServerServiceAccountName, Namespace: ns}, got); err != nil {
@@ -149,7 +153,9 @@ func TestReconcileVMDPResources_FixesMissingOwnerReferenceOnly(t *testing.T) {
 	fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(operatorDeploy, existing).Build()
 
 	setup := &VMDPDownloadSetup{Client: fakeClient, Namespace: ns, Log: logr.Discard()}
-	_ = setup.reconcileVMDPResources(context.Background(), operatorDeploy, "test-image")
+	if err := setup.reconcileVMDPResources(context.Background(), operatorDeploy, "test-image"); err != nil {
+		t.Logf("reconcileVMDPResources returned expected error (Route/ConsoleCLIDownload step unregistered in test scheme): %v", err)
+	}
 
 	got := &corev1.ServiceAccount{}
 	if err := fakeClient.Get(context.Background(), types.NamespacedName{Name: vmdpServerServiceAccountName, Namespace: ns}, got); err != nil {
@@ -189,7 +195,9 @@ func TestReconcileVMDPResources_NoopWhenServiceAccountAlreadyCorrect(t *testing.
 	}
 
 	setup := &VMDPDownloadSetup{Client: fakeClient, Namespace: ns, Log: logr.Discard()}
-	_ = setup.reconcileVMDPResources(context.Background(), operatorDeploy, "test-image")
+	if err := setup.reconcileVMDPResources(context.Background(), operatorDeploy, "test-image"); err != nil {
+		t.Logf("reconcileVMDPResources returned expected error (Route/ConsoleCLIDownload step unregistered in test scheme): %v", err)
+	}
 
 	after := &corev1.ServiceAccount{}
 	if err := fakeClient.Get(context.Background(), types.NamespacedName{Name: vmdpServerServiceAccountName, Namespace: ns}, after); err != nil {
