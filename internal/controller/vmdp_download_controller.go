@@ -127,7 +127,12 @@ func (v *VMDPDownloadSetup) reconcileVMDPResources(ctx context.Context, operator
 		}
 		if deployment.Spec.Template.Spec.ServiceAccountName != vmdpServerServiceAccountName {
 			deployment.Spec.Template.Spec.ServiceAccountName = desired.Spec.Template.Spec.ServiceAccountName
-			deployment.Spec.Template.Spec.AutomountServiceAccountToken = desired.Spec.Template.Spec.AutomountServiceAccountToken
+			needsUpdate = true
+		}
+		desiredAutomount := desired.Spec.Template.Spec.AutomountServiceAccountToken
+		currentAutomount := deployment.Spec.Template.Spec.AutomountServiceAccountToken
+		if desiredAutomount != nil && (currentAutomount == nil || *currentAutomount != *desiredAutomount) {
+			deployment.Spec.Template.Spec.AutomountServiceAccountToken = desiredAutomount
 			needsUpdate = true
 		}
 		if needsUpdate {
