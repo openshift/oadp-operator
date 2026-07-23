@@ -2,6 +2,7 @@ package controller
 
 import (
 	"context"
+	"strings"
 	"testing"
 
 	"github.com/go-logr/logr"
@@ -16,6 +17,7 @@ import (
 	"k8s.io/client-go/kubernetes/scheme"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
+	"sigs.k8s.io/controller-runtime/pkg/client/interceptor"
 )
 
 // getDownloadTestScheme returns a scheme with the console/route API groups
@@ -258,6 +260,20 @@ func newCLITestScheme(t *testing.T) *runtime.Scheme {
 	return testScheme
 }
 
+// assertExpectedRouteSchemeError fails the test unless err is the intentional
+// error caused by newCLITestScheme omitting routev1/consolev1: reconcile is
+// expected to fail once it reaches the Route step, but only after the
+// ServiceAccount/Deployment steps under test have already run and persisted
+// their results. Any other error indicates a real regression in an earlier
+// step and must not be silently treated as "expected".
+func assertExpectedRouteSchemeError(t *testing.T, err error) {
+	t.Helper()
+	if !strings.Contains(err.Error(), "no kind is registered for the type v1.Route") {
+		t.Fatalf("expected error from unregistered Route scheme, got unexpected error: %v", err)
+	}
+	t.Logf("got expected error (Route/ConsoleCLIDownload step unregistered in test scheme): %v", err)
+}
+
 func newCLITestOperatorDeployment() *appsv1.Deployment {
 	return &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
@@ -280,7 +296,7 @@ func TestReconcileCLIResources_CreatesServiceAccountWhenMissing(t *testing.T) {
 	// Expect an error once reconcileCLIResources reaches the unregistered
 	// Route/ConsoleCLIDownload steps — irrelevant to this test.
 	if err := setup.reconcileCLIResources(context.Background(), operatorDeploy, "test-image"); err != nil {
-		t.Logf("reconcileCLIResources returned expected error (Route/ConsoleCLIDownload step unregistered in test scheme): %v", err)
+		assertExpectedRouteSchemeError(t, err)
 	}
 
 	got := &corev1.ServiceAccount{}
@@ -321,7 +337,7 @@ func TestReconcileCLIResources_FixesExistingServiceAccountDrift(t *testing.T) {
 
 	setup := &CLIDownloadSetup{Client: fakeClient, Namespace: ns, Log: logr.Discard()}
 	if err := setup.reconcileCLIResources(context.Background(), operatorDeploy, "test-image"); err != nil {
-		t.Logf("reconcileCLIResources returned expected error (Route/ConsoleCLIDownload step unregistered in test scheme): %v", err)
+		assertExpectedRouteSchemeError(t, err)
 	}
 
 	got := &corev1.ServiceAccount{}
@@ -377,7 +393,7 @@ func TestReconcileCLIResources_FixesMissingOwnerReferenceOnly(t *testing.T) {
 
 	setup := &CLIDownloadSetup{Client: fakeClient, Namespace: ns, Log: logr.Discard()}
 	if err := setup.reconcileCLIResources(context.Background(), operatorDeploy, "test-image"); err != nil {
-		t.Logf("reconcileCLIResources returned expected error (Route/ConsoleCLIDownload step unregistered in test scheme): %v", err)
+		assertExpectedRouteSchemeError(t, err)
 	}
 
 	got := &corev1.ServiceAccount{}
@@ -399,7 +415,11 @@ func TestReconcileCLIResources_FixesMissingOwnerReferenceOnly(t *testing.T) {
 
 // TestReconcileCLIResources_NoopWhenServiceAccountAlreadyCorrect verifies a
 // ServiceAccount already matching the desired state is not unnecessarily
-// updated (no ResourceVersion bump).
+// updated. Asserts on the number of Update calls the fake client actually
+// received (via an interceptor) rather than comparing ResourceVersion
+// before/after, since the fake client's ResourceVersion bookkeeping is only
+// an approximation of a real API server's and isn't a reliable signal that
+// no update occurred.
 func TestReconcileCLIResources_NoopWhenServiceAccountAlreadyCorrect(t *testing.T) {
 	const ns = "openshift-adp"
 	testScheme := newCLITestScheme(t)
@@ -410,24 +430,24 @@ func TestReconcileCLIResources_NoopWhenServiceAccountAlreadyCorrect(t *testing.T
 		{UID: operatorDeploy.UID, Name: operatorDeploy.Name, Kind: "Deployment", APIVersion: "apps/v1"},
 	}
 
-	fakeClient := fake.NewClientBuilder().WithScheme(testScheme).WithObjects(operatorDeploy, desired.DeepCopy()).Build()
-
-	before := &corev1.ServiceAccount{}
-	if err := fakeClient.Get(context.Background(), types.NamespacedName{Name: cliServerServiceAccountName, Namespace: ns}, before); err != nil {
-		t.Fatalf("failed to get SA: %v", err)
-	}
+	updateCalls := 0
+	fakeClient := fake.NewClientBuilder().
+		WithScheme(testScheme).
+		WithObjects(operatorDeploy, desired.DeepCopy()).
+		WithInterceptorFuncs(interceptor.Funcs{
+			Update: func(ctx context.Context, c client.WithWatch, obj client.Object, opts ...client.UpdateOption) error {
+				updateCalls++
+				return c.Update(ctx, obj, opts...)
+			},
+		}).
+		Build()
 
 	setup := &CLIDownloadSetup{Client: fakeClient, Namespace: ns, Log: logr.Discard()}
 	if err := setup.reconcileCLIResources(context.Background(), operatorDeploy, "test-image"); err != nil {
-		t.Logf("reconcileCLIResources returned expected error (Route/ConsoleCLIDownload step unregistered in test scheme): %v", err)
+		assertExpectedRouteSchemeError(t, err)
 	}
 
-	after := &corev1.ServiceAccount{}
-	if err := fakeClient.Get(context.Background(), types.NamespacedName{Name: cliServerServiceAccountName, Namespace: ns}, after); err != nil {
-		t.Fatalf("failed to get SA: %v", err)
-	}
-
-	if before.ResourceVersion != after.ResourceVersion {
-		t.Errorf("expected no update (ResourceVersion unchanged), got before=%s after=%s", before.ResourceVersion, after.ResourceVersion)
+	if updateCalls != 0 {
+		t.Errorf("expected no Update calls when ServiceAccount already matches desired state, got %d", updateCalls)
 	}
 }
