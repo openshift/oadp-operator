@@ -171,15 +171,19 @@ func (c *CLIDownloadSetup) reconcileCLIResources(ctx context.Context, operatorDe
 		// Deployment exists from a version before probes/service account were added; backfill them.
 		desired := buildCLIServerDeployment(c.Namespace, cliServerImage)
 		needsUpdate := false
-		if len(deployment.Spec.Template.Spec.Containers) > 0 {
+		if idx := findContainerIndexByName(deployment.Spec.Template.Spec.Containers, "oadp-cli-server"); idx != -1 {
 			desiredContainer := desired.Spec.Template.Spec.Containers[0]
-			currentContainer := &deployment.Spec.Template.Spec.Containers[0]
+			currentContainer := &deployment.Spec.Template.Spec.Containers[idx]
 			if currentContainer.ReadinessProbe == nil && desiredContainer.ReadinessProbe != nil {
 				currentContainer.ReadinessProbe = desiredContainer.ReadinessProbe
 				needsUpdate = true
 			}
 			if currentContainer.LivenessProbe == nil && desiredContainer.LivenessProbe != nil {
 				currentContainer.LivenessProbe = desiredContainer.LivenessProbe
+				needsUpdate = true
+			}
+			if currentContainer.StartupProbe == nil && desiredContainer.StartupProbe != nil {
+				currentContainer.StartupProbe = desiredContainer.StartupProbe
 				needsUpdate = true
 			}
 		}
@@ -197,7 +201,7 @@ func (c *CLIDownloadSetup) reconcileCLIResources(ctx context.Context, operatorDe
 			if err := c.Client.Update(ctx, deployment); err != nil {
 				return fmt.Errorf("failed to update CLI server deployment: %w", err)
 			}
-			c.Log.Info("Updated CLI server deployment with readiness/liveness probes and/or service account")
+			c.Log.Info("Updated CLI server deployment with probes and/or service account")
 		}
 	}
 
@@ -430,6 +434,17 @@ func buildCLIServerDeployment(namespace, image string) *appsv1.Deployment {
 								},
 								ReadOnlyRootFilesystem: &readOnlyRootFilesystem,
 							},
+							StartupProbe: &corev1.Probe{
+								ProbeHandler: corev1.ProbeHandler{
+									HTTPGet: &corev1.HTTPGetAction{
+										Path: "/",
+										Port: intstr.FromString("http"),
+									},
+								},
+								InitialDelaySeconds: 5,
+								PeriodSeconds:       5,
+								FailureThreshold:    12,
+							},
 							ReadinessProbe: &corev1.Probe{
 								ProbeHandler: corev1.ProbeHandler{
 									HTTPGet: &corev1.HTTPGetAction{
@@ -529,4 +544,17 @@ func buildCLIServerRoute(namespace string) *routev1.Route {
 
 func int64Ptr(i int64) *int64 {
 	return &i
+}
+
+// findContainerIndexByName returns the index of the container with the given
+// name, or -1 if no such container exists. Used to avoid assuming the target
+// server container is always at index 0, which may not hold if a sidecar is
+// injected or the container order changes.
+func findContainerIndexByName(containers []corev1.Container, name string) int {
+	for i := range containers {
+		if containers[i].Name == name {
+			return i
+		}
+	}
+	return -1
 }
