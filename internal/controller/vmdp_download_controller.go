@@ -22,10 +22,11 @@ import (
 )
 
 const (
-	vmdpServerDeploymentName = "openshift-adp-oadp-vmdp-server"
-	vmdpServerServiceName    = "openshift-adp-vmdp-server"
-	vmdpServerRouteName      = "oadp-vmdp-server-route"
-	vmdpDownloadName         = "openshift-adp-oadp-vmdp"
+	vmdpServerDeploymentName     = "openshift-adp-oadp-vmdp-server"
+	vmdpServerServiceName        = "openshift-adp-vmdp-server"
+	vmdpServerServiceAccountName = "openshift-adp-vmdp-server"
+	vmdpServerRouteName          = "oadp-vmdp-server-route"
+	vmdpDownloadName             = "openshift-adp-oadp-vmdp"
 )
 
 // VMDPDownloadSetup is a runnable that sets up VMDP download resources when the operator starts
@@ -71,9 +72,80 @@ func (v *VMDPDownloadSetup) Start(ctx context.Context) error {
 
 // reconcileVMDPResources creates or updates all VMDP download-related resources
 func (v *VMDPDownloadSetup) reconcileVMDPResources(ctx context.Context, operatorDeployment *appsv1.Deployment, vmdpServerImage string) error {
-	// 1. Create or update the deployment
-	deployment := &appsv1.Deployment{}
+	// 1. Create or reconcile the dedicated ServiceAccount used by the VMDP server pod.
+	// A non-default ServiceAccount is required (rather than relying on the
+	// namespace's "default" SA) to satisfy access-control best practices,
+	// even though this workload needs no Kubernetes API permissions.
+	serviceAccount := &corev1.ServiceAccount{}
 	err := v.Client.Get(ctx, client.ObjectKey{
+		Name:      vmdpServerServiceAccountName,
+		Namespace: v.Namespace,
+	}, serviceAccount)
+
+	if errors.IsNotFound(err) {
+		serviceAccount = buildVMDPServerServiceAccount(v.Namespace)
+		if err := controllerutil.SetOwnerReference(operatorDeployment, serviceAccount, v.Client.Scheme()); err != nil {
+			return fmt.Errorf("failed to set owner reference on service account: %w", err)
+		}
+		err = v.Client.Create(ctx, serviceAccount)
+		if err != nil && !errors.IsAlreadyExists(err) {
+			return fmt.Errorf("failed to create VMDP server service account: %w", err)
+		}
+		v.Log.Info("Created VMDP server service account")
+	} else if err != nil {
+		return fmt.Errorf("failed to get VMDP server service account: %w", err)
+	} else {
+		// ServiceAccount already exists — reconcile it to ensure desired state.
+		desired := buildVMDPServerServiceAccount(v.Namespace)
+		needsUpdate := false
+
+		// Ensure AutomountServiceAccountToken is explicitly false.
+		if serviceAccount.AutomountServiceAccountToken == nil ||
+			*serviceAccount.AutomountServiceAccountToken != *desired.AutomountServiceAccountToken {
+			serviceAccount.AutomountServiceAccountToken = desired.AutomountServiceAccountToken
+			needsUpdate = true
+		}
+
+		// Ensure required labels are present.
+		if serviceAccount.Labels == nil {
+			serviceAccount.Labels = make(map[string]string)
+		}
+		for k, val := range desired.Labels {
+			if serviceAccount.Labels[k] != val {
+				serviceAccount.Labels[k] = val
+				needsUpdate = true
+			}
+		}
+
+		// Check for the pre-existing owner reference BEFORE mutating.
+		// SetOwnerReference is idempotent and will add the reference if it's
+		// missing, so checking the list *after* calling it would always find
+		// a match and mask the fact that an update was actually needed.
+		hasOwnerRef := false
+		for _, ref := range serviceAccount.OwnerReferences {
+			if ref.UID == operatorDeployment.UID {
+				hasOwnerRef = true
+				break
+			}
+		}
+		if err := controllerutil.SetOwnerReference(operatorDeployment, serviceAccount, v.Client.Scheme()); err != nil {
+			return fmt.Errorf("failed to set owner reference on service account: %w", err)
+		}
+		if !hasOwnerRef {
+			needsUpdate = true
+		}
+
+		if needsUpdate {
+			if err := v.Client.Update(ctx, serviceAccount); err != nil {
+				return fmt.Errorf("failed to update VMDP server service account: %w", err)
+			}
+			v.Log.Info("Updated VMDP server service account")
+		}
+	}
+
+	// 2. Create or update the deployment
+	deployment := &appsv1.Deployment{}
+	err = v.Client.Get(ctx, client.ObjectKey{
 		Name:      vmdpServerDeploymentName,
 		Namespace: v.Namespace,
 	}, deployment)
@@ -90,19 +162,35 @@ func (v *VMDPDownloadSetup) reconcileVMDPResources(ctx context.Context, operator
 		v.Log.Info("Created VMDP server deployment", "image", vmdpServerImage)
 	} else if err != nil {
 		return fmt.Errorf("failed to get VMDP server deployment: %w", err)
-	} else if len(deployment.Spec.Template.Spec.Containers) > 0 &&
-		deployment.Spec.Template.Spec.Containers[0].ReadinessProbe == nil {
-		// Deployment exists from a version before probes were added; backfill them.
+	} else {
+		// Deployment exists from a version before probes/service account were added; backfill them.
 		desired := buildVMDPServerDeployment(v.Namespace, vmdpServerImage)
-		deployment.Spec.Template.Spec.Containers[0].ReadinessProbe = desired.Spec.Template.Spec.Containers[0].ReadinessProbe
-		deployment.Spec.Template.Spec.Containers[0].LivenessProbe = desired.Spec.Template.Spec.Containers[0].LivenessProbe
-		if err := v.Client.Update(ctx, deployment); err != nil {
-			return fmt.Errorf("failed to update VMDP server deployment with probes: %w", err)
+		needsUpdate := false
+		if len(deployment.Spec.Template.Spec.Containers) > 0 &&
+			deployment.Spec.Template.Spec.Containers[0].ReadinessProbe == nil {
+			deployment.Spec.Template.Spec.Containers[0].ReadinessProbe = desired.Spec.Template.Spec.Containers[0].ReadinessProbe
+			deployment.Spec.Template.Spec.Containers[0].LivenessProbe = desired.Spec.Template.Spec.Containers[0].LivenessProbe
+			needsUpdate = true
 		}
-		v.Log.Info("Updated VMDP server deployment with readiness/liveness probes")
+		if deployment.Spec.Template.Spec.ServiceAccountName != vmdpServerServiceAccountName {
+			deployment.Spec.Template.Spec.ServiceAccountName = desired.Spec.Template.Spec.ServiceAccountName
+			needsUpdate = true
+		}
+		desiredAutomount := desired.Spec.Template.Spec.AutomountServiceAccountToken
+		currentAutomount := deployment.Spec.Template.Spec.AutomountServiceAccountToken
+		if desiredAutomount != nil && (currentAutomount == nil || *currentAutomount != *desiredAutomount) {
+			deployment.Spec.Template.Spec.AutomountServiceAccountToken = desiredAutomount
+			needsUpdate = true
+		}
+		if needsUpdate {
+			if err := v.Client.Update(ctx, deployment); err != nil {
+				return fmt.Errorf("failed to update VMDP server deployment: %w", err)
+			}
+			v.Log.Info("Updated VMDP server deployment with readiness/liveness probes and/or service account")
+		}
 	}
 
-	// 2. Create or update the service
+	// 3. Create or update the service
 	service := &corev1.Service{}
 	err = v.Client.Get(ctx, client.ObjectKey{
 		Name:      vmdpServerServiceName,
@@ -123,7 +211,7 @@ func (v *VMDPDownloadSetup) reconcileVMDPResources(ctx context.Context, operator
 		return fmt.Errorf("failed to get VMDP server service: %w", err)
 	}
 
-	// 3. Create or get the route
+	// 4. Create or get the route
 	route := &routev1.Route{}
 	err = v.Client.Get(ctx, client.ObjectKey{
 		Name:      vmdpServerRouteName,
@@ -188,7 +276,7 @@ func (v *VMDPDownloadSetup) reconcileVMDPResources(ctx context.Context, operator
 		}
 	}
 
-	// 4. Create or update ConsoleCLIDownload (cluster-scoped)
+	// 5. Create or update ConsoleCLIDownload (cluster-scoped)
 	downloadURL := fmt.Sprintf("https://%s/", hostname)
 
 	consoleCLIDownload := &consolev1.ConsoleCLIDownload{}
@@ -260,6 +348,7 @@ func buildVMDPServerDeployment(namespace, image string) *appsv1.Deployment {
 	runAsNonRoot := true
 	allowPrivilegeEscalation := false
 	readOnlyRootFilesystem := true
+	automountServiceAccountToken := false
 
 	return &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
@@ -284,6 +373,8 @@ func buildVMDPServerDeployment(namespace, image string) *appsv1.Deployment {
 					},
 				},
 				Spec: corev1.PodSpec{
+					ServiceAccountName:           vmdpServerServiceAccountName,
+					AutomountServiceAccountToken: &automountServiceAccountToken,
 					SecurityContext: &corev1.PodSecurityContext{
 						RunAsNonRoot: &runAsNonRoot,
 					},
@@ -341,6 +432,21 @@ func buildVMDPServerDeployment(namespace, image string) *appsv1.Deployment {
 				},
 			},
 		},
+	}
+}
+
+func buildVMDPServerServiceAccount(namespace string) *corev1.ServiceAccount {
+	automountServiceAccountToken := false
+	return &corev1.ServiceAccount{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      vmdpServerServiceAccountName,
+			Namespace: namespace,
+			Labels: map[string]string{
+				"app":          "oadp-vmdp",
+				managedByLabel: operatorName,
+			},
+		},
+		AutomountServiceAccountToken: &automountServiceAccountToken,
 	}
 }
 
