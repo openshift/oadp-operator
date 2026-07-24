@@ -75,7 +75,10 @@ func (c *CLIDownloadSetup) Start(ctx context.Context) error {
 // reconcileCLIResources creates or updates all CLI-related resources.
 // This is idempotent - it will reuse existing resources if they already exist.
 func (c *CLIDownloadSetup) reconcileCLIResources(ctx context.Context, operatorDeployment *appsv1.Deployment, cliServerImage string) error {
-	// 1. Create the dedicated ServiceAccount used by the CLI server pod.
+	// 1. Create or reconcile the dedicated ServiceAccount used by the CLI server pod.
+	// A non-default ServiceAccount is required (rather than relying on the
+	// namespace's "default" SA) to satisfy access-control best practices,
+	// even though this workload needs no Kubernetes API permissions.
 	serviceAccount := &corev1.ServiceAccount{}
 	err := c.Client.Get(ctx, client.ObjectKey{
 		Name:      cliServerServiceAccountName,
@@ -93,6 +96,53 @@ func (c *CLIDownloadSetup) reconcileCLIResources(ctx context.Context, operatorDe
 		c.Log.Info("Created CLI server service account")
 	} else if err != nil {
 		return fmt.Errorf("failed to get CLI server service account: %w", err)
+	} else {
+		// ServiceAccount already exists — reconcile it to ensure desired state.
+		desired := buildCLIServerServiceAccount(c.Namespace)
+		needsUpdate := false
+
+		// Ensure AutomountServiceAccountToken is explicitly false.
+		if serviceAccount.AutomountServiceAccountToken == nil ||
+			*serviceAccount.AutomountServiceAccountToken != *desired.AutomountServiceAccountToken {
+			serviceAccount.AutomountServiceAccountToken = desired.AutomountServiceAccountToken
+			needsUpdate = true
+		}
+
+		// Ensure required labels are present.
+		if serviceAccount.Labels == nil {
+			serviceAccount.Labels = make(map[string]string)
+		}
+		for k, v := range desired.Labels {
+			if serviceAccount.Labels[k] != v {
+				serviceAccount.Labels[k] = v
+				needsUpdate = true
+			}
+		}
+
+		// Check for the pre-existing owner reference BEFORE mutating.
+		// SetOwnerReference is idempotent and will add the reference if it's
+		// missing, so checking the list *after* calling it would always find
+		// a match and mask the fact that an update was actually needed.
+		hasOwnerRef := false
+		for _, ref := range serviceAccount.OwnerReferences {
+			if ref.UID == operatorDeployment.UID {
+				hasOwnerRef = true
+				break
+			}
+		}
+		if err := controllerutil.SetOwnerReference(operatorDeployment, serviceAccount, c.Client.Scheme()); err != nil {
+			return fmt.Errorf("failed to set owner reference on service account: %w", err)
+		}
+		if !hasOwnerRef {
+			needsUpdate = true
+		}
+
+		if needsUpdate {
+			if err := c.Client.Update(ctx, serviceAccount); err != nil {
+				return fmt.Errorf("failed to update CLI server service account: %w", err)
+			}
+			c.Log.Info("Updated CLI server service account")
+		}
 	}
 
 	// 2. Create or update the deployment
@@ -125,7 +175,12 @@ func (c *CLIDownloadSetup) reconcileCLIResources(ctx context.Context, operatorDe
 		}
 		if deployment.Spec.Template.Spec.ServiceAccountName != cliServerServiceAccountName {
 			deployment.Spec.Template.Spec.ServiceAccountName = desired.Spec.Template.Spec.ServiceAccountName
-			deployment.Spec.Template.Spec.AutomountServiceAccountToken = desired.Spec.Template.Spec.AutomountServiceAccountToken
+			needsUpdate = true
+		}
+		desiredAutomount := desired.Spec.Template.Spec.AutomountServiceAccountToken
+		currentAutomount := deployment.Spec.Template.Spec.AutomountServiceAccountToken
+		if desiredAutomount != nil && (currentAutomount == nil || *currentAutomount != *desiredAutomount) {
+			deployment.Spec.Template.Spec.AutomountServiceAccountToken = desiredAutomount
 			needsUpdate = true
 		}
 		if needsUpdate {
