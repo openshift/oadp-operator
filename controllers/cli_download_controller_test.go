@@ -197,3 +197,138 @@ func TestReconcileCLIResources_ReconcilesExistingServiceAccount(t *testing.T) {
 		t.Error("expected an owner reference to be added")
 	}
 }
+
+func TestReconcileCLIResources_BackfillsMissingStartupProbe(t *testing.T) {
+	namespace := "openshift-adp"
+	testScheme := getCLIDownloadTestScheme(t)
+
+	operatorDeployment := &appsv1.Deployment{
+		ObjectMeta: metav1.ObjectMeta{Name: "oadp-operator", Namespace: namespace},
+	}
+
+	// Simulate a Deployment created after readiness/liveness probes existed but
+	// before StartupProbe was added: ReadinessProbe/LivenessProbe are already
+	// set, so the old backfill gate (keyed only on ReadinessProbe == nil) would
+	// never fire and StartupProbe would be stuck missing forever.
+	existingDeployment := &appsv1.Deployment{
+		ObjectMeta: metav1.ObjectMeta{Name: cliServerDeploymentName, Namespace: namespace},
+		Spec: appsv1.DeploymentSpec{
+			Template: corev1.PodTemplateSpec{
+				Spec: corev1.PodSpec{
+					ServiceAccountName: cliServerServiceAccountName,
+					Containers: []corev1.Container{
+						{
+							Name:  "oadp-cli-server",
+							Image: "old-image",
+							ReadinessProbe: &corev1.Probe{
+								ProbeHandler: corev1.ProbeHandler{
+									HTTPGet: &corev1.HTTPGetAction{Path: "/", Port: intstr.FromString("http")},
+								},
+							},
+							LivenessProbe: &corev1.Probe{
+								ProbeHandler: corev1.ProbeHandler{
+									HTTPGet: &corev1.HTTPGetAction{Path: "/", Port: intstr.FromString("http")},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	fakeClient := fake.NewClientBuilder().
+		WithScheme(testScheme).
+		WithObjects(existingDeployment, newTestCLIRoute(namespace)).
+		Build()
+
+	setup := &CLIDownloadSetup{
+		Client:            fakeClient,
+		Namespace:         namespace,
+		OperatorName:      "oadp-operator",
+		OperatorNamespace: namespace,
+		Log:               logr.Discard(),
+	}
+
+	if err := setup.reconcileCLIResources(context.Background(), operatorDeployment, "test-image"); err != nil {
+		t.Fatalf("reconcileCLIResources returned error: %v", err)
+	}
+
+	updated := &appsv1.Deployment{}
+	if err := fakeClient.Get(context.Background(), client.ObjectKey{Name: cliServerDeploymentName, Namespace: namespace}, updated); err != nil {
+		t.Fatalf("failed to get updated deployment: %v", err)
+	}
+	container := updated.Spec.Template.Spec.Containers[0]
+
+	if container.StartupProbe == nil {
+		t.Error("expected StartupProbe to be backfilled even though ReadinessProbe/LivenessProbe already existed")
+	}
+	// The image on an existing deployment should not be clobbered by the backfill.
+	if container.Image != "old-image" {
+		t.Errorf("expected existing image to be preserved, got %q", container.Image)
+	}
+}
+
+func TestReconcileCLIResources_DoesNotOverwriteExistingStartupProbe(t *testing.T) {
+	namespace := "openshift-adp"
+	testScheme := getCLIDownloadTestScheme(t)
+
+	operatorDeployment := &appsv1.Deployment{
+		ObjectMeta: metav1.ObjectMeta{Name: "oadp-operator", Namespace: namespace},
+	}
+
+	customProbe := &corev1.Probe{
+		ProbeHandler: corev1.ProbeHandler{
+			HTTPGet: &corev1.HTTPGetAction{Path: "/custom", Port: intstr.FromString("http")},
+		},
+		InitialDelaySeconds: 99,
+		PeriodSeconds:       99,
+	}
+
+	existingDeployment := &appsv1.Deployment{
+		ObjectMeta: metav1.ObjectMeta{Name: cliServerDeploymentName, Namespace: namespace},
+		Spec: appsv1.DeploymentSpec{
+			Template: corev1.PodTemplateSpec{
+				Spec: corev1.PodSpec{
+					ServiceAccountName: cliServerServiceAccountName,
+					Containers: []corev1.Container{
+						{
+							Name:           "oadp-cli-server",
+							Image:          "old-image",
+							ReadinessProbe: customProbe.DeepCopy(),
+							LivenessProbe:  customProbe.DeepCopy(),
+							StartupProbe:   customProbe.DeepCopy(),
+						},
+					},
+				},
+			},
+		},
+	}
+
+	fakeClient := fake.NewClientBuilder().
+		WithScheme(testScheme).
+		WithObjects(existingDeployment, newTestCLIRoute(namespace)).
+		Build()
+
+	setup := &CLIDownloadSetup{
+		Client:            fakeClient,
+		Namespace:         namespace,
+		OperatorName:      "oadp-operator",
+		OperatorNamespace: namespace,
+		Log:               logr.Discard(),
+	}
+
+	if err := setup.reconcileCLIResources(context.Background(), operatorDeployment, "test-image"); err != nil {
+		t.Fatalf("reconcileCLIResources returned error: %v", err)
+	}
+
+	updated := &appsv1.Deployment{}
+	if err := fakeClient.Get(context.Background(), client.ObjectKey{Name: cliServerDeploymentName, Namespace: namespace}, updated); err != nil {
+		t.Fatalf("failed to get updated deployment: %v", err)
+	}
+	container := updated.Spec.Template.Spec.Containers[0]
+
+	if container.StartupProbe.InitialDelaySeconds != 99 {
+		t.Errorf("expected existing StartupProbe to be preserved, got InitialDelaySeconds=%d", container.StartupProbe.InitialDelaySeconds)
+	}
+}
