@@ -166,11 +166,21 @@ func (v *VMDPDownloadSetup) reconcileVMDPResources(ctx context.Context, operator
 		// Deployment exists from a version before probes/service account were added; backfill them.
 		desired := buildVMDPServerDeployment(v.Namespace, vmdpServerImage)
 		needsUpdate := false
-		if len(deployment.Spec.Template.Spec.Containers) > 0 &&
-			deployment.Spec.Template.Spec.Containers[0].ReadinessProbe == nil {
-			deployment.Spec.Template.Spec.Containers[0].ReadinessProbe = desired.Spec.Template.Spec.Containers[0].ReadinessProbe
-			deployment.Spec.Template.Spec.Containers[0].LivenessProbe = desired.Spec.Template.Spec.Containers[0].LivenessProbe
-			needsUpdate = true
+		if idx := findContainerIndexByName(deployment.Spec.Template.Spec.Containers, "oadp-vmdp-server"); idx != -1 {
+			desiredContainer := desired.Spec.Template.Spec.Containers[0]
+			currentContainer := &deployment.Spec.Template.Spec.Containers[idx]
+			if currentContainer.ReadinessProbe == nil && desiredContainer.ReadinessProbe != nil {
+				currentContainer.ReadinessProbe = desiredContainer.ReadinessProbe
+				needsUpdate = true
+			}
+			if currentContainer.LivenessProbe == nil && desiredContainer.LivenessProbe != nil {
+				currentContainer.LivenessProbe = desiredContainer.LivenessProbe
+				needsUpdate = true
+			}
+			if currentContainer.StartupProbe == nil && desiredContainer.StartupProbe != nil {
+				currentContainer.StartupProbe = desiredContainer.StartupProbe
+				needsUpdate = true
+			}
 		}
 		if deployment.Spec.Template.Spec.ServiceAccountName != vmdpServerServiceAccountName {
 			deployment.Spec.Template.Spec.ServiceAccountName = desired.Spec.Template.Spec.ServiceAccountName
@@ -186,7 +196,7 @@ func (v *VMDPDownloadSetup) reconcileVMDPResources(ctx context.Context, operator
 			if err := v.Client.Update(ctx, deployment); err != nil {
 				return fmt.Errorf("failed to update VMDP server deployment: %w", err)
 			}
-			v.Log.Info("Updated VMDP server deployment with readiness/liveness probes and/or service account")
+			v.Log.Info("Updated VMDP server deployment with probes and/or service account")
 		}
 	}
 
@@ -425,6 +435,17 @@ func buildVMDPServerDeployment(namespace, image string) *appsv1.Deployment {
 								},
 								InitialDelaySeconds: 15,
 								PeriodSeconds:       20,
+							},
+							StartupProbe: &corev1.Probe{
+								ProbeHandler: corev1.ProbeHandler{
+									HTTPGet: &corev1.HTTPGetAction{
+										Path: "/",
+										Port: intstr.FromString("http"),
+									},
+								},
+								InitialDelaySeconds: 5,
+								PeriodSeconds:       5,
+								FailureThreshold:    12,
 							},
 						},
 					},
