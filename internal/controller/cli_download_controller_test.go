@@ -78,14 +78,14 @@ func TestBuildCLIServerServiceAccount(t *testing.T) {
 // ignored: by that point the ServiceAccount step (step 1) has already run
 // and persisted its result, which is what these tests verify.
 func newCLITestScheme(t *testing.T) *runtime.Scheme {
-	scheme := runtime.NewScheme()
-	if err := corev1.AddToScheme(scheme); err != nil {
+	testScheme := runtime.NewScheme()
+	if err := corev1.AddToScheme(testScheme); err != nil {
 		t.Fatal(err)
 	}
-	if err := appsv1.AddToScheme(scheme); err != nil {
+	if err := appsv1.AddToScheme(testScheme); err != nil {
 		t.Fatal(err)
 	}
-	return scheme
+	return testScheme
 }
 
 func newCLITestOperatorDeployment() *appsv1.Deployment {
@@ -102,9 +102,9 @@ func newCLITestOperatorDeployment() *appsv1.Deployment {
 // ServiceAccount is created with the desired state when it doesn't exist.
 func TestReconcileCLIResources_CreatesServiceAccountWhenMissing(t *testing.T) {
 	const ns = "openshift-adp"
-	scheme := newCLITestScheme(t)
+	testScheme := newCLITestScheme(t)
 	operatorDeploy := newCLITestOperatorDeployment()
-	fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(operatorDeploy).Build()
+	fakeClient := fake.NewClientBuilder().WithScheme(testScheme).WithObjects(operatorDeploy).Build()
 
 	setup := &CLIDownloadSetup{Client: fakeClient, Namespace: ns, Log: logr.Discard()}
 	// Expect an error once reconcileCLIResources reaches the unregistered
@@ -135,7 +135,7 @@ func TestReconcileCLIResources_CreatesServiceAccountWhenMissing(t *testing.T) {
 func TestReconcileCLIResources_FixesExistingServiceAccountDrift(t *testing.T) {
 	const ns = "openshift-adp"
 	trueVal := true
-	scheme := newCLITestScheme(t)
+	testScheme := newCLITestScheme(t)
 	operatorDeploy := newCLITestOperatorDeployment()
 
 	existing := &corev1.ServiceAccount{
@@ -147,7 +147,7 @@ func TestReconcileCLIResources_FixesExistingServiceAccountDrift(t *testing.T) {
 		AutomountServiceAccountToken: &trueVal, // wrong: should be false
 	}
 
-	fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(operatorDeploy, existing).Build()
+	fakeClient := fake.NewClientBuilder().WithScheme(testScheme).WithObjects(operatorDeploy, existing).Build()
 
 	setup := &CLIDownloadSetup{Client: fakeClient, Namespace: ns, Log: logr.Discard()}
 	if err := setup.reconcileCLIResources(context.Background(), operatorDeploy, "test-image"); err != nil {
@@ -186,7 +186,7 @@ func TestReconcileCLIResources_FixesExistingServiceAccountDrift(t *testing.T) {
 func TestReconcileCLIResources_FixesMissingOwnerReferenceOnly(t *testing.T) {
 	const ns = "openshift-adp"
 	falseVal := false
-	scheme := newCLITestScheme(t)
+	testScheme := newCLITestScheme(t)
 	operatorDeploy := newCLITestOperatorDeployment()
 
 	existing := &corev1.ServiceAccount{
@@ -203,7 +203,7 @@ func TestReconcileCLIResources_FixesMissingOwnerReferenceOnly(t *testing.T) {
 		AutomountServiceAccountToken: &falseVal,
 	}
 
-	fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(operatorDeploy, existing).Build()
+	fakeClient := fake.NewClientBuilder().WithScheme(testScheme).WithObjects(operatorDeploy, existing).Build()
 
 	setup := &CLIDownloadSetup{Client: fakeClient, Namespace: ns, Log: logr.Discard()}
 	if err := setup.reconcileCLIResources(context.Background(), operatorDeploy, "test-image"); err != nil {
@@ -232,7 +232,7 @@ func TestReconcileCLIResources_FixesMissingOwnerReferenceOnly(t *testing.T) {
 // updated (no ResourceVersion bump).
 func TestReconcileCLIResources_NoopWhenServiceAccountAlreadyCorrect(t *testing.T) {
 	const ns = "openshift-adp"
-	scheme := newCLITestScheme(t)
+	testScheme := newCLITestScheme(t)
 	operatorDeploy := newCLITestOperatorDeployment()
 
 	desired := buildCLIServerServiceAccount(ns)
@@ -240,7 +240,7 @@ func TestReconcileCLIResources_NoopWhenServiceAccountAlreadyCorrect(t *testing.T
 		{UID: operatorDeploy.UID, Name: operatorDeploy.Name, Kind: "Deployment", APIVersion: "apps/v1"},
 	}
 
-	fakeClient := fake.NewClientBuilder().WithScheme(scheme).WithObjects(operatorDeploy, desired.DeepCopy()).Build()
+	fakeClient := fake.NewClientBuilder().WithScheme(testScheme).WithObjects(operatorDeploy, desired.DeepCopy()).Build()
 
 	before := &corev1.ServiceAccount{}
 	if err := fakeClient.Get(context.Background(), types.NamespacedName{Name: cliServerServiceAccountName, Namespace: ns}, before); err != nil {
