@@ -286,7 +286,7 @@ Example Configuration: **e2e_suite_test.go**
 ```go
 func init() {
 	flag.StringVar(&cloud, "cloud", "/home/user/oadp_e2e/aws_credentials", "Cloud Credentials file path location")
-	flag.StringVar(&namespace, "velero_namespace", "oadp-operator", "DPA Namespace")
+	flag.StringVar(&namespace, "velero_namespace", "openshift-adp", "DPA Namespace")
 	flag.StringVar(&settings, "settings", "./templates/default_settings.json", "Settings of the velero instance")
 	flag.StringVar(&instanceName, "velero_instance_name", "example-velero", "Velero Instance Name")
 	flag.StringVar(&clusterProfile, "cluster_profile", "aws", "Cluster profile")
@@ -296,7 +296,7 @@ func init() {
 Example settings file could be found under oadp-operator/tests/e2e/templates/default_settings.json, and can be overridden used with different providers with similar structure.
 
 
-* Note that your shell overrides documented [here](https://github.com/openshift/oadp-operator/blob/oadp-dev/docs/developer/TESTING.md) are not accessible to Visual Studio Code.
+* Note that your shell overrides documented [here](TESTING.md) are not accessible to Visual Studio Code.
 
 ### Execute
 
