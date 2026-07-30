@@ -1,5 +1,7 @@
 Data Mover (OADP 1.2 or below)
 
+> **Deprecation Notice:** The VolumeSnapshotMover (VSM) / VolSync-based data mover described in this blog was replaced by the Velero Built-in Data Mover (VBDM) in OADP 1.3. This blog is retained for historical reference only.
+
 # A Technical Overview of VolumeSnapshotMover
 
 ## Table of Contents
