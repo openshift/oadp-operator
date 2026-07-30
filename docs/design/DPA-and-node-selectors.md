@@ -65,7 +65,7 @@ spec:
 ```
 > Note:
 >
-> There is also `spec.configuration.restic.podConfig`, however it's deprecated in the OADP 1.5, so it's not included in this design.
+> There is also `spec.configuration.restic.podConfig`, however it's deprecated in OADP 1.3, so it's not included in this design.
 
 
 ## Changes to existing configuration settings

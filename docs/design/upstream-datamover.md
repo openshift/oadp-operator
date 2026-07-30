@@ -108,6 +108,8 @@ The next steps for implementation will be the OADP DPA and other CRD changes and
 The final implementation task will be updating the OADP e2e tests.
 
 ## Open Issues
+
+> **Note:** The open issues below have been resolved. VBDM shipped as GA in OADP 1.3 and has been the sole supported data mover since then.
 - Given that supporting restore of OADP 1.1/1.2 datamover backups in 1.3 is explicitly called out as *not* supported here, we need a plan around what to tell users so that they can navigate the 1.2->1.3 upgrade without having no valid backups. There are a few things to consider (some more feasible than others):
   - Inform users that if they want to have easily-restorable backups immediately upon upgrade, they should do a final backup of all of their workloads with restic prior to upgrading. Restic backups from 1.2 will continue to be fully supported in 1.3.
   - If data is needed from a prior backup after upgrade (for some reason the restic backup taken above is unusable, or was not taken in the first place), things get more difficult.

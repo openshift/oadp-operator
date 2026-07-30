@@ -133,7 +133,7 @@ It is important to disallow user from using both options `restic` and `nodeAgent
 
 ### Deprecation of the `restic` coiguration option in OADP 1.3 and it's future removal
 
-The `restic` configuration option will be deprecated in OADP 1.3. It will be removed in a future OADP release. However, restic backup functionality is still fully-supported, but restic users are encouraged to use the new `nodeAgent` configuration option instead, so that they won't be impacted on upgrade when the legacy struct is removed in a future release.
+The `restic` configuration option will be deprecated in OADP 1.3. The `uploaderType: restic` option was removed in OADP 1.6 / Velero 1.17. However, restic backup functionality is still fully-supported, but restic users are encouraged to use the new `nodeAgent` configuration option instead, so that they won't be impacted on upgrade when the legacy struct is removed in a future release.
 
 There were few alternatices considered (see [Alternatives Considered](#alternatives-considered)). We will have three places where the deprecation information will be presented to the user:
 1. Description of the `resic` property will have the deprecation warning

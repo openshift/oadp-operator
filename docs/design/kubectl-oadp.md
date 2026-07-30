@@ -11,6 +11,9 @@ The current OpenShift cli is suboptimal as oc backup delete $foo deletes the k8s
 - A non-cluster admin can create, delete and receive the logs of the Non-Admin-Backups (NAB)
 
 ## Non-Goals
+
+> **Update (OADP 1.5):** NonAdminRestore, NonAdminBackupStorageLocation, and NonAdminDownloadRequest are now fully implemented in OADP 1.5.
+
 - Non-Admin-Restore and other Non-Admin CRs due to time constraints
 
 ## Use-Case
@@ -76,4 +79,7 @@ The security for the plugin is controlled by OpenShift RBAC, enabling cluster ad
 This plugin would need to be updated so that it would be importing the right version of the velero backup and restore libraries.
 
 ## Future Work
+
+> **Update (OADP 1.5):** The items below (NonAdminRestore, NonAdminBackupStorageLocation, NonAdminDownloadRequest) are now fully implemented in OADP 1.5.
+
 Some future work that could be expanded upon would be Non-admin Restores, and other Non-admin CRs such as NonAdminBackupStorageLocation. These would allow more options for those who would like to use different non admin commands.
