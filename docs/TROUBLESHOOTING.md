@@ -36,18 +36,14 @@ If you need help, first search if there is [already an issue filed](https://issu
     oc logs -f deploy/velero -n openshift-adp
     ```
     
-1. Velero commands
-    -  Alias the velero command: 
-    ```
-    alias velero='oc -n openshift-adp exec deployment/velero -c velero -it -- ./velero'
-    ```
+1. OADP CLI commands
     - Get the backup details: 
     ```
-    velero backup describe <backupName> --details
+    oc oadp backup describe <backupName> --details
     ```
     - Get the backup logs: 
     ```
-    velero backup logs <backupName>
+    oc oadp backup logs <backupName>
     ```
 1. Restic backup debug
     - Please refer to the [restic troubleshooting tips page](restic_troubleshooting.md)
@@ -73,18 +69,14 @@ This section includes how to debug a failed restore. For more specific issues re
     oc logs -f deployment.apps/velero -n openshift-adp
     ```
     
-1. Velero commands
-    - Alias the velero command: 
-    ```
-    alias velero='oc -n openshift-adp exec deployment/velero -c velero -it -- ./velero'
-    ```
+1. OADP CLI commands
     - Get the restore details: 
     ```
-    velero restore describe <restoreName> --details
+    oc oadp restore describe <restoreName> --details
     ```
     - Get the backup logs: 
     ```
-    velero backup logs <restoreName>
+    oc oadp backup logs <restoreName>
     ```
  
 ## Deleting Backups
@@ -106,14 +98,14 @@ To delete an OADP backup, the related objects and off cluster artifacts.
       backupName: <backupName>
     ```
 
-  1. Velero commands:
+  1. OADP CLI commands:
       ```
-      velero backup delete --help
+      oc oadp backup delete --help
       ```
 
       Delete the backup:  
       ```
-      velero backup delete <backupName>
+      oc oadp backup delete <backupName>
       ```
 
 The related artifacts will be deleted at different times depending on the backup method:
@@ -194,20 +186,20 @@ oc delete backuprepository <backupRepositoryName> -n openshift-adp
 
   - For further details on your backup, run the command:
   ```
-  velero backup describe <backup-name> --details  # --details is optional
+  oc oadp backup describe <backup-name> --details  # --details is optional
   ```
   - For more details on your restore, run:
   ```
-  velero restore describe <backup-name> --details  # --details is optional
+  oc oadp restore describe <backup-name> --details  # --details is optional
   ```
 
   - You can delete the backup with the command: 
   ```
-  velero backup delete <backupName>
+  oc oadp backup delete <backupName>
   ```
   - You can delete the restore with the command: 
   ```
-  velero delete restore <restoreName> 
+  oc oadp restore delete <restoreName> 
   ```
 
 
@@ -262,7 +254,7 @@ oc delete backuprepository <backupRepositoryName> -n openshift-adp
 
   - Running the command:
   ```
-  velero backup describe <backup-name> --details 
+  oc oadp backup describe <backup-name> --details 
   ```
   results in:
   ```
