@@ -18,7 +18,7 @@ If you need help, first search if there is [already an issue filed](https://issu
     - [Errors in the Velero Pod](#errors-in-the-velero-pod)
     - [Errors in Backup Logs](#errors-in-backup-logs)
     - [Backup/Restore is Stuck In Progress](#backuprestore-is-stuck-in-progress)
-    - [Restic - NFS Volumes and rootSquash](#restic---nfs-volumes-and-rootsquash)
+    - [Restic - NFS Volumes and rootSquash](#restic---nfs-volumes-and-rootsquash) *(Note: restic uploader is deprecated; use kopia instead. See [kopia troubleshooting](kopia_troubleshooting.md).)*
     - [Issue with Backup/Restore of DeploymentConfig using Restic](#issue-with-backuprestore-of-deploymentconfig-using-restic)
     - [New Restic Backup Partially Failing After Clearing Bucket](#new-restic-backup-partially-failing-after-clearing-bucket)
     - [Restic Restore Partially Failing on OCP 4.14 Due to Changed PSA Policy](#restic-restore-partially-failing-on-ocp-414-due-to-changed-psa-policy)

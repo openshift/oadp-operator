@@ -44,5 +44,3 @@ Follow theses [basic install verification](../docs/install_olm.md#verify-install
 ## Changes from OADP 1.4.0 to 1.4.1
 
 - If you want to change client Burst and QPS values, use new `spec.configuration.velero.client-burst` and `spec.configuration.velero.client-qps` fields.
-
-- TODO image pull policy override and default behavior
