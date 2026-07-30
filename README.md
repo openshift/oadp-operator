@@ -91,8 +91,7 @@ Documentation in this repository are considered unofficial and for development p
 7. Contribute
     1. [Install & Build from Source](docs/developer/install_from_source.md)
     2. [OLM Integration](docs/developer/olm_hacking.md)
-    3. [Test Operator Changes](docs/developer/local_dev.md)
-    4. [E2E Test Suite](docs/developer/TESTING.md)
+    3. [E2E Test Suite](docs/developer/testing/TESTING.md)
 8. [Velero Version Relationship](#version)
 
 
