@@ -1,5 +1,7 @@
 # Create a project and user with non-admin access that can execute an OADP backup
 
+> **Note:** OADP 1.5+ includes native NonAdmin backup/restore support (NonAdminBackup, NonAdminRestore CRDs). The Tekton-based approach described here is still valid but native NonAdmin may be simpler for many use cases.
+
 ## Background
 Traditionally Red Hat OpenShift API for Data Protection ( OADP ) has been utilized by OpenShift administrators to provide data protection for the tenants in the clusters they manage.  In this model the OpenShift administrators are responsible for the execution of the backups of their tenant's data.  The top down approach may be appropriate for some administrators, however others may want to delegate backup and restore execution to their tenants and application owners. 
 

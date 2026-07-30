@@ -1,4 +1,6 @@
 # Guide: Backup and Restore Stateful Applications on OpenShift using OADP and ODF
+
+> **Note:** This blog was written for OCP 4.9 / ODF 4.9 / OADP 1.0 with Velero v1.8, which are all end-of-life. The general concepts still apply, but CLI commands, API versions, and operator versions may differ significantly in current releases.
 <!--
 We want to publish a blog that contains a guided example of backing up and restoring a CSI-based workload. This should contain:
 
