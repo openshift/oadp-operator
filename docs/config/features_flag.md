@@ -16,5 +16,7 @@ Some of the usage instances of the `--features` flag are as follows:
 ```
 defaultPlugins:
 - csi
-veleroFeatureFlags: EnableCSI
+featureFlags: EnableCSI
 ```
+
+> **Note:** Starting with OADP 1.4, the CSI plugin is built into Velero core and `EnableCSI` is enabled automatically. You no longer need to add `csi` to `defaultPlugins` or `EnableCSI` to `featureFlags` for CSI snapshot support.

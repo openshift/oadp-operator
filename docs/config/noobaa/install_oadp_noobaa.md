@@ -103,7 +103,7 @@ CRDs get deployed on the cluster, and wait untill the OCS operator pods are in
 running state.
 4. Make sure the Velero CR file specifically has the following:
    - `configuration.nodeAgent.enable: true`
-   - `configuration.nodeAgent.uploaderType` is set to `restic` or `kopia`
+   - `configuration.nodeAgent.uploaderType` is set to `kopia`
    - `defaultPlugins` list should only consist of `aws` plugin
    - No data pertaining to Volume Snapshot Locations and Backup Storage Locations.
  
@@ -122,7 +122,7 @@ spec:
       - aws
     nodeAgent:
       enable: true
-      uploaderType: restic
+      uploaderType: kopia
   ```
   
 5. Now for deployment of Velero use the following:
