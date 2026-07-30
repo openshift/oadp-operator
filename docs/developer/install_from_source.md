@@ -33,7 +33,7 @@ After testing, uninstall CRDs and undeploy the OADP operator from `openshift-adp
 $ make undeploy-olm
 ```
 
-### Installing Velero + Restic
+### Installing Velero + Node Agent
 
 #### Creating credentials secret
 Before creating a DataProtectionApplication (DPA) CR, ensure you have created a secret
@@ -56,7 +56,7 @@ $ oc create secret generic cloud-credentials --namespace openshift-adp --from-fi
 ```
 
 #### Creating a DataProtectionApplication custom resource to install Velero
-You can specify your DataProtectionApplication (DPA) CR config values here: `congig/samples/oadp_v1alpha1_dpa.yaml`
+You can specify your DataProtectionApplication (DPA) CR config values here: `config/samples/oadp_v1alpha1_dpa.yaml`
 
 Create the DPA CR:
 
