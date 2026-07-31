@@ -65,6 +65,26 @@ var DefaultRestoreResourcePriorities = types.Priorities{
 	},
 }
 
+// CI image substitution: each image constant below has a corresponding
+// RELATED_IMAGE_* env var in config/manager/manager.yaml. For CI e2e tests to
+// use freshly promoted images (instead of waiting for the quay.io mirror to
+// sync), every image also needs a matching entry in the ci-operator config
+// files inside the openshift/release repository:
+//
+//  1. Add a "base_images" entry that imports the plugin image from the
+//     plugin repo's CI ImageStream (typically in the "konveyor" namespace).
+//     The tag in base_images MUST exactly match the "to:" field defined in
+//     the plugin repo's own ci-operator config in openshift/release.
+//
+//  2. Add an "operator.substitutions" entry that replaces the quay.io
+//     pullspec (used here as the default) with the CI base_images tag.
+//
+// Both entries must be added to EVERY variant config file under:
+//   ci-operator/config/openshift/oadp-operator/
+// (e.g. openshift-oadp-operator-oadp-1.6__4.22.yaml, …__4.23.yaml, etc.)
+//
+// See docs/ci-plugin-image-sync.md for the full step-by-step procedure.
+
 // Images
 const (
 	VeleroImage                  = "quay.io/konveyor/velero:oadp-1.6"
