@@ -65,6 +65,28 @@ var DefaultRestoreResourcePriorities = types.Priorities{
 	},
 }
 
+// CI Plugin Image Synchronization
+//
+// Each image constant below corresponds to a RELATED_IMAGE_* environment variable
+// in config/manager/manager.yaml. In production, OLM injects these from the CSV;
+// during CI e2e tests, ci-operator substitutes them with freshly-built CI images
+// so that tests always run against the latest plugin code.
+//
+// To keep CI substitutions in sync, every image here must have a matching pair of
+// entries in the openshift/release ci-operator config for each OADP release branch:
+//
+//   1. A base_images entry that imports the image from the CI registry
+//      (namespace: konveyor, name: <plugin>, tag: <branch or latest>).
+//
+//   2. An operator.substitutions entry that replaces the quay.io pullspec
+//      in the CSV with the CI image reference.
+//
+// When adding, removing, or renaming a plugin image constant:
+//   - Update the corresponding RELATED_IMAGE_* env var in config/manager/manager.yaml
+//   - Update the base_images + operator.substitutions in openshift/release
+//     ci-operator/config/openshift/oadp-operator/ for every affected branch config
+//   - See https://github.com/openshift/oadp-operator/issues/2343 for background
+
 // Images
 const (
 	VeleroImage                  = "quay.io/konveyor/velero:latest"
