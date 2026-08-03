@@ -314,14 +314,14 @@ EOF
 oc wait --for=condition=available deployment/hello-openshift -n test-backup-gcp --timeout=60s
 
 # Create backup
-velero backup create wif-test --include-namespaces=test-backup-gcp
+oc oadp backup create wif-test --include-namespaces=test-backup-gcp
 ----
 
 . Monitor the backup status:
 +
 [source,bash]
 ----
-velero backup describe wif-test --details
+oc oadp backup describe wif-test --details
 
 # Verify backup files in GCS bucket
 gsutil ls -r gs://${BUCKET_NAME}/velero/backups/

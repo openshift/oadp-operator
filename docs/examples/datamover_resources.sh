@@ -50,7 +50,7 @@ fi
 
 function backup_summary () {
     echo -e "Get Backups:\n"
-    oc -n openshift-adp exec deployment/velero -c velero -it -- ./velero get backup ;
+    oc oadp backup get ;
     echo -e "\nTotal Snapshots: " `oc get volumesnapshot -A | sed 1d | wc -l` ; 
     echo "Total OADP Snapshots: " `oc get volumesnapshot -n openshift-adp | sed 1d | wc -l` ;
     echo "Total SnapshotContents: " `oc get volumesnapshotcontents -A | sed 1d | wc -l` ; 
@@ -67,7 +67,7 @@ function backup_summary () {
 
 function restore_summary () {
     echo -e "Get Restores:\n"
-    oc -n openshift-adp exec deployment/velero -c velero -it -- ./velero get restore ;
+    oc oadp restore get ;
     echo -e "\nTotal VSR: " `oc get vsr -A 2>/dev/null | sed 1d | wc -l` ;
     echo "Completed: " `oc get vsr -A 2>/dev/null | grep -c Completed` ;
     echo "InProgress: " `oc get vsr -A 2>/dev/null | grep -c InProgress` ;

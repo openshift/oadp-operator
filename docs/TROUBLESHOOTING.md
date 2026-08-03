@@ -74,9 +74,9 @@ This section includes how to debug a failed restore. For more specific issues re
     ```
     oc oadp restore describe <restoreName> --details
     ```
-    - Get the backup logs: 
+    - Get the restore logs: 
     ```
-    oc oadp backup logs <restoreName>
+    oc oadp restore logs <restoreName>
     ```
  
 ## Deleting Backups

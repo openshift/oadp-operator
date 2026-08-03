@@ -1040,7 +1040,7 @@ oc get deployment velero -n openshift-adp -o yaml | grep AWS_CA_BUNDLE
 oc exec -n openshift-adp deployment/velero -- cat /etc/velero/ca-certs/ca-bundle.pem
 
 # Test imagestream backup
-velero backup create test-imagestream-backup --include-resources imagestreams
+oc oadp backup create test-imagestream-backup --include-resources imagestreams
 ```
 
 ### Common Issues
@@ -1119,7 +1119,7 @@ oc get backupstoragelocation -n openshift-adp default -o jsonpath='{.spec.provid
 **Prevention**:
 
 1. Plan `backupImages` changes during maintenance windows
-2. Verify no backups running: `velero backup get --output json | jq '.items[] | select(.status.phase=="InProgress")'`
+2. Verify no backups running: `oc oadp backup get --output json | jq '.items[] | select(.status.phase=="InProgress")'`
 3. Set `backupImages` correctly in initial DPA configuration
 
 **Note**: If you need to trigger discovery of Non-DPA BSL changes, use safe trigger mechanisms instead of toggling `backupImages`. See [Triggering Discovery of Non-DPA BSL Changes](#triggering-discovery-of-non-dpa-bsl-changes) for DPA annotation method that updates ConfigMap without restarting pod.

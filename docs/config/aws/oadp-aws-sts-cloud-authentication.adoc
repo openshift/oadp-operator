@@ -475,14 +475,14 @@ EOF
 oc wait --for=condition=available deployment/nginx-test -n test-backup-aws --timeout=60s
 
 # Create backup
-velero backup create aws-sts-test --include-namespaces=test-backup-aws
+oc oadp backup create aws-sts-test --include-namespaces=test-backup-aws
 ----
 
 . Monitor the backup status:
 +
 [source,bash]
 ----
-velero backup describe aws-sts-test --details
+oc oadp backup describe aws-sts-test --details
 
 # Verify backup files in S3 bucket
 aws s3 ls s3://${VELERO_BUCKET_NAME}/velero/backups/ --recursive
