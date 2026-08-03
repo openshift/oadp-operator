@@ -106,7 +106,7 @@ Follow theses [basic install verification](../docs/install_olm.md#verify-install
 For example:
 
 ```
-velero backup create example-backup --include-namespaces mysql-persistent --snapshot-move-data=true
+oc oadp backup create example-backup --include-namespaces mysql-persistent --snapshot-move-data=true
 ```
 or
 ```yaml

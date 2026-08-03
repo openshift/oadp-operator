@@ -425,14 +425,14 @@ EOF
 oc wait --for=condition=available deployment/nginx-test -n test-backup-azure --timeout=60s
 
 # Create backup
-velero backup create azure-workload-id-test --include-namespaces=test-backup-azure
+oc oadp backup create azure-workload-id-test --include-namespaces=test-backup-azure
 ----
 
 . Monitor the backup status:
 +
 [source,bash]
 ----
-velero backup describe azure-workload-id-test --details
+oc oadp backup describe azure-workload-id-test --details
 
 # Verify backup files in Azure Storage
 az storage blob list --container-name ${CONTAINER_NAME} --account-name ${STORAGE_ACCOUNT_NAME} --auth-mode login --prefix velero/backups/
