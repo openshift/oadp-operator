@@ -85,7 +85,7 @@ require (
 	github.com/felixge/httpsnoop v1.0.4 // indirect
 	github.com/frankban/quicktest v1.14.3 // indirect
 	github.com/fsnotify/fsnotify v1.7.0 // indirect
-	github.com/go-jose/go-jose/v4 v4.1.3 // indirect
+	github.com/go-jose/go-jose/v4 v4.1.4 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
 	github.com/go-logr/zapr v1.3.0 // indirect
 	github.com/go-ole/go-ole v1.3.0 // indirect
@@ -194,7 +194,7 @@ require (
 	sigs.k8s.io/yaml v1.4.0 // indirect
 )
 
-replace github.com/vmware-tanzu/velero => github.com/openshift/velero v0.10.2-0.20260729163737-c291ff770dcf
+replace github.com/vmware-tanzu/velero => github.com/openshift/velero v0.10.2-0.20260731161550-787b83d5efeb
 
 replace github.com/kopia/kopia => github.com/migtools/kopia v0.0.0-20260715152616-8c9b4fe2502c
 
