@@ -8,6 +8,7 @@ import (
 	"time"
 
 	velero "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
+	velerov2alpha1 "github.com/vmware-tanzu/velero/pkg/apis/velero/v2alpha1"
 	pkgbackup "github.com/vmware-tanzu/velero/pkg/backup"
 	"github.com/vmware-tanzu/velero/pkg/cmd/util/downloadrequest"
 	"github.com/vmware-tanzu/velero/pkg/cmd/util/output"
@@ -130,6 +131,32 @@ func CreateBackupWithVolumePolicy(ocClient client.Client, veleroNamespace, backu
 		},
 	}
 	return ocClient.Create(context.Background(), &backup)
+}
+
+const (
+	// annotationDataUploadName and annotationExpectedBackupType mirror constants from
+	// migtools/kubevirt-datamover-controller pkg/common/constants.go (AnnotationDataUploadName,
+	// AnnotationExpectedBackupType). Not imported directly — that module isn't otherwise a
+	// dependency of oadp-operator, and pulling it in just for two string constants isn't
+	// worth the cross-repo coupling.
+	annotationDataUploadName     = "velero.io/dataupload-name"
+	annotationExpectedBackupType = "kubevirt-datamover.io/expected-backup-type"
+)
+
+// GetDataUploadForBackup returns the name and expected-backup-type annotation
+// ("full"/"incremental") of the single DataUpload created for a kubevirt-datamover backup.
+// Assumes exactly one DataUpload per backup (true for a single-disk VM).
+func GetDataUploadForBackup(ocClient client.Client, veleroNamespace, backupName string) (dataUploadName, expectedType string, err error) {
+	list := velerov2alpha1.DataUploadList{}
+	err = ocClient.List(context.Background(), &list, client.InNamespace(veleroNamespace), client.MatchingLabels{velero.BackupNameLabel: backupName})
+	if err != nil {
+		return "", "", fmt.Errorf("failed to list DataUploads for backup %s: %w", backupName, err)
+	}
+	if len(list.Items) != 1 {
+		return "", "", fmt.Errorf("expected exactly 1 DataUpload for backup %s in %s, found %d", backupName, veleroNamespace, len(list.Items))
+	}
+	du := list.Items[0]
+	return du.Name, du.Annotations[annotationExpectedBackupType], nil
 }
 
 func GetBackup(c client.Client, namespace string, name string) (*velero.Backup, error) {

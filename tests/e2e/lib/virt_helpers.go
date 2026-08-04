@@ -20,6 +20,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -104,6 +105,16 @@ var virtualMachineInstanceGvr = schema.GroupVersionResource{
 var virtualMachineBackupTrackerGvr = schema.GroupVersionResource{
 	Group:    "backup.kubevirt.io",
 	Resource: "virtualmachinebackuptrackers",
+	Version:  "v1alpha1",
+}
+
+// virtualMachineBackupGvr is the per-backup VirtualMachineBackup (VMB) resource — distinct
+// from VirtualMachineBackupTracker (VMBT, tracked via virtualMachineBackupTrackerGvr above),
+// which persists checkpoint state across backups. VMB.Status.Type reports "full" or
+// "incremental" for a single completed backup.
+var virtualMachineBackupGvr = schema.GroupVersionResource{
+	Group:    "backup.kubevirt.io",
+	Resource: "virtualmachinebackups",
 	Version:  "v1alpha1",
 }
 
@@ -1358,4 +1369,97 @@ func (v *VirtOperator) CheckVMBackupTrackerExists(namespace string) (bool, error
 		return false, fmt.Errorf("failed to list VirtualMachineBackupTrackers in %s: %w", namespace, err)
 	}
 	return len(list.Items) > 0, nil
+}
+
+// GetVMBBackupType finds the VirtualMachineBackup in namespace whose
+// annotationDataUploadName annotation matches dataUploadName, and returns its
+// status.type ("full"/"incremental") and status.checkpointName.
+func (v *VirtOperator) GetVMBBackupType(namespace, dataUploadName string) (backupType, checkpointName string, err error) {
+	list, err := v.Dynamic.Resource(virtualMachineBackupGvr).Namespace(namespace).List(context.Background(), metav1.ListOptions{})
+	if err != nil {
+		return "", "", fmt.Errorf("failed to list VirtualMachineBackups in %s: %w", namespace, err)
+	}
+	for _, vmb := range list.Items {
+		if vmb.GetAnnotations()[annotationDataUploadName] != dataUploadName {
+			continue
+		}
+		backupType, _, err = unstructured.NestedString(vmb.Object, "status", "type")
+		if err != nil {
+			return "", "", fmt.Errorf("failed to read status.type from VirtualMachineBackup %s/%s: %w", namespace, vmb.GetName(), err)
+		}
+		checkpointName, _, err = unstructured.NestedString(vmb.Object, "status", "checkpointName")
+		if err != nil {
+			return "", "", fmt.Errorf("failed to read status.checkpointName from VirtualMachineBackup %s/%s: %w", namespace, vmb.GetName(), err)
+		}
+		return backupType, checkpointName, nil
+	}
+	return "", "", fmt.Errorf("no VirtualMachineBackup found in %s with %s=%s", namespace, annotationDataUploadName, dataUploadName)
+}
+
+// GetVirtLauncherPod finds the virt-launcher pod for vmName in namespace, by listing pods
+// labeled kubevirt.io=virt-launcher and matching the kubevirt.io/domain annotation (which
+// KubeVirt sets to the VMI name) — mirrors the pattern used by kubevirt-velero-plugin's
+// GetLauncherPod (pkg/util/util.go).
+func (v *VirtOperator) GetVirtLauncherPod(namespace, vmName string) (*corev1.Pod, error) {
+	pods, err := GetAllPodsWithLabel(v.Clientset, namespace, "kubevirt.io=virt-launcher")
+	if err != nil {
+		return nil, fmt.Errorf("failed to list virt-launcher pods in %s: %w", namespace, err)
+	}
+	for i := range pods.Items {
+		if pods.Items[i].Annotations["kubevirt.io/domain"] == vmName {
+			return &pods.Items[i], nil
+		}
+	}
+	return nil, fmt.Errorf("no virt-launcher pod found for VM %s/%s", namespace, vmName)
+}
+
+// RunVirshCommand execs `virsh <args...>` inside vmName's virt-launcher pod's compute
+// container via ExecuteCommandInPodsSh. kubeConfig is the suite's *rest.Config (VirtOperator
+// itself only carries a *kubernetes.Clientset, not a rest.Config, so it's passed in here).
+func (v *VirtOperator) RunVirshCommand(kubeConfig *rest.Config, namespace, vmName string, args ...string) (string, error) {
+	pod, err := v.GetVirtLauncherPod(namespace, vmName)
+	if err != nil {
+		return "", err
+	}
+	stdout, stderr, err := ExecuteCommandInPodsSh(ProxyPodParameters{
+		KubeClient:    v.Clientset,
+		KubeConfig:    kubeConfig,
+		Namespace:     namespace,
+		PodName:       pod.Name,
+		ContainerName: "compute",
+	}, "virsh "+strings.Join(args, " "))
+	if err != nil {
+		return "", fmt.Errorf("virsh command failed (stderr: %s): %w", stderr, err)
+	}
+	return stdout, nil
+}
+
+// SetVMAnnotation sets a single annotation on a VirtualMachine CR, retrying on update
+// conflicts. Used e.g. to set the per-VM "kubevirt-datamover.io/max-incremental-backups"
+// override, which takes precedence over the global DPA-level setting — scoped to one VM and
+// takes effect immediately (no controller rollout to wait for), unlike patching the DPA.
+func (v *VirtOperator) SetVMAnnotation(namespace, vmName, key, value string) error {
+	return wait.PollUntilContextTimeout(context.Background(), 2*time.Second, 30*time.Second, true, func(ctx context.Context) (bool, error) {
+		vm, err := v.Dynamic.Resource(virtualMachineGvr).Namespace(namespace).Get(ctx, vmName, metav1.GetOptions{})
+		if err != nil {
+			return false, fmt.Errorf("failed to get VM %s/%s: %w", namespace, vmName, err)
+		}
+		annotations, _, _ := unstructured.NestedMap(vm.UnstructuredContent(), "metadata", "annotations")
+		if annotations == nil {
+			annotations = make(map[string]interface{})
+		}
+		annotations[key] = value
+		if err := unstructured.SetNestedMap(vm.UnstructuredContent(), annotations, "metadata", "annotations"); err != nil {
+			return false, fmt.Errorf("failed to set annotation %s on VM %s/%s: %w", key, namespace, vmName, err)
+		}
+		_, err = v.Dynamic.Resource(virtualMachineGvr).Namespace(namespace).Update(ctx, vm, metav1.UpdateOptions{})
+		if err != nil {
+			if apierrors.IsConflict(err) {
+				log.Printf("VM %s/%s annotation update conflict, retrying...", namespace, vmName)
+				return false, nil
+			}
+			return false, err
+		}
+		return true, nil
+	})
 }

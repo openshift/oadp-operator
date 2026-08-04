@@ -336,6 +336,13 @@ var _ = ginkgo.Describe("VM backup and restore tests", ginkgo.Ordered, func() {
 		dpaCR.VeleroDefaultPlugins = append(dpaCR.VeleroDefaultPlugins, v1alpha1.DefaultPluginKubeVirt)
 		dpaCR.VeleroDefaultPlugins = append(dpaCR.VeleroDefaultPlugins, v1alpha1.DefaultPluginKubeVirtDataMover)
 
+		// TODO: remove once migtools/kubevirt-datamover-plugin#41 merges and the default
+		// plugin image includes its fix — this pins to that PR's build in the meantime.
+		if dpaCR.UnsupportedOverrides == nil {
+			dpaCR.UnsupportedOverrides = map[v1alpha1.UnsupportedImageKey]string{}
+		}
+		dpaCR.UnsupportedOverrides[v1alpha1.KubeVirtDatamoverPluginImageKey] = "quay.io/tkaovila/kubevirt-datamover-plugin:pr-41"
+
 		err = lib.DeleteBackupRepositories(runTimeClientForSuiteRun, namespace)
 		gomega.Expect(err).To(gomega.BeNil())
 		err = lib.InstallApplication(v.Client, "./sample-applications/virtual-machines/cirros-test/cirros-rbac.yaml")
@@ -563,4 +570,123 @@ var _ = ginkgo.Describe("VM backup and restore tests", ginkgo.Ordered, func() {
 		// 	},
 		// }, nil),
 	)
+
+	// Automates scenarios 1-3 from https://github.com/openshift/oadp-operator/issues/2252
+	// (a manual test writeup of kubevirt-datamover incremental-backup-sequence behavior).
+	// Reuses the outer BeforeAll's HCO/CBT-feature-gate/storage-class setup and the shared
+	// VirtOperator v.
+	//
+	// Scenario 4 (delete libvirt checkpoints with maxIncrementalBackups=0) hits an unfixed
+	// upstream bug (CNV-85377: virt-controller never falls back to full, VMB hangs
+	// Initializing forever) — scaffolded below as a real, compiling ginkgo.PIt rather than
+	// deleted or left as a comment, ready to flip to ginkgo.It once that bug is fixed.
+	ginkgo.Describe("Kubevirt datamover incremental backup sequence", ginkgo.Ordered, func() {
+		const (
+			incSeqNamespace = "cirros-test"
+			incSeqVMName    = "cirros-test"
+			incSeqTemplate  = "./sample-applications/virtual-machines/cirros-test/cirros-test-cbt.yaml"
+		)
+
+		var backupCount int
+
+		runSequenceBackup := func(expectedType string) {
+			backupCount++
+			backupName := fmt.Sprintf("cirros-incr-seq-%d", backupCount)
+
+			err := lib.EnsureKubevirtVolumePolicy(dpaCR.Client, namespace)
+			gomega.Expect(err).ToNot(gomega.HaveOccurred())
+			err = lib.CreateBackupWithVolumePolicy(dpaCR.Client, namespace, backupName, []string{incSeqNamespace}, true)
+			gomega.Expect(err).ToNot(gomega.HaveOccurred())
+
+			gomega.Eventually(lib.IsKubevirtDMBackupDone(dpaCR.Client, dynamicClientForSuiteRun, namespace, backupName), 20*time.Minute, time.Second*10).Should(gomega.BeTrue())
+			succeeded, err := lib.IsBackupCompletedSuccessfully(kubernetesClientForSuiteRun, dpaCR.Client, namespace, backupName)
+			gomega.Expect(err).ToNot(gomega.HaveOccurred())
+			gomega.Expect(succeeded).To(gomega.BeTrue())
+
+			dataUploadName, expectedBackupType, err := lib.GetDataUploadForBackup(dpaCR.Client, namespace, backupName)
+			gomega.Expect(err).ToNot(gomega.HaveOccurred())
+			gomega.Expect(expectedBackupType).To(gomega.Equal(expectedType), "controller's expected-backup-type annotation on DataUpload")
+
+			actualBackupType, _, err := v.GetVMBBackupType(incSeqNamespace, dataUploadName)
+			gomega.Expect(err).ToNot(gomega.HaveOccurred())
+			gomega.Expect(actualBackupType).To(gomega.Equal(expectedType), "actual VirtualMachineBackup.Status.Type")
+			gomega.Expect(actualBackupType).To(gomega.Equal(expectedBackupType), "expected vs. actual backup type must not mismatch")
+		}
+
+		var _ = ginkgo.BeforeAll(func() {
+			_ = v.RemoveVm(incSeqNamespace, incSeqVMName, 2*time.Minute)
+			err := lib.DeleteNamespace(v.Clientset, incSeqNamespace)
+			gomega.Expect(err).To(gomega.BeNil())
+			gomega.Eventually(lib.IsNamespaceDeleted(kubernetesClientForSuiteRun, incSeqNamespace), time.Minute*2, time.Second*5).Should(gomega.BeTrue())
+
+			err = lib.CreateNamespace(v.Clientset, incSeqNamespace)
+			gomega.Expect(err).To(gomega.BeNil())
+			err = lib.InstallApplication(v.Client, incSeqTemplate)
+			gomega.Expect(err).To(gomega.BeNil())
+
+			log.Printf("Waiting for VM %s/%s to reach Running status", incSeqNamespace, incSeqVMName)
+			err = wait.PollUntilContextTimeout(context.Background(), 10*time.Second, 15*time.Minute, true, func(ctx context.Context) (bool, error) {
+				status, statusErr := v.GetVmStatus(incSeqNamespace, incSeqVMName)
+				if statusErr != nil {
+					return false, nil
+				}
+				return status == "Running", nil
+			})
+			gomega.Expect(err).ToNot(gomega.HaveOccurred())
+			err = v.WaitForVMReady(incSeqNamespace, incSeqVMName, 5*time.Minute)
+			gomega.Expect(err).ToNot(gomega.HaveOccurred())
+		})
+
+		var _ = ginkgo.AfterAll(func() {
+			err := v.RemoveVm(incSeqNamespace, incSeqVMName, 5*time.Minute)
+			gomega.Expect(err).To(gomega.BeNil())
+			err = lib.DeleteNamespace(v.Clientset, incSeqNamespace)
+			gomega.Expect(err).To(gomega.BeNil())
+		})
+
+		ginkgo.It("full backup then incremental, with no expected/actual type mismatch", ginkgo.Label("virt"), func() {
+			runSequenceBackup("full")
+			runSequenceBackup("incremental")
+		})
+
+		ginkgo.It("VM restart does not invalidate the checkpoint chain", ginkgo.Label("virt"), func() {
+			err := v.RestartVmAndWaitRunning(incSeqNamespace, incSeqVMName, 10*time.Minute)
+			gomega.Expect(err).ToNot(gomega.HaveOccurred())
+			runSequenceBackup("incremental")
+		})
+
+		ginkgo.It("hitting maxIncrementalBackups forces a full backup", ginkgo.Label("virt"), func() {
+			// Per-VM annotation override (takes effect immediately, unlike patching the
+			// DPA-level setting which requires waiting for a controller rollout).
+			err := v.SetVMAnnotation(incSeqNamespace, incSeqVMName, "kubevirt-datamover.io/max-incremental-backups", "2")
+			gomega.Expect(err).ToNot(gomega.HaveOccurred())
+			// backupCount is 3 (1 full + 2 incremental) after the two previous Its, so
+			// incrementalCount(2) >= maxIncrementalBackups(2) forces this backup full.
+			runSequenceBackup("full")
+		})
+
+		ginkgo.PIt("backup after deleting libvirt checkpoints with maxIncrementalBackups=0 hangs forever — blocked by CNV-85377", ginkgo.Label("virt"), func() {
+			// See https://redhat.atlassian.net/browse/CNV-85377 and
+			// https://github.com/openshift/oadp-operator/issues/2252 (Test 4): once a
+			// libvirt checkpoint is deleted from the virt-launcher pod, virt-controller
+			// repeatedly fails with "Domain checkpoint not found" and never falls back to
+			// a full backup — the VMB stays Initializing forever, so this can't pass today.
+			err := v.SetVMAnnotation(incSeqNamespace, incSeqVMName, "kubevirt-datamover.io/max-incremental-backups", "0")
+			gomega.Expect(err).ToNot(gomega.HaveOccurred())
+
+			out, err := v.RunVirshCommand(kubeConfig, incSeqNamespace, incSeqVMName, "checkpoint-list", "--domain", incSeqVMName)
+			gomega.Expect(err).ToNot(gomega.HaveOccurred())
+			log.Printf("libvirt checkpoints before deletion: %s", out)
+
+			// TODO: parse real `virsh checkpoint-list` table output once run against a live
+			// cluster — this naive split is a placeholder for pending, non-running code.
+			for _, checkpoint := range strings.Fields(out) {
+				_, err := v.RunVirshCommand(kubeConfig, incSeqNamespace, incSeqVMName, "checkpoint-delete", checkpoint)
+				gomega.Expect(err).ToNot(gomega.HaveOccurred())
+			}
+
+			// Known to hang — documents the bug's current behavior, not the desired one.
+			runSequenceBackup("full")
+		})
+	})
 })
