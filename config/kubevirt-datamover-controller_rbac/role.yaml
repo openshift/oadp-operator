@@ -97,6 +97,7 @@ rules:
 - apiGroups:
   - velero.io
   resources:
+  - datadownloads
   - datauploads
   verbs:
   - get
@@ -107,6 +108,7 @@ rules:
 - apiGroups:
   - velero.io
   resources:
+  - datadownloads/status
   - datauploads/status
   verbs:
   - get
