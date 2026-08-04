@@ -11,6 +11,8 @@ import (
 
 	"github.com/onsi/ginkgo/v2"
 	"github.com/onsi/gomega"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -69,6 +71,29 @@ func vmPoweredOff(vmnamespace, vmname string) VerificationFunction {
 			return status == "Stopped"
 		}
 		gomega.Eventually(isOff, time.Minute*10, time.Second*10).Should(gomega.BeTrue())
+		return nil
+	})
+}
+
+// vmPvcsBound verifies that each named PVC exists and is Bound in the given
+// namespace. Used to confirm all disks of a multi-PVC VM came back after restore.
+func vmPvcsBound(pvcNamespace string, pvcNames ...string) VerificationFunction {
+	return VerificationFunction(func(ocClient client.Client, namespace string) error {
+		allBound := func() bool {
+			for _, name := range pvcNames {
+				pvc, err := kubernetesClientForSuiteRun.CoreV1().PersistentVolumeClaims(pvcNamespace).Get(context.Background(), name, metav1.GetOptions{})
+				if err != nil {
+					log.Printf("Error getting PVC %s/%s: %v", pvcNamespace, name, err)
+					return false
+				}
+				if pvc.Status.Phase != corev1.ClaimBound {
+					log.Printf("PVC %s/%s is %s, not yet Bound", pvcNamespace, name, pvc.Status.Phase)
+					return false
+				}
+			}
+			return true
+		}
+		gomega.Eventually(allBound, time.Minute*10, time.Second*10).Should(gomega.BeTrue())
 		return nil
 	})
 }
@@ -483,6 +508,19 @@ var _ = ginkgo.Describe("VM backup and restore tests", ginkgo.Ordered, func() {
 				BackupRestoreType: lib.CSI,
 				BackupTimeout:     20 * time.Minute,
 				PreBackupVerify:   vmPoweredOff("cirros-test", "cirros-test"),
+			},
+		}, nil),
+
+		ginkgo.Entry("no-application CSI datamover backup and restore, multi-PVC CirrOS VM", ginkgo.Label("virt"), VmBackupRestoreCase{
+			Template:  "./sample-applications/virtual-machines/cirros-test/cirros-test-multipvc.yaml",
+			InitDelay: 2 * time.Minute, // Just long enough to get to login prompt, VM is marked running while kernel messages are still scrolling by
+			BackupRestoreCase: BackupRestoreCase{
+				Namespace:         "cirros-multipvc-test",
+				Name:              "cirros-multipvc-test",
+				SkipVerifyLogs:    true,
+				BackupRestoreType: lib.CSIDataMover,
+				BackupTimeout:     20 * time.Minute,
+				PostRestoreVerify: vmPvcsBound("cirros-multipvc-test", "cirros-multipvc-test-disk", "cirros-multipvc-test-datadisk"),
 			},
 		}, nil),
 
