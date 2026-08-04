@@ -92,6 +92,10 @@ func (r *DataProtectionApplicationReconciler) Reconcile(ctx context.Context, req
 		logger.Error(err, "unable to fetch DataProtectionApplication CR")
 		return result, nil
 	}
+	// origDpa snapshots status before reconciliation mutates it, so the final
+	// status update is a merge patch (no resourceVersion check) instead of a
+	// full update, avoiding optimistic-lock conflicts from concurrent reconciles.
+	origDpa := r.dpa.DeepCopy()
 
 	// set client to pkg/client for use in non-reconcile functions
 	oadpclient.SetClient(r.Client)
@@ -149,7 +153,7 @@ func (r *DataProtectionApplicationReconciler) Reconcile(ctx context.Context, req
 		}
 	}
 
-	statusErr := r.Client.Status().Update(ctx, r.dpa)
+	statusErr := r.Client.Status().Patch(ctx, r.dpa, client.MergeFrom(origDpa))
 	if err == nil { // Don't mask previous error
 		err = statusErr
 	}
