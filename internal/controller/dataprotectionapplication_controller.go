@@ -94,7 +94,9 @@ func (r *DataProtectionApplicationReconciler) Reconcile(ctx context.Context, req
 	}
 	// origDpa snapshots status before reconciliation mutates it, so the final
 	// status update is a merge patch (no resourceVersion check) instead of a
-	// full update, avoiding optimistic-lock conflicts from concurrent reconciles.
+	// full update, avoiding optimistic-lock conflicts when the informer cache
+	// still lags behind a status write this controller (or another actor)
+	// already made to the object.
 	origDpa := r.dpa.DeepCopy()
 
 	// set client to pkg/client for use in non-reconcile functions
