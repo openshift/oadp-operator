@@ -81,7 +81,9 @@ func vmPvcsBound(pvcNamespace string, pvcNames ...string) VerificationFunction {
 	return VerificationFunction(func(ocClient client.Client, namespace string) error {
 		allBound := func() bool {
 			for _, name := range pvcNames {
-				pvc, err := kubernetesClientForSuiteRun.CoreV1().PersistentVolumeClaims(pvcNamespace).Get(context.Background(), name, metav1.GetOptions{})
+				ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+				pvc, err := kubernetesClientForSuiteRun.CoreV1().PersistentVolumeClaims(pvcNamespace).Get(ctx, name, metav1.GetOptions{})
+				cancel()
 				if err != nil {
 					log.Printf("Error getting PVC %s/%s: %v", pvcNamespace, name, err)
 					return false
@@ -93,7 +95,8 @@ func vmPvcsBound(pvcNamespace string, pvcNames ...string) VerificationFunction {
 			}
 			return true
 		}
-		gomega.Eventually(allBound, time.Minute*10, time.Second*10).Should(gomega.BeTrue())
+		gomega.Eventually(allBound, time.Minute*10, time.Second*10).Should(gomega.BeTrue(),
+			"expected PVCs %v in namespace %s to be Bound", pvcNames, pvcNamespace)
 		return nil
 	})
 }
@@ -587,6 +590,20 @@ var _ = ginkgo.Describe("VM backup and restore tests", ginkgo.Ordered, func() {
 			incSeqTemplate  = "./sample-applications/virtual-machines/cirros-test/cirros-test-cbt.yaml"
 		)
 
+		// Registered with the outer scope's updateLastBRcase/prepareBackupAndRestore below so
+		// the shared AfterEach (declared in the outer Describe, which also fires after specs in
+		// this nested Describe) tears down THIS case's deployment/namespace instead of stale
+		// state left over from the last DescribeTable entry that ran before it.
+		incSeqCase := VmBackupRestoreCase{
+			BackupRestoreCase: BackupRestoreCase{
+				Namespace:         incSeqNamespace,
+				Name:              incSeqVMName,
+				SkipVerifyLogs:    true,
+				BackupRestoreType: lib.CSIDataMover,
+				BackupTimeout:     20 * time.Minute,
+			},
+		}
+
 		var backupCount int
 
 		runSequenceBackup := func(expectedType string) {
@@ -594,35 +611,40 @@ var _ = ginkgo.Describe("VM backup and restore tests", ginkgo.Ordered, func() {
 			backupName := fmt.Sprintf("cirros-incr-seq-%d", backupCount)
 
 			err := lib.EnsureKubevirtVolumePolicy(dpaCR.Client, namespace)
-			gomega.Expect(err).ToNot(gomega.HaveOccurred())
+			gomega.Expect(err).ToNot(gomega.HaveOccurred(), "failed to ensure kubevirt volume policy")
 			err = lib.CreateBackupWithVolumePolicy(dpaCR.Client, namespace, backupName, []string{incSeqNamespace}, true)
-			gomega.Expect(err).ToNot(gomega.HaveOccurred())
+			gomega.Expect(err).ToNot(gomega.HaveOccurred(), "failed to create backup %s", backupName)
 
-			gomega.Eventually(lib.IsKubevirtDMBackupDone(dpaCR.Client, dynamicClientForSuiteRun, namespace, backupName), 20*time.Minute, time.Second*10).Should(gomega.BeTrue())
+			gomega.Eventually(lib.IsKubevirtDMBackupDone(dpaCR.Client, dynamicClientForSuiteRun, namespace, backupName), 20*time.Minute, time.Second*10).
+				Should(gomega.BeTrue(), "backup %s did not complete", backupName)
 			succeeded, err := lib.IsBackupCompletedSuccessfully(kubernetesClientForSuiteRun, dpaCR.Client, namespace, backupName)
-			gomega.Expect(err).ToNot(gomega.HaveOccurred())
-			gomega.Expect(succeeded).To(gomega.BeTrue())
+			gomega.Expect(err).ToNot(gomega.HaveOccurred(), "failed to check completion status of backup %s", backupName)
+			gomega.Expect(succeeded).To(gomega.BeTrue(), "backup %s did not complete successfully", backupName)
 
 			dataUploadName, expectedBackupType, err := lib.GetDataUploadForBackup(dpaCR.Client, namespace, backupName)
-			gomega.Expect(err).ToNot(gomega.HaveOccurred())
+			gomega.Expect(err).ToNot(gomega.HaveOccurred(), "failed to get DataUpload for backup %s", backupName)
 			gomega.Expect(expectedBackupType).To(gomega.Equal(expectedType), "controller's expected-backup-type annotation on DataUpload")
 
 			actualBackupType, _, err := v.GetVMBBackupType(incSeqNamespace, dataUploadName)
-			gomega.Expect(err).ToNot(gomega.HaveOccurred())
+			gomega.Expect(err).ToNot(gomega.HaveOccurred(), "failed to get VirtualMachineBackup status for DataUpload %s", dataUploadName)
 			gomega.Expect(actualBackupType).To(gomega.Equal(expectedType), "actual VirtualMachineBackup.Status.Type")
 			gomega.Expect(actualBackupType).To(gomega.Equal(expectedBackupType), "expected vs. actual backup type must not mismatch")
 		}
 
 		var _ = ginkgo.BeforeAll(func() {
+			updateLastBRcase(incSeqCase)
+			prepareBackupAndRestore(incSeqCase.BackupRestoreCase, func() {})
+
 			_ = v.RemoveVm(incSeqNamespace, incSeqVMName, 2*time.Minute)
 			err := lib.DeleteNamespace(v.Clientset, incSeqNamespace)
-			gomega.Expect(err).To(gomega.BeNil())
-			gomega.Eventually(lib.IsNamespaceDeleted(kubernetesClientForSuiteRun, incSeqNamespace), time.Minute*2, time.Second*5).Should(gomega.BeTrue())
+			gomega.Expect(err).To(gomega.BeNil(), "failed to delete namespace %s before setup", incSeqNamespace)
+			gomega.Eventually(lib.IsNamespaceDeleted(kubernetesClientForSuiteRun, incSeqNamespace), time.Minute*2, time.Second*5).
+				Should(gomega.BeTrue(), "namespace %s was not deleted before setup", incSeqNamespace)
 
 			err = lib.CreateNamespace(v.Clientset, incSeqNamespace)
-			gomega.Expect(err).To(gomega.BeNil())
+			gomega.Expect(err).To(gomega.BeNil(), "failed to create namespace %s", incSeqNamespace)
 			err = lib.InstallApplication(v.Client, incSeqTemplate)
-			gomega.Expect(err).To(gomega.BeNil())
+			gomega.Expect(err).To(gomega.BeNil(), "failed to install VM template %s in namespace %s", incSeqTemplate, incSeqNamespace)
 
 			log.Printf("Waiting for VM %s/%s to reach Running status", incSeqNamespace, incSeqVMName)
 			err = wait.PollUntilContextTimeout(context.Background(), 10*time.Second, 15*time.Minute, true, func(ctx context.Context) (bool, error) {
@@ -632,37 +654,44 @@ var _ = ginkgo.Describe("VM backup and restore tests", ginkgo.Ordered, func() {
 				}
 				return status == "Running", nil
 			})
-			gomega.Expect(err).ToNot(gomega.HaveOccurred())
+			gomega.Expect(err).ToNot(gomega.HaveOccurred(), "VM %s/%s did not reach Running status", incSeqNamespace, incSeqVMName)
 			err = v.WaitForVMReady(incSeqNamespace, incSeqVMName, 5*time.Minute)
-			gomega.Expect(err).ToNot(gomega.HaveOccurred())
+			gomega.Expect(err).ToNot(gomega.HaveOccurred(), "VM %s/%s was not ready", incSeqNamespace, incSeqVMName)
 		})
 
-		var _ = ginkgo.AfterAll(func() {
-			err := v.RemoveVm(incSeqNamespace, incSeqVMName, 5*time.Minute)
-			gomega.Expect(err).To(gomega.BeNil())
-			err = lib.DeleteNamespace(v.Clientset, incSeqNamespace)
-			gomega.Expect(err).To(gomega.BeNil())
-		})
-
-		ginkgo.It("full backup then incremental, with no expected/actual type mismatch", ginkgo.Label("virt"), func() {
+		// A single ordered spec, not four separate ginkgo.It()s: the shared AfterEach
+		// (declared in the outer Describe) undeploys the CSI+datamover stack and deletes
+		// incSeqNamespace after every spec it fires for, which would tear down this VM
+		// between scenarios if they were split into multiple Its. Collapsing them into one
+		// It's sequential steps means that teardown only fires once, after the whole
+		// sequence — and this It does its own full cleanup at the end anyway (matching
+		// runVmBackupAndRestore's "avoid finalizers in namespace deletion" convention), so
+		// the shared AfterEach's redundant Undeploy/deleteNamespace afterward is a no-op.
+		ginkgo.It("full backup, incremental chain, restart, and max-limit fallback", ginkgo.Label("virt"), func() {
+			ginkgo.By("backup 1: first-ever backup is full")
 			runSequenceBackup("full")
-			runSequenceBackup("incremental")
-		})
 
-		ginkgo.It("VM restart does not invalidate the checkpoint chain", ginkgo.Label("virt"), func() {
+			ginkgo.By("backup 2: second backup is incremental")
+			runSequenceBackup("incremental")
+
+			ginkgo.By("VM restart does not invalidate the checkpoint chain")
 			err := v.RestartVmAndWaitRunning(incSeqNamespace, incSeqVMName, 10*time.Minute)
-			gomega.Expect(err).ToNot(gomega.HaveOccurred())
+			gomega.Expect(err).ToNot(gomega.HaveOccurred(), "VM %s/%s failed to restart", incSeqNamespace, incSeqVMName)
 			runSequenceBackup("incremental")
-		})
 
-		ginkgo.It("hitting maxIncrementalBackups forces a full backup", ginkgo.Label("virt"), func() {
+			ginkgo.By("hitting maxIncrementalBackups forces a full backup")
 			// Per-VM annotation override (takes effect immediately, unlike patching the
 			// DPA-level setting which requires waiting for a controller rollout).
-			err := v.SetVMAnnotation(incSeqNamespace, incSeqVMName, "kubevirt-datamover.io/max-incremental-backups", "2")
-			gomega.Expect(err).ToNot(gomega.HaveOccurred())
-			// backupCount is 3 (1 full + 2 incremental) after the two previous Its, so
+			err = v.SetVMAnnotation(incSeqNamespace, incSeqVMName, "kubevirt-datamover.io/max-incremental-backups", "2")
+			gomega.Expect(err).ToNot(gomega.HaveOccurred(), "failed to set max-incremental-backups annotation on VM %s/%s", incSeqNamespace, incSeqVMName)
+			// backupCount is 3 (1 full + 2 incremental) at this point, so
 			// incrementalCount(2) >= maxIncrementalBackups(2) forces this backup full.
 			runSequenceBackup("full")
+
+			err = v.RemoveVm(incSeqNamespace, incSeqVMName, 5*time.Minute)
+			gomega.Expect(err).To(gomega.BeNil(), "failed to remove VM %s/%s", incSeqNamespace, incSeqVMName)
+			err = lib.DeleteNamespace(v.Clientset, incSeqNamespace)
+			gomega.Expect(err).To(gomega.BeNil(), "failed to delete namespace %s", incSeqNamespace)
 		})
 
 		ginkgo.PIt("backup after deleting libvirt checkpoints with maxIncrementalBackups=0 hangs forever — blocked by CNV-85377", ginkgo.Label("virt"), func() {
@@ -672,17 +701,17 @@ var _ = ginkgo.Describe("VM backup and restore tests", ginkgo.Ordered, func() {
 			// repeatedly fails with "Domain checkpoint not found" and never falls back to
 			// a full backup — the VMB stays Initializing forever, so this can't pass today.
 			err := v.SetVMAnnotation(incSeqNamespace, incSeqVMName, "kubevirt-datamover.io/max-incremental-backups", "0")
-			gomega.Expect(err).ToNot(gomega.HaveOccurred())
+			gomega.Expect(err).ToNot(gomega.HaveOccurred(), "failed to set max-incremental-backups annotation on VM %s/%s", incSeqNamespace, incSeqVMName)
 
 			out, err := v.RunVirshCommand(kubeConfig, incSeqNamespace, incSeqVMName, "checkpoint-list", "--domain", incSeqVMName)
-			gomega.Expect(err).ToNot(gomega.HaveOccurred())
+			gomega.Expect(err).ToNot(gomega.HaveOccurred(), "failed to list libvirt checkpoints for VM %s/%s", incSeqNamespace, incSeqVMName)
 			log.Printf("libvirt checkpoints before deletion: %s", out)
 
 			// TODO: parse real `virsh checkpoint-list` table output once run against a live
 			// cluster — this naive split is a placeholder for pending, non-running code.
 			for _, checkpoint := range strings.Fields(out) {
 				_, err := v.RunVirshCommand(kubeConfig, incSeqNamespace, incSeqVMName, "checkpoint-delete", checkpoint)
-				gomega.Expect(err).ToNot(gomega.HaveOccurred())
+				gomega.Expect(err).ToNot(gomega.HaveOccurred(), "failed to delete checkpoint %s for VM %s/%s", checkpoint, incSeqNamespace, incSeqVMName)
 			}
 
 			// Known to hang — documents the bug's current behavior, not the desired one.

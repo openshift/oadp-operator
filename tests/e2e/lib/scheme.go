@@ -13,6 +13,7 @@ import (
 	operatorsv1 "github.com/operator-framework/api/pkg/operators/v1"
 	operatorsv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
 	velerov1 "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
+	velerov2alpha1 "github.com/vmware-tanzu/velero/pkg/apis/velero/v2alpha1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	apiruntime "k8s.io/apimachinery/pkg/runtime"
@@ -27,6 +28,7 @@ var (
 func init() {
 	_ = oadpv1alpha1.AddToScheme(Scheme)
 	_ = velerov1.AddToScheme(Scheme)
+	_ = velerov2alpha1.AddToScheme(Scheme)
 	_ = openshiftappsv1.AddToScheme(Scheme)
 	_ = openshiftbuildv1.AddToScheme(Scheme)
 	_ = openshiftimagev1.AddToScheme(Scheme)
