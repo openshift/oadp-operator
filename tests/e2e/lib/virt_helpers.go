@@ -1391,9 +1391,13 @@ func (v *VirtOperator) GetVMBBackupType(namespace, dataUploadName string) (backu
 		if !found {
 			return "", "", fmt.Errorf("VirtualMachineBackup %s/%s has no status.type yet", namespace, vmb.GetName())
 		}
-		checkpointName, _, err = unstructured.NestedString(vmb.Object, "status", "checkpointName")
+		foundCheckpoint := false
+		checkpointName, foundCheckpoint, err = unstructured.NestedString(vmb.Object, "status", "checkpointName")
 		if err != nil {
 			return "", "", fmt.Errorf("failed to read status.checkpointName from VirtualMachineBackup %s/%s: %w", namespace, vmb.GetName(), err)
+		}
+		if !foundCheckpoint {
+			return "", "", fmt.Errorf("VirtualMachineBackup %s/%s has no status.checkpointName yet", namespace, vmb.GetName())
 		}
 		return backupType, checkpointName, nil
 	}

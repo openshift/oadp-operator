@@ -6,6 +6,7 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"os"
 	"strings"
 	"time"
 
@@ -366,17 +367,19 @@ var _ = ginkgo.Describe("VM backup and restore tests", ginkgo.Ordered, func() {
 		dpaCR.VeleroDefaultPlugins = append(dpaCR.VeleroDefaultPlugins, v1alpha1.DefaultPluginKubeVirt)
 		dpaCR.VeleroDefaultPlugins = append(dpaCR.VeleroDefaultPlugins, v1alpha1.DefaultPluginKubeVirtDataMover)
 
-		// TODO: remove once migtools/kubevirt-datamover-plugin#41 merges and the default
-		// plugin image includes its fix — this pins to that PR's build in the meantime.
-		if dpaCR.UnsupportedOverrides == nil {
-			dpaCR.UnsupportedOverrides = map[v1alpha1.UnsupportedImageKey]string{}
+		// TODO: remove once migtools/kubevirt-datamover-plugin#41 and
+		// migtools/kubevirt-datamover-controller#124 (issue #73 phase 3) merge and the
+		// default images include their fixes. Gated behind an explicit opt-in env var
+		// (rather than always-on) so this suite defaults to the operator's normal
+		// images for anyone else running it, and only pulls these mutable
+		// personal-registry pre-merge builds when deliberately testing those PRs.
+		if os.Getenv("OADP_E2E_KDM_PREMERGE_IMAGES") == "true" {
+			if dpaCR.UnsupportedOverrides == nil {
+				dpaCR.UnsupportedOverrides = map[v1alpha1.UnsupportedImageKey]string{}
+			}
+			dpaCR.UnsupportedOverrides[v1alpha1.KubeVirtDatamoverPluginImageKey] = "quay.io/tkaovila/kubevirt-datamover-plugin:pr-41"
+			dpaCR.UnsupportedOverrides[v1alpha1.KubeVirtDatamoverControllerImageKey] = "quay.io/tkaovila/kdm-controller:issue73-phase3"
 		}
-		dpaCR.UnsupportedOverrides[v1alpha1.KubeVirtDatamoverPluginImageKey] = "quay.io/tkaovila/kubevirt-datamover-plugin:pr-41"
-
-		// TODO: remove once migtools/kubevirt-datamover-controller#124 (DataDownload
-		// controller for VM restore, issue #73 phase 3) merges — pins to that PR's build
-		// in the meantime so restore-from-CBT scenarios can exercise it pre-merge.
-		dpaCR.UnsupportedOverrides[v1alpha1.KubeVirtDatamoverControllerImageKey] = "quay.io/tkaovila/kdm-controller:issue73-phase3"
 
 		err = lib.DeleteBackupRepositories(runTimeClientForSuiteRun, namespace)
 		gomega.Expect(err).To(gomega.BeNil())

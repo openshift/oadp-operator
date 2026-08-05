@@ -325,7 +325,7 @@ func IsDeploymentRolledOut(ocClient client.Client, namespace, dName string) wait
 		if deployment.Spec.Replicas != nil {
 			wantReplicas = *deployment.Spec.Replicas
 		}
-		if deployment.Status.UpdatedReplicas != wantReplicas || deployment.Status.AvailableReplicas != wantReplicas {
+		if deployment.Status.UpdatedReplicas != wantReplicas || deployment.Status.AvailableReplicas != wantReplicas || deployment.Status.Replicas != wantReplicas {
 			return false, nil
 		}
 		return true, nil
