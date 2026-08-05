@@ -1252,6 +1252,13 @@ spec:
         - apiGroups:
           - ""
           resources:
+          - events
+          verbs:
+          - create
+          - patch
+        - apiGroups:
+          - ""
+          resources:
           - persistentvolumeclaims
           verbs:
           - create
