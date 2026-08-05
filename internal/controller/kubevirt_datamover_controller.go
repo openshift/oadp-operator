@@ -264,6 +264,11 @@ func ensureKubevirtDatamoverRequiredSpecs(
 				Name:      "tmp",
 				MountPath: "/tmp",
 			},
+			{
+				Name:      "bound-sa-token",
+				MountPath: "/var/run/secrets/openshift/serviceaccount",
+				ReadOnly:  true,
+			},
 		},
 		SecurityContext: &corev1.SecurityContext{
 			AllowPrivilegeEscalation: ptr.To(false),
@@ -329,9 +334,25 @@ func ensureKubevirtDatamoverRequiredSpecs(
 				EmptyDir: &corev1.EmptyDirVolumeSource{},
 			},
 		},
+		{
+			Name: "bound-sa-token",
+			VolumeSource: corev1.VolumeSource{
+				Projected: &corev1.ProjectedVolumeSource{
+					Sources: []corev1.VolumeProjection{
+						{
+							ServiceAccountToken: &corev1.ServiceAccountTokenProjection{
+								Audience:          "openshift",
+								ExpirationSeconds: ptr.To(int64(3600)),
+								Path:              "token",
+							},
+						},
+					},
+				},
+			},
+		},
 	}
 	deploymentObject.Spec.Template.Spec.RestartPolicy = corev1.RestartPolicyAlways
-	deploymentObject.Spec.Template.Spec.ServiceAccountName = kubevirtDatamoverObjectName
+	deploymentObject.Spec.Template.Spec.ServiceAccountName = "velero"
 	return nil
 }
 
