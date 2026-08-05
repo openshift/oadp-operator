@@ -122,7 +122,7 @@ func runVmBackupAndRestore(brCase VmBackupRestoreCase, updateLastBRcase func(brC
 	_ = v.RemoveVm(brCase.Namespace, brCase.Name, 2*time.Minute)
 	err := lib.DeleteNamespace(v.Clientset, brCase.Namespace)
 	gomega.Expect(err).To(gomega.BeNil())
-	gomega.Eventually(lib.IsNamespaceDeleted(kubernetesClientForSuiteRun, brCase.Namespace), time.Minute*2, time.Second*5).Should(gomega.BeTrue())
+	gomega.Eventually(v.IsNamespaceDeletedClearingStuckVMBFinalizers(kubernetesClientForSuiteRun, brCase.Namespace), time.Minute*2, time.Second*5).Should(gomega.BeTrue())
 
 	err = lib.CreateNamespace(v.Clientset, brCase.Namespace)
 	gomega.Expect(err).To(gomega.BeNil())
@@ -177,7 +177,7 @@ func runVmBackupAndRestore(brCase VmBackupRestoreCase, updateLastBRcase func(brC
 	gomega.Expect(err).To(gomega.BeNil())
 	err = lib.DeleteNamespace(v.Clientset, brCase.Namespace)
 	gomega.Expect(err).To(gomega.BeNil())
-	gomega.Eventually(lib.IsNamespaceDeleted(kubernetesClientForSuiteRun, brCase.Namespace), time.Minute*5, time.Second*5).Should(gomega.BeTrue())
+	gomega.Eventually(v.IsNamespaceDeletedClearingStuckVMBFinalizers(kubernetesClientForSuiteRun, brCase.Namespace), time.Minute*5, time.Second*5).Should(gomega.BeTrue())
 
 	// Do restore
 	runRestore(brCase.BackupRestoreCase, backupName, restoreName, nsRequiresResticDCWorkaround)
@@ -199,7 +199,7 @@ func runCBTVmBackup(brCase VmBackupRestoreCase, updateLastBRcase func(brCase VmB
 
 	backupName, _ := prepareBackupAndRestore(brCase.BackupRestoreCase, func() {})
 
-	gomega.Eventually(lib.IsNamespaceDeleted(kubernetesClientForSuiteRun, brCase.Namespace), time.Minute*2, time.Second*5).Should(gomega.BeTrue())
+	gomega.Eventually(v.IsNamespaceDeletedClearingStuckVMBFinalizers(kubernetesClientForSuiteRun, brCase.Namespace), time.Minute*2, time.Second*5).Should(gomega.BeTrue())
 	err := lib.CreateNamespace(v.Clientset, brCase.Namespace)
 	gomega.Expect(err).To(gomega.BeNil())
 
@@ -272,7 +272,7 @@ func runCBTVmBackup(brCase VmBackupRestoreCase, updateLastBRcase func(brCase VmB
 	gomega.Expect(err).To(gomega.BeNil())
 	err = lib.DeleteNamespace(v.Clientset, brCase.Namespace)
 	gomega.Expect(err).To(gomega.BeNil())
-	gomega.Eventually(lib.IsNamespaceDeleted(kubernetesClientForSuiteRun, brCase.Namespace), time.Minute*5, time.Second*5).Should(gomega.BeTrue())
+	gomega.Eventually(v.IsNamespaceDeletedClearingStuckVMBFinalizers(kubernetesClientForSuiteRun, brCase.Namespace), time.Minute*5, time.Second*5).Should(gomega.BeTrue())
 }
 
 // runKubevirtDMBackup creates a kubevirt-datamover backup of vmNamespace's VM(s), waits
@@ -280,21 +280,36 @@ func runCBTVmBackup(brCase VmBackupRestoreCase, updateLastBRcase func(brCase VmB
 // controller-recorded expected-backup-type annotation. Shared between the
 // incremental-sequence backups and the restore-from-CBT-backup scenario so the
 // create+wait+verify boilerplate isn't duplicated.
-func runKubevirtDMBackup(vmNamespace, backupName string) (dataUploadName, expectedBackupType string) {
+//
+// onDataUploadFound, if non-nil, is invoked as soon as the backup's DataUpload appears --
+// before waiting for the backup to fully complete -- so callers can inspect state that only
+// exists transiently. In particular, the per-backup VirtualMachineBackup is ephemeral:
+// virt-controller deletes it once its checkpoint is absorbed into the
+// VirtualMachineBackupTracker, which can happen well before the overall backup finishes
+// uploading data to the BSL -- checking VirtualMachineBackup status after waiting for full
+// completion (as this function used to) can race against that cleanup and find nothing.
+func runKubevirtDMBackup(vmNamespace, backupName string, onDataUploadFound func(dataUploadName, expectedBackupType string)) {
 	err := lib.EnsureKubevirtVolumePolicy(dpaCR.Client, namespace)
 	gomega.Expect(err).ToNot(gomega.HaveOccurred(), "failed to ensure kubevirt volume policy")
 	err = lib.CreateBackupWithVolumePolicy(dpaCR.Client, namespace, backupName, []string{vmNamespace}, true)
 	gomega.Expect(err).ToNot(gomega.HaveOccurred(), "failed to create backup %s", backupName)
+
+	var dataUploadName, expectedBackupType string
+	gomega.Eventually(func() error {
+		var err error
+		dataUploadName, expectedBackupType, err = lib.GetDataUploadForBackup(dpaCR.Client, namespace, backupName)
+		return err
+	}, 2*time.Minute, time.Second*5).Should(gomega.Succeed(), "failed to get DataUpload for backup %s", backupName)
+
+	if onDataUploadFound != nil {
+		onDataUploadFound(dataUploadName, expectedBackupType)
+	}
 
 	gomega.Eventually(lib.IsKubevirtDMBackupDone(dpaCR.Client, dynamicClientForSuiteRun, namespace, backupName), 20*time.Minute, time.Second*10).
 		Should(gomega.BeTrue(), "backup %s did not complete", backupName)
 	succeeded, err := lib.IsBackupCompletedSuccessfully(kubernetesClientForSuiteRun, dpaCR.Client, namespace, backupName)
 	gomega.Expect(err).ToNot(gomega.HaveOccurred(), "failed to check completion status of backup %s", backupName)
 	gomega.Expect(succeeded).To(gomega.BeTrue(), "backup %s did not complete successfully", backupName)
-
-	dataUploadName, expectedBackupType, err = lib.GetDataUploadForBackup(dpaCR.Client, namespace, backupName)
-	gomega.Expect(err).ToNot(gomega.HaveOccurred(), "failed to get DataUpload for backup %s", backupName)
-	return dataUploadName, expectedBackupType
 }
 
 var _ = ginkgo.Describe("VM backup and restore tests", ginkgo.Ordered, func() {
@@ -367,7 +382,7 @@ var _ = ginkgo.Describe("VM backup and restore tests", ginkgo.Ordered, func() {
 		dpaCR.VeleroDefaultPlugins = append(dpaCR.VeleroDefaultPlugins, v1alpha1.DefaultPluginKubeVirt)
 		dpaCR.VeleroDefaultPlugins = append(dpaCR.VeleroDefaultPlugins, v1alpha1.DefaultPluginKubeVirtDataMover)
 
-		// TODO: remove once migtools/kubevirt-datamover-plugin#41 and
+		// TODO: remove once migtools/kubevirt-datamover-plugin#44 and
 		// migtools/kubevirt-datamover-controller#124 (issue #73 phase 3) merge and the
 		// default images include their fixes. Gated behind an explicit opt-in env var
 		// (rather than always-on) so this suite defaults to the operator's normal
@@ -377,7 +392,7 @@ var _ = ginkgo.Describe("VM backup and restore tests", ginkgo.Ordered, func() {
 			if dpaCR.UnsupportedOverrides == nil {
 				dpaCR.UnsupportedOverrides = map[v1alpha1.UnsupportedImageKey]string{}
 			}
-			dpaCR.UnsupportedOverrides[v1alpha1.KubeVirtDatamoverPluginImageKey] = "quay.io/tkaovila/kubevirt-datamover-plugin:pr-41"
+			dpaCR.UnsupportedOverrides[v1alpha1.KubeVirtDatamoverPluginImageKey] = "quay.io/tkaovila/kubevirt-datamover-plugin:pr-44"
 			dpaCR.UnsupportedOverrides[v1alpha1.KubeVirtDatamoverControllerImageKey] = "quay.io/tkaovila/kdm-controller:issue73-phase3"
 		}
 
@@ -646,13 +661,27 @@ var _ = ginkgo.Describe("VM backup and restore tests", ginkgo.Ordered, func() {
 			backupCount++
 			backupName := fmt.Sprintf("cirros-incr-seq-%d", backupCount)
 
-			dataUploadName, expectedBackupType := runKubevirtDMBackup(incSeqNamespace, backupName)
-			gomega.Expect(expectedBackupType).To(gomega.Equal(expectedType), "controller's expected-backup-type annotation on DataUpload")
+			runKubevirtDMBackup(incSeqNamespace, backupName, func(dataUploadName, expectedBackupType string) {
+				gomega.Expect(expectedBackupType).To(gomega.Equal(expectedType), "controller's expected-backup-type annotation on DataUpload")
 
-			actualBackupType, _, err := v.GetVMBBackupType(incSeqNamespace, dataUploadName)
-			gomega.Expect(err).ToNot(gomega.HaveOccurred(), "failed to get VirtualMachineBackup status for DataUpload %s", dataUploadName)
-			gomega.Expect(actualBackupType).To(gomega.Equal(expectedType), "actual VirtualMachineBackup.Status.Type")
-			gomega.Expect(actualBackupType).To(gomega.Equal(expectedBackupType), "expected vs. actual backup type must not mismatch")
+				// Poll here, while the backup is still in flight -- the VirtualMachineBackup
+				// is ephemeral and may already be gone by the time the overall backup
+				// finishes (see runKubevirtDMBackup's doc comment).
+				var actualBackupType string
+				gomega.Eventually(func() error {
+					var err error
+					actualBackupType, _, err = v.GetVMBBackupType(incSeqNamespace, dataUploadName)
+					return err
+				}, 5*time.Minute, time.Second*5).Should(gomega.Succeed(), "failed to get VirtualMachineBackup status for DataUpload %s", dataUploadName)
+				// VirtualMachineBackup.status.type is PascalCase (virt-controller's own
+				// convention, e.g. "Full"/"Incremental"), while the DataUpload's
+				// expected-backup-type annotation is lowercase (kubevirt-datamover-controller's
+				// convention, e.g. "full"/"incremental") -- normalize case before comparing
+				// these two independently-maintained values.
+				actualBackupType = strings.ToLower(actualBackupType)
+				gomega.Expect(actualBackupType).To(gomega.Equal(expectedType), "actual VirtualMachineBackup.Status.Type")
+				gomega.Expect(actualBackupType).To(gomega.Equal(strings.ToLower(expectedBackupType)), "expected vs. actual backup type must not mismatch")
+			})
 		}
 
 		var _ = ginkgo.BeforeAll(func() {
@@ -662,7 +691,7 @@ var _ = ginkgo.Describe("VM backup and restore tests", ginkgo.Ordered, func() {
 			_ = v.RemoveVm(incSeqNamespace, incSeqVMName, 2*time.Minute)
 			err := lib.DeleteNamespace(v.Clientset, incSeqNamespace)
 			gomega.Expect(err).To(gomega.BeNil(), "failed to delete namespace %s before setup", incSeqNamespace)
-			gomega.Eventually(lib.IsNamespaceDeleted(kubernetesClientForSuiteRun, incSeqNamespace), time.Minute*2, time.Second*5).
+			gomega.Eventually(v.IsNamespaceDeletedClearingStuckVMBFinalizers(kubernetesClientForSuiteRun, incSeqNamespace), time.Minute*2, time.Second*5).
 				Should(gomega.BeTrue(), "namespace %s was not deleted before setup", incSeqNamespace)
 
 			err = lib.CreateNamespace(v.Clientset, incSeqNamespace)
@@ -773,7 +802,7 @@ var _ = ginkgo.Describe("VM backup and restore tests", ginkgo.Ordered, func() {
 			_ = v.RemoveVm(restoreNamespace, restoreVMName, 2*time.Minute)
 			err := lib.DeleteNamespace(v.Clientset, restoreNamespace)
 			gomega.Expect(err).To(gomega.BeNil(), "failed to delete namespace %s before setup", restoreNamespace)
-			gomega.Eventually(lib.IsNamespaceDeleted(kubernetesClientForSuiteRun, restoreNamespace), time.Minute*2, time.Second*5).
+			gomega.Eventually(v.IsNamespaceDeletedClearingStuckVMBFinalizers(kubernetesClientForSuiteRun, restoreNamespace), time.Minute*2, time.Second*5).
 				Should(gomega.BeTrue(), "namespace %s was not deleted before setup", restoreNamespace)
 
 			err = lib.CreateNamespace(v.Clientset, restoreNamespace)
@@ -797,14 +826,14 @@ var _ = ginkgo.Describe("VM backup and restore tests", ginkgo.Ordered, func() {
 		ginkgo.It("restore a VM from a full kubevirt-datamover CBT backup", ginkgo.Label("virt"), func() {
 			ginkgo.By("backing up the VM via kubevirt-datamover")
 			backupName := "cirros-cbt-restore-backup"
-			_, _ = runKubevirtDMBackup(restoreNamespace, backupName)
+			runKubevirtDMBackup(restoreNamespace, backupName, nil)
 
 			ginkgo.By("deleting the VM to prove restore recreates it")
 			err := v.RemoveVm(restoreNamespace, restoreVMName, 5*time.Minute)
 			gomega.Expect(err).To(gomega.BeNil(), "failed to remove VM %s/%s", restoreNamespace, restoreVMName)
 			err = lib.DeleteNamespace(v.Clientset, restoreNamespace)
 			gomega.Expect(err).To(gomega.BeNil(), "failed to delete namespace %s", restoreNamespace)
-			gomega.Eventually(lib.IsNamespaceDeleted(kubernetesClientForSuiteRun, restoreNamespace), time.Minute*5, time.Second*5).
+			gomega.Eventually(v.IsNamespaceDeletedClearingStuckVMBFinalizers(kubernetesClientForSuiteRun, restoreNamespace), time.Minute*5, time.Second*5).
 				Should(gomega.BeTrue(), "namespace %s was not deleted", restoreNamespace)
 
 			ginkgo.By("restoring from the backup via a normal Velero Restore")
@@ -853,7 +882,7 @@ var _ = ginkgo.Describe("VM backup and restore tests", ginkgo.Ordered, func() {
 			_ = v.RemoveVm(multiPvcNamespace, multiPvcVMName, 2*time.Minute)
 			err := lib.DeleteNamespace(v.Clientset, multiPvcNamespace)
 			gomega.Expect(err).To(gomega.BeNil())
-			gomega.Eventually(lib.IsNamespaceDeleted(kubernetesClientForSuiteRun, multiPvcNamespace), time.Minute*2, time.Second*5).Should(gomega.BeTrue())
+			gomega.Eventually(v.IsNamespaceDeletedClearingStuckVMBFinalizers(kubernetesClientForSuiteRun, multiPvcNamespace), time.Minute*2, time.Second*5).Should(gomega.BeTrue())
 			err = lib.CreateNamespace(v.Clientset, multiPvcNamespace)
 			gomega.Expect(err).To(gomega.BeNil())
 			err = lib.InstallApplication(v.Client, multiPvcTemplate)
@@ -870,13 +899,13 @@ var _ = ginkgo.Describe("VM backup and restore tests", ginkgo.Ordered, func() {
 			gomega.Expect(err).ToNot(gomega.HaveOccurred())
 
 			backupName := "cirros-multipvc-cbt-restore-backup"
-			_, _ = runKubevirtDMBackup(multiPvcNamespace, backupName)
+			runKubevirtDMBackup(multiPvcNamespace, backupName, nil)
 
 			err = v.RemoveVm(multiPvcNamespace, multiPvcVMName, 5*time.Minute)
 			gomega.Expect(err).To(gomega.BeNil())
 			err = lib.DeleteNamespace(v.Clientset, multiPvcNamespace)
 			gomega.Expect(err).To(gomega.BeNil())
-			gomega.Eventually(lib.IsNamespaceDeleted(kubernetesClientForSuiteRun, multiPvcNamespace), time.Minute*5, time.Second*5).Should(gomega.BeTrue())
+			gomega.Eventually(v.IsNamespaceDeletedClearingStuckVMBFinalizers(kubernetesClientForSuiteRun, multiPvcNamespace), time.Minute*5, time.Second*5).Should(gomega.BeTrue())
 
 			restoreName := "cirros-multipvc-cbt-restore-restore"
 			err = lib.CreateRestoreFromBackup(dpaCR.Client, namespace, backupName, restoreName)
@@ -902,7 +931,7 @@ var _ = ginkgo.Describe("VM backup and restore tests", ginkgo.Ordered, func() {
 			_ = v.RemoveVm(restoreNamespace, restoreVMName, 2*time.Minute)
 			err := lib.DeleteNamespace(v.Clientset, restoreNamespace)
 			gomega.Expect(err).To(gomega.BeNil())
-			gomega.Eventually(lib.IsNamespaceDeleted(kubernetesClientForSuiteRun, restoreNamespace), time.Minute*2, time.Second*5).Should(gomega.BeTrue())
+			gomega.Eventually(v.IsNamespaceDeletedClearingStuckVMBFinalizers(kubernetesClientForSuiteRun, restoreNamespace), time.Minute*2, time.Second*5).Should(gomega.BeTrue())
 			err = lib.CreateNamespace(v.Clientset, restoreNamespace)
 			gomega.Expect(err).To(gomega.BeNil())
 			err = lib.InstallApplication(v.Client, restoreTemplate)
@@ -919,15 +948,15 @@ var _ = ginkgo.Describe("VM backup and restore tests", ginkgo.Ordered, func() {
 			gomega.Expect(err).ToNot(gomega.HaveOccurred())
 
 			// Full backup, then incremental — restore should reconstruct from the chain.
-			_, _ = runKubevirtDMBackup(restoreNamespace, "cirros-cbt-incr-restore-full")
+			runKubevirtDMBackup(restoreNamespace, "cirros-cbt-incr-restore-full", nil)
 			incrementalBackupName := "cirros-cbt-incr-restore-incremental"
-			_, _ = runKubevirtDMBackup(restoreNamespace, incrementalBackupName)
+			runKubevirtDMBackup(restoreNamespace, incrementalBackupName, nil)
 
 			err = v.RemoveVm(restoreNamespace, restoreVMName, 5*time.Minute)
 			gomega.Expect(err).To(gomega.BeNil())
 			err = lib.DeleteNamespace(v.Clientset, restoreNamespace)
 			gomega.Expect(err).To(gomega.BeNil())
-			gomega.Eventually(lib.IsNamespaceDeleted(kubernetesClientForSuiteRun, restoreNamespace), time.Minute*5, time.Second*5).Should(gomega.BeTrue())
+			gomega.Eventually(v.IsNamespaceDeletedClearingStuckVMBFinalizers(kubernetesClientForSuiteRun, restoreNamespace), time.Minute*5, time.Second*5).Should(gomega.BeTrue())
 
 			restoreName := "cirros-cbt-incr-restore-restore"
 			err = lib.CreateRestoreFromBackup(dpaCR.Client, namespace, incrementalBackupName, restoreName)

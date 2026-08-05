@@ -21,6 +21,12 @@ items:
     - kind: ServiceAccount
       name: default
       namespace: mysql-persistent
+    - kind: ServiceAccount
+      name: default
+      namespace: cirros-multipvc-test
+    - kind: ServiceAccount
+      name: default
+      namespace: cirros-multipvc-cbt-test
     roleRef:
       kind: ClusterRole
       name: dv-cloner-role
