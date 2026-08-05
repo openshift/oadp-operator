@@ -16,6 +16,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/version"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/dynamic"
@@ -1402,6 +1403,46 @@ func (v *VirtOperator) GetVMBBackupType(namespace, dataUploadName string) (backu
 		return backupType, checkpointName, nil
 	}
 	return "", "", fmt.Errorf("no VirtualMachineBackup found in %s with %s=%s", namespace, annotationDataUploadName, dataUploadName)
+}
+
+// ClearStuckVMBFinalizers is a workaround for https://github.com/kubevirt/kubevirt/issues/18724:
+// once a VirtualMachineBackup's backing VirtualMachineBackupTracker no longer exists,
+// virt-controller's VMBackupController.sync() returns early before removeBackupFinalizer() can
+// run, so a VMB already being deleted never has its backup.kubevirt.io/vmbackup-protection
+// finalizer released -- blocking namespace deletion forever. Best-effort and safe to call
+// repeatedly (e.g. on every poll of a namespace-deletion wait); remove once that issue is fixed.
+func (v *VirtOperator) ClearStuckVMBFinalizers(namespace string) {
+	list, err := v.Dynamic.Resource(virtualMachineBackupGvr).Namespace(namespace).List(context.Background(), metav1.ListOptions{})
+	if err != nil {
+		return
+	}
+	for i := range list.Items {
+		item := &list.Items[i]
+		if item.GetDeletionTimestamp() == nil || len(item.GetFinalizers()) == 0 {
+			continue
+		}
+		patch := []byte(`{"metadata":{"finalizers":null}}`)
+		_, err := v.Dynamic.Resource(virtualMachineBackupGvr).Namespace(namespace).Patch(
+			context.Background(), item.GetName(), types.MergePatchType, patch, metav1.PatchOptions{},
+		)
+		if err != nil && !apierrors.IsNotFound(err) {
+			log.Printf("workaround for kubevirt#18724: failed to clear stuck finalizer on VirtualMachineBackup %s/%s: %v", namespace, item.GetName(), err)
+			continue
+		}
+		log.Printf("workaround for kubevirt#18724: cleared stuck finalizer on VirtualMachineBackup %s/%s", namespace, item.GetName())
+	}
+}
+
+// IsNamespaceDeletedClearingStuckVMBFinalizers wraps IsNamespaceDeleted, additionally calling
+// ClearStuckVMBFinalizers on every poll -- a workaround for
+// https://github.com/kubevirt/kubevirt/issues/18724 which otherwise leaves virt test namespaces
+// stuck Terminating forever. Revert call sites to plain IsNamespaceDeleted once that issue is
+// fixed.
+func (v *VirtOperator) IsNamespaceDeletedClearingStuckVMBFinalizers(clientset *kubernetes.Clientset, namespace string) wait.ConditionFunc {
+	return func() (bool, error) {
+		v.ClearStuckVMBFinalizers(namespace)
+		return IsNamespaceDeleted(clientset, namespace)()
+	}
 }
 
 // GetVirtLauncherPod finds the virt-launcher pod for vmName in namespace, by listing pods
