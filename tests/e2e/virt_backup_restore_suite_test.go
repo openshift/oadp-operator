@@ -346,6 +346,11 @@ var _ = ginkgo.Describe("VM backup and restore tests", ginkgo.Ordered, func() {
 		}
 		dpaCR.UnsupportedOverrides[v1alpha1.KubeVirtDatamoverPluginImageKey] = "quay.io/tkaovila/kubevirt-datamover-plugin:pr-41"
 
+		// TODO: remove once migtools/kubevirt-datamover-controller#124 (DataDownload
+		// controller for VM restore, issue #73 phase 3) merges — pins to that PR's build
+		// in the meantime so restore-from-CBT scenarios can exercise it pre-merge.
+		dpaCR.UnsupportedOverrides[v1alpha1.KubeVirtDatamoverControllerImageKey] = "quay.io/tkaovila/kdm-controller:issue73-phase3"
+
 		err = lib.DeleteBackupRepositories(runTimeClientForSuiteRun, namespace)
 		gomega.Expect(err).To(gomega.BeNil())
 		err = lib.InstallApplication(v.Client, "./sample-applications/virtual-machines/cirros-test/cirros-rbac.yaml")
