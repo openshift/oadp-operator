@@ -810,8 +810,8 @@ func TestEnsureKubevirtDatamoverRequiredSpecs(t *testing.T) {
 			}
 
 			// Verify service account name
-			if deployment.Spec.Template.Spec.ServiceAccountName != kubevirtDatamoverObjectName {
-				t.Errorf("serviceAccountName: expected %s, got %s", kubevirtDatamoverObjectName, deployment.Spec.Template.Spec.ServiceAccountName)
+			if deployment.Spec.Template.Spec.ServiceAccountName != "velero" {
+				t.Errorf("serviceAccountName: expected velero, got %s", deployment.Spec.Template.Spec.ServiceAccountName)
 			}
 
 			// Verify container
@@ -949,6 +949,17 @@ func TestEnsureKubevirtDatamoverRequiredSpecs(t *testing.T) {
 				t.Error("expected /tmp emptyDir volume on pod spec")
 			}
 
+			hasBoundSATokenVolume := false
+			for _, v := range volumes {
+				if v.Name == "bound-sa-token" && v.VolumeSource.Projected != nil {
+					hasBoundSATokenVolume = true
+					break
+				}
+			}
+			if !hasBoundSATokenVolume {
+				t.Error("expected bound-sa-token projected volume on pod spec")
+			}
+
 			// Verify /tmp volume mount on container (only for new containers)
 			if len(tt.existingContainers) == 0 {
 				hasTmpMount := false
@@ -960,6 +971,17 @@ func TestEnsureKubevirtDatamoverRequiredSpecs(t *testing.T) {
 				}
 				if !hasTmpMount {
 					t.Error("expected /tmp volumeMount on container")
+				}
+
+				hasBoundSATokenMount := false
+				for _, vm := range container.VolumeMounts {
+					if vm.Name == "bound-sa-token" && vm.MountPath == "/var/run/secrets/openshift/serviceaccount" && vm.ReadOnly {
+						hasBoundSATokenMount = true
+						break
+					}
+				}
+				if !hasBoundSATokenMount {
+					t.Error("expected bound-sa-token volumeMount on container")
 				}
 			}
 
@@ -1009,7 +1031,7 @@ func TestBuildKubevirtDatamoverDeployment(t *testing.T) {
 			expectedImage:    defaultKubevirtDatamoverImage,
 			expectedEnvCount: 3, // WATCH_NAMESPACE, DATAMOVER_IMAGE, LOG_LEVEL (empty)
 			expectedReplicas: 1,
-			expectedSAName:   kubevirtDatamoverObjectName,
+			expectedSAName:   "velero",
 			expectError:      false,
 		},
 		{
@@ -1032,7 +1054,7 @@ func TestBuildKubevirtDatamoverDeployment(t *testing.T) {
 			expectedImage:    "custom-registry.io/kdm:v1.0",
 			expectedEnvCount: 3, // WATCH_NAMESPACE, DATAMOVER_IMAGE, LOG_LEVEL (empty)
 			expectedReplicas: 1,
-			expectedSAName:   kubevirtDatamoverObjectName,
+			expectedSAName:   "velero",
 			expectError:      false,
 		},
 		{
@@ -1055,7 +1077,7 @@ func TestBuildKubevirtDatamoverDeployment(t *testing.T) {
 			expectedImage:    "env-registry.io/kdm:v2.0",
 			expectedEnvCount: 3, // WATCH_NAMESPACE, DATAMOVER_IMAGE, LOG_LEVEL (empty)
 			expectedReplicas: 1,
-			expectedSAName:   kubevirtDatamoverObjectName,
+			expectedSAName:   "velero",
 			expectError:      false,
 		},
 		{
@@ -1078,7 +1100,7 @@ func TestBuildKubevirtDatamoverDeployment(t *testing.T) {
 			expectedImage:    defaultKubevirtDatamoverImage,
 			expectedEnvCount: 4, // WATCH_NAMESPACE, DATAMOVER_IMAGE, LOG_LEVEL, LOG_FORMAT
 			expectedReplicas: 1,
-			expectedSAName:   kubevirtDatamoverObjectName,
+			expectedSAName:   "velero",
 			expectError:      false,
 		},
 		{
@@ -1098,7 +1120,7 @@ func TestBuildKubevirtDatamoverDeployment(t *testing.T) {
 			expectedImage:    defaultKubevirtDatamoverImage,
 			expectedEnvCount: 3, // WATCH_NAMESPACE, DATAMOVER_IMAGE, LOG_LEVEL (empty)
 			expectedReplicas: 1,
-			expectedSAName:   kubevirtDatamoverObjectName,
+			expectedSAName:   "velero",
 			expectError:      false,
 		},
 	}
@@ -1224,6 +1246,28 @@ func TestBuildKubevirtDatamoverDeployment(t *testing.T) {
 			}
 			if !hasTmpMount {
 				t.Error("expected /tmp volumeMount on container")
+			}
+
+			hasBoundSATokenVolume := false
+			for _, v := range deployment.Spec.Template.Spec.Volumes {
+				if v.Name == "bound-sa-token" && v.VolumeSource.Projected != nil {
+					hasBoundSATokenVolume = true
+					break
+				}
+			}
+			if !hasBoundSATokenVolume {
+				t.Error("expected bound-sa-token projected volume on pod spec")
+			}
+
+			hasBoundSATokenMount := false
+			for _, vm := range container.VolumeMounts {
+				if vm.Name == "bound-sa-token" && vm.MountPath == "/var/run/secrets/openshift/serviceaccount" && vm.ReadOnly {
+					hasBoundSATokenMount = true
+					break
+				}
+			}
+			if !hasBoundSATokenMount {
+				t.Error("expected bound-sa-token volumeMount on container")
 			}
 
 			// Verify labels
