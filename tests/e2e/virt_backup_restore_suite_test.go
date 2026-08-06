@@ -858,10 +858,16 @@ var _ = ginkgo.Describe("VM backup and restore tests", ginkgo.Ordered, func() {
 			gomega.Expect(err).ToNot(gomega.HaveOccurred(), "failed to check completion status of restore %s", restoreName)
 			gomega.Expect(succeeded).To(gomega.BeTrue(), "restore %s did not complete successfully", restoreName)
 
-			ginkgo.By("verifying the kubevirt-datamover RestoreItemAction created and completed a DataDownload")
-			_, phase, err := lib.GetDataDownloadForRestore(dpaCR.Client, namespace, restoreName)
+			ginkgo.By("verifying the kubevirt-datamover RestoreItemAction created and completed a DataDownload in Block volumeMode")
+			_, phase, blockMode, err := lib.GetDataDownloadForRestore(dpaCR.Client, namespace, restoreName)
 			gomega.Expect(err).ToNot(gomega.HaveOccurred(), "failed to get DataDownload for restore %s", restoreName)
 			gomega.Expect(phase).To(gomega.Equal("Completed"), "DataDownload did not complete")
+			gomega.Expect(blockMode).To(gomega.BeTrue(), "DataDownload did not report a Block volumeMode restore")
+
+			restoredPVC, err := kubernetesClientForSuiteRun.CoreV1().PersistentVolumeClaims(restoreNamespace).Get(context.Background(), "cirros-test-disk", metav1.GetOptions{})
+			gomega.Expect(err).ToNot(gomega.HaveOccurred(), "failed to get restored PVC %s/cirros-test-disk", restoreNamespace)
+			gomega.Expect(restoredPVC.Spec.VolumeMode).ToNot(gomega.BeNil(), "restored PVC %s/cirros-test-disk has no volumeMode set", restoreNamespace)
+			gomega.Expect(*restoredPVC.Spec.VolumeMode).To(gomega.Equal(corev1.PersistentVolumeBlock), "restored PVC %s/cirros-test-disk was not Block volumeMode", restoreNamespace)
 
 			ginkgo.By("verifying the VM is running again after restore")
 			err = wait.PollUntilContextTimeout(context.Background(), 10*time.Second, 10*time.Minute, true, func(ctx context.Context) (bool, error) {
