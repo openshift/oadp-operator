@@ -1337,6 +1337,7 @@ spec:
           verbs:
           - get
           - list
+          - update
           - watch
         - apiGroups:
           - velero.io
