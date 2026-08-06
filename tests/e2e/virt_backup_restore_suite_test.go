@@ -410,8 +410,8 @@ var _ = ginkgo.Describe("VM backup and restore tests", ginkgo.Ordered, func() {
 			if dpaCR.UnsupportedOverrides == nil {
 				dpaCR.UnsupportedOverrides = map[v1alpha1.UnsupportedImageKey]string{}
 			}
-			dpaCR.UnsupportedOverrides[v1alpha1.KubeVirtDatamoverPluginImageKey] = "quay.io/tkaovila/kubevirt-datamover-plugin@sha256:edbefb2bcab4330166f4c8494b3b62ded2774e7bd04cdb78c4c926690e6fca65"
-			dpaCR.UnsupportedOverrides[v1alpha1.KubeVirtDatamoverControllerImageKey] = "quay.io/tkaovila/kdm-controller@sha256:51331907123d8241b4dfb17fcc671326d48d6999a6a593001488af213a06a968"
+			dpaCR.UnsupportedOverrides[v1alpha1.KubeVirtDatamoverPluginImageKey] = "quay.io/tkaovila/kubevirt-datamover-plugin@sha256:54c88bda836544eb1e4080c29d4d93141db619fa8322b0451bb2135b4c2ff82d"
+			dpaCR.UnsupportedOverrides[v1alpha1.KubeVirtDatamoverControllerImageKey] = "quay.io/tkaovila/kdm-controller@sha256:f163e843e47532dabcccd810d70b2c0e60f467ff5e779d4846f6699676ff774c"
 		}
 
 		err = lib.DeleteBackupRepositories(runTimeClientForSuiteRun, namespace)
