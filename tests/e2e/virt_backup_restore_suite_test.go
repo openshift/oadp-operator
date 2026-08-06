@@ -885,6 +885,72 @@ var _ = ginkgo.Describe("VM backup and restore tests", ginkgo.Ordered, func() {
 			})
 			gomega.Expect(err).ToNot(gomega.HaveOccurred(), "restored VM %s/%s did not reach Running status", restoreNamespace, restoreVMName)
 
+			// Second restore, reusing the same backup, deliberately reproducing the shape
+			// of the original VM-eager-start race: kdm-controller's handleAccepted
+			// rejects a DataDownload whose target PVC already has spec.volumeName set or
+			// status.phase==Bound, since it can never safely rebind an already-bound PVC.
+			// The original bug triggered this via a virt-launcher pod racing ahead of the
+			// halt; that race is now closed, so nothing does this naturally anymore --
+			// triggered on purpose here instead, to lock in that the VM correctly stays
+			// halted (rather than silently starting on top of un-restored data) when a
+			// restore's DataDownload fails. This stays inside the same It as the restore
+			// above rather than a separate one: the suite's shared per-test AfterEach
+			// tears down the DPA (and with it, velero/BSL) after every single It, and a
+			// freshly recreated DPA gets a new random BSL S3 prefix each time -- a second
+			// It could not have restored from this same backup at all.
+			ginkgo.By("deleting the VM again to restore into a clean namespace")
+			err = v.RemoveVm(restoreNamespace, restoreVMName, 5*time.Minute)
+			gomega.Expect(err).To(gomega.BeNil(), "failed to remove VM %s/%s", restoreNamespace, restoreVMName)
+			err = lib.DeleteNamespace(v.Clientset, restoreNamespace)
+			gomega.Expect(err).To(gomega.BeNil(), "failed to delete namespace %s", restoreNamespace)
+			gomega.Eventually(v.IsNamespaceDeletedClearingStuckVMBFinalizers(kubernetesClientForSuiteRun, restoreNamespace), time.Minute*5, time.Second*5).
+				Should(gomega.BeTrue(), "namespace %s was not deleted", restoreNamespace)
+
+			ginkgo.By("restoring from the same backup again, to trigger a PVC binding conflict")
+			rejectedRestoreName := "cirros-cbt-restore-restore-rejected"
+			err = lib.CreateRestoreFromBackup(dpaCR.Client, namespace, backupName, rejectedRestoreName)
+			gomega.Expect(err).ToNot(gomega.HaveOccurred(), "failed to create restore %s", rejectedRestoreName)
+
+			// The rejection check only inspects the PVC's own fields, not whether the
+			// referenced PV actually exists, so setting a bogus volumeName is enough to
+			// force the real, controller-generated rejection deterministically.
+			ginkgo.By("forcing a binding conflict on the restored PVC before the DataDownload controller's Accepted check runs")
+			gomega.Eventually(func() error {
+				pvc, getErr := kubernetesClientForSuiteRun.CoreV1().PersistentVolumeClaims(restoreNamespace).Get(context.Background(), "cirros-test-disk", metav1.GetOptions{})
+				if getErr != nil {
+					return getErr
+				}
+				if pvc.Spec.VolumeName != "" {
+					return nil
+				}
+				pvc.Spec.VolumeName = "e2e-deliberately-conflicting-pv"
+				_, updateErr := kubernetesClientForSuiteRun.CoreV1().PersistentVolumeClaims(restoreNamespace).Update(context.Background(), pvc, metav1.UpdateOptions{})
+				return updateErr
+			}, 2*time.Minute, time.Millisecond*500).Should(gomega.Succeed(), "failed to force a binding conflict on restored PVC %s/cirros-test-disk", restoreNamespace)
+
+			ginkgo.By("verifying the second restore reaches a terminal phase without succeeding")
+			gomega.Eventually(lib.IsRestoreDone(dpaCR.Client, namespace, rejectedRestoreName), 10*time.Minute, time.Second*10).
+				Should(gomega.BeTrue(), "restore %s did not reach a terminal phase", rejectedRestoreName)
+			rejectedRestore, err := lib.GetRestore(dpaCR.Client, namespace, rejectedRestoreName)
+			gomega.Expect(err).ToNot(gomega.HaveOccurred(), "failed to get restore %s", rejectedRestoreName)
+			gomega.Expect(string(rejectedRestore.Status.Phase)).ToNot(gomega.Equal("Completed"),
+				"restore %s unexpectedly completed despite the forced PVC binding conflict", rejectedRestoreName)
+
+			ginkgo.By("verifying the DataDownload was rejected as Failed, not silently stuck")
+			_, rejectedPhase, _, err := lib.GetDataDownloadForRestore(dpaCR.Client, namespace, rejectedRestoreName)
+			gomega.Expect(err).ToNot(gomega.HaveOccurred(), "failed to get DataDownload for restore %s", rejectedRestoreName)
+			gomega.Expect(rejectedPhase).To(gomega.Equal("Failed"), "DataDownload did not fail from the forced binding conflict")
+
+			ginkgo.By("verifying the VM stays halted rather than starting on top of un-restored data")
+			gomega.Eventually(func() error {
+				_, statusErr := v.GetVmStatus(restoreNamespace, restoreVMName)
+				return statusErr
+			}, 3*time.Minute, time.Second*5).Should(gomega.Succeed(), "restored VM %s/%s never appeared", restoreNamespace, restoreVMName)
+			gomega.Consistently(func() (string, error) {
+				return v.GetVmStatus(restoreNamespace, restoreVMName)
+			}, time.Minute, time.Second*10).ShouldNot(gomega.Equal("Running"),
+				"VM %s/%s unexpectedly reached Running status despite its DataDownload failing", restoreNamespace, restoreVMName)
+
 			err = v.RemoveVm(restoreNamespace, restoreVMName, 5*time.Minute)
 			gomega.Expect(err).To(gomega.BeNil(), "failed to remove VM %s/%s", restoreNamespace, restoreVMName)
 			err = lib.DeleteNamespace(v.Clientset, restoreNamespace)
