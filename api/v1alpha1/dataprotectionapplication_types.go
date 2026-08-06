@@ -376,7 +376,11 @@ type VeleroConfig struct {
 	// If the unsupported-args annotation is set, it takes highest precedence
 	// and completely overrides all other args including ExtraArgs.
 	// Precedence: operator defaults / Args < ExtraArgs < unsupported-args annotation.
+	// Keys are rejected at admission time if they don't match the pattern below.
+	// common.MergeExtraArgs additionally normalizes keys (strips leading dashes)
+	// at runtime as a defensive fallback for CRs persisted before this validation existed.
 	// +optional
+	// +kubebuilder:validation:XValidation:rule="self.all(key, key.matches('^[A-Za-z0-9][A-Za-z0-9_.-]*$'))",message="extraArgs keys must be flag names without a leading '-', containing only alphanumeric characters, dots, underscores, or hyphens"
 	ExtraArgs map[string]string `json:"extraArgs,omitempty"`
 	// LoadAffinityConfig is the config for data path load affinity.
 	// +optional
@@ -612,7 +616,11 @@ type NodeAgentConfig struct {
 	// If the unsupported-args annotation is set, it takes highest precedence
 	// and completely overrides all other args including ExtraArgs.
 	// Precedence: operator defaults < ExtraArgs < unsupported-args annotation.
+	// Keys are rejected at admission time if they don't match the pattern below.
+	// common.MergeExtraArgs additionally normalizes keys (strips leading dashes)
+	// at runtime as a defensive fallback for CRs persisted before this validation existed.
 	// +optional
+	// +kubebuilder:validation:XValidation:rule="self.all(key, key.matches('^[A-Za-z0-9][A-Za-z0-9_.-]*$'))",message="extraArgs keys must be flag names without a leading '-', containing only alphanumeric characters, dots, underscores, or hyphens"
 	ExtraArgs map[string]string `json:"extraArgs,omitempty"`
 }
 
