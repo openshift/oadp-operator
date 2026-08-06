@@ -1405,6 +1405,10 @@ func (v *VirtOperator) GetVMBBackupType(namespace, dataUploadName string) (backu
 	return "", "", fmt.Errorf("no VirtualMachineBackup found in %s with %s=%s", namespace, annotationDataUploadName, dataUploadName)
 }
 
+// vmbBackupProtectionFinalizer is the finalizer virt-controller stamps on a
+// VirtualMachineBackup while it is protecting an in-progress backup.
+const vmbBackupProtectionFinalizer = "backup.kubevirt.io/vmbackup-protection"
+
 // ClearStuckVMBFinalizers is a workaround for https://github.com/kubevirt/kubevirt/issues/18724:
 // once a VirtualMachineBackup's backing VirtualMachineBackupTracker no longer exists,
 // virt-controller's VMBackupController.sync() returns early before removeBackupFinalizer() can
@@ -1421,8 +1425,22 @@ func (v *VirtOperator) ClearStuckVMBFinalizers(namespace string) {
 		if item.GetDeletionTimestamp() == nil || len(item.GetFinalizers()) == 0 {
 			continue
 		}
-		patch := []byte(`{"metadata":{"finalizers":null}}`)
-		_, err := v.Dynamic.Resource(virtualMachineBackupGvr).Namespace(namespace).Patch(
+		remaining := make([]string, 0, len(item.GetFinalizers()))
+		for _, f := range item.GetFinalizers() {
+			if f != vmbBackupProtectionFinalizer {
+				remaining = append(remaining, f)
+			}
+		}
+		if len(remaining) == len(item.GetFinalizers()) {
+			continue
+		}
+		patchObj := map[string]any{"metadata": map[string]any{"finalizers": remaining}}
+		patch, err := json.Marshal(patchObj)
+		if err != nil {
+			log.Printf("workaround for kubevirt#18724: failed to marshal finalizer patch for VirtualMachineBackup %s/%s: %v", namespace, item.GetName(), err)
+			continue
+		}
+		_, err = v.Dynamic.Resource(virtualMachineBackupGvr).Namespace(namespace).Patch(
 			context.Background(), item.GetName(), types.MergePatchType, patch, metav1.PatchOptions{},
 		)
 		if err != nil && !apierrors.IsNotFound(err) {
@@ -1455,8 +1473,12 @@ func (v *VirtOperator) GetVirtLauncherPod(namespace, vmName string) (*corev1.Pod
 		return nil, fmt.Errorf("failed to list virt-launcher pods in %s: %w", namespace, err)
 	}
 	for i := range pods.Items {
-		if pods.Items[i].Annotations["kubevirt.io/domain"] == vmName {
-			return &pods.Items[i], nil
+		pod := &pods.Items[i]
+		if pod.DeletionTimestamp != nil || pod.Status.Phase != corev1.PodRunning {
+			continue
+		}
+		if pod.Annotations["kubevirt.io/domain"] == vmName {
+			return pod, nil
 		}
 	}
 	return nil, fmt.Errorf("no virt-launcher pod found for VM %s/%s", namespace, vmName)
