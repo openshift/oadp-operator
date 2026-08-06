@@ -240,6 +240,12 @@ spec:
                           format: int32
                           minimum: 0
                           type: integer
+                        staleDataUploadThreshold:
+                          description: |-
+                            StaleDataUploadThreshold is the duration after which a DataUpload in an
+                            active phase is considered stale and will no longer block younger
+                            DataUploads for the same VM. Default is 2h.
+                          type: string
                       type: object
                     nodeAgent:
                       description: NodeAgent is needed to allow selection between kopia or restic

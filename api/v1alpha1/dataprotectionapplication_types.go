@@ -658,6 +658,12 @@ type KubevirtDatamoverConfig struct {
 	// +kubebuilder:validation:Minimum=0
 	// +optional
 	MaxIncrementalBackups *int32 `json:"maxIncrementalBackups,omitempty"`
+
+	// StaleDataUploadThreshold is the duration after which a DataUpload in an
+	// active phase is considered stale and will no longer block younger
+	// DataUploads for the same VM. Default is 2h.
+	// +optional
+	StaleDataUploadThreshold *metav1.Duration `json:"staleDataUploadThreshold,omitempty"`
 }
 
 // ApplicationConfig defines the configuration for the Data Protection Application
