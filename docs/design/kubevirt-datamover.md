@@ -233,6 +233,34 @@ Per-Backup-oer-vm Manifest (manifests/<backup-name>/<vm-name>.json):
     - We could use kopia on top of the object storage API, but it is not clear that this will provide any real benefits, since we're already working with files that represent just the data diff we need. We can just manage them as individual objects.
     - This will also require additional overhead around kopia maintenance, and we still may need to manage qcow2 file deletion manually.
 
+### Implementation status (as of 2026-08-06)
+
+Snapshot of `oadp-dev` HEAD (`5b6f6370`) plus in-flight PRs kubevirt-datamover-controller#124 and kubevirt-datamover-plugin#44 (both open, not yet merged as of this date).
+
+**Kubevirt Datamover Controller**
+- DataUpload/DataDownload reconcilers implement `New -> Accepted -> Prepared -> InProgress -> Completed/Failed/Canceling`, with `Spec.Cancel` handled at any non-terminal phase.
+- Concurrency: `MaxConcurrentReconciles` per controller (default 3 if unset). DataUpload additionally serializes per-VM (`hasOlderActiveDUForVM` requeues a new DU if an older active one targets the same VM) so incremental checkpoint chains stay ordered even under concurrency.
+- Checkpoint chain restore (`pkg/downloader/chain.go`): `rebaseChain` repoints each qcow2's backing-file to the local predecessor path (the backup-time path is meaningless on the restore pod), then `flattenToRaw` runs `qemu-img convert -O raw` onto the target — now passing `-S 0` for block-mode targets (landed today; sparse-write skip is unsafe on a reused block device). Chain resolution (`pkg/uploader` index → `resolveTargetDiskName`) prefers the newest checkpoint's disk-name mapping, falling back through older entries if the newest is malformed (also landed today).
+- VMB/VMBT lifecycle (resolves open question below): VMB is deleted by the uploader pod itself on success (after S3 upload completes), or by the controller (`cleanupVMBackupResources`) on cancel. VMBT is *never* deleted by either path — intentionally kept so KubeVirt can reuse it across VM restarts/migrations to redefine libvirt checkpoints (issue #32).
+- PVC sizing (resolves open question below): scratch/work/output PVC sizes derive from the backup index's recorded *bound-PV actual capacity*, not requested size — avoids undersizing from storage-backend rounding (e.g. AWS EBS 1GiB minimum).
+- **Deviation / in-flight**: PR #124 adds VM run-state restore (VM halted at restore by the plugin, flipped back to running by the controller once all its DataDownloads complete) — see plugin section below. Not present on `oadp-dev` HEAD; lands only after both #124 and plugin#44 merge.
+
+**BackupItemAction/RestoreItemAction plugins**
+All 6 registered in `main.go` (kubevirt-datamover-plugin repo):
+- VM BIA (prio 01) — implemented: CBT check, per-PVC volume-policy conflict detection (`hasKubevirtPolicy`/`hasConflictingPolicy`), creates DataUpload, stamps `DataUploadNameAnnotation` on the VM.
+- PVC BIA (prio 02) — implemented: stamps `AnnotationVMName` on the PVC (raw unstructured, to preserve unknown fields).
+- VM DeleteItemAction (prio 01, separate action type) — implemented; not originally scoped in this doc.
+- PVC RIA (prio 03) — implemented: clears `spec.volumeName`, `status`, and the PV-controller bind annotations. **Deviation**: does *not* reset `spec.selector` as originally specified above — kdm-plugin flags this as unverified (kubevirt PVCs are dynamically provisioned so may be N/A), not yet confirmed either way.
+- VMBackup/VMBT discard RIA (prio 04) — implemented as designed: discards both CRs via `WithoutRestore()` so they don't re-trigger backup logic on restore.
+- VM RIA (prio 05) — implemented in plugin#44 (open, not yet merged): halts VM to `RunStrategyHalted` if it was auto-starting at backup time (handles both `spec.runStrategy` and the deprecated `spec.running` bool), resumes by aggregating sibling-DataDownload progress/cancel. Known gaps documented in the PR: (1) progress reports "done" once all *discovered* DataDownloads complete rather than once the VM's full expected volume count is known — could report done early for multi-disk VMs (tracked as controller#73 phase4, explicitly out of scope for #44); (2) the 10-minute first-DataDownload-appearance grace period anchors to overall restore start time rather than per-VM registration time — an unverified edge case on very large/slow restores.
+
+**E2E coverage** (`tests/e2e/virt_backup_restore_suite_test.go`, verified on AWS + community HCO/KubeVirt today)
+- PASS: multi-PVC VM backup/restore via generic CSI-datamover (Velero built-in, not the kubevirt-datamover-specific path).
+- PASS: full → incremental → VM-restart-preserves-checkpoint-chain → `maxIncrementalBackups` forces a full backup (validated prior session, referenced as green in the current PR description; not independently rerun today).
+- PASS: restore from a full kubevirt-datamover CBT backup (verified twice today, including after the RBAC fix).
+- Known gaps (scaffolded `ginkgo.PIt`, blocked upstream — not flakes): multi-PVC restore from a CBT backup, and restore from an incremental CBT backup (both blocked on kubevirt-datamover-controller#73 phases 4/5); the `maxIncrementalBackups=0` checkpoint-delete sub-case is blocked on CNV-85377 (virt-controller never falls back to full, VMB hangs `Initializing`).
+- No flakes observed across 4 runs today (small sample — not a long-term flake-free claim).
+
 ### Open questions
 - How to determine PVC size?
   - user-configurable? configmap or annotation?
@@ -240,9 +268,12 @@ Per-Backup-oer-vm Manifest (manifests/<backup-name>/<vm-name>.json):
   - If the PVC is too small, we need a clear error on the backup indicating that it failed due to insufficient PVC space.
   - Since controller is responsible for PVC creation rather than plugin, the controller may be able to respond to PVC too small errors by retrying with a larger PVC.
   - [alitke] The safest approach is to create a PVC that is 5% larger than the combined size of all disks to be backed up.
+  - **RESOLVED (2026-08-06)**: derived from recorded bound-PV actual capacity, not requested size — see Implementation status above.
 - The kubevirt datamover controller will be responsible for deleting the `VirtualMachineBackup` resource once it's no longer needed. When should this happen? Upon velero backup deletion? This would enable debugging in the case of failed operations. If we delete it immediately, that will make troubleshooting more difficult. If on backup deletion, we'll need to write a `DeleteItemAction` plugin.  [alitke] The VirtualMachineBackup resource should be deleted after the data mover has completed.  It no longer has any use and accumulating these on-cluster will harm usability.  Perhaps completed ones could be garbage collected by the KubeVirt DataMover Controller.
+  - **RESOLVED (2026-08-06)**: uploader pod deletes VMB on success, controller deletes it on cancel; VMBT is never deleted (kept for KubeVirt to reuse across VM lifecycle events) — see Implementation status above.
 - Do we need an option to force full backups? If we're always doing incremental, eventually the incremental backup list becomes really long, requiring applying possibly hundreds of incremental files for a single restore.
   - For initial release, we can add a force-full-virt-backup annotation on the velero backup. Longer-term, we can push for a general datamover feature in velero which could force full backups for both fs-backup and velero datamover if backup.Spec.ForceFullVolumeBackup is true, and once implemented, the qcow2 datamover can use this as well.
+  - **RESOLVED (2026-08-06)**: implemented via `AnnotationForceFullBackup` + `VMB.Spec.ForceFullBackup`, with e2e coverage — see Implementation status above.
 
 ### General notes
 - SnapshotMoveData must be true on the backup or DU/DD processing won't work properly
