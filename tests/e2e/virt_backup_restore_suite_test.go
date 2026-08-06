@@ -402,15 +402,15 @@ var _ = ginkgo.Describe("VM backup and restore tests", ginkgo.Ordered, func() {
 		// personal-registry tags that have already been rebuilt in place more than
 		// once during development, so a node with an old layer cached would
 		// silently run a stale binary and make this test's result meaningless.
-		// Plugin digest is the pr-44 build containing vm/restore.go (plugin commit
-		// 9e805c0); controller digest is the multi-arch index for
+		// Plugin digest is the pr-44 build at commit 4fb7ed9 (post coderabbit-iterate
+		// convergence); controller digest is the multi-arch index for
 		// kdm-controller:issue-73-phase3-datadownload-controller (linux/amd64 +
 		// linux/arm64), so it still resolves per-node architecture.
 		if os.Getenv("OADP_E2E_KDM_PREMERGE_IMAGES") == "true" {
 			if dpaCR.UnsupportedOverrides == nil {
 				dpaCR.UnsupportedOverrides = map[v1alpha1.UnsupportedImageKey]string{}
 			}
-			dpaCR.UnsupportedOverrides[v1alpha1.KubeVirtDatamoverPluginImageKey] = "quay.io/tkaovila/kubevirt-datamover-plugin@sha256:05cc6c339342a411fc8047fa3c904163463e23b4471a083e3d01fc31f84642d4"
+			dpaCR.UnsupportedOverrides[v1alpha1.KubeVirtDatamoverPluginImageKey] = "quay.io/tkaovila/kubevirt-datamover-plugin@sha256:edbefb2bcab4330166f4c8494b3b62ded2774e7bd04cdb78c4c926690e6fca65"
 			dpaCR.UnsupportedOverrides[v1alpha1.KubeVirtDatamoverControllerImageKey] = "quay.io/tkaovila/kdm-controller@sha256:51331907123d8241b4dfb17fcc671326d48d6999a6a593001488af213a06a968"
 		}
 
