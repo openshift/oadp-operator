@@ -377,18 +377,36 @@ var _ = ginkgo.Describe("VM backup and restore tests", ginkgo.Ordered, func() {
 		dpaCR.VeleroDefaultPlugins = append(dpaCR.VeleroDefaultPlugins, v1alpha1.DefaultPluginKubeVirt)
 		dpaCR.VeleroDefaultPlugins = append(dpaCR.VeleroDefaultPlugins, v1alpha1.DefaultPluginKubeVirtDataMover)
 
-		// TODO: remove once migtools/kubevirt-datamover-plugin#44 and
-		// migtools/kubevirt-datamover-controller#124 (issue #73 phase 3) merge and the
+		// TODO: remove once migtools/kubevirt-datamover-plugin#44 and the
+		// kubevirt-datamover-controller issue #73 phase 3 work merge and the
 		// default images include their fixes. Gated behind an explicit opt-in env var
 		// (rather than always-on) so this suite defaults to the operator's normal
 		// images for anyone else running it, and only pulls these mutable
 		// personal-registry pre-merge builds when deliberately testing those PRs.
+		//
+		// Together these two images carry the fix for the VM-eager-start race:
+		// the plugin halts an auto-starting VM at restore time (stashing its
+		// original run strategy) so virt-launcher can't consume — and thus
+		// WaitForFirstConsumer-bind the wrong PV onto — the target PVC before the
+		// DataDownloads have populated it; the controller flips the VM back to its
+		// stashed run state once every sibling DataDownload for that VM completes.
+		// Both halves are required: the plugin alone leaves the VM halted forever,
+		// the controller alone has nothing to flip.
+		//
+		// Both images are pinned by digest rather than by tag. These are mutable
+		// personal-registry tags that have already been rebuilt in place more than
+		// once during development, so a node with an old layer cached would
+		// silently run a stale binary and make this test's result meaningless.
+		// Plugin digest is the pr-44 build containing vm/restore.go (plugin commit
+		// 9e805c0); controller digest is the multi-arch index for
+		// kdm-controller:issue-73-phase3-datadownload-controller (linux/amd64 +
+		// linux/arm64), so it still resolves per-node architecture.
 		if os.Getenv("OADP_E2E_KDM_PREMERGE_IMAGES") == "true" {
 			if dpaCR.UnsupportedOverrides == nil {
 				dpaCR.UnsupportedOverrides = map[v1alpha1.UnsupportedImageKey]string{}
 			}
-			dpaCR.UnsupportedOverrides[v1alpha1.KubeVirtDatamoverPluginImageKey] = "quay.io/tkaovila/kubevirt-datamover-plugin:pr-44"
-			dpaCR.UnsupportedOverrides[v1alpha1.KubeVirtDatamoverControllerImageKey] = "quay.io/tkaovila/kdm-controller:issue73-phase3"
+			dpaCR.UnsupportedOverrides[v1alpha1.KubeVirtDatamoverPluginImageKey] = "quay.io/tkaovila/kubevirt-datamover-plugin@sha256:05cc6c339342a411fc8047fa3c904163463e23b4471a083e3d01fc31f84642d4"
+			dpaCR.UnsupportedOverrides[v1alpha1.KubeVirtDatamoverControllerImageKey] = "quay.io/tkaovila/kdm-controller@sha256:51331907123d8241b4dfb17fcc671326d48d6999a6a593001488af213a06a968"
 		}
 
 		err = lib.DeleteBackupRepositories(runTimeClientForSuiteRun, namespace)
