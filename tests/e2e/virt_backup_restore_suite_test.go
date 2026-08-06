@@ -836,12 +836,26 @@ var _ = ginkgo.Describe("VM backup and restore tests", ginkgo.Ordered, func() {
 		})
 
 		ginkgo.It("restore a VM from a full kubevirt-datamover CBT backup", ginkgo.Label("virt"), func() {
+			// kubevirt-datamover-plugin's pvc/restore.go clearPVCBinding only clears
+			// spec.volumeName/status and two pv.kubernetes.io/* annotations -- it does
+			// not reset spec.selector. That is only safe if kubevirt-datamover-backed
+			// PVCs never carry a selector to begin with (dynamically provisioned via
+			// CDI/CSI, never statically pre-bound). Confirmed here directly against the
+			// live source PVC rather than assumed: kdm-plugin's own unit tests
+			// (pvc/restore_test.go) have zero fixture coverage for a selector being
+			// present, so this e2e check is the only place verifying the premise holds.
+			ginkgo.By("verifying the source PVC has no spec.selector before backup")
+			sourcePVC, err := kubernetesClientForSuiteRun.CoreV1().PersistentVolumeClaims(restoreNamespace).Get(context.Background(), "cirros-test-disk", metav1.GetOptions{})
+			gomega.Expect(err).ToNot(gomega.HaveOccurred(), "failed to get source PVC %s/cirros-test-disk before backup", restoreNamespace)
+			gomega.Expect(sourcePVC.Spec.Selector).To(gomega.BeNil(),
+				"source PVC %s/cirros-test-disk unexpectedly has spec.selector set -- kubevirt-datamover-plugin's clearPVCBinding does not clear this field, which is only safe if it is always nil", restoreNamespace)
+
 			ginkgo.By("backing up the VM via kubevirt-datamover")
 			backupName := "cirros-cbt-restore-backup"
 			runKubevirtDMBackup(restoreNamespace, backupName, nil)
 
 			ginkgo.By("deleting the VM to prove restore recreates it")
-			err := v.RemoveVm(restoreNamespace, restoreVMName, 5*time.Minute)
+			err = v.RemoveVm(restoreNamespace, restoreVMName, 5*time.Minute)
 			gomega.Expect(err).To(gomega.BeNil(), "failed to remove VM %s/%s", restoreNamespace, restoreVMName)
 			err = lib.DeleteNamespace(v.Clientset, restoreNamespace)
 			gomega.Expect(err).To(gomega.BeNil(), "failed to delete namespace %s", restoreNamespace)
