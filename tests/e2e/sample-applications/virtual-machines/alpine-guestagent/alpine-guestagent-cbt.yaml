@@ -1,0 +1,76 @@
+apiVersion: v1
+kind: List
+items:
+  - apiVersion: kubevirt.io/v1
+    kind: VirtualMachine
+    metadata:
+      labels:
+        app: alpine-guestagent
+        changedBlockTracking: "true"
+      name: alpine-guestagent
+      namespace: alpine-guestagent
+    spec:
+      dataVolumeTemplates:
+      - metadata:
+          annotations:
+            cdi.kubevirt.io/storage.deleteAfterCompletion: "false"
+          name: alpine-guestagent-disk
+        spec:
+          pvc:
+            accessModes:
+            - ReadWriteOnce
+            resources:
+              requests:
+                storage: 512Mi
+            volumeMode: Block
+          source:
+            registry:
+              pullMethod: node
+              # Upstream KubeVirt fixture, built daily by kubevirtci
+              # (cluster-provision/images/vm-image-builder/alpine-cloud-init):
+              # qemu-guest-agent pre-configured (virtio-serial, OpenRC
+              # rc-update add qemu-guest-agent default) and cloud-init
+              # enabled. Pinned to a dated tag, not `devel`/bare, so this
+              # fixture doesn't silently change under us.
+              url: docker://quay.io/kubevirt/alpine-with-test-tooling-container-disk:20260807_952cd17849
+      running: true
+      template:
+        metadata:
+          name: alpine-guestagent
+        spec:
+          domain:
+            devices:
+              disks:
+              - disk:
+                  bus: virtio
+                name: volume0
+              - disk:
+                  bus: virtio
+                name: cloudinitdisk
+              interfaces:
+              - masquerade: {}
+                name: default
+              rng: {}
+            resources:
+              requests:
+                memory: 512M
+          networks:
+          - name: default
+            pod: {}
+          terminationGracePeriodSeconds: 30
+          volumes:
+          - dataVolume:
+              name: alpine-guestagent-disk
+            name: volume0
+          - cloudInitConfigDrive:
+              userData: |-
+                #cloud-config
+                # qemu-guest-agent is already installed/enabled in this image.
+                # growpart is disabled: the incremental-restore data-integrity
+                # test writes a random payload at a fixed offset past the
+                # root filesystem, and cc_growpart expanding the root fs would
+                # overwrite that region before the test can checksum it.
+                growpart:
+                  mode: off
+                resize_rootfs: false
+            name: cloudinitdisk

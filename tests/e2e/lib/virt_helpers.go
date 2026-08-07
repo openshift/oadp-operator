@@ -2,6 +2,7 @@ package lib
 
 import (
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -1688,6 +1689,192 @@ func (v *VirtOperator) ChecksumBlockDeviceRegion(kubeConfig *rest.Config, namesp
 		return "", fmt.Errorf("sha256sum produced no output for /dev/%s region in %s/%s", volumeName, namespace, pod.Name)
 	}
 	return fields[0], nil
+}
+
+// GuestExecResult is the outcome of a qemu-guest-agent "guest-exec" call made
+// via RunGuestExecScript.
+type GuestExecResult struct {
+	ExitCode int
+	Stdout   string
+	Stderr   string
+}
+
+// lastNonEmptyLine returns the last non-empty line of s, tolerating both \n
+// and \r\n line endings (execArgsInPod's TTY can inject \r). virsh's own JSON
+// reply to a qemu-agent-command is always the final line of output -- this
+// strips any leading noise a given libvirt/polkit setup prints first.
+// Confirmed live: on at least one cluster, every virsh qemu-agent-command
+// invocation prints "Authorization not available. Check if polkit service is
+// running or see debug message for more information." on its own line before
+// the actual {"return":...} reply.
+func lastNonEmptyLine(s string) string {
+	lines := strings.Split(strings.ReplaceAll(s, "\r\n", "\n"), "\n")
+	for i := len(lines) - 1; i >= 0; i-- {
+		if trimmed := strings.TrimSpace(lines[i]); trimmed != "" {
+			return trimmed
+		}
+	}
+	return ""
+}
+
+// RunGuestExecScript runs script INSIDE the guest OS (not the virt-launcher
+// pod) via qemu-guest-agent's "guest-exec" QMP command, dispatched through
+// `virsh qemu-agent-command` in the compute container. This is what makes a
+// write CBT-tracked: the write goes guest -> virtio-blk -> qemu's own block
+// I/O path, which is exactly what the dirty-bitmap observes -- unlike
+// WriteRandomPayloadToBlockDevice's host-side write, which bypasses that path
+// entirely (see that function's doc comment).
+//
+// domainName is the libvirt domain name virsh addresses this VM by, which is
+// NOT necessarily vmName -- KubeVirt commonly namespaces it (e.g.
+// "<namespace>_<vmName>"), but this has never been exercised against a live
+// cluster in this repo (RunVirshCommand's only call sites live inside a
+// ginkgo.PIt). Confirm the actual convention live (e.g. `virsh list --all` in
+// the compute container) before relying on any particular value here -- do
+// not assume vmName is correct.
+//
+// Deliberately does NOT go through RunVirshCommand: that helper dispatches
+// via ExecuteCommandInPodsSh, which naively does strings.Split(cmd, " ") with
+// no shell involved -- fine for space-free args like "checkpoint-list", but
+// it would corrupt a JSON payload containing spaces. This instead builds the
+// full `virsh qemu-agent-command <domain> '<json>'` string itself and runs it
+// via ExecuteShellCommandInPod (a real `sh -c`, so the JSON survives as one
+// argv element).
+//
+// script itself is base64-encoded before being embedded in the guest-exec
+// JSON's "arg" list (as `echo <b64> | base64 -d | /bin/sh`) so it can contain
+// arbitrary shell content (quotes, pipes, redirects) without needing any
+// escaping inside the JSON string or the outer single-quoted shell wrapper --
+// the base64 alphabet has no JSON- or shell-special characters, and
+// json.Marshal's own output never contains an unescaped single quote, so
+// wrapping it in single quotes for virsh's own argv is safe.
+func (v *VirtOperator) RunGuestExecScript(kubeConfig *rest.Config, namespace, vmName, domainName, script string) (*GuestExecResult, error) {
+	pod, err := v.GetVirtLauncherPod(namespace, vmName)
+	if err != nil {
+		return nil, err
+	}
+	params := ProxyPodParameters{
+		KubeClient:    v.Clientset,
+		KubeConfig:    kubeConfig,
+		Namespace:     namespace,
+		PodName:       pod.Name,
+		ContainerName: "compute",
+	}
+
+	encoded := base64.StdEncoding.EncodeToString([]byte(script))
+	execJSON, err := json.Marshal(map[string]any{
+		"execute": "guest-exec",
+		"arguments": map[string]any{
+			"path":           "/bin/sh",
+			"arg":            []string{"-c", "echo " + encoded + " | base64 -d | /bin/sh"},
+			"capture-output": true,
+		},
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal guest-exec dispatch JSON: %w", err)
+	}
+	dispatchCmd := fmt.Sprintf("virsh qemu-agent-command %s '%s' --timeout 30", domainName, execJSON)
+	stdout, stderr, err := ExecuteShellCommandInPod(params, dispatchCmd)
+	if err != nil {
+		return nil, fmt.Errorf("guest-exec dispatch failed for VM %s/%s (domain %s, stderr: %s): %w", namespace, vmName, domainName, stderr, err)
+	}
+	var dispatchReply struct {
+		Return struct {
+			PID int `json:"pid"`
+		} `json:"return"`
+	}
+	// execArgsInPod's exec uses a TTY, which merges stderr into stdout and can
+	// inject \r. Confirmed live: on at least one cluster, virsh prints a
+	// polkit warning line ("Authorization not available. Check if polkit
+	// service is running...") BEFORE its actual JSON reply, so the reply is
+	// not necessarily the only thing in stdout -- lastNonEmptyLine takes
+	// virsh's own last line rather than assuming the whole output is JSON.
+	// The raw output is always included in the error below so an unexpected
+	// preamble (or a real virsh error) is visible, not just an opaque
+	// "invalid character" JSON error.
+	if err := json.Unmarshal([]byte(lastNonEmptyLine(stdout)), &dispatchReply); err != nil {
+		return nil, fmt.Errorf("failed to parse guest-exec dispatch reply for VM %s/%s (domain %s, raw output: %q): %w", namespace, vmName, domainName, stdout, err)
+	}
+
+	statusJSON, err := json.Marshal(map[string]any{
+		"execute": "guest-exec-status",
+		"arguments": map[string]any{
+			"pid": dispatchReply.Return.PID,
+		},
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal guest-exec-status JSON: %w", err)
+	}
+	statusCmd := fmt.Sprintf("virsh qemu-agent-command %s '%s' --timeout 30", domainName, statusJSON)
+
+	var result GuestExecResult
+	err = wait.PollUntilContextTimeout(context.Background(), 2*time.Second, 2*time.Minute, true, func(ctx context.Context) (bool, error) {
+		out, stderr, err := ExecuteShellCommandInPod(params, statusCmd)
+		if err != nil {
+			return false, fmt.Errorf("guest-exec-status poll failed for VM %s/%s (domain %s, stderr: %s): %w", namespace, vmName, domainName, stderr, err)
+		}
+		var statusReply struct {
+			Return struct {
+				Exited   bool   `json:"exited"`
+				ExitCode int    `json:"exitcode"`
+				OutData  string `json:"out-data"`
+				ErrData  string `json:"err-data"`
+			} `json:"return"`
+		}
+		if err := json.Unmarshal([]byte(lastNonEmptyLine(out)), &statusReply); err != nil {
+			return false, fmt.Errorf("failed to parse guest-exec-status reply for VM %s/%s (domain %s, raw output: %q): %w", namespace, vmName, domainName, out, err)
+		}
+		if !statusReply.Return.Exited {
+			return false, nil
+		}
+		outBytes, err := base64.StdEncoding.DecodeString(statusReply.Return.OutData)
+		if err != nil {
+			return false, fmt.Errorf("failed to base64-decode guest-exec out-data for VM %s/%s (domain %s): %w", namespace, vmName, domainName, err)
+		}
+		errBytes, err := base64.StdEncoding.DecodeString(statusReply.Return.ErrData)
+		if err != nil {
+			return false, fmt.Errorf("failed to base64-decode guest-exec err-data for VM %s/%s (domain %s): %w", namespace, vmName, domainName, err)
+		}
+		result = GuestExecResult{ExitCode: statusReply.Return.ExitCode, Stdout: string(outBytes), Stderr: string(errBytes)}
+		return true, nil
+	})
+	if err != nil {
+		return nil, fmt.Errorf("guest-exec did not complete for VM %s/%s (domain %s): %w", namespace, vmName, domainName, err)
+	}
+	return &result, nil
+}
+
+// WriteRandomPayloadToGuestBlockDevice is the guest-routed counterpart to
+// WriteRandomPayloadToBlockDevice: it writes sizeMiB of random bytes at
+// offsetMiB into guestDevice (e.g. "/dev/vda") FROM INSIDE THE GUEST via
+// RunGuestExecScript, rather than from the host side. Because the write goes
+// through the guest's own block driver -> qemu I/O path, it IS visible to
+// qemu's CBT dirty-bitmap tracking -- unlike WriteRandomPayloadToBlockDevice,
+// this is safe to use for incremental-backup data-integrity assertions.
+//
+// conv=fsync (mirroring the host-side helper) plus a following `sync` ensure
+// the bytes are actually flushed through to the virtio-blk device before this
+// returns, not left sitting in the guest's page cache -- the same
+// bracket-verify pattern this pairs with (checksumming immediately
+// before/after a backup window) depends on the write being durable at the
+// moment it completes, not still buffered.
+//
+// There is deliberately no guest-side checksum counterpart to this function:
+// reading the payload back via a guest-exec `sha256sum` would only prove the
+// guest's own page cache believes the bytes are there, not that they reached
+// qemu's block layer, which would make a bracket-verify built on it
+// worthless. Use the existing host-side ChecksumBlockDeviceRegion (source)
+// and ChecksumPVCBlockDeviceRegion (restored side) for all reads instead.
+func (v *VirtOperator) WriteRandomPayloadToGuestBlockDevice(kubeConfig *rest.Config, namespace, vmName, domainName, guestDevice string, offsetMiB, sizeMiB int) error {
+	script := fmt.Sprintf("dd if=/dev/urandom of=%s bs=1M seek=%d count=%d conv=fsync && sync", guestDevice, offsetMiB, sizeMiB)
+	result, err := v.RunGuestExecScript(kubeConfig, namespace, vmName, domainName, script)
+	if err != nil {
+		return err
+	}
+	if result.ExitCode != 0 {
+		return fmt.Errorf("guest write to %s in VM %s/%s (domain %s) failed (exit %d): %s", guestDevice, namespace, vmName, domainName, result.ExitCode, result.Stderr)
+	}
+	return nil
 }
 
 // ChecksumUploadPodQcow2Flattened finds kubevirt-datamover's own "upload" pod
