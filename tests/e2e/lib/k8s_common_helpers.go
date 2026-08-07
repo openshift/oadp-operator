@@ -93,29 +93,18 @@ func DeleteSecret(clientset *kubernetes.Clientset, namespace string, credSecretR
 	return err
 }
 
-// ExecuteCommandInPodsSh executes a command in a Kubernetes pod using the provided parameters.
-//
-// Parameters:
-//   - params: ProxyPodParameters - Parameters specifying Connection to the Kubernetes, the pod, namespace, and container details.
-//   - command: string - The command to be executed in the specified pod.
-//
-// Returns:
-//   - string: Standard output of the executed command.
-//   - string: Standard error output of the executed command.
-//   - error: An error, if any, that occurred during the execution of the command.
-//
-// The function logs relevant information, such as the provided command, the pod name, container name,
-// and the full command URL before initiating the command execution. It streams the command's standard
-// output and error output, logging them if available. In case of errors, it returns an error message
-// with details about the issue.
-func ExecuteCommandInPodsSh(params ProxyPodParameters, command string) (string, string, error) {
-
+// execArgsInPod runs an argv-style command (no shell involved) inside the given
+// pod/container via the exec subresource, returning combined stdout/stderr.
+// Shared by ExecuteCommandInPodsSh (naive space-split argv, kept for existing
+// callers whose args never contain spaces) and ExecuteShellCommandInPod (proper
+// "sh -c <script>" wrapping, needed for a real shell script with pipes/redirects).
+func execArgsInPod(params ProxyPodParameters, args []string) (string, string, error) {
 	var containerName string
 
 	kubeClient := params.KubeClient
 	kubeConfig := params.KubeConfig
 
-	if command == "" {
+	if len(args) == 0 {
 		return "", "", fmt.Errorf("No command specified")
 	}
 
@@ -128,11 +117,11 @@ func ExecuteCommandInPodsSh(params ProxyPodParameters, command string) (string, 
 	}
 
 	if params.PodName == "" {
-		return "", "", fmt.Errorf("No proxy pod specified for the command: %s", command)
+		return "", "", fmt.Errorf("No proxy pod specified for the command: %v", args)
 	}
 
 	if params.Namespace == "" {
-		return "", "", fmt.Errorf("No proxy pod namespace specified for the command: %s", command)
+		return "", "", fmt.Errorf("No proxy pod namespace specified for the command: %v", args)
 	}
 
 	if params.ContainerName != "" {
@@ -141,11 +130,11 @@ func ExecuteCommandInPodsSh(params ProxyPodParameters, command string) (string, 
 		containerName = "curl-tool"
 	}
 
-	log.Printf("Provided command: %s\n", command)
+	log.Printf("Provided command: %v\n", args)
 	log.Printf("Command will run in the pod: %s, container: %s in the namespace: %s\n", params.PodName, containerName, params.Namespace)
 
 	option := &corev1.PodExecOptions{
-		Command:   strings.Split(command, " "),
+		Command:   args,
 		Stdin:     false,
 		Stdout:    true,
 		Stderr:    true,
@@ -186,6 +175,40 @@ func ExecuteCommandInPodsSh(params ProxyPodParameters, command string) (string, 
 	}
 
 	return stdOutput.String(), stdErrOutput.String(), nil
+}
+
+// ExecuteCommandInPodsSh executes a command in a Kubernetes pod using the provided parameters.
+//
+// Parameters:
+//   - params: ProxyPodParameters - Parameters specifying Connection to the Kubernetes, the pod, namespace, and container details.
+//   - command: string - The command to be executed in the specified pod.
+//
+// Returns:
+//   - string: Standard output of the executed command.
+//   - string: Standard error output of the executed command.
+//   - error: An error, if any, that occurred during the execution of the command.
+//
+// The function logs relevant information, such as the provided command, the pod name, container name,
+// and the full command URL before initiating the command execution. It streams the command's standard
+// output and error output, logging them if available. In case of errors, it returns an error message
+// with details about the issue.
+func ExecuteCommandInPodsSh(params ProxyPodParameters, command string) (string, string, error) {
+	if command == "" {
+		return "", "", fmt.Errorf("No command specified")
+	}
+	return execArgsInPod(params, strings.Split(command, " "))
+}
+
+// ExecuteShellCommandInPod runs script as a real shell command (sh -c script)
+// inside the given pod/container, so pipes/redirects/quoting work correctly --
+// unlike ExecuteCommandInPodsSh, which naively space-splits its command string
+// into argv with no shell involved at all (a pipe character would just become
+// a separate, meaningless argument rather than an actual pipe).
+func ExecuteShellCommandInPod(params ProxyPodParameters, script string) (string, string, error) {
+	if script == "" {
+		return "", "", fmt.Errorf("No command specified")
+	}
+	return execArgsInPod(params, []string{"sh", "-c", script})
 }
 
 // GetFirstPodByLabel retrieves a first found pod in the specified namespace based on the given label selector.

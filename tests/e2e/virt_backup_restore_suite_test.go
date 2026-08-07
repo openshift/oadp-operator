@@ -6,12 +6,14 @@ import (
 	"io"
 	"log"
 	"net/http"
-	"os"
 	"strings"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/onsi/ginkgo/v2"
 	"github.com/onsi/gomega"
+	velero "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
+	velerov2alpha1 "github.com/vmware-tanzu/velero/pkg/apis/velero/v2alpha1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -104,9 +106,21 @@ func vmPvcsBound(pvcNamespace string, pvcNames ...string) VerificationFunction {
 
 type VmBackupRestoreCase struct {
 	BackupRestoreCase
-	Template   string
-	InitDelay  time.Duration
-	PowerState string
+	Template       string
+	InitDelay      time.Duration
+	StartupTimeout time.Duration
+	PowerState     string
+	// HasGuestAgent declares whether Template's VM image ships qemu-guest-agent
+	// (verifiable live via lib.VirtOperator.HasQemuGuestAgent, which checks the
+	// VMI's own "AgentConnected" status condition). Informational for now, but
+	// load-bearing for any data-integrity checksum comparison against a VM left
+	// running through backup: only a connected guest agent lets
+	// kubevirt-datamover's filesystem-freeze actually quiesce writes, making a
+	// live-read checksum trustworthy. Without one (CirrOS today, HasGuestAgent:
+	// false), freeze always fails and the checksum read is racing genuine guest
+	// filesystem churn -- confirmed directly, see the comment above the source
+	// checksum step in "restore a VM from a full kubevirt-datamover CBT backup".
+	HasGuestAgent bool
 }
 
 func runVmBackupAndRestore(brCase VmBackupRestoreCase, updateLastBRcase func(brCase VmBackupRestoreCase), v *lib.VirtOperator) {
@@ -379,10 +393,15 @@ var _ = ginkgo.Describe("VM backup and restore tests", ginkgo.Ordered, func() {
 
 		// TODO: remove once migtools/kubevirt-datamover-plugin#44 and the
 		// kubevirt-datamover-controller issue #73 phase 3 work merge and the
-		// default images include their fixes. Gated behind an explicit opt-in env var
-		// (rather than always-on) so this suite defaults to the operator's normal
-		// images for anyone else running it, and only pulls these mutable
-		// personal-registry pre-merge builds when deliberately testing those PRs.
+		// default images include their fixes.
+		//
+		// Always set (not gated behind an env var): a prior version of this gate
+		// silently fell back to the operator's default (mainline `:latest`) images
+		// whenever the env var wasn't set, which doesn't contain either fix at all —
+		// costing a full debugging session chasing phantom bugs (RBAC, "controller
+		// never starts") that were actually just this suite testing the wrong build.
+		// Unconditional pinning means the suite fails loudly/obviously (wrong image
+		// digest, pull error) instead of silently passing against unrelated code.
 		//
 		// Together these two images carry the fix for the VM-eager-start race:
 		// the plugin halts an auto-starting VM at restore time (stashing its
@@ -401,13 +420,11 @@ var _ = ginkgo.Describe("VM backup and restore tests", ginkgo.Ordered, func() {
 		// convergence); controller digest is the multi-arch index for
 		// kdm-controller:issue-73-phase3-datadownload-controller (linux/amd64 +
 		// linux/arm64), so it still resolves per-node architecture.
-		if os.Getenv("OADP_E2E_KDM_PREMERGE_IMAGES") == "true" {
-			if dpaCR.UnsupportedOverrides == nil {
-				dpaCR.UnsupportedOverrides = map[v1alpha1.UnsupportedImageKey]string{}
-			}
-			dpaCR.UnsupportedOverrides[v1alpha1.KubeVirtDatamoverPluginImageKey] = "quay.io/tkaovila/kubevirt-datamover-plugin@sha256:54c88bda836544eb1e4080c29d4d93141db619fa8322b0451bb2135b4c2ff82d"
-			dpaCR.UnsupportedOverrides[v1alpha1.KubeVirtDatamoverControllerImageKey] = "quay.io/tkaovila/kdm-controller@sha256:f163e843e47532dabcccd810d70b2c0e60f467ff5e779d4846f6699676ff774c"
+		if dpaCR.UnsupportedOverrides == nil {
+			dpaCR.UnsupportedOverrides = map[v1alpha1.UnsupportedImageKey]string{}
 		}
+		dpaCR.UnsupportedOverrides[v1alpha1.KubeVirtDatamoverPluginImageKey] = "quay.io/tkaovila/kubevirt-datamover-plugin@sha256:54c88bda836544eb1e4080c29d4d93141db619fa8322b0451bb2135b4c2ff82d"
+		dpaCR.UnsupportedOverrides[v1alpha1.KubeVirtDatamoverControllerImageKey] = "quay.io/tkaovila/kdm-controller@sha256:f163e843e47532dabcccd810d70b2c0e60f467ff5e779d4846f6699676ff774c"
 
 		err = lib.DeleteBackupRepositories(runTimeClientForSuiteRun, namespace)
 		gomega.Expect(err).To(gomega.BeNil())
@@ -805,9 +822,25 @@ var _ = ginkgo.Describe("VM backup and restore tests", ginkgo.Ordered, func() {
 				BackupRestoreType: lib.CSIDataMover,
 				BackupTimeout:     20 * time.Minute,
 			},
+			// CirrOS ships no qemu-guest-agent -- see lib.VirtOperator.HasQemuGuestAgent
+			// and the comment above the source checksum step below for why that matters.
+			HasGuestAgent: false,
 		}
 
-		var _ = ginkgo.BeforeAll(func() {
+		// BeforeEach, not BeforeAll: guards against a real Ginkgo interaction if
+		// ginkgo.FlakeAttempts is ever added to this It. Ginkgo skips any
+		// already-passed run-once node on a retry (internal/group.go attemptSpec: a
+		// node whose runOncePair is already SpecStatePassed is `continue`d), so a
+		// BeforeAll would not re-run on a retry attempt -- while the suite-level
+		// AfterEach tears the DPA down after every attempt and this It deletes
+		// restoreNamespace and the VM on its way out. FlakeAttempts combined with a
+		// BeforeAll would leave a retry attempt with no velero and no source VM,
+		// dying instantly on the source-PVC lookup -- a cascading, misleading
+		// failure, not a retry of whatever the FlakeAttempts was meant to absorb.
+		// The FlakeAttempts uses elsewhere in this suite are on DescribeTable
+		// Entries whose setup is already per-spec, which is why that pattern is
+		// safe there but would not be here.
+		var _ = ginkgo.BeforeEach(func() {
 			updateLastBRcase(restoreCase)
 			prepareBackupAndRestore(restoreCase.BackupRestoreCase, func() {})
 
@@ -836,6 +869,17 @@ var _ = ginkgo.Describe("VM backup and restore tests", ginkgo.Ordered, func() {
 		})
 
 		ginkgo.It("restore a VM from a full kubevirt-datamover CBT backup", ginkgo.Label("virt"), func() {
+			// Cross-checks restoreCase.HasGuestAgent against the VMI's actual live
+			// condition, rather than trusting the fixture's declared value blindly --
+			// catches drift if this VM template ever changes without the field being
+			// updated to match. The checksum strategy below depends on this being
+			// accurate: a live-VM read is only trustworthy when a real freeze can
+			// happen, which needs a connected guest agent.
+			hasAgent, err := v.HasQemuGuestAgent(restoreNamespace, restoreVMName)
+			gomega.Expect(err).ToNot(gomega.HaveOccurred(), "failed to check qemu-guest-agent status for VM %s/%s", restoreNamespace, restoreVMName)
+			gomega.Expect(hasAgent).To(gomega.Equal(restoreCase.HasGuestAgent),
+				"VM %s/%s's actual qemu-guest-agent connectivity (%v) does not match restoreCase.HasGuestAgent (%v) -- if this VM template gained/lost a guest agent, the checksum strategy below needs re-evaluating too", restoreNamespace, restoreVMName, hasAgent, restoreCase.HasGuestAgent)
+
 			// kubevirt-datamover-plugin's pvc/restore.go clearPVCBinding only clears
 			// spec.volumeName/status and two pv.kubernetes.io/* annotations -- it does
 			// not reset spec.selector. That is only safe if kubevirt-datamover-backed
@@ -850,8 +894,75 @@ var _ = ginkgo.Describe("VM backup and restore tests", ginkgo.Ordered, func() {
 			gomega.Expect(sourcePVC.Spec.Selector).To(gomega.BeNil(),
 				"source PVC %s/cirros-test-disk unexpectedly has spec.selector set -- kubevirt-datamover-plugin's clearPVCBinding does not clear this field, which is only safe if it is always nil", restoreNamespace)
 
+			// Checksummed here, immediately before the backup's checkpoint is created,
+			// rather than after backup completes: the VM stays running throughout backup
+			// (this whole scenario tests restoring an auto-starting VM), so the disk can
+			// keep changing after the checkpoint is taken -- reading the checksum any
+			// later risks capturing writes that are genuinely not part of THIS backup,
+			// which would be a false mismatch, not a real bug.
+			//
+			// KNOWN, ACCEPTED RISK: CirrOS ships no qemu-guest-agent, so
+			// kubevirt-datamover's filesystem-freeze attempt always fails ("Guest agent
+			// is not responding"), leaving the disk genuinely writable by the guest
+			// between this read and the backup's own CBT checkpoint moments later. Not
+			// theoretical: reading the same live VM's disk twice, 90s apart, with no
+			// backup/restore involved at all, produced two different checksums purely
+			// from CirrOS's own filesystem churning while running -- so the
+			// source/restored comparison below is logged rather than hard-asserted (see
+			// that comment for why).
+			//
+			// Four ways to get a race-free read don't work here, each for a different,
+			// confirmed reason -- not guesses:
+			//  1. KubeVirt's own pause subresource: sets a VMI-level "Paused" condition
+			//     that kubevirt-datamover's backup controller reacts to by never creating
+			//     a VirtualMachineBackup at all (empty `oc get vmbackup` after a 2-minute
+			//     DataUpload timeout).
+			//  2. `virsh suspend` at the libvirt level: gets silently reversed by
+			//     virt-handler within moments, since it continuously reconciles the
+			//     domain back to the VMI's desired Running state regardless of who paused
+			//     it (`virsh list` showed "running" immediately after a suspend that
+			//     itself reported success).
+			//  3. A real VM Stop: no DataUpload ever gets created at all
+			//     (kubevirt-datamover's CBT-based backup requires a live VMI to track
+			//     dirty blocks via QEMU).
+			//  4. Reading kubevirt-datamover's own rebound PVC / upload pod directly (see
+			//     lib.VirtOperator.ChecksumUploadPodQcow2Flattened, kept in the codebase
+			//     unused, with its own full account of this) -- conceptually sound and
+			//     confirmed correct against the controller's own source (right pod, right
+			//     mount, right label to find it by), but the upload pod's own natural
+			//     lifetime for a VM this small turned out too short to reliably win: three
+			//     consecutive live attempts were all SIGKILLed (exit 137) within a few
+			//     seconds of the exec starting regardless of approach (temp file vs
+			//     streaming pipe), and a separate, independently-polling script (checking
+			//     every 2s) lost the race to even run a trivial `touch` before the
+			//     container was already gone. That's a wall-clock race external tooling
+			//     can't reliably win, not a fixable script bug -- see the TODO on
+			//     ChecksumUploadPodQcow2Flattened for when it might become viable (a
+			//     larger disk, whose upload naturally takes longer).
+			ginkgo.By("checksumming the source disk immediately before backup")
+			sourceChecksum, err := v.ChecksumBlockDevice(kubeConfig, restoreNamespace, restoreVMName, "volume0")
+			gomega.Expect(err).ToNot(gomega.HaveOccurred(), "failed to checksum source disk %s/%s", restoreNamespace, restoreVMName)
+
 			ginkgo.By("backing up the VM via kubevirt-datamover")
 			backupName := "cirros-cbt-restore-backup"
+			// Registered as soon as the name is known (before the backup even exists) so
+			// it always runs -- as a plain Go defer, not ginkgo.DeferCleanup: confirmed
+			// directly that DeferCleanup callbacks registered inside this It run AFTER
+			// the container's own AfterEach (tearDownBackupAndRestore -> Undeploy already
+			// deletes the DPA/velero deployment by then), not before it as LIFO ordering
+			// would suggest. A plain `defer` is guaranteed to run during this It's own
+			// stack unwind -- including via the panic a failed gomega.Expect uses to
+			// unwind -- strictly before ginkgo can move on to AfterEach.
+			// Deleting via the velero CLI (not oc delete) matters here specifically:
+			// velero is still running at this point, so it can actually process the
+			// CR's finalizer; doing this after the DPA is gone (as the outer AfterEach
+			// alone would) leaves it stuck Terminating with no controller left to clear
+			// restores.velero.io/external-resources-finalizer -- hit this directly.
+			defer func() {
+				if err := lib.DeleteVeleroBackupAndRestore(dpaCR.Client, kubernetesClientForSuiteRun, kubeConfig, namespace, backupName, ""); err != nil {
+					log.Printf("cleanup: failed to delete backup %s via velero CLI: %v", backupName, err)
+				}
+			}()
 			runKubevirtDMBackup(restoreNamespace, backupName, nil)
 
 			ginkgo.By("deleting the VM to prove restore recreates it")
@@ -864,6 +975,14 @@ var _ = ginkgo.Describe("VM backup and restore tests", ginkgo.Ordered, func() {
 
 			ginkgo.By("restoring from the backup via a normal Velero Restore")
 			restoreName := "cirros-cbt-restore-restore"
+			// Same reasoning as the backup cleanup defer above -- registered by name
+			// before creation so it always runs, and (plain Go defer LIFO within this
+			// It) runs first so the restore is gone before the backup deletion cascades.
+			defer func() {
+				if err := lib.DeleteVeleroBackupAndRestore(dpaCR.Client, kubernetesClientForSuiteRun, kubeConfig, namespace, "", restoreName); err != nil {
+					log.Printf("cleanup: failed to delete restore %s via velero CLI: %v", restoreName, err)
+				}
+			}()
 			err = lib.CreateRestoreFromBackup(dpaCR.Client, namespace, backupName, restoreName)
 			gomega.Expect(err).ToNot(gomega.HaveOccurred(), "failed to create restore %s", restoreName)
 			gomega.Eventually(lib.IsRestoreDone(dpaCR.Client, namespace, restoreName), 45*time.Minute, time.Second*10).
@@ -882,6 +1001,68 @@ var _ = ginkgo.Describe("VM backup and restore tests", ginkgo.Ordered, func() {
 			gomega.Expect(err).ToNot(gomega.HaveOccurred(), "failed to get restored PVC %s/cirros-test-disk", restoreNamespace)
 			gomega.Expect(restoredPVC.Spec.VolumeMode).ToNot(gomega.BeNil(), "restored PVC %s/cirros-test-disk has no volumeMode set", restoreNamespace)
 			gomega.Expect(*restoredPVC.Spec.VolumeMode).To(gomega.Equal(corev1.PersistentVolumeBlock), "restored PVC %s/cirros-test-disk was not Block volumeMode", restoreNamespace)
+
+			// Checksummed here, while the VM is still held Halted by the restore fix this
+			// whole scenario validates, and before "verifying the VM is running again"
+			// resumes it below -- this is the earliest point the restored device can be
+			// read, and the only point guaranteed to be untouched by the guest OS since
+			// the VM hasn't started executing on it yet. A mismatch here can only mean the
+			// restored bytes are actually wrong, not an artifact of comparison timing.
+			//
+			// Read via a throwaway pod that mounts the PVC directly (ChecksumPVCBlockDevice),
+			// not via the VM's virt-launcher pod: while genuinely Halted, the VM has no VMI
+			// and therefore no virt-launcher pod at all to exec into.
+			//
+			// The halt is the controller's to release, not this test's, so the read is
+			// bracketed by explicit "not Running yet" checks rather than assumed to win
+			// that race. RWO does not make the race safe on its own -- it permits multiple
+			// pods on the same node, so a helper pod co-scheduled with a virt-launcher pod
+			// can read a device the guest is actively writing.
+			//
+			// Those brackets are logged, not asserted, for the same reason the comparison
+			// below is: they exist only to say how much the comparison is worth. Since
+			// the comparison itself is informational, losing this race costs nothing --
+			// hard-asserting the brackets would make this spec flake on the controller's
+			// resume timing for no corresponding gain.
+			ginkgo.By("checksumming the restored disk before the VM resumes, comparing to the source")
+			checksumComparable := true
+			preChecksumStatus, statusErr := v.GetVmStatus(restoreNamespace, restoreVMName)
+			if statusErr != nil || preChecksumStatus == "Running" {
+				checksumComparable = false
+				log.Printf("WARNING: restored VM %s/%s resumed before its disk could be checksummed (status %q, err %v) -- any mismatch below is against a disk the booted guest has already written to", restoreNamespace, restoreVMName, preChecksumStatus, statusErr)
+			}
+			restoredChecksum, checksumErr := v.ChecksumPVCBlockDevice(kubeConfig, restoreNamespace, restoredPVC.Name)
+			if checksumErr != nil {
+				checksumComparable = false
+				log.Printf("WARNING: failed to checksum restored PVC %s/%s: %v", restoreNamespace, restoredPVC.Name, checksumErr)
+			}
+			postChecksumStatus, statusErr := v.GetVmStatus(restoreNamespace, restoreVMName)
+			if statusErr != nil || postChecksumStatus == "Running" {
+				checksumComparable = false
+				log.Printf("WARNING: restored VM %s/%s resumed while its disk was being checksummed (status %q, err %v) -- any mismatch below cannot distinguish guest writes from real corruption", restoreNamespace, restoreVMName, postChecksumStatus, statusErr)
+			}
+			// Logged, not hard-asserted: this comparison is real (identical helpers,
+			// identical bracketing, no VM-run-state ambiguity), but the SOURCE side is
+			// still a live read of a continuously-running CirrOS VM with no
+			// qemu-guest-agent, so kubevirt-datamover's own freeze always fails and the
+			// disk stays genuinely writable between that read and the backup's actual
+			// checkpoint. Not a theoretical caveat: 5 of 5 real end-to-end runs against
+			// this fixture mismatched here -- meaning it isn't occasional, it's close to
+			// certain, and a hard assertion here would make this It fail almost every
+			// run for a reason that has nothing to do with kubevirt-datamover's
+			// correctness. See the TODO on lib.VirtOperator.ChecksumUploadPodQcow2Flattened
+			// for the path to making this a real, hard, deterministic assertion (a
+			// guest-agent-equipped fixture where freeze actually quiesces the guest, or a
+			// disk large/slow enough that reading kubevirt-datamover's own upload pod
+			// directly stops racing its teardown).
+			switch {
+			case !checksumComparable:
+				log.Printf("skipping the source/restored checksum comparison for %s/%s -- the warnings above mean the restored read was not taken under conditions that would make a mismatch meaningful", restoreNamespace, restoredPVC.Name)
+			case restoredChecksum != sourceChecksum:
+				log.Printf("WARNING: restored PVC %s/%s checksum (%s) does not match the source disk's pre-backup checksum (%s) -- expected given CirrOS's own filesystem churn during a live-VM read, not treated as a failure here; see the comment above this check for why", restoreNamespace, restoredPVC.Name, restoredChecksum, sourceChecksum)
+			default:
+				log.Printf("restored PVC %s/%s checksum matches the source disk's pre-backup checksum (%s)", restoreNamespace, restoredPVC.Name, restoredChecksum)
+			}
 
 			ginkgo.By("verifying the VM is running again after restore")
 			err = wait.PollUntilContextTimeout(context.Background(), 10*time.Second, 10*time.Minute, true, func(ctx context.Context) (bool, error) {
@@ -916,6 +1097,14 @@ var _ = ginkgo.Describe("VM backup and restore tests", ginkgo.Ordered, func() {
 
 			ginkgo.By("restoring from the same backup again, to trigger a PVC binding conflict")
 			rejectedRestoreName := "cirros-cbt-restore-restore-rejected"
+			// Same reasoning as the two cleanup defers above: this Restore CR also needs
+			// velero alive to clear its finalizer, and the outer AfterEach has already
+			// torn velero down by the time it would otherwise be deleted.
+			defer func() {
+				if err := lib.DeleteVeleroBackupAndRestore(dpaCR.Client, kubernetesClientForSuiteRun, kubeConfig, namespace, "", rejectedRestoreName); err != nil {
+					log.Printf("cleanup: failed to delete restore %s via velero CLI: %v", rejectedRestoreName, err)
+				}
+			}()
 			err = lib.CreateRestoreFromBackup(dpaCR.Client, namespace, backupName, rejectedRestoreName)
 			gomega.Expect(err).ToNot(gomega.HaveOccurred(), "failed to create restore %s", rejectedRestoreName)
 
@@ -958,6 +1147,117 @@ var _ = ginkgo.Describe("VM backup and restore tests", ginkgo.Ordered, func() {
 				return v.GetVmStatus(restoreNamespace, restoreVMName)
 			}, time.Minute, time.Second*10).ShouldNot(gomega.Equal("Running"),
 				"VM %s/%s unexpectedly reached Running status despite its DataDownload failing", restoreNamespace, restoreVMName)
+
+			err = v.RemoveVm(restoreNamespace, restoreVMName, 5*time.Minute)
+			gomega.Expect(err).To(gomega.BeNil(), "failed to remove VM %s/%s", restoreNamespace, restoreVMName)
+			err = lib.DeleteNamespace(v.Clientset, restoreNamespace)
+			gomega.Expect(err).To(gomega.BeNil(), "failed to delete namespace %s", restoreNamespace)
+		})
+
+		ginkgo.PIt("restore run-state flip is not blocked by a stale sibling DataDownload from a different restore attempt — blocked on kubevirt-datamover-controller#73 phase 4 (restore-attempt-scoped sibling correlation, also resolves kubevirt-datamover-controller#169)", ginkgo.Label("virt"), func() {
+			// kubevirt-datamover-controller's VM run-state-restore flip
+			// (allSiblingDataDownloadsCompleted) currently correlates sibling
+			// DataDownloads purely by VM identity annotations
+			// (kubevirt-datamover.io/vm-name/vm-namespace), with no notion of which
+			// restore attempt a DataDownload belongs to. A stale, already-Failed
+			// DataDownload left over from an aborted prior restore attempt for a VM
+			// permanently blocks the flip for every future restore attempt of that VM,
+			// even a fully successful new one --
+			// https://github.com/migtools/kubevirt-datamover-controller/issues/169.
+			//
+			// The fix (correlating by the restore's own velero.io/restore-uid label in
+			// addition to VM identity) is already implemented in
+			// kubevirt-datamover-controller#73 phase 4, the same branch the other two
+			// PIt placeholders below are waiting on. Scaffolded as real, compiling
+			// pending code (not deleted, not just a comment) so it's ready to flip to
+			// ginkgo.It once phase 4 lands -- asserting only the fixed, final behavior
+			// (the VM resumes despite a foreign-attempt decoy sibling), not the
+			// currently-buggy intermediate state, since asserting the bug itself would
+			// start failing the moment the fix merges with nothing forcing anyone to
+			// notice and update it.
+			backupName := "cirros-stale-sibling-backup"
+			runKubevirtDMBackup(restoreNamespace, backupName, nil)
+
+			err := v.RemoveVm(restoreNamespace, restoreVMName, 5*time.Minute)
+			gomega.Expect(err).To(gomega.BeNil(), "failed to remove VM %s/%s", restoreNamespace, restoreVMName)
+			err = lib.DeleteNamespace(v.Clientset, restoreNamespace)
+			gomega.Expect(err).To(gomega.BeNil(), "failed to delete namespace %s", restoreNamespace)
+			gomega.Eventually(v.IsNamespaceDeletedClearingStuckVMBFinalizers(kubernetesClientForSuiteRun, restoreNamespace), time.Minute*5, time.Second*5).
+				Should(gomega.BeTrue(), "namespace %s was not deleted", restoreNamespace)
+
+			restoreName := "cirros-stale-sibling-restore"
+			defer func() {
+				if err := lib.DeleteVeleroBackupAndRestore(dpaCR.Client, kubernetesClientForSuiteRun, kubeConfig, namespace, backupName, restoreName); err != nil {
+					log.Printf("cleanup: failed to delete backup/restore %s/%s via velero CLI: %v", backupName, restoreName, err)
+				}
+			}()
+			err = lib.CreateRestoreFromBackup(dpaCR.Client, namespace, backupName, restoreName)
+			gomega.Expect(err).ToNot(gomega.HaveOccurred(), "failed to create restore %s", restoreName)
+
+			// Fabricate a decoy DataDownload simulating a stale, Failed sibling from a
+			// genuinely different restore attempt: same VM identity annotations as the
+			// real DataDownload this restore will create, but a deliberately mismatched
+			// velero.io/restore-uid (an absent label isn't equivalent to a mismatched
+			// one -- this must actually differ to simulate "a different attempt").
+			bsls, err := dpaCR.ListBSLs()
+			gomega.Expect(err).ToNot(gomega.HaveOccurred(), "failed to list BSLs")
+			foreignRestoreUID, _ := uuid.NewUUID()
+			decoy := &velerov2alpha1.DataDownload{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "dd-stale-sibling-decoy",
+					Namespace: namespace,
+					Annotations: map[string]string{
+						"kubevirt-datamover.io/vm-name":      restoreVMName,
+						"kubevirt-datamover.io/vm-namespace": restoreNamespace,
+					},
+					Labels: map[string]string{
+						velero.BackupNameLabel:  backupName,
+						velero.RestoreNameLabel: restoreName,
+						velero.RestoreUIDLabel:  foreignRestoreUID.String(),
+					},
+				},
+				Spec: velerov2alpha1.DataDownloadSpec{
+					TargetVolume: velerov2alpha1.TargetVolumeSpec{
+						PVC:       "dd-stale-sibling-decoy-pvc",
+						Namespace: restoreNamespace,
+					},
+					BackupStorageLocation: bsls.Items[0].Name,
+					DataMover:             "kubevirt",
+					SnapshotID:            "placeholder-not-used",
+					SourceNamespace:       restoreNamespace,
+					OperationTimeout:      metav1.Duration{Duration: 4 * time.Hour},
+				},
+			}
+			gomega.Expect(dpaCR.Client.Create(context.Background(), decoy)).To(gomega.Succeed(), "failed to create decoy stale-sibling DataDownload")
+			decoy.Status.Phase = velerov2alpha1.DataDownloadPhaseFailed
+			gomega.Expect(dpaCR.Client.Status().Update(context.Background(), decoy)).To(gomega.Succeed(), "failed to mark decoy DataDownload Failed")
+			defer func() {
+				_ = dpaCR.Client.Delete(context.Background(), decoy)
+			}()
+
+			gomega.Eventually(lib.IsRestoreDone(dpaCR.Client, namespace, restoreName), 45*time.Minute, time.Second*10).
+				Should(gomega.BeTrue(), "restore %s did not complete", restoreName)
+			succeeded, err := lib.IsRestoreCompletedSuccessfully(kubernetesClientForSuiteRun, dpaCR.Client, namespace, restoreName)
+			gomega.Expect(err).ToNot(gomega.HaveOccurred(), "failed to check completion status of restore %s", restoreName)
+			gomega.Expect(succeeded).To(gomega.BeTrue(), "restore %s did not complete successfully", restoreName)
+
+			_, phase, _, err := lib.GetDataDownloadForRestore(dpaCR.Client, namespace, restoreName)
+			gomega.Expect(err).ToNot(gomega.HaveOccurred(), "failed to get DataDownload for restore %s", restoreName)
+			gomega.Expect(phase).To(gomega.Equal("Completed"), "expected the real DataDownload to complete")
+
+			// The assertion this PIt exists to make once flipped to a live It: the VM
+			// resumes despite the foreign-attempt decoy sibling still sitting Failed,
+			// because phase 4's fix correlates by velero.io/restore-uid, not just VM
+			// identity.
+			err = wait.PollUntilContextTimeout(context.Background(), 10*time.Second, 10*time.Minute, true, func(ctx context.Context) (bool, error) {
+				status, statusErr := v.GetVmStatus(restoreNamespace, restoreVMName)
+				if statusErr != nil {
+					return false, nil
+				}
+				return status == "Running", nil
+			})
+			gomega.Expect(err).ToNot(gomega.HaveOccurred(),
+				"expected restored VM %s/%s to resume despite the foreign-attempt decoy sibling, once phase 4's restore-attempt-scoped correlation lands", restoreNamespace, restoreVMName)
 
 			err = v.RemoveVm(restoreNamespace, restoreVMName, 5*time.Minute)
 			gomega.Expect(err).To(gomega.BeNil(), "failed to remove VM %s/%s", restoreNamespace, restoreVMName)

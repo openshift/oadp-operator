@@ -19,6 +19,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/openshift/oadp-operator/pkg/common"
 )
@@ -71,6 +73,70 @@ func GetVeleroPod(c *kubernetes.Clientset, namespace string) (*corev1.Pod, error
 		return nil, err
 	}
 	return pod, nil
+}
+
+// DeleteVeleroBackupAndRestore deletes a Backup and/or Restore CR (either name may be
+// left empty to skip it) via the velero CLI inside the running velero pod --
+// `velero backup/restore delete --confirm` -- then waits for each to actually
+// disappear. Must be called while velero is still running: a Backup/Restore CR's own
+// finalizer (backups.velero.io/external-resources-finalizer or the restores.velero.io
+// equivalent) is only ever cleared by velero's own controller, never by the API server.
+// Deleting the CR directly (or after the DPA/velero deployment is gone) just leaves it
+// stuck Terminating forever -- confirmed directly: a restore CR deleted after its DPA
+// had already been torn down sat Terminating with its finalizer still attached and no
+// controller left to process it.
+func DeleteVeleroBackupAndRestore(ocClient client.Client, kubeClient *kubernetes.Clientset, kubeConfig *rest.Config, veleroNamespace, backupName, restoreName string) error {
+	pod, err := GetVeleroPod(kubeClient, veleroNamespace)
+	if err != nil {
+		return fmt.Errorf("failed to find velero pod in %s to delete backup/restore: %w", veleroNamespace, err)
+	}
+
+	if restoreName != "" {
+		if _, stderr, err := ExecuteCommandInPodsSh(ProxyPodParameters{
+			KubeClient: kubeClient, KubeConfig: kubeConfig, Namespace: veleroNamespace, PodName: pod.Name, ContainerName: "velero",
+		}, "/velero restore delete "+restoreName+" --confirm"); err != nil {
+			return fmt.Errorf("velero restore delete %s failed (stderr: %s): %w", restoreName, stderr, err)
+		}
+	}
+	if backupName != "" {
+		if _, stderr, err := ExecuteCommandInPodsSh(ProxyPodParameters{
+			KubeClient: kubeClient, KubeConfig: kubeConfig, Namespace: veleroNamespace, PodName: pod.Name, ContainerName: "velero",
+		}, "/velero backup delete "+backupName+" --confirm"); err != nil {
+			return fmt.Errorf("velero backup delete %s failed (stderr: %s): %w", backupName, stderr, err)
+		}
+	}
+
+	// Unexpected (non-NotFound) errors keep the poll going rather than aborting it:
+	// this runs during teardown, when transient API blips are routine and a single
+	// one should not fail cleanup. The last one is kept so that if the poll does
+	// time out, the returned error names the actual cause instead of a bare
+	// "context deadline exceeded" -- the call sites only log this, so it is the
+	// one chance to say what went wrong.
+	var lastErr error
+	pollErr := wait.PollUntilContextTimeout(context.Background(), 5*time.Second, 3*time.Minute, true, func(ctx context.Context) (bool, error) {
+		lastErr = nil
+		if restoreName != "" {
+			if _, err := GetRestore(ocClient, veleroNamespace, restoreName); err == nil || !apierrors.IsNotFound(err) {
+				if err != nil {
+					lastErr = fmt.Errorf("checking restore %s: %w", restoreName, err)
+				}
+				return false, nil
+			}
+		}
+		if backupName != "" {
+			if _, err := GetBackup(ocClient, veleroNamespace, backupName); err == nil || !apierrors.IsNotFound(err) {
+				if err != nil {
+					lastErr = fmt.Errorf("checking backup %s: %w", backupName, err)
+				}
+				return false, nil
+			}
+		}
+		return true, nil
+	})
+	if pollErr != nil && lastErr != nil {
+		return fmt.Errorf("%w (last API error: %v)", pollErr, lastErr)
+	}
+	return pollErr
 }
 
 func VeleroPodIsRunning(c *kubernetes.Clientset, namespace string) wait.ConditionFunc {
