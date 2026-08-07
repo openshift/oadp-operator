@@ -11,6 +11,7 @@ import (
 
 	operatorsv1 "github.com/operator-framework/api/pkg/operators/v1"
 	operatorsv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
+	velerov2alpha1 "github.com/vmware-tanzu/velero/pkg/apis/velero/v2alpha1"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -22,6 +23,7 @@ import (
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
+	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -934,6 +936,46 @@ func (v *VirtOperator) WaitForVMReady(namespace, name string, timeout time.Durat
 	})
 }
 
+// HasQemuGuestAgent reports whether vmName's VMI currently has a connected
+// qemu-guest-agent, via the VMI's own "AgentConnected" status condition --
+// the same signal kubevirt-datamover's own filesystem-freeze attempt depends
+// on. Useful for a test to decide up front whether a real, guest-quiesced
+// filesystem freeze can be trusted for a given VM fixture (guest-agent-backed
+// images like Fedora) versus one that can't (CirrOS, which ships no agent at
+// all, so freeze always fails and the guest stays writable through backup --
+// confirmed directly: kubevirt-datamover-controller logs a "Guest agent is not
+// responding" warning on every CirrOS backup, and reading the same live
+// CirrOS VM's disk twice a few seconds apart, with no backup involved at all,
+// produces two different checksums purely from the guest's own filesystem
+// churn). Returns false (not an error) if the VMI doesn't exist or has no
+// conditions yet -- both mean "no agent connected right now," not "unknown".
+func (v *VirtOperator) HasQemuGuestAgent(namespace, name string) (bool, error) {
+	vmi, err := v.Dynamic.Resource(virtualMachineInstanceGvr).Namespace(namespace).Get(context.Background(), name, metav1.GetOptions{})
+	if apierrors.IsNotFound(err) {
+		return false, nil
+	}
+	if err != nil {
+		return false, fmt.Errorf("failed to get VMI %s/%s: %w", namespace, name, err)
+	}
+	conditions, found, err := unstructured.NestedSlice(vmi.UnstructuredContent(), "status", "conditions")
+	if err != nil {
+		return false, fmt.Errorf("failed to read status.conditions on VMI %s/%s: %w", namespace, name, err)
+	}
+	if !found {
+		return false, nil
+	}
+	for _, c := range conditions {
+		cond, ok := c.(map[string]interface{})
+		if !ok {
+			continue
+		}
+		if cond["type"] == "AgentConnected" && cond["status"] == "True" {
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
 // StopVm stops a VM with a REST call to "stop". This is needed because a
 // poweroff from inside the VM results in KubeVirt restarting it.
 // From the KubeVirt API reference:
@@ -1503,6 +1545,320 @@ func (v *VirtOperator) RunVirshCommand(kubeConfig *rest.Config, namespace, vmNam
 		return "", fmt.Errorf("virsh command failed (stderr: %s): %w", stderr, err)
 	}
 	return stdout, nil
+}
+
+// ChecksumBlockDevice returns the sha256 checksum of the entire raw block device
+// backing volumeName inside vmName's virt-launcher pod's compute container --
+// reading the device directly rather than a file inside the guest filesystem.
+// A Block-mode disk can carry stale bytes outside any file's own blocks (e.g.
+// leftover data from whatever previously occupied the same underlying storage,
+// which kubevirt-datamover-controller's flattenToRaw -S 0 flag specifically
+// guards against not re-exposing on restore); a guest-level file check would
+// never see a regression there, only a full-device read does. KubeVirt exposes
+// a Block-mode disk inside the compute container at /dev/<volume-name>, where
+// volume-name matches the VMI's spec.template.spec.volumes[].name (confirmed by
+// direct inspection: `ls -la /dev/` in the compute container of a running VM
+// using cirros-test-cbt.yaml's "volume0" volume shows exactly /dev/volume0,
+// readable and correctly sized to the PVC's underlying PV).
+//
+// Used specifically for a VM that is still running and therefore still holds
+// its own PVC attached (RWO) to its virt-launcher pod -- ChecksumPVCBlockDevice's
+// throwaway helper pod would just hang waiting to attach a PVC that's already
+// attached elsewhere, since RWO permits only one attachment at a time.
+//
+// Currently unused (no call sites) -- intentionally kept, not dead code left by
+// accident. This is the natural counterpart to VirtOperator.HasQemuGuestAgent /
+// VmBackupRestoreCase.HasGuestAgent: a guest-agent-equipped VM fixture (e.g.
+// Fedora) is exactly the case where kubevirt-datamover's filesystem-freeze can
+// actually succeed, making a live read of the running VM's disk trustworthy
+// again -- the source-side data-integrity check for such a fixture should call
+// this directly instead of reaching for the rebound-PVC path that CirrOS (no
+// guest agent) needs. Remove this if that fixture never materializes; don't let
+// it linger unexplained.
+func (v *VirtOperator) ChecksumBlockDevice(kubeConfig *rest.Config, namespace, vmName, volumeName string) (string, error) {
+	pod, err := v.GetVirtLauncherPod(namespace, vmName)
+	if err != nil {
+		return "", err
+	}
+	stdout, stderr, err := ExecuteShellCommandInPod(ProxyPodParameters{
+		KubeClient:    v.Clientset,
+		KubeConfig:    kubeConfig,
+		Namespace:     namespace,
+		PodName:       pod.Name,
+		ContainerName: "compute",
+	}, fmt.Sprintf("sha256sum /dev/%s", volumeName))
+	if err != nil {
+		return "", fmt.Errorf("checksum of /dev/%s in %s/%s failed (stderr: %s): %w", volumeName, namespace, pod.Name, stderr, err)
+	}
+	fields := strings.Fields(stdout)
+	if len(fields) == 0 {
+		return "", fmt.Errorf("sha256sum produced no output for /dev/%s in %s/%s", volumeName, namespace, pod.Name)
+	}
+	return fields[0], nil
+}
+
+// ChecksumUploadPodQcow2Flattened finds kubevirt-datamover's own "upload" pod
+// for a given DataUpload while it's still Running, and returns the sha256
+// checksum of its qcow2 payload flattened to a raw image via qemu-img (already
+// installed in that pod's image) -- not a direct hash of the qcow2 file itself.
+// qcow2 is a container format whose bytes don't correspond 1:1 to the raw disk
+// contents it encodes (confirmed via direct research into
+// kubevirt-datamover-controller's pod_builder.go and uploader/run.go: the
+// upload pod mounts /backup-data read-only as a plain filesystem containing
+// *.qcow2 file(s), not a raw block device, unlike the download side). Flattening
+// to raw first is what makes this checksum directly comparable to a raw-device
+// read on the restored side.
+//
+// This exists because reading the rebound PVC directly (kubevirt-dm-pvc-<name>,
+// via a second pod mounting it independently) doesn't work: the upload pod
+// itself holds that PVC attached (RWO) for its entire upload-to-S3 duration and
+// only releases it moments before the controller deletes it -- confirmed
+// directly, a competing helper pod just sits stuck ContainerCreating for the
+// whole upload, then the PVC vanishes out from under it. Reading via the
+// upload pod itself sidesteps the RWO contention entirely, since nothing else
+// needs to attach anything -- it already has the data mounted.
+//
+// Safe window: kubevirt-datamover-controller creates the upload pod in
+// handlePrepared, before the DataUpload flips to InProgress, and deletes both
+// the pod and the rebound PVC/PV in the same reconcile that marks the
+// DataUpload Completed -- there is no gap to catch it after success. Call this
+// from runKubevirtDMBackup's onDataUploadFound callback, which fires well
+// before that point.
+//
+// NOT CURRENTLY CALLED -- kept deliberately, not left behind by accident. For
+// a VM/disk this small (CirrOS, ~150Mi), the upload pod's own natural lifetime
+// turned out too short to reliably win: three consecutive live attempts were
+// all SIGKILLed (exit 137) within a few seconds of the exec starting,
+// regardless of approach (a temp raw file, then a streaming pipe to sha256sum
+// to rule out the container's 256Mi memory limit as the cause) -- and a
+// separate, independently-polling script checking every 2s lost the race to
+// even run a trivial `touch` before the container was already gone. That's a
+// wall-clock race external tooling can't reliably win for a backup this fast,
+// not a bug fixable by tuning the script further (see the retry-loop and
+// pipefail handling in the script below -- both guard against real failure
+// modes, but neither addresses the wall-clock race described above).
+//
+// TODO(data-integrity): this becomes worth revisiting for any future fixture
+// whose backup naturally takes longer to upload (a larger disk, a busier
+// guest) -- the everything-here (UID-label lookup, qcow2-vs-raw flattening,
+// the /backup-data population wait) should still be correct, just currently
+// unable to reliably fit inside CirrOS's own tiny window. Re-verify the timing
+// empirically before relying on it again, the same way this comment's claims
+// were established: live, on a real cluster, not by re-reasoning from the
+// source.
+func (v *VirtOperator) ChecksumUploadPodQcow2Flattened(ocClient client.Client, kubeConfig *rest.Config, namespace, dataUploadName string) (string, error) {
+	// The pod's own name is generated via GenerateName with a truncating prefix
+	// (kubevirt-dm-<DataUpload.Name>-, cut to fit Kubernetes' 63-char label/DNS
+	// limit before the random suffix is appended) -- confirmed directly this
+	// truncation is real, not just theoretical: for DataUpload name
+	// "du-cirros-cbt-restore-backup-cirros-test-cirros-test-b846d047" the actual
+	// pod name observed live was "kubevirt-dm-du-cirros-cbt-restore-backup-cirros-
+	// test-cirro<5 random chars>", cut off mid-word. A name-prefix guess can
+	// never reliably reconstruct that truncation, so this looks the pod up by
+	// the "velero.io/dataupload-uid" label instead -- the DataUpload's own UID,
+	// always 36 chars, never truncated, and unique per DataUpload by
+	// construction (kubevirt-datamover-controller's own equivalent lookup,
+	// findPodByUID, errors if it ever finds more than one).
+	du := velerov2alpha1.DataUpload{}
+	if err := ocClient.Get(context.Background(), client.ObjectKey{Namespace: namespace, Name: dataUploadName}, &du); err != nil {
+		return "", fmt.Errorf("failed to get DataUpload %s/%s: %w", namespace, dataUploadName, err)
+	}
+
+	var podName string
+	err := wait.PollUntilContextTimeout(context.Background(), 3*time.Second, 5*time.Minute, true, func(ctx context.Context) (bool, error) {
+		pods, listErr := v.Clientset.CoreV1().Pods(namespace).List(ctx, metav1.ListOptions{
+			LabelSelector: "velero.io/dataupload-uid=" + string(du.UID),
+		})
+		if listErr != nil {
+			return false, nil
+		}
+		for i := range pods.Items {
+			p := &pods.Items[i]
+			if p.Status.Phase == corev1.PodRunning {
+				podName = p.Name
+				return true, nil
+			}
+		}
+		return false, nil
+	})
+	if err != nil {
+		return "", fmt.Errorf("kubevirt-datamover upload pod for DataUpload %s/%s (uid %s) never became Running: %w", namespace, dataUploadName, du.UID, err)
+	}
+
+	// The glob is deliberately counted rather than passed straight to qemu-img:
+	// `qemu-img convert` accepts multiple input filenames and CONCATENATES them
+	// into one output image, so a /backup-data holding more than one qcow2 (a
+	// multi-disk VM) would silently produce a checksum of all disks joined
+	// together and compare it against the restored side's single raw device --
+	// a mismatch that reads exactly like data corruption. Fails loudly instead.
+	// The flattened file is removed via an EXIT trap rather than a trailing rm, so
+	// it goes away on the failure paths too: it is the disk's full virtual size and
+	// lives in the upload pod's ephemeral storage while that pod is still uploading,
+	// and a convert that dies partway through (out of space being the obvious way)
+	// would otherwise leave the partial copy behind and risk an eviction that breaks
+	// the very backup under test.
+	script := `set -e
+# pipefail is load-bearing, not boilerplate: a pipeline's exit status is its LAST
+# command's, so without it a qemu-img that dies mid-convert still leaves sha256sum
+# exiting 0 over the truncated stream, and set -e sees nothing wrong. That yields a
+# valid-looking checksum of partial data, which the caller then reports as "restored
+# data does not match" -- a false corruption verdict against the datamover, the exact
+# failure this whole check exists to distinguish from a real one. Not hypothetical:
+# qemu-img has already been SIGKILLed here once by the 256Mi limit. If a shell ever
+# lacks pipefail this line fails outright under set -e, which is the right outcome --
+# loudly unsupported beats silently unchecked.
+set -o pipefail
+n=0
+attempt=0
+# The pod reaching Running doesn't mean /backup-data is populated yet -- confirmed
+# directly: an exec immediately after Running found 0 qcow2 files. Retries here
+# instead of failing once, since this is a one-time startup lag, not a sign
+# something is actually wrong. Capped at 15 (not 60): kubevirt-datamover-controller
+# deletes this pod in the same reconcile that completes the DataUpload, so a long
+# wait here risks losing the pod to that teardown mid-exec instead of getting a
+# clean "found 0" -- if the file isn't visible within ~30s it's not a visibility
+# lag at all, since the uploader itself expects the file present at startup.
+while [ "$attempt" -lt 15 ]; do
+	n=0
+	for f in /backup-data/*.qcow2; do
+		[ -e "$f" ] || continue
+		n=$((n + 1))
+		src=$f
+	done
+	[ "$n" -ge 1 ] && break
+	attempt=$((attempt + 1))
+	sleep 2
+done
+if [ "$n" -ne 1 ]; then
+	echo "expected exactly 1 qcow2 file in /backup-data after waiting, found $n" >&2
+	exit 1
+fi
+# Streamed straight to sha256sum via a pipe rather than written to a temp raw
+# file first: this container's own memory limit is 256Mi, already shared with
+# its own upload-to-S3 work running concurrently -- confirmed directly, a
+# materialized-to-disk version of this got SIGKILLed (exit 137) mid-convert.
+# Piping keeps the flattened bytes flowing through in small chunks instead of
+# holding the whole disk's worth in page cache/buffers at once.
+qemu-img convert -O raw "$src" /dev/stdout | sha256sum
+`
+	stdout, stderr, err := ExecuteShellCommandInPod(ProxyPodParameters{
+		KubeClient:    v.Clientset,
+		KubeConfig:    kubeConfig,
+		Namespace:     namespace,
+		PodName:       podName,
+		ContainerName: "upload",
+	}, script)
+	if err != nil {
+		return "", fmt.Errorf("failed to flatten+checksum qcow2 in upload pod %s/%s (stderr: %s): %w", namespace, podName, stderr, err)
+	}
+	fields := strings.Fields(stdout)
+	if len(fields) == 0 {
+		return "", fmt.Errorf("sha256sum produced no output in upload pod %s/%s", namespace, podName)
+	}
+	return fields[0], nil
+}
+
+// ChecksumPVCBlockDevice returns the sha256 checksum of the entire raw block device
+// backing pvcName, read via a short-lived helper pod that mounts the PVC directly as
+// a raw block device (volumeDevices) rather than via a VM's virt-launcher pod. Needed
+// specifically for the restored side of a data-integrity check: while this PR's fix
+// holds a restored VM Halted (no VMI, hence no virt-launcher pod at all) until every
+// sibling DataDownload completes, there is no VM-owned pod to exec into at that point
+// -- confirmed directly: ChecksumBlockDevice failed with "no virt-launcher pod found"
+// immediately after DataDownload reached Completed, because the halt really does mean
+// no launcher pod exists yet, not merely a paused one. The helper pod is deleted (and
+// its deletion awaited) before returning, so the PVC is free again by the time the
+// caller lets the VM resume and its virt-launcher pod tries to attach the same PVC --
+// PVC access mode here is RWO, so the two can never overlap.
+func (v *VirtOperator) ChecksumPVCBlockDevice(kubeConfig *rest.Config, namespace, pvcName string) (checksum string, err error) {
+	podName := "checksum-helper-" + pvcName
+	pod := &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      podName,
+			Namespace: namespace,
+		},
+		Spec: corev1.PodSpec{
+			RestartPolicy: corev1.RestartPolicyNever,
+			SecurityContext: &corev1.PodSecurityContext{
+				RunAsNonRoot: ptr.To(true),
+			},
+			Containers: []corev1.Container{
+				{
+					Name:    "checksum",
+					Image:   "registry.access.redhat.com/ubi9/ubi:latest",
+					Command: []string{"/bin/sleep", "infinity"},
+					SecurityContext: &corev1.SecurityContext{
+						AllowPrivilegeEscalation: ptr.To(false),
+						Capabilities:             &corev1.Capabilities{Drop: []corev1.Capability{"ALL"}},
+						SeccompProfile:           &corev1.SeccompProfile{Type: corev1.SeccompProfileTypeRuntimeDefault},
+					},
+					VolumeDevices: []corev1.VolumeDevice{
+						{Name: "block", DevicePath: "/dev/block"},
+					},
+				},
+			},
+			Volumes: []corev1.Volume{
+				{
+					Name: "block",
+					VolumeSource: corev1.VolumeSource{
+						PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
+							ClaimName: pvcName,
+						},
+					},
+				},
+			},
+		},
+	}
+
+	// Surfaced rather than ignored: the caller's next step is letting the VM's own
+	// virt-launcher pod attach this same RWO PVC, which a still-present helper pod
+	// silently blocks. Returning a checksum while the pod is still holding the PVC
+	// would turn that into a confusing VM-never-started failure much later on.
+	defer func() {
+		if delErr := v.Clientset.CoreV1().Pods(namespace).Delete(context.Background(), podName, metav1.DeleteOptions{GracePeriodSeconds: ptr.To(int64(0))}); delErr != nil && !apierrors.IsNotFound(delErr) {
+			if err == nil {
+				err = fmt.Errorf("failed to delete checksum helper pod %s/%s: %w", namespace, podName, delErr)
+			}
+			return
+		}
+		if waitErr := wait.PollUntilContextTimeout(context.Background(), 2*time.Second, 60*time.Second, true, func(ctx context.Context) (bool, error) {
+			_, getErr := v.Clientset.CoreV1().Pods(namespace).Get(ctx, podName, metav1.GetOptions{})
+			return apierrors.IsNotFound(getErr), nil
+		}); waitErr != nil && err == nil {
+			err = fmt.Errorf("checksum helper pod %s/%s was not gone before returning, PVC %s may still be attached to it: %w", namespace, podName, pvcName, waitErr)
+		}
+	}()
+
+	if _, createErr := v.Clientset.CoreV1().Pods(namespace).Create(context.Background(), pod, metav1.CreateOptions{}); createErr != nil {
+		return "", fmt.Errorf("failed to create checksum helper pod for PVC %s/%s: %w", namespace, pvcName, createErr)
+	}
+
+	err = wait.PollUntilContextTimeout(context.Background(), 2*time.Second, 120*time.Second, true, func(ctx context.Context) (bool, error) {
+		p, getErr := v.Clientset.CoreV1().Pods(namespace).Get(ctx, podName, metav1.GetOptions{})
+		if getErr != nil {
+			return false, getErr
+		}
+		return p.Status.Phase == corev1.PodRunning, nil
+	})
+	if err != nil {
+		return "", fmt.Errorf("checksum helper pod for PVC %s/%s never became Running: %w", namespace, pvcName, err)
+	}
+
+	stdout, stderr, err := ExecuteShellCommandInPod(ProxyPodParameters{
+		KubeClient:    v.Clientset,
+		KubeConfig:    kubeConfig,
+		Namespace:     namespace,
+		PodName:       podName,
+		ContainerName: "checksum",
+	}, "sha256sum /dev/block")
+	if err != nil {
+		return "", fmt.Errorf("checksum of PVC %s/%s failed (stderr: %s): %w", namespace, pvcName, stderr, err)
+	}
+	fields := strings.Fields(stdout)
+	if len(fields) == 0 {
+		return "", fmt.Errorf("sha256sum produced no output for PVC %s/%s", namespace, pvcName)
+	}
+	return fields[0], nil
 }
 
 // SetVMAnnotation sets a single annotation on a VirtualMachine CR, retrying on update
