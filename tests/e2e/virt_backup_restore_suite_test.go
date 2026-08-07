@@ -680,7 +680,7 @@ var _ = ginkgo.Describe("VM backup and restore tests", ginkgo.Ordered, func() {
 		// sequence — and this It does its own full cleanup at the end anyway (matching
 		// runVmBackupAndRestore's "avoid finalizers in namespace deletion" convention), so
 		// the shared AfterEach's redundant Undeploy/deleteNamespace afterward is a no-op.
-		ginkgo.It("full backup, incremental chain, restart, and max-limit fallback", ginkgo.Label("virt"), func() {
+		ginkgo.It("full backup, incremental chain, restart, and max-limit fallback", ginkgo.Label("virt", "kdm"), func() {
 			ginkgo.By("backup 1: first-ever backup is full")
 			runSequenceBackup("full")
 
@@ -707,7 +707,7 @@ var _ = ginkgo.Describe("VM backup and restore tests", ginkgo.Ordered, func() {
 			gomega.Expect(err).To(gomega.BeNil(), "failed to delete namespace %s", incSeqNamespace)
 		})
 
-		ginkgo.PIt("backup after deleting libvirt checkpoints with maxIncrementalBackups=0 hangs forever — blocked by CNV-85377", ginkgo.Label("virt"), func() {
+		ginkgo.PIt("backup after deleting libvirt checkpoints with maxIncrementalBackups=0 hangs forever — blocked by CNV-85377", ginkgo.Label("virt", "kdm"), func() {
 			// See https://redhat.atlassian.net/browse/CNV-85377 and
 			// https://github.com/openshift/oadp-operator/issues/2252 (Test 4): once a
 			// libvirt checkpoint is deleted from the virt-launcher pod, virt-controller
@@ -838,7 +838,7 @@ var _ = ginkgo.Describe("VM backup and restore tests", ginkgo.Ordered, func() {
 			setupVmForRestoreTest(restoreNamespace, restoreVMName, restoreTemplate)
 		})
 
-		ginkgo.PIt("restore run-state flip is not blocked by a stale sibling DataDownload from a different restore attempt — blocked on kubevirt-datamover-controller#73 phase 4 (restore-attempt-scoped sibling correlation, also resolves kubevirt-datamover-controller#169)", ginkgo.Label("virt"), func() {
+		ginkgo.PIt("restore run-state flip is not blocked by a stale sibling DataDownload from a different restore attempt — blocked on kubevirt-datamover-controller#73 phase 4 (restore-attempt-scoped sibling correlation, also resolves kubevirt-datamover-controller#169)", ginkgo.Label("virt", "kdm"), func() {
 			// kubevirt-datamover-controller's VM run-state-restore flip
 			// (allSiblingDataDownloadsCompleted) currently correlates sibling
 			// DataDownloads purely by VM identity annotations
@@ -949,7 +949,7 @@ var _ = ginkgo.Describe("VM backup and restore tests", ginkgo.Ordered, func() {
 			gomega.Expect(err).To(gomega.BeNil(), "failed to delete namespace %s", restoreNamespace)
 		})
 
-		ginkgo.PIt("restore a multi-PVC VM from a kubevirt-datamover CBT backup — blocked on kubevirt-datamover-controller#73 phase 4 (multi-disk restore hardening, not yet implemented)", ginkgo.Label("virt"), func() {
+		ginkgo.PIt("restore a multi-PVC VM from a kubevirt-datamover CBT backup — blocked on kubevirt-datamover-controller#73 phase 4 (multi-disk restore hardening, not yet implemented)", ginkgo.Label("virt", "kdm"), func() {
 			// Phase 4 ("Multi-disk + PVC provisioning hardening") of
 			// https://github.com/migtools/kubevirt-datamover-controller/issues/73 has not
 			// landed yet — per its own exit criteria ("unit tests for multi-disk
@@ -1081,7 +1081,7 @@ var _ = ginkgo.Describe("VM backup and restore tests", ginkgo.Ordered, func() {
 				fullBackupPayloadSizeMiB   = 32
 			)
 
-			ginkgo.It("restore a VM from a full kubevirt-datamover CBT backup", ginkgo.Label("virt"), func() {
+			ginkgo.It("restore a VM from a full kubevirt-datamover CBT backup", ginkgo.Label("virt", "kdm"), func() {
 				// Cross-checks alpineCase.HasGuestAgent against the VMI's actual live
 				// condition, rather than trusting the fixture's declared value blindly --
 				// catches drift if this VM template ever changes without the field being
@@ -1311,7 +1311,7 @@ var _ = ginkgo.Describe("VM backup and restore tests", ginkgo.Ordered, func() {
 				gomega.Expect(err).To(gomega.BeNil(), "failed to delete namespace %s", alpineNamespace)
 			})
 
-			ginkgo.It("restore from an incremental (not full) kubevirt-datamover CBT backup", ginkgo.Label("virt"), func() {
+			ginkgo.It("restore from an incremental (not full) kubevirt-datamover CBT backup", ginkgo.Label("virt", "kdm"), func() {
 				ginkgo.By("writing payload A and checksumming it before the full backup")
 				err := v.WriteRandomPayloadToGuestBlockDevice(kubeConfig, alpineNamespace, alpineVMName, alpineDomainName, "/dev/vda", payloadAOffsetMiB, payloadSizeMiB)
 				gomega.Expect(err).ToNot(gomega.HaveOccurred(), "failed to write payload A into guest %s/%s", alpineNamespace, alpineVMName)
@@ -1481,7 +1481,7 @@ var _ = ginkgo.Describe("VM backup and restore tests", ginkgo.Ordered, func() {
 				}
 			})
 
-			ginkgo.It("restore a Fedora VM from a full kubevirt-datamover CBT backup", ginkgo.Label("virt"), func() {
+			ginkgo.It("restore a Fedora VM from a full kubevirt-datamover CBT backup", ginkgo.Label("virt", "kdm"), func() {
 				ginkgo.By("backing up the VM via kubevirt-datamover")
 				backupName := "fedora-cbt-restore-backup"
 				defer func() {
