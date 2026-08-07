@@ -1565,110 +1565,15 @@ func (v *VirtOperator) RunVirshCommand(kubeConfig *rest.Config, namespace, vmNam
 	return stdout, nil
 }
 
-// ChecksumBlockDevice returns the sha256 checksum of the entire raw block device
-// backing volumeName inside vmName's virt-launcher pod's compute container --
-// reading the device directly rather than a file inside the guest filesystem.
-// A Block-mode disk can carry stale bytes outside any file's own blocks (e.g.
-// leftover data from whatever previously occupied the same underlying storage,
-// which kubevirt-datamover-controller's flattenToRaw -S 0 flag specifically
-// guards against not re-exposing on restore); a guest-level file check would
-// never see a regression there, only a full-device read does. KubeVirt exposes
-// a Block-mode disk inside the compute container at /dev/<volume-name>, where
-// volume-name matches the VMI's spec.template.spec.volumes[].name (confirmed by
-// direct inspection: `ls -la /dev/` in the compute container of a running VM
-// using cirros-test-cbt.yaml's "volume0" volume shows exactly /dev/volume0,
-// readable and correctly sized to the PVC's underlying PV).
-//
-// Used specifically for a VM that is still running and therefore still holds
-// its own PVC attached (RWO) to its virt-launcher pod -- ChecksumPVCBlockDevice's
-// throwaway helper pod would just hang waiting to attach a PVC that's already
-// attached elsewhere, since RWO permits only one attachment at a time.
-//
-// Currently unused (no call sites) -- intentionally kept, not dead code left by
-// accident. This is the natural counterpart to VirtOperator.HasQemuGuestAgent /
-// VmBackupRestoreCase.HasGuestAgent: a guest-agent-equipped VM fixture (e.g.
-// Fedora) is exactly the case where kubevirt-datamover's filesystem-freeze can
-// actually succeed, making a live read of the running VM's disk trustworthy
-// again -- the source-side data-integrity check for such a fixture should call
-// this directly instead of reaching for the rebound-PVC path that CirrOS (no
-// guest agent) needs. Remove this if that fixture never materializes; don't let
-// it linger unexplained.
-func (v *VirtOperator) ChecksumBlockDevice(kubeConfig *rest.Config, namespace, vmName, volumeName string) (string, error) {
-	pod, err := v.GetVirtLauncherPod(namespace, vmName)
-	if err != nil {
-		return "", err
-	}
-	stdout, stderr, err := ExecuteShellCommandInPod(ProxyPodParameters{
-		KubeClient:    v.Clientset,
-		KubeConfig:    kubeConfig,
-		Namespace:     namespace,
-		PodName:       pod.Name,
-		ContainerName: "compute",
-	}, fmt.Sprintf("sha256sum /dev/%s", volumeName))
-	if err != nil {
-		return "", fmt.Errorf("checksum of /dev/%s in %s/%s failed (stderr: %s): %w", volumeName, namespace, pod.Name, stderr, err)
-	}
-	fields := strings.Fields(stdout)
-	if len(fields) == 0 {
-		return "", fmt.Errorf("sha256sum produced no output for /dev/%s in %s/%s", volumeName, namespace, pod.Name)
-	}
-	return fields[0], nil
-}
-
-// WriteRandomPayloadToBlockDevice writes sizeMiB of random bytes at offsetMiB into
-// the VM's raw block device, via the virt-launcher pod's compute container --
-// bypassing the guest OS entirely (same access pattern ChecksumBlockDevice already
-// uses to read). oflag=direct+conv=fsync guarantee the bytes are actually on the
-// PV before this returns, not sitting in a page cache that qemu or the guest could
-// later overwrite silently, which would otherwise let a false "still matches"
-// result slip through.
-//
-// FULL-BACKUP-ONLY: writing directly to the block device from the host side
-// bypasses qemu's own I/O path, so its CBT dirty-bitmap tracking never observes
-// the write. An incremental backup would legitimately skip this region as
-// "unchanged" and any assertion built on it would wrongly blame kubevirt-datamover
-// for a bug that doesn't exist. Do not reuse this pattern in an incremental-backup
-// test without routing the write through the guest/qemu I/O path instead (e.g.
-// writing the payload from inside the guest itself).
-//
-// TODO(incremental-chain-data-integrity, kubevirt-datamover-controller#73 phase 5):
-// the O_DIRECT+bracket-verify trick here cannot extend to incremental-chain
-// coverage for the reason above -- a real, CBT-tracked write has to go through
-// the guest's own filesystem, which reintroduces the freeze/quiesce problem this
-// whole design sidesteps for the full-backup case. That means incremental-chain
-// data-integrity verification will need an actual guest-agent-equipped fixture
-// (e.g. Alpine + qemu-guest-agent via apk, or an upstream KubeVirt
-// test-tooling-container-disk that already bundles it) so a real freeze/quiesce
-// is available, not this offset-write approach. Tracked here so it isn't
-// forgotten when incremental e2e coverage (the PIt in
-// virt_backup_restore_suite_test.go gated on phase 5) gets built out.
-func (v *VirtOperator) WriteRandomPayloadToBlockDevice(kubeConfig *rest.Config, namespace, vmName, volumeName string, offsetMiB, sizeMiB int) error {
-	pod, err := v.GetVirtLauncherPod(namespace, vmName)
-	if err != nil {
-		return err
-	}
-	_, stderr, err := ExecuteShellCommandInPod(ProxyPodParameters{
-		KubeClient:    v.Clientset,
-		KubeConfig:    kubeConfig,
-		Namespace:     namespace,
-		PodName:       pod.Name,
-		ContainerName: "compute",
-	}, fmt.Sprintf("dd if=/dev/urandom of=/dev/%s bs=1M seek=%d count=%d oflag=direct conv=fsync", volumeName, offsetMiB, sizeMiB))
-	if err != nil {
-		return fmt.Errorf("failed to write random payload to /dev/%s in %s/%s (stderr: %s): %w", volumeName, namespace, pod.Name, stderr, err)
-	}
-	return nil
-}
-
-// ChecksumBlockDeviceRegion is like ChecksumBlockDevice but hashes only a
-// fixed-size region starting at offsetMiB, rather than the whole device -- pairs
-// with WriteRandomPayloadToBlockDevice on the source side and
+// ChecksumBlockDeviceRegion hashes only a fixed-size region starting at
+// offsetMiB of the raw block device backing volumeName inside vmName's
+// virt-launcher pod's compute container -- pairs with
+// WriteRandomPayloadToGuestBlockDevice (which writes the region THROUGH THE
+// GUEST, so the write is CBT-tracked) on the source side and
 // ChecksumPVCBlockDeviceRegion on the restored side for the payload-bracketing
-// hard assertion (see the comment above the restored-side checksum step in
-// virt_backup_restore_suite_test.go for why a whole-device checksum on a live,
-// unfrozen CirrOS guest has ~zero power to distinguish real corruption from the
-// guest's own filesystem churn). iflag=direct bypasses the page cache so the read
-// reflects what is actually on the device, not a cached copy.
+// hard assertion (see the comments around the payload checks in
+// virt_backup_restore_suite_test.go). iflag=direct bypasses the page cache so
+// the read reflects what is actually on the device, not a cached copy.
 func (v *VirtOperator) ChecksumBlockDeviceRegion(kubeConfig *rest.Config, namespace, vmName, volumeName string, offsetMiB, sizeMiB int) (string, error) {
 	pod, err := v.GetVirtLauncherPod(namespace, vmName)
 	if err != nil {
@@ -1721,17 +1626,17 @@ func lastNonEmptyLine(s string) string {
 // pod) via qemu-guest-agent's "guest-exec" QMP command, dispatched through
 // `virsh qemu-agent-command` in the compute container. This is what makes a
 // write CBT-tracked: the write goes guest -> virtio-blk -> qemu's own block
-// I/O path, which is exactly what the dirty-bitmap observes -- unlike
-// WriteRandomPayloadToBlockDevice's host-side write, which bypasses that path
-// entirely (see that function's doc comment).
+// I/O path, which is exactly what the dirty-bitmap observes -- unlike a
+// host-side dd straight to the virt-launcher pod's /dev/<volume>, which
+// bypasses that path entirely.
 //
 // domainName is the libvirt domain name virsh addresses this VM by, which is
 // NOT necessarily vmName -- KubeVirt commonly namespaces it (e.g.
-// "<namespace>_<vmName>"), but this has never been exercised against a live
-// cluster in this repo (RunVirshCommand's only call sites live inside a
-// ginkgo.PIt). Confirm the actual convention live (e.g. `virsh list --all` in
-// the compute container) before relying on any particular value here -- do
-// not assume vmName is correct.
+// "<namespace>_<vmName>"). Confirmed live against the 260716-aws-amd64
+// cluster via `virsh list --all` in the compute container: KubeVirt names the
+// libvirt domain "<namespace>_<vmName>", not the bare VM name -- don't assume
+// the bare name is correct for a different cluster/KubeVirt version without
+// re-confirming.
 //
 // Deliberately does NOT go through RunVirshCommand: that helper dispatches
 // via ExecuteCommandInPodsSh, which naively does strings.Split(cmd, " ") with
@@ -1844,20 +1749,19 @@ func (v *VirtOperator) RunGuestExecScript(kubeConfig *rest.Config, namespace, vm
 	return &result, nil
 }
 
-// WriteRandomPayloadToGuestBlockDevice is the guest-routed counterpart to
-// WriteRandomPayloadToBlockDevice: it writes sizeMiB of random bytes at
+// WriteRandomPayloadToGuestBlockDevice writes sizeMiB of random bytes at
 // offsetMiB into guestDevice (e.g. "/dev/vda") FROM INSIDE THE GUEST via
 // RunGuestExecScript, rather than from the host side. Because the write goes
 // through the guest's own block driver -> qemu I/O path, it IS visible to
-// qemu's CBT dirty-bitmap tracking -- unlike WriteRandomPayloadToBlockDevice,
-// this is safe to use for incremental-backup data-integrity assertions.
+// qemu's CBT dirty-bitmap tracking -- unlike a host-side dd straight to the
+// virt-launcher pod's /dev/<volume>, this is safe to use for
+// incremental-backup data-integrity assertions.
 //
-// conv=fsync (mirroring the host-side helper) plus a following `sync` ensure
-// the bytes are actually flushed through to the virtio-blk device before this
-// returns, not left sitting in the guest's page cache -- the same
-// bracket-verify pattern this pairs with (checksumming immediately
-// before/after a backup window) depends on the write being durable at the
-// moment it completes, not still buffered.
+// conv=fsync plus a following `sync` ensure the bytes are actually flushed
+// through to the virtio-blk device before this returns, not left sitting in
+// the guest's page cache -- the same bracket-verify pattern this pairs with
+// (checksumming immediately before/after a backup window) depends on the
+// write being durable at the moment it completes, not still buffered.
 //
 // There is deliberately no guest-side checksum counterpart to this function:
 // reading the payload back via a guest-exec `sha256sum` would only prove the
@@ -2038,24 +1942,21 @@ qemu-img convert -O raw "$src" /dev/stdout | sha256sum
 	return fields[0], nil
 }
 
-// ChecksumPVCBlockDevice returns the sha256 checksum of the entire raw block device
-// backing pvcName, read via a short-lived helper pod that mounts the PVC directly as
-// a raw block device (volumeDevices) rather than via a VM's virt-launcher pod. Needed
-// specifically for the restored side of a data-integrity check: while this PR's fix
-// holds a restored VM Halted (no VMI, hence no virt-launcher pod at all) until every
-// sibling DataDownload completes, there is no VM-owned pod to exec into at that point
-// -- confirmed directly: ChecksumBlockDevice failed with "no virt-launcher pod found"
-// immediately after DataDownload reached Completed, because the halt really does mean
-// no launcher pod exists yet, not merely a paused one. The helper pod is deleted (and
-// its deletion awaited) before returning, so the PVC is free again by the time the
-// caller lets the VM resume and its virt-launcher pod tries to attach the same PVC --
-// PVC access mode here is RWO, so the two can never overlap.
 // runInPVCBlockDeviceHelperPod creates a throwaway pod mounting pvcName as a raw
 // block device at /dev/block, waits for it to reach Running, execs command inside
-// it, then tears the pod down before returning -- shared plumbing for
-// ChecksumPVCBlockDevice and ChecksumPVCBlockDeviceRegion so the pod lifecycle
-// (creation, Running wait, teardown-before-return so a still-attached RWO PVC
-// can't block the caller's next step) exists in exactly one place.
+// it, then tears the pod down before returning. Needed specifically for the
+// restored side of a data-integrity check: while this PR's fix holds a restored
+// VM Halted (no VMI, hence no virt-launcher pod at all) until every sibling
+// DataDownload completes, there is no VM-owned pod to exec into at that point --
+// confirmed directly: ChecksumBlockDeviceRegion failed with "no virt-launcher pod
+// found" immediately after DataDownload reached Completed, because the halt
+// really does mean no launcher pod exists yet, not merely a paused one. The
+// helper pod is deleted (and its deletion awaited) before returning, so the PVC
+// is free again by the time the caller lets the VM resume and its virt-launcher
+// pod tries to attach the same PVC -- PVC access mode here is RWO, so the two
+// can never overlap. Shared plumbing for ChecksumPVCBlockDeviceRegion so the pod
+// lifecycle (creation, Running wait, teardown-before-return) exists in exactly
+// one place.
 func (v *VirtOperator) runInPVCBlockDeviceHelperPod(kubeConfig *rest.Config, namespace, pvcName, command string) (stdout string, err error) {
 	podName := "checksum-helper-" + pvcName
 	pod := &corev1.Pod{
@@ -2144,26 +2045,12 @@ func (v *VirtOperator) runInPVCBlockDeviceHelperPod(kubeConfig *rest.Config, nam
 	return stdout, nil
 }
 
-func (v *VirtOperator) ChecksumPVCBlockDevice(kubeConfig *rest.Config, namespace, pvcName string) (string, error) {
-	stdout, err := v.runInPVCBlockDeviceHelperPod(kubeConfig, namespace, pvcName, "sha256sum /dev/block")
-	if err != nil {
-		return "", err
-	}
-	fields := strings.Fields(stdout)
-	if len(fields) == 0 {
-		return "", fmt.Errorf("sha256sum produced no output for PVC %s/%s", namespace, pvcName)
-	}
-	return fields[0], nil
-}
-
-// ChecksumPVCBlockDeviceRegion is like ChecksumPVCBlockDevice but hashes only a
-// fixed-size region of the block device starting at offsetMiB, rather than the
-// whole device -- pairs with WriteRandomPayloadToBlockDevice/ChecksumBlockDeviceRegion
-// on the source side for the payload-bracketing hard assertion (see the comment
-// above the restored-side checksum step in virt_backup_restore_suite_test.go for
-// why a whole-device checksum on a live, unfrozen CirrOS guest has ~zero power to
-// distinguish real corruption from the guest's own filesystem churn). iflag=direct
-// bypasses the page cache so the read reflects what is actually on the PV, not a
+// ChecksumPVCBlockDeviceRegion hashes only a fixed-size region of the block
+// device starting at offsetMiB -- pairs with
+// WriteRandomPayloadToGuestBlockDevice/ChecksumBlockDeviceRegion on the source
+// side for the payload-bracketing hard assertion (see the comments around the
+// payload checks in virt_backup_restore_suite_test.go). iflag=direct bypasses
+// the page cache so the read reflects what is actually on the PV, not a
 // cached copy.
 func (v *VirtOperator) ChecksumPVCBlockDeviceRegion(kubeConfig *rest.Config, namespace, pvcName string, offsetMiB, sizeMiB int) (string, error) {
 	stdout, err := v.runInPVCBlockDeviceHelperPod(kubeConfig, namespace, pvcName,
