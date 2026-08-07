@@ -831,6 +831,60 @@ var _ = ginkgo.Describe("VM backup and restore tests", ginkgo.Ordered, func() {
 		})
 	})
 
+	// setupVmForRestoreTest deletes any stale namespace left over from a
+	// previous spec, installs template fresh, and waits for the VM to reach
+	// Running + ready. Shared by every restore-test BeforeEach in this file
+	// (CirrOS below, and the Alpine incremental-restore block further down) --
+	// mechanical setup, not fixture-specific logic, so it's factored out
+	// rather than copy-pasted per fixture.
+	setupVmForRestoreTest := func(namespace, vmName, template string) {
+		_ = v.RemoveVm(namespace, vmName, 2*time.Minute)
+		err := lib.DeleteNamespace(v.Clientset, namespace)
+		gomega.Expect(err).To(gomega.BeNil(), "failed to delete namespace %s before setup", namespace)
+		gomega.Eventually(v.IsNamespaceDeletedClearingStuckVMBFinalizers(kubernetesClientForSuiteRun, namespace), time.Minute*2, time.Second*5).
+			Should(gomega.BeTrue(), "namespace %s was not deleted before setup", namespace)
+
+		err = lib.CreateNamespace(v.Clientset, namespace)
+		gomega.Expect(err).To(gomega.BeNil(), "failed to create namespace %s", namespace)
+		err = lib.InstallApplication(v.Client, template)
+		gomega.Expect(err).To(gomega.BeNil(), "failed to install VM template %s in namespace %s", template, namespace)
+
+		log.Printf("Waiting for VM %s/%s to reach Running status", namespace, vmName)
+		err = wait.PollUntilContextTimeout(context.Background(), 10*time.Second, 15*time.Minute, true, func(ctx context.Context) (bool, error) {
+			status, statusErr := v.GetVmStatus(namespace, vmName)
+			if statusErr != nil {
+				return false, nil
+			}
+			return status == "Running", nil
+		})
+		gomega.Expect(err).ToNot(gomega.HaveOccurred(), "VM %s/%s did not reach Running status", namespace, vmName)
+		err = v.WaitForVMReady(namespace, vmName, 5*time.Minute)
+		gomega.Expect(err).ToNot(gomega.HaveOccurred(), "VM %s/%s was not ready", namespace, vmName)
+	}
+
+	// verifyBackupType returns a runKubevirtDMBackup callback that hard-asserts
+	// both the DataUpload's expected-backup-type annotation and the
+	// VirtualMachineBackup's actual Status.Type match expectedType -- mirrors
+	// the check already done inline in runSequenceBackup above, factored out
+	// since the incremental-restore test below needs the same check twice
+	// (full, then incremental) and getting this wrong would silently
+	// invalidate the whole test (e.g. a "full" backup that's actually a no-op
+	// incremental would make the payload-B-only assertion meaningless).
+	verifyBackupType := func(vmNamespace, expectedType string) func(dataUploadName, expectedBackupType string) {
+		return func(dataUploadName, expectedBackupType string) {
+			gomega.Expect(expectedBackupType).To(gomega.Equal(expectedType), "controller's expected-backup-type annotation on DataUpload %s", dataUploadName)
+
+			var actualBackupType string
+			gomega.Eventually(func() error {
+				var err error
+				actualBackupType, _, err = v.GetVMBBackupType(vmNamespace, dataUploadName)
+				return err
+			}, 5*time.Minute, time.Second*5).Should(gomega.Succeed(), "failed to get VirtualMachineBackup status for DataUpload %s", dataUploadName)
+			actualBackupType = strings.ToLower(actualBackupType)
+			gomega.Expect(actualBackupType).To(gomega.Equal(expectedType), "actual VirtualMachineBackup.Status.Type for DataUpload %s", dataUploadName)
+		}
+	}
+
 	// Covers the #99 "Restore from KDM CBT backup" gap, now unblocked by
 	// migtools/kubevirt-datamover-controller#124 (DataDownload controller, issue #73
 	// phase 3). Per docs/design/kubevirt-datamover.md, the VirtualMachine RIA plugin
@@ -873,29 +927,7 @@ var _ = ginkgo.Describe("VM backup and restore tests", ginkgo.Ordered, func() {
 		var _ = ginkgo.BeforeEach(func() {
 			updateLastBRcase(restoreCase)
 			prepareBackupAndRestore(restoreCase.BackupRestoreCase, func() {})
-
-			_ = v.RemoveVm(restoreNamespace, restoreVMName, 2*time.Minute)
-			err := lib.DeleteNamespace(v.Clientset, restoreNamespace)
-			gomega.Expect(err).To(gomega.BeNil(), "failed to delete namespace %s before setup", restoreNamespace)
-			gomega.Eventually(v.IsNamespaceDeletedClearingStuckVMBFinalizers(kubernetesClientForSuiteRun, restoreNamespace), time.Minute*2, time.Second*5).
-				Should(gomega.BeTrue(), "namespace %s was not deleted before setup", restoreNamespace)
-
-			err = lib.CreateNamespace(v.Clientset, restoreNamespace)
-			gomega.Expect(err).To(gomega.BeNil(), "failed to create namespace %s", restoreNamespace)
-			err = lib.InstallApplication(v.Client, restoreTemplate)
-			gomega.Expect(err).To(gomega.BeNil(), "failed to install VM template %s in namespace %s", restoreTemplate, restoreNamespace)
-
-			log.Printf("Waiting for VM %s/%s to reach Running status", restoreNamespace, restoreVMName)
-			err = wait.PollUntilContextTimeout(context.Background(), 10*time.Second, 15*time.Minute, true, func(ctx context.Context) (bool, error) {
-				status, statusErr := v.GetVmStatus(restoreNamespace, restoreVMName)
-				if statusErr != nil {
-					return false, nil
-				}
-				return status == "Running", nil
-			})
-			gomega.Expect(err).ToNot(gomega.HaveOccurred(), "VM %s/%s did not reach Running status", restoreNamespace, restoreVMName)
-			err = v.WaitForVMReady(restoreNamespace, restoreVMName, 5*time.Minute)
-			gomega.Expect(err).ToNot(gomega.HaveOccurred(), "VM %s/%s was not ready", restoreNamespace, restoreVMName)
+			setupVmForRestoreTest(restoreNamespace, restoreVMName, restoreTemplate)
 		})
 
 		ginkgo.It("restore a VM from a full kubevirt-datamover CBT backup", ginkgo.Label("virt"), func() {
@@ -1412,55 +1444,158 @@ var _ = ginkgo.Describe("VM backup and restore tests", ginkgo.Ordered, func() {
 			err = lib.DeleteNamespace(v.Clientset, multiPvcNamespace)
 			gomega.Expect(err).To(gomega.BeNil())
 		})
+	})
 
-		ginkgo.PIt("restore from an incremental (not full) kubevirt-datamover CBT backup — blocked on kubevirt-datamover-controller#73 phase 5 (incremental-chain restore e2e validation, not yet implemented)", ginkgo.Label("virt"), func() {
-			// Phase 5 ("E2E restore coverage") of
-			// https://github.com/migtools/kubevirt-datamover-controller/issues/73 explicitly
-			// scopes "isolated-kind e2e for incremental chain restore" as not yet done
-			// upstream — the qcow2 chain-rebase logic (docs/design/kubevirt-datamover.md)
-			// may already handle this internally, but it hasn't been validated end-to-end,
-			// so this stays pending rather than asserting success prematurely.
-			//
-			// TODO(incremental-chain-data-integrity): when this flips to a live It, it
-			// needs its own hard data-integrity assertion, but NOT the raw-offset
-			// dd/O_DIRECT trick the full-backup It above uses -- see the TODO on
-			// lib.VirtOperator.WriteRandomPayloadToBlockDevice for why (a host-side dd
-			// bypasses qemu's CBT dirty-bitmap, so an incremental backup would
-			// legitimately skip a payload written that way). A real, CBT-tracked write
-			// has to go through the guest's own filesystem, which needs an actual
-			// guest-agent-equipped fixture (e.g. Alpine + qemu-guest-agent via apk) for
-			// a real freeze/quiesce, not this offset-write approach.
-			_ = v.RemoveVm(restoreNamespace, restoreVMName, 2*time.Minute)
-			err := lib.DeleteNamespace(v.Clientset, restoreNamespace)
-			gomega.Expect(err).To(gomega.BeNil())
-			gomega.Eventually(v.IsNamespaceDeletedClearingStuckVMBFinalizers(kubernetesClientForSuiteRun, restoreNamespace), time.Minute*2, time.Second*5).Should(gomega.BeTrue())
-			err = lib.CreateNamespace(v.Clientset, restoreNamespace)
-			gomega.Expect(err).To(gomega.BeNil())
-			err = lib.InstallApplication(v.Client, restoreTemplate)
-			gomega.Expect(err).To(gomega.BeNil())
-			err = wait.PollUntilContextTimeout(context.Background(), 10*time.Second, 15*time.Minute, true, func(ctx context.Context) (bool, error) {
-				status, statusErr := v.GetVmStatus(restoreNamespace, restoreVMName)
-				if statusErr != nil {
-					return false, nil
+	// Promotes the former "restore from an incremental (not full) kubevirt-datamover
+	// CBT backup" PIt to a live It, now that phase 5 of
+	// https://github.com/migtools/kubevirt-datamover-controller/issues/73 has a real
+	// data-integrity story: a host-side raw-block write (as the full-backup It above
+	// uses) bypasses qemu's CBT dirty-bitmap, so it can't prove anything about an
+	// incremental backup, which would legitimately skip an untracked region as
+	// "unchanged". A real, CBT-tracked write has to go through the guest's own
+	// block I/O path, which needs a guest-agent-equipped fixture -- the existing
+	// CirrOS fixture has none, hence a dedicated Describe block (own namespace, own
+	// BeforeEach) rather than reusing the CirrOS-scoped one above: HasGuestAgent,
+	// cloud-init boot timing, and the readiness check (must poll HasQemuGuestAgent,
+	// not just Running) all genuinely differ between the two fixtures.
+	ginkgo.Describe("Kubevirt datamover restore from an incremental CBT backup", ginkgo.Ordered, func() {
+		const (
+			alpineNamespace = "alpine-guestagent"
+			alpineVMName    = "alpine-guestagent"
+			alpineTemplate  = "./sample-applications/virtual-machines/alpine-guestagent/alpine-guestagent-cbt.yaml"
+			// alpineDomainName is virsh's addressing convention for this VM inside the
+			// virt-launcher pod's compute container. Confirmed live against the
+			// 260716-aws-amd64 cluster (`virsh list --all` in the compute container):
+			// KubeVirt names the libvirt domain "<namespace>_<vmName>", NOT the bare
+			// VM name -- the only prior call sites for RunVirshCommand-family helpers
+			// in this repo lived inside a ginkgo.PIt that had never run against a
+			// real cluster, so this was unverified before this.
+			alpineDomainName = alpineNamespace + "_" + alpineVMName
+
+			// The upstream fixture's disk is ~200M; these offsets/sizes stay well
+			// clear of its filesystem with room to spare, on a 512Mi Block PVC.
+			payloadAOffsetMiB = 300
+			payloadBOffsetMiB = 380
+			payloadSizeMiB    = 8 // kept small: /dev/urandom under this cluster's
+			// KubeVirt software emulation (useEmulation: true, no /dev/kvm) is
+			// CPU-bound, unlike the full-backup It's host-side 32MiB write.
+		)
+
+		// No SkipUnderEmulation here: that field is only consulted by
+		// runCBTVmBackup (used by the DescribeTable above), not by
+		// runKubevirtDMBackup (used directly below, matching the former PIt's own
+		// pattern) -- setting it here would be a silent no-op, not a real skip.
+		// Discovering emulation-reliability empirically is deliberate: Alpine is a
+		// ~200M image with OpenRC (not systemd), much lighter than Fedora, which
+		// is *also* independently unsuitable for guest-exec regardless of weight
+		// -- Fedora/RHEL blacklist guest-exec/guest-exec-status in qemu-ga's
+		// default RPC blacklist.
+		alpineCase := VmBackupRestoreCase{
+			BackupRestoreCase: BackupRestoreCase{
+				Namespace:         alpineNamespace,
+				Name:              alpineVMName,
+				SkipVerifyLogs:    true,
+				BackupRestoreType: lib.CSIDataMover,
+				BackupTimeout:     20 * time.Minute,
+			},
+			HasGuestAgent: true,
+		}
+
+		var _ = ginkgo.BeforeEach(func() {
+			updateLastBRcase(alpineCase)
+			prepareBackupAndRestore(alpineCase.BackupRestoreCase, func() {})
+			setupVmForRestoreTest(alpineNamespace, alpineVMName, alpineTemplate)
+
+			// cloud-init's package/service setup runs async after the VM reaches
+			// Running -- confirmed necessary directly: the existing HasGuestAgent
+			// cross-check on the CirrOS full-backup It only works because CirrOS
+			// declares HasGuestAgent: false, so nothing there depends on an agent
+			// actually connecting. Here it's load-bearing, so wait for it for
+			// real rather than trusting a fixed InitDelay sleep.
+			gomega.Eventually(func() (bool, error) {
+				return v.HasQemuGuestAgent(alpineNamespace, alpineVMName)
+			}, 5*time.Minute, 10*time.Second).Should(gomega.BeTrue(),
+				"qemu-guest-agent never connected for VM %s/%s -- guest-exec below depends on it", alpineNamespace, alpineVMName)
+		})
+
+		ginkgo.It("restore from an incremental (not full) kubevirt-datamover CBT backup", ginkgo.Label("virt"), func() {
+			ginkgo.By("writing payload A and checksumming it before the full backup")
+			err := v.WriteRandomPayloadToGuestBlockDevice(kubeConfig, alpineNamespace, alpineVMName, alpineDomainName, "/dev/vda", payloadAOffsetMiB, payloadSizeMiB)
+			gomega.Expect(err).ToNot(gomega.HaveOccurred(), "failed to write payload A into guest %s/%s", alpineNamespace, alpineVMName)
+			payloadA0, err := v.ChecksumBlockDeviceRegion(kubeConfig, alpineNamespace, alpineVMName, "volume0", payloadAOffsetMiB, payloadSizeMiB)
+			gomega.Expect(err).ToNot(gomega.HaveOccurred(), "failed to checksum payload A immediately after writing it")
+
+			ginkgo.By("full backup")
+			fullBackupName := "alpine-cbt-incr-restore-full"
+			// Registered before the incremental backup's own cleanup below so that,
+			// by LIFO defer ordering, the incremental backup (which depends on this
+			// full backup as its chain base) is deleted FIRST when this It returns --
+			// deleting the base out from under a dependent incremental would be the
+			// wrong order. Matches the plain-defer-not-DeferCleanup convention the
+			// full-backup It above documents (velero must still be running to
+			// process the finalizer).
+			defer func() {
+				if err := lib.DeleteVeleroBackupAndRestore(dpaCR.Client, kubernetesClientForSuiteRun, kubeConfig, namespace, fullBackupName, ""); err != nil {
+					log.Printf("cleanup: failed to delete backup %s via velero CLI: %v", fullBackupName, err)
 				}
-				return status == "Running", nil
-			})
-			gomega.Expect(err).ToNot(gomega.HaveOccurred())
-			err = v.WaitForVMReady(restoreNamespace, restoreVMName, 5*time.Minute)
-			gomega.Expect(err).ToNot(gomega.HaveOccurred())
+			}()
+			runKubevirtDMBackup(alpineNamespace, fullBackupName, verifyBackupType(alpineNamespace, "full"))
+			payloadA1, err := v.ChecksumBlockDeviceRegion(kubeConfig, alpineNamespace, alpineVMName, "volume0", payloadAOffsetMiB, payloadSizeMiB)
+			gomega.Expect(err).ToNot(gomega.HaveOccurred(), "failed to checksum payload A immediately after the full backup")
 
-			// Full backup, then incremental — restore should reconstruct from the chain.
-			runKubevirtDMBackup(restoreNamespace, "cirros-cbt-incr-restore-full", nil)
-			incrementalBackupName := "cirros-cbt-incr-restore-incremental"
-			runKubevirtDMBackup(restoreNamespace, incrementalBackupName, nil)
+			ginkgo.By("writing payload B and checksumming it before the incremental backup")
+			err = v.WriteRandomPayloadToGuestBlockDevice(kubeConfig, alpineNamespace, alpineVMName, alpineDomainName, "/dev/vda", payloadBOffsetMiB, payloadSizeMiB)
+			gomega.Expect(err).ToNot(gomega.HaveOccurred(), "failed to write payload B into guest %s/%s", alpineNamespace, alpineVMName)
+			payloadB0, err := v.ChecksumBlockDeviceRegion(kubeConfig, alpineNamespace, alpineVMName, "volume0", payloadBOffsetMiB, payloadSizeMiB)
+			gomega.Expect(err).ToNot(gomega.HaveOccurred(), "failed to checksum payload B immediately after writing it")
 
-			err = v.RemoveVm(restoreNamespace, restoreVMName, 5*time.Minute)
-			gomega.Expect(err).To(gomega.BeNil())
-			err = lib.DeleteNamespace(v.Clientset, restoreNamespace)
-			gomega.Expect(err).To(gomega.BeNil())
-			gomega.Eventually(v.IsNamespaceDeletedClearingStuckVMBFinalizers(kubernetesClientForSuiteRun, restoreNamespace), time.Minute*5, time.Second*5).Should(gomega.BeTrue())
+			ginkgo.By("incremental backup")
+			incrementalBackupName := "alpine-cbt-incr-restore-incremental"
+			// Registered second so it is deleted FIRST (LIFO) -- see the comment on
+			// the full backup's own defer above.
+			defer func() {
+				if err := lib.DeleteVeleroBackupAndRestore(dpaCR.Client, kubernetesClientForSuiteRun, kubeConfig, namespace, incrementalBackupName, ""); err != nil {
+					log.Printf("cleanup: failed to delete backup %s via velero CLI: %v", incrementalBackupName, err)
+				}
+			}()
+			runKubevirtDMBackup(alpineNamespace, incrementalBackupName, verifyBackupType(alpineNamespace, "incremental"))
 
-			restoreName := "cirros-cbt-incr-restore-restore"
+			// A third read for payload A: restoring from the incremental replays the
+			// whole chain, so anything that touched A's region between the full and
+			// incremental backups is legitimately part of restored-A. Only trust the
+			// hard assertion below if all three reads agree that region stayed quiet
+			// across BOTH backup windows, not just the first.
+			payloadA2, err := v.ChecksumBlockDeviceRegion(kubeConfig, alpineNamespace, alpineVMName, "volume0", payloadAOffsetMiB, payloadSizeMiB)
+			gomega.Expect(err).ToNot(gomega.HaveOccurred(), "failed to checksum payload A immediately after the incremental backup")
+			payloadB1, err := v.ChecksumBlockDeviceRegion(kubeConfig, alpineNamespace, alpineVMName, "volume0", payloadBOffsetMiB, payloadSizeMiB)
+			gomega.Expect(err).ToNot(gomega.HaveOccurred(), "failed to checksum payload B immediately after the incremental backup")
+
+			payloadAStable := payloadA0 == payloadA1 && payloadA1 == payloadA2
+			if !payloadAStable {
+				log.Printf("WARNING: payload A region changed during the backup window(s) (before-full=%s after-full=%s after-incremental=%s) -- skipping its hard data-integrity assertion rather than risk a false failure", payloadA0, payloadA1, payloadA2)
+			}
+			payloadBStable := payloadB0 == payloadB1
+			if !payloadBStable {
+				log.Printf("WARNING: payload B region changed during the incremental backup window (before=%s after=%s) -- skipping its hard data-integrity assertion rather than risk a false failure", payloadB0, payloadB1)
+			}
+
+			ginkgo.By("deleting the VM to prove restore recreates it")
+			err = v.RemoveVm(alpineNamespace, alpineVMName, 5*time.Minute)
+			gomega.Expect(err).To(gomega.BeNil(), "failed to remove VM %s/%s", alpineNamespace, alpineVMName)
+			err = lib.DeleteNamespace(v.Clientset, alpineNamespace)
+			gomega.Expect(err).To(gomega.BeNil(), "failed to delete namespace %s", alpineNamespace)
+			gomega.Eventually(v.IsNamespaceDeletedClearingStuckVMBFinalizers(kubernetesClientForSuiteRun, alpineNamespace), time.Minute*5, time.Second*5).Should(gomega.BeTrue())
+
+			ginkgo.By("restoring from the incremental backup")
+			restoreName := "alpine-cbt-incr-restore-restore"
+			// Registered before CreateRestoreFromBackup, same plain-defer convention
+			// as the backups above: guarantees cleanup even if a gomega.Expect below
+			// panics the goroutine mid-verification.
+			defer func() {
+				if err := lib.DeleteVeleroBackupAndRestore(dpaCR.Client, kubernetesClientForSuiteRun, kubeConfig, namespace, "", restoreName); err != nil {
+					log.Printf("cleanup: failed to delete restore %s via velero CLI: %v", restoreName, err)
+				}
+			}()
 			err = lib.CreateRestoreFromBackup(dpaCR.Client, namespace, incrementalBackupName, restoreName)
 			gomega.Expect(err).ToNot(gomega.HaveOccurred())
 			gomega.Eventually(lib.IsRestoreDone(dpaCR.Client, namespace, restoreName), 45*time.Minute, time.Second*10).Should(gomega.BeTrue())
@@ -1468,9 +1603,21 @@ var _ = ginkgo.Describe("VM backup and restore tests", ginkgo.Ordered, func() {
 			gomega.Expect(err).ToNot(gomega.HaveOccurred())
 			gomega.Expect(succeeded).To(gomega.BeTrue(), "expected restore from an incremental checkpoint to reconstruct the full chain")
 
-			err = v.RemoveVm(restoreNamespace, restoreVMName, 5*time.Minute)
+			ginkgo.By("verifying both payloads independently, each gated on its own bracket-stability")
+			if payloadAStable {
+				restoredA, err := v.ChecksumPVCBlockDeviceRegion(kubeConfig, alpineNamespace, "alpine-guestagent-disk", payloadAOffsetMiB, payloadSizeMiB)
+				gomega.Expect(err).ToNot(gomega.HaveOccurred(), "failed to checksum restored payload A region")
+				gomega.Expect(restoredA).To(gomega.Equal(payloadA0), "payload A region did not survive the full+incremental backup/restore chain intact")
+			}
+			if payloadBStable {
+				restoredB, err := v.ChecksumPVCBlockDeviceRegion(kubeConfig, alpineNamespace, "alpine-guestagent-disk", payloadBOffsetMiB, payloadSizeMiB)
+				gomega.Expect(err).ToNot(gomega.HaveOccurred(), "failed to checksum restored payload B region")
+				gomega.Expect(restoredB).To(gomega.Equal(payloadB0), "payload B region (incremental-only) did not survive the restore chain intact")
+			}
+
+			err = v.RemoveVm(alpineNamespace, alpineVMName, 5*time.Minute)
 			gomega.Expect(err).To(gomega.BeNil())
-			err = lib.DeleteNamespace(v.Clientset, restoreNamespace)
+			err = lib.DeleteNamespace(v.Clientset, alpineNamespace)
 			gomega.Expect(err).To(gomega.BeNil())
 		})
 	})
