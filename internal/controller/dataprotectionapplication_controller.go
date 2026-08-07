@@ -70,7 +70,9 @@ var debugMode = os.Getenv("DEBUG") == "true"
 //+kubebuilder:rbac:groups=security.openshift.io,resources=securitycontextconstraints,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=security.openshift.io,resources=securitycontextconstraints,verbs=use,resourceNames=privileged
 //+kubebuilder:rbac:groups="",resources=secrets;configmaps;pods;services;serviceaccounts;endpoints;persistentvolumeclaims;events,verbs=get;list;watch;create;update;patch;delete;deletecollection
+//+kubebuilder:rbac:groups="",resources=resourcequotas,verbs=get;list;watch;create
 //+kubebuilder:rbac:groups="",resources=namespaces,verbs=get;list;watch;create;update;patch
+
 //+kubebuilder:rbac:groups=apps,resources=deployments;daemonsets,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=route.openshift.io,resources=routes,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=console.openshift.io,resources=consoleclidownloads,verbs=get;list;watch;create;update;patch;delete
@@ -104,6 +106,7 @@ func (r *DataProtectionApplicationReconciler) Reconcile(ctx context.Context, req
 
 	_, err := ReconcileBatch(r.Log,
 		r.ValidateDataProtectionCR,
+		r.ReconcileResourceQuota,
 		r.ReconcileFsRestoreHelperConfig,
 		r.ReconcileBackupStorageLocations,
 		r.ReconcileRegistrySecrets,
