@@ -121,6 +121,14 @@ type VmBackupRestoreCase struct {
 	// filesystem churn -- confirmed directly, see the comment above the source
 	// checksum step in "restore a VM from a full kubevirt-datamover CBT backup".
 	HasGuestAgent bool
+	// SkipUnderEmulation, when true, skips this entry if the cluster's KubeVirt CR
+	// has useEmulation: true (software emulation, no /dev/kvm) -- e.g. Fedora is
+	// known unreliable under emulation. Checked via lib.VirtOperator.IsEmulationEnabled.
+	//
+	// TODO(future discussion): the inverse capability check -- skipping CirrOS when
+	// useEmulation is false and a real-KVM-validated Fedora path is available -- is
+	// not implemented here. Left as a future consideration, not active behavior.
+	SkipUnderEmulation bool
 }
 
 func runVmBackupAndRestore(brCase VmBackupRestoreCase, updateLastBRcase func(brCase VmBackupRestoreCase), v *lib.VirtOperator) {
@@ -208,6 +216,14 @@ func runVmBackupAndRestore(brCase VmBackupRestoreCase, updateLastBRcase func(brC
 }
 
 func runCBTVmBackup(brCase VmBackupRestoreCase, updateLastBRcase func(brCase VmBackupRestoreCase), v *lib.VirtOperator) {
+	if brCase.SkipUnderEmulation {
+		emulated, err := v.IsEmulationEnabled()
+		gomega.Expect(err).ToNot(gomega.HaveOccurred())
+		if emulated {
+			ginkgo.Skip("cluster KubeVirt CR has useEmulation: true (software emulation) -- " + brCase.Name + " is not reliable under emulation")
+		}
+	}
+
 	updateLastBRcase(brCase)
 
 	backupName, _ := prepareBackupAndRestore(brCase.BackupRestoreCase, func() {})
@@ -643,20 +659,29 @@ var _ = ginkgo.Describe("VM backup and restore tests", ginkgo.Ordered, func() {
 				BackupRestoreType: lib.CSIDataMover,
 				BackupTimeout:     20 * time.Minute,
 			},
+			// TODO(future discussion): inverse capability check -- skip this CirrOS
+			// entry when useEmulation is false (real KVM) and Fedora's own CBT entry
+			// below is enabled, since CirrOS's lack of a guest agent makes it a
+			// weaker data-integrity signal than a guest-agent-equipped VM. Not
+			// implemented; SkipUnderEmulation only gates the Fedora direction today.
 		}, nil),
 
-		// FEDORA is not yet ready for CI and CBT
-		// ginkgo.Entry("todolist kubevirt-datamover backup, Fedora VM with CBT", ginkgo.Label("virt"), VmBackupRestoreCase{
-		// 	Template:  "./sample-applications/virtual-machines/kubevirt-dm/fedora-todolist-cbt.yaml",
-		// 	InitDelay: 3 * time.Minute,
-		// 	BackupRestoreCase: BackupRestoreCase{
-		// 		Namespace:         "mysql-persistent",
-		// 		Name:              "fedora-todolist",
-		// 		SkipVerifyLogs:    true,
-		// 		BackupRestoreType: lib.CSIDataMover,
-		// 		BackupTimeout:     45 * time.Minute,
-		// 	},
-		// }, nil),
+		// Uncommented (2026-08-07): gated behind SkipUnderEmulation rather than a
+		// static comment -- Fedora is not reliable under KubeVirt software emulation
+		// specifically (useEmulation: true), which this cluster runs. The entry now
+		// self-skips via runCBTVmBackup's ginkgo.Skip check instead of never running.
+		ginkgo.Entry("todolist kubevirt-datamover backup, Fedora VM with CBT", ginkgo.Label("virt"), VmBackupRestoreCase{
+			Template:           "./sample-applications/virtual-machines/kubevirt-dm/fedora-todolist-cbt.yaml",
+			InitDelay:          3 * time.Minute,
+			SkipUnderEmulation: true,
+			BackupRestoreCase: BackupRestoreCase{
+				Namespace:         "mysql-persistent",
+				Name:              "fedora-todolist",
+				SkipVerifyLogs:    true,
+				BackupRestoreType: lib.CSIDataMover,
+				BackupTimeout:     45 * time.Minute,
+			},
+		}, nil),
 	)
 
 	// Automates scenarios 1-3 from https://github.com/openshift/oadp-operator/issues/2252
@@ -948,6 +973,29 @@ var _ = ginkgo.Describe("VM backup and restore tests", ginkgo.Ordered, func() {
 			sourceChecksum, err := v.ChecksumBlockDevice(kubeConfig, restoreNamespace, restoreVMName, "volume0")
 			gomega.Expect(err).ToNot(gomega.HaveOccurred(), "failed to checksum source disk %s/%s", restoreNamespace, restoreVMName)
 
+			// Hard, deterministic data-integrity assertion, closing the gap the
+			// whole-device comparison below cannot: instead of hoping a live,
+			// unfrozen CirrOS disk happens to be quiet, write a payload the test
+			// itself controls, then EMPIRICALLY VERIFY (not assume) it stayed quiet
+			// across the backup window before trusting the restored-side comparison.
+			// Random (not zero) bytes, so qcow2's own sparse-write handling can't mask
+			// a real corruption bug that happened to zero this region out.
+			//
+			// FULL-BACKUP-ONLY: see the doc comment on WriteRandomPayloadToBlockDevice
+			// -- a host-side dd bypasses qemu's CBT dirty-bitmap, so an incremental
+			// backup would legitimately skip this region and any assertion built on
+			// it would wrongly blame kubevirt-datamover. Do not copy this pattern into
+			// an incremental-backup test without routing the write through the
+			// guest/qemu I/O path instead.
+			const (
+				checksumPayloadOffsetMiB = 100 // past this fixture's ~150Mi total disk minus headroom; see checksumPayloadSizeMiB
+				checksumPayloadSizeMiB   = 32  // 100+32=132MiB, comfortably inside the 150Mi disk with buffer to spare
+			)
+			err = v.WriteRandomPayloadToBlockDevice(kubeConfig, restoreNamespace, restoreVMName, "volume0", checksumPayloadOffsetMiB, checksumPayloadSizeMiB)
+			gomega.Expect(err).ToNot(gomega.HaveOccurred(), "failed to write payload region to source disk %s/%s", restoreNamespace, restoreVMName)
+			payloadChecksumBeforeBackup, err := v.ChecksumBlockDeviceRegion(kubeConfig, restoreNamespace, restoreVMName, "volume0", checksumPayloadOffsetMiB, checksumPayloadSizeMiB)
+			gomega.Expect(err).ToNot(gomega.HaveOccurred(), "failed to checksum payload region immediately after writing it")
+
 			ginkgo.By("backing up the VM via kubevirt-datamover")
 			backupName := "cirros-cbt-restore-backup"
 			// Registered as soon as the name is known (before the backup even exists) so
@@ -969,6 +1017,21 @@ var _ = ginkgo.Describe("VM backup and restore tests", ginkgo.Ordered, func() {
 				}
 			}()
 			runKubevirtDMBackup(restoreNamespace, backupName, nil)
+
+			// Second bracket read: if this matches payloadChecksumBeforeBackup, the
+			// payload region was genuinely quiet for the entire backup window, so any
+			// mismatch on the restored side later can only mean a real transfer bug --
+			// not guest churn. If it doesn't match, something did touch the region
+			// (guest fs housekeeping, growpart, etc.) and the hard assertion is skipped
+			// below rather than risk a false failure attributing an unrelated write to
+			// kubevirt-datamover.
+			payloadChecksumAfterBackup, payloadErr := v.ChecksumBlockDeviceRegion(kubeConfig, restoreNamespace, restoreVMName, "volume0", checksumPayloadOffsetMiB, checksumPayloadSizeMiB)
+			payloadRegionStable := payloadErr == nil && payloadChecksumAfterBackup == payloadChecksumBeforeBackup
+			if payloadErr != nil {
+				log.Printf("WARNING: failed to re-checksum payload region after backup, skipping the hard data-integrity assertion for this run: %v", payloadErr)
+			} else if !payloadRegionStable {
+				log.Printf("WARNING: payload region changed during the backup window (before=%s after=%s) -- skipping the hard data-integrity assertion for this run rather than risk a false failure", payloadChecksumBeforeBackup, payloadChecksumAfterBackup)
+			}
 
 			ginkgo.By("deleting the VM to prove restore recreates it")
 			err = v.RemoveVm(restoreNamespace, restoreVMName, 5*time.Minute)
@@ -1006,6 +1069,30 @@ var _ = ginkgo.Describe("VM backup and restore tests", ginkgo.Ordered, func() {
 			gomega.Expect(err).ToNot(gomega.HaveOccurred(), "failed to get restored PVC %s/cirros-test-disk", restoreNamespace)
 			gomega.Expect(restoredPVC.Spec.VolumeMode).ToNot(gomega.BeNil(), "restored PVC %s/cirros-test-disk has no volumeMode set", restoreNamespace)
 			gomega.Expect(*restoredPVC.Spec.VolumeMode).To(gomega.Equal(corev1.PersistentVolumeBlock), "restored PVC %s/cirros-test-disk was not Block volumeMode", restoreNamespace)
+
+			// The hard, deterministic half of data-integrity verification: only trust
+			// this if the source-side bracket reads (around the backup call above)
+			// showed the payload region was genuinely quiet across the whole backup
+			// window -- otherwise a mismatch here couldn't be attributed to a real
+			// transfer bug versus something unrelated that touched the region.
+			// Bracketed by its own "not Running yet" VM-status checks (same reasoning
+			// as the whole-device comparison below): the halt is the controller's to
+			// release, not this test's.
+			if payloadRegionStable {
+				ginkgo.By("verifying the payload region survived backup and restore intact (hard assertion)")
+				prePayloadStatus, statusErr := v.GetVmStatus(restoreNamespace, restoreVMName)
+				restoredPayloadChecksum, restoredPayloadErr := v.ChecksumPVCBlockDeviceRegion(kubeConfig, restoreNamespace, restoredPVC.Name, checksumPayloadOffsetMiB, checksumPayloadSizeMiB)
+				postPayloadStatus, postStatusErr := v.GetVmStatus(restoreNamespace, restoreVMName)
+				if statusErr != nil || prePayloadStatus == "Running" || postStatusErr != nil || postPayloadStatus == "Running" {
+					log.Printf("WARNING: restored VM %s/%s resumed around the payload-region read (pre=%q err=%v, post=%q err=%v) -- skipping the hard assertion for this run", restoreNamespace, restoreVMName, prePayloadStatus, statusErr, postPayloadStatus, postStatusErr)
+				} else {
+					gomega.Expect(restoredPayloadErr).ToNot(gomega.HaveOccurred(), "failed to checksum restored payload region")
+					gomega.Expect(restoredPayloadChecksum).To(gomega.Equal(payloadChecksumBeforeBackup),
+						"restored payload region does not match what was written before backup -- this is a real data-integrity failure (the payload region was verified stable across the backup window via bracket reads, so this cannot be guest churn)")
+				}
+			} else {
+				log.Printf("skipping the hard payload-region assertion for %s/%s -- source-side bracket reads showed the region wasn't stable across the backup window", restoreNamespace, restoredPVC.Name)
+			}
 
 			// Checksummed here, while the VM is still held Halted by the restore fix this
 			// whole scenario validates, and before "verifying the VM is running again"
@@ -1055,11 +1142,13 @@ var _ = ginkgo.Describe("VM backup and restore tests", ginkgo.Ordered, func() {
 			// this fixture mismatched here -- meaning it isn't occasional, it's close to
 			// certain, and a hard assertion here would make this It fail almost every
 			// run for a reason that has nothing to do with kubevirt-datamover's
-			// correctness. See the TODO on lib.VirtOperator.ChecksumUploadPodQcow2Flattened
-			// for the path to making this a real, hard, deterministic assertion (a
-			// guest-agent-equipped fixture where freeze actually quiesces the guest, or a
-			// disk large/slow enough that reading kubevirt-datamover's own upload pod
-			// directly stops racing its teardown).
+			// correctness. The real, hard, deterministic assertion lives in the
+			// payload-region check above instead: a test-owned, synced payload at a
+			// known offset sidesteps the freeze problem entirely rather than depending
+			// on it, so it doesn't need a guest-agent-equipped fixture to be
+			// meaningful. This whole-device comparison stays informational only,
+			// covering the disk broadly at the cost of never being able to fail on
+			// churn-indistinguishable corruption.
 			switch {
 			case !checksumComparable:
 				log.Printf("skipping the source/restored checksum comparison for %s/%s -- the warnings above mean the restored read was not taken under conditions that would make a mismatch meaningful", restoreNamespace, restoredPVC.Name)
@@ -1331,6 +1420,16 @@ var _ = ginkgo.Describe("VM backup and restore tests", ginkgo.Ordered, func() {
 			// upstream — the qcow2 chain-rebase logic (docs/design/kubevirt-datamover.md)
 			// may already handle this internally, but it hasn't been validated end-to-end,
 			// so this stays pending rather than asserting success prematurely.
+			//
+			// TODO(incremental-chain-data-integrity): when this flips to a live It, it
+			// needs its own hard data-integrity assertion, but NOT the raw-offset
+			// dd/O_DIRECT trick the full-backup It above uses -- see the TODO on
+			// lib.VirtOperator.WriteRandomPayloadToBlockDevice for why (a host-side dd
+			// bypasses qemu's CBT dirty-bitmap, so an incremental backup would
+			// legitimately skip a payload written that way). A real, CBT-tracked write
+			// has to go through the guest's own filesystem, which needs an actual
+			// guest-agent-equipped fixture (e.g. Alpine + qemu-guest-agent via apk) for
+			// a real freeze/quiesce, not this offset-write approach.
 			_ = v.RemoveVm(restoreNamespace, restoreVMName, 2*time.Minute)
 			err := lib.DeleteNamespace(v.Clientset, restoreNamespace)
 			gomega.Expect(err).To(gomega.BeNil())
