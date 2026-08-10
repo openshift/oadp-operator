@@ -6,6 +6,7 @@ import (
 	"os"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/go-logr/logr"
 	"github.com/onsi/ginkgo/v2"
@@ -749,6 +750,70 @@ func TestEnsureKubevirtDatamoverRequiredSpecs(t *testing.T) {
 			expectError:      false,
 		},
 		{
+			name: "Should include --stale-dataupload-threshold arg when configured",
+			dpa: &oadpv1alpha1.DataProtectionApplication{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:            "test-dpa",
+					Namespace:       "test-namespace",
+					ResourceVersion: "12345",
+				},
+				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
+					Configuration: &oadpv1alpha1.ApplicationConfig{
+						Velero: &oadpv1alpha1.VeleroConfig{},
+						KubevirtDatamover: &oadpv1alpha1.KubevirtDatamoverConfig{
+							StaleDataUploadThreshold: &metav1.Duration{Duration: 1 * time.Hour},
+						},
+					},
+				},
+			},
+			existingContainers: nil,
+			expectedEnvCount:   3,
+			expectError:        false,
+		},
+		{
+			name: "Should not include --stale-dataupload-threshold arg when not configured",
+			dpa: &oadpv1alpha1.DataProtectionApplication{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:            "test-dpa",
+					Namespace:       "test-namespace",
+					ResourceVersion: "12345",
+				},
+				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
+					Configuration: &oadpv1alpha1.ApplicationConfig{
+						Velero: &oadpv1alpha1.VeleroConfig{},
+					},
+				},
+			},
+			existingContainers: nil,
+			expectedEnvCount:   3,
+			expectError:        false,
+		},
+		{
+			name: "Should update --stale-dataupload-threshold arg on existing container",
+			dpa: &oadpv1alpha1.DataProtectionApplication{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:            "test-dpa",
+					Namespace:       "test-namespace",
+					ResourceVersion: "12345",
+				},
+				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
+					Configuration: &oadpv1alpha1.ApplicationConfig{
+						Velero: &oadpv1alpha1.VeleroConfig{},
+						KubevirtDatamover: &oadpv1alpha1.KubevirtDatamoverConfig{
+							StaleDataUploadThreshold: &metav1.Duration{Duration: 3 * time.Hour},
+						},
+					},
+				},
+			},
+			existingContainers: []corev1.Container{{
+				Name:  "manager",
+				Image: "old",
+				Args:  []string{"--leader-elect", "--stale-dataupload-threshold=1h0m0s", "--old-arg"},
+			}},
+			expectedEnvCount: 3,
+			expectError:      false,
+		},
+		{
 			name: "Should error when manager container not found",
 			dpa: &oadpv1alpha1.DataProtectionApplication{
 				ObjectMeta: metav1.ObjectMeta{
@@ -884,6 +949,35 @@ func TestEnsureKubevirtDatamoverRequiredSpecs(t *testing.T) {
 				for _, arg := range container.Args {
 					if strings.Contains(arg, "--max-incremental-backups") {
 						t.Errorf("unexpected --max-incremental-backups arg found: %s", arg)
+					}
+				}
+			}
+
+			// Verify --stale-dataupload-threshold arg
+			if tt.dpa.Spec.Configuration != nil && tt.dpa.Spec.Configuration.KubevirtDatamover != nil &&
+				tt.dpa.Spec.Configuration.KubevirtDatamover.StaleDataUploadThreshold != nil {
+				expectedArg := fmt.Sprintf("--stale-dataupload-threshold=%s",
+					tt.dpa.Spec.Configuration.KubevirtDatamover.StaleDataUploadThreshold.Duration.String())
+				hasArg := false
+				staleArgCount := 0
+				for _, arg := range container.Args {
+					if strings.HasPrefix(arg, "--stale-dataupload-threshold=") {
+						staleArgCount++
+					}
+					if arg == expectedArg {
+						hasArg = true
+					}
+				}
+				if !hasArg {
+					t.Errorf("expected arg %s in container args %v", expectedArg, container.Args)
+				}
+				if staleArgCount != 1 {
+					t.Errorf("expected exactly one --stale-dataupload-threshold arg, got %d in %v", staleArgCount, container.Args)
+				}
+			} else {
+				for _, arg := range container.Args {
+					if strings.Contains(arg, "--stale-dataupload-threshold") {
+						t.Errorf("unexpected --stale-dataupload-threshold arg found: %s", arg)
 					}
 				}
 			}
