@@ -414,6 +414,10 @@ func (r *DPAReconciler) customizeNodeAgentDaemonset(dpa *oadpv1alpha1.DataProtec
 			nodeAgentContainer.ImagePullPolicy = imagePullPolicy
 			setContainerDefaults(nodeAgentContainer)
 
+			if len(dpa.Spec.Configuration.NodeAgent.ExtraArgs) > 0 {
+				nodeAgentContainer.Args = common.MergeExtraArgs(nodeAgentContainer.Args, dpa.Spec.Configuration.NodeAgent.ExtraArgs)
+			}
+
 			if configMapName, ok := dpa.Annotations[common.UnsupportedNodeAgentServerArgsAnnotation]; ok {
 				if configMapName != "" {
 					unsupportedServerArgsCM := corev1.ConfigMap{}
