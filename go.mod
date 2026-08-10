@@ -194,7 +194,7 @@ require (
 	sigs.k8s.io/yaml v1.4.0 // indirect
 )
 
-replace github.com/vmware-tanzu/velero => github.com/openshift/velero v0.10.2-0.20260731161550-787b83d5efeb
+replace github.com/vmware-tanzu/velero => github.com/openshift/velero v0.10.2-0.20260806152914-2945c62545ba
 
 replace github.com/kopia/kopia => github.com/migtools/kopia v0.0.0-20260715152616-8c9b4fe2502c
 
