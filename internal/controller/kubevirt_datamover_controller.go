@@ -21,6 +21,7 @@ import (
 
 	oadpv1alpha1 "github.com/openshift/oadp-operator/api/v1alpha1"
 	"github.com/openshift/oadp-operator/pkg/common"
+	"github.com/openshift/oadp-operator/pkg/credentials/stsflow"
 )
 
 const (
@@ -179,6 +180,20 @@ func ensureKubevirtDatamoverRequiredSpecs(
 		})
 	}
 
+	// Add Azure workload identity environment variables if configured
+	var envFrom []corev1.EnvFromSource
+	azureClientID := os.Getenv(stsflow.ClientIDEnvKey)
+	if azureClientID != "" && os.Getenv(stsflow.TenantIDEnvKey) != "" && os.Getenv(stsflow.SubscriptionIDEnvKey) != "" {
+		envFrom = append(envFrom, corev1.EnvFromSource{
+			SecretRef: &corev1.SecretEnvSource{
+				LocalObjectReference: corev1.LocalObjectReference{
+					Name: stsflow.AzureWorkloadIdentitySecretName,
+				},
+			},
+		})
+		r.Log.Info("Added Azure workload identity secret reference to KubeVirt DataMover container")
+	}
+
 	// Track DPA resource version for change detection
 	currentKubevirtDatamoverEnabled := r.checkKubevirtDatamoverEnabled()
 	if len(kdmDpaResourceVersion) == 0 ||
@@ -251,6 +266,7 @@ func ensureKubevirtDatamoverRequiredSpecs(
 		Command:         []string{"/manager"},
 		Args:            args,
 		Env:             envVars,
+		EnvFrom:         envFrom,
 		Ports: []corev1.ContainerPort{
 			{
 				Name:          "https",
@@ -315,6 +331,7 @@ func ensureKubevirtDatamoverRequiredSpecs(
 				kubevirtDatamoverContainer.ImagePullPolicy = imagePullPolicy
 				kubevirtDatamoverContainer.Args = args
 				kubevirtDatamoverContainer.Env = envVars
+				kubevirtDatamoverContainer.EnvFrom = envFrom
 				kubevirtDatamoverContainer.Resources = resources
 				kubevirtDatamoverContainer.TerminationMessagePolicy = corev1.TerminationMessageFallbackToLogsOnError
 				kubevirtDatamoverContainerFound = true
