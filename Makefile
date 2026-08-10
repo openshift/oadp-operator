@@ -706,28 +706,51 @@ rm -rf $$TMP_DIR ;\
 }
 endef
 
-.PHONY: golangci-lint
+# go-install-tool-versioned installs $2 to branch-specific path $1, but only if $1 is missing
+# or $1.version doesn't match the pinned version $3. Uses a sidecar marker file instead of
+# introspecting the binary's own --version output, because that output is unreliable for some
+# tools when installed via `go install` (e.g. kustomize reports "(devel)" or an unexpanded
+# `$$Format:%H$$` placeholder instead of its real version, depending on build-time factors).
+define go-install-tool-versioned
+@if [ -f $(1) ] && [ -f $(1).version ] && [ "$$(cat $(1).version)" = "$(3)" ]; then \
+	echo "$(notdir $(1)) $(3) is already installed" ;\
+else \
+	set -e ;\
+	mkdir -p $(dir $(1)) ;\
+	rm -f $(1) $(1).version ;\
+	TMP_DIR=$$(mktemp -d) ;\
+	cd $$TMP_DIR ;\
+	go mod init tmp ;\
+	echo "Installing $(notdir $(1)) $(3)" ;\
+	GOBIN=$(dir $(1)) go install -mod=mod $(2) ;\
+	cd - >/dev/null ;\
+	rm -rf $$TMP_DIR ;\
+	echo "$(3)" > $(1).version ;\
+fi
+endef
+
+.PHONY: golangci-lint $(GOLANGCI_LINT)
 golangci-lint: $(GOLANGCI_LINT) ## Download golangci-lint locally if necessary.
 $(GOLANGCI_LINT): $(LOCALBIN)
-	$(call go-install-tool-branch,$(GOLANGCI_LINT),github.com/golangci/golangci-lint/cmd/golangci-lint@$(GOLANGCI_LINT_VERSION))
+	$(call go-install-tool-versioned,$(GOLANGCI_LINT),github.com/golangci/golangci-lint/cmd/golangci-lint@$(GOLANGCI_LINT_VERSION),$(GOLANGCI_LINT_VERSION))
 	@if [ -L "$(LOCALBIN)/golangci-lint" ]; then \
 		unlink "$(LOCALBIN)/golangci-lint"; \
 	fi
 	@ln -sf "$(LOCALBIN)/$(BRANCH_VERSION)/golangci-lint" "$(LOCALBIN)/golangci-lint"
 
-.PHONY: kustomize
+.PHONY: kustomize $(KUSTOMIZE)
 kustomize: $(KUSTOMIZE) ## Download kustomize locally if necessary. If wrong version is installed, it will be removed before downloading.
 $(KUSTOMIZE): $(LOCALBIN)
-	$(call go-install-tool-branch,$(KUSTOMIZE),sigs.k8s.io/kustomize/kustomize/v4@$(KUSTOMIZE_VERSION))
+	$(call go-install-tool-versioned,$(KUSTOMIZE),sigs.k8s.io/kustomize/kustomize/v4@$(KUSTOMIZE_VERSION),$(KUSTOMIZE_VERSION))
 	@if [ -L "$(LOCALBIN)/kustomize" ]; then \
 		unlink "$(LOCALBIN)/kustomize"; \
 	fi
 	@ln -sf "$(LOCALBIN)/$(BRANCH_VERSION)/kustomize" "$(LOCALBIN)/kustomize"
 
-.PHONY: controller-gen
+.PHONY: controller-gen $(CONTROLLER_GEN)
 controller-gen: $(CONTROLLER_GEN) ## Download controller-gen locally if necessary. If wrong version is installed, it will be overwritten.
 $(CONTROLLER_GEN): $(LOCALBIN)
-	$(call go-install-tool-branch,$(CONTROLLER_GEN),sigs.k8s.io/controller-tools/cmd/controller-gen@$(CONTROLLER_TOOLS_VERSION))
+	$(call go-install-tool-versioned,$(CONTROLLER_GEN),sigs.k8s.io/controller-tools/cmd/controller-gen@$(CONTROLLER_TOOLS_VERSION),$(CONTROLLER_TOOLS_VERSION))
 	@if [ -L "$(LOCALBIN)/controller-gen" ]; then \
 		unlink "$(LOCALBIN)/controller-gen"; \
 	fi
