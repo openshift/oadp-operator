@@ -3,8 +3,11 @@
 ## Abstract
 
 OADP operator currently supports only `OwnNamespace` install mode via OLM.
+
 This proposal describes a phased plan to add `AllNamespaces` install mode support, delivered as a separate channel within the existing OLM package.
+
 The operator's runtime behavior remains identical: it watches only the namespace it is deployed in, regardless of install mode.
+
 Both channels must coexist for at least one release cycle to provide a safe upgrade path for existing customers.
 
 ## Background
@@ -13,20 +16,23 @@ The OADP operator is installed via OLM with a strict `OwnNamespace` install mode
 The CSV declares only `OwnNamespace: true` and all other modes are `supported: false`.
 
 At runtime, the `WATCH_NAMESPACE` environment variable controls which namespace the controller-runtime cache monitors.
+
 In the OwnNamespace CSV, `WATCH_NAMESPACE` is sourced from the `olm.targetNamespaces` annotation, which OLM sets to the operator's own namespace.
+
 In the non-OLM deployment (`config/manager/manager.yaml`), `WATCH_NAMESPACE` is sourced from `metadata.namespace` (the pod's own namespace via downward API).
 
 The key insight is that `AllNamespaces` is an OLM install mode — it controls what OperatorGroup the CSV is compatible with, not what the operator actually watches at runtime.
 The AllNamespaces CSV can source `WATCH_NAMESPACE` from `metadata.namespace` (just like the non-OLM deployment does today) instead of from `olm.targetNamespaces`.
+
 This means the operator keeps watching only its own namespace by default, even when installed via a global OperatorGroup.
 
 RBAC is already cluster-scoped (ClusterRoles and ClusterRoleBindings), so no fundamental RBAC changes are required.
-No webhooks are currently enabled.
+No webhooks are currently enabled, but this opens the door to having conversion webhooks, allowing us to have new CRD versions without breaking changes.
 A `ClusterWideClient` (uncached) already exists for cross-namespace DPA validation.
 
 ### Why Two Channels Are Required
 
-A single CSV cannot have both `OwnNamespace` and `AllNamespaces` enabled simultaneously.
+A single CSV **cannot** have both `OwnNamespace` and `AllNamespaces` enabled simultaneously.
 More critically, OLM validates that a CSV supports the OperatorGroup's install mode before allowing an install or upgrade.
 
 If a future release shipped only an AllNamespaces CSV, existing customers with a namespaced OperatorGroup (`targetNamespaces: [openshift-adp]`) would be **blocked from upgrading** — OLM would reject the new CSV because it doesn't support `OwnNamespace`.
@@ -53,12 +59,13 @@ Both channels must coexist for at least one release cycle so customers can:
 
 ## High-Level Design
 
-The work is split into four phases, each independently mergeable:
+The work is split into five phases, each independently mergeable:
 
 1. **Build infrastructure for two bundle variants and enable AllNamespaces** (kustomize overlays that produce two CSVs in separate channels within the same OLM package). The existing OwnNamespace CSV is not modified.
-2. **E2E test infrastructure** for both install modes.
-3. **CI/Prow integration** with AllNamespaces-specific jobs.
+2. **Deploy and CI for AllNamespaces** — add `deploy-olm-allnamespaces` Makefile target using `operator-sdk run bundle --install-mode AllNamespaces` and a Prow CI job running the existing e2e suite against it. This gives immediate signal that the AllNamespaces bundle works end-to-end.
+3. **AllNamespaces-specific e2e test scenarios** — migration test (channel switch + OperatorGroup swap), upgrade test parameterization, and additional validation.
 4. **Migration documentation** for customers.
+5. **OwnNamespace deprecation plan** — timeline and communication for eventually sunsetting the OwnNamespace channel.
 
 ## Detailed Design
 
@@ -74,7 +81,8 @@ The work is split into four phases, each independently mergeable:
 | CLI/VMDP downloads | Skipped if `watchNamespace` is empty | `cmd/main.go` (lines 305-306) |
 | STS flow | Reads `WATCH_NAMESPACE` as install namespace | `pkg/credentials/stsflow/stsflow.go` (line 115) |
 | Sub-controllers | All receive `WATCH_NAMESPACE` = own namespace | `nonadmin_controller.go` (line 176), `kubevirt_datamover_controller.go` (line 152), `vmfilerestore_controller.go` (line 184) |
-| E2E OperatorGroup | Always `targetNamespaces: [namespace]` | `Makefile` (line 639), `upgrade_suite_test.go` (lines 31-50) |
+| E2E deploy | `operator-sdk run bundle` (implicitly OwnNamespace) | `Makefile` (line 459) |
+| E2E OperatorGroup | Always `targetNamespaces: [namespace]` | `upgrade_suite_test.go` (lines 31-50) |
 | Cross-NS validation | Uses uncached `ClusterWideClient` | `cmd/main.go` (lines 260-270), `validator.go` (line 144) |
 | RBAC | Already cluster-scoped (ClusterRoles) | `config/rbac/role.yaml`, CSV `clusterPermissions` |
 | OLM channels | Single channel: `dev` (release branches use e.g. `oadp-1.5`) | `Makefile` (lines 23, 33), `bundle/metadata/annotations.yaml` |
@@ -122,7 +130,7 @@ Release branches follow the same pattern: `stable-1.7` (OwnNamespace) and `stabl
 | **AllNamespaces overlay** | Patches: (1) `installModes` set to only `AllNamespaces: true`, (2) `WATCH_NAMESPACE` source changed from `olm.targetNamespaces` to `metadata.namespace` |
 | **OwnNamespace overlay** | Patches: keeps current behavior (only `OwnNamespace: true`, `WATCH_NAMESPACE` from `olm.targetNamespaces`). Identity transform initially. |
 | **Makefile** | Add `INSTALL_MODE ?= OwnNamespace`. New targets: `bundle-allnamespaces`, `bundle-build-allnamespaces` |
-| **Catalog build** | Parameterize `Dockerfile.catalog` and `catalog-build` target to produce a single catalog with two channels: existing channel (OwnNamespace bundle) and new `-allnamespaces` channel (AllNamespaces bundle) |
+| **Catalog build** | Extend `catalog-build` to produce a single catalog with two channels: existing channel (OwnNamespace bundle) and new `-allnamespaces` channel (AllNamespaces bundle). Adds a second `opm render` + `olm.channel` entry to the FBC output. |
 | **CSV naming** | AllNamespaces CSV uses a distinct version suffix: `oadp-operator.v99.0.0-allns` vs `oadp-operator.v99.0.0` |
 | **Channel naming** | Convention: `<existing-channel>-allnamespaces` (e.g., `dev-allnamespaces`, `stable-1.7-allnamespaces`) |
 
@@ -136,47 +144,57 @@ Release branches follow the same pattern: `stable-1.7` (OwnNamespace) and `stabl
 
 Build plumbing only, no runtime impact.
 
-### Phase 2: E2E Test Infrastructure
+### Phase 2: Deploy and CI for AllNamespaces
 
-Tests need to validate both install modes.
+Add the ability to deploy and test with AllNamespaces mode, then wire up CI to run the existing e2e suite against it.
+This gives immediate signal that the AllNamespaces bundle works end-to-end before writing any new test code.
+
+`operator-sdk run bundle` already supports `--install-mode` as a flag.
+Today the `deploy-olm` target does not pass this flag, so it defaults to OwnNamespace.
 
 #### Changes
 
 | Area | Change |
 |---|---|
-| `Makefile` `deploy-olm` (line 634-642) | Parameterize OperatorGroup creation: when `INSTALL_MODE=AllNamespaces`, create OperatorGroup with empty `spec` (no `targetNamespaces`). Default (`OwnNamespace`) keeps current behavior. |
-| `Makefile` | New target: `deploy-olm-allnamespaces` that sets `INSTALL_MODE=AllNamespaces` and `DEFAULT_CHANNEL=dev-allnamespaces` |
-| `tests/e2e/upgrade_suite_test.go` (lines 31-50) | Parameterize OperatorGroup creation to support both modes based on a test flag |
-| E2E test scenarios | Add: install AllNamespaces, create DPA in operator namespace, verify Velero deploys. Verify `WATCH_NAMESPACE` resolves to operator namespace. Verify singleton enforcement. Verify sub-controller namespace config. |
-| Migration test | Test switching channel on an existing Subscription and swapping the OperatorGroup to verify the documented migration path works end-to-end. |
+| **Makefile** | New target `deploy-olm-allnamespaces` that builds the AllNamespaces bundle and runs `operator-sdk run bundle --install-mode AllNamespaces --security-context-config restricted $(THIS_BUNDLE_IMAGE_ALLNS) --namespace $(OADP_TEST_NAMESPACE)` |
+| **`openshift/release` config** | Add new presubmit job (e.g., `e2e-aws-allnamespaces`) that runs `make deploy-olm-allnamespaces` then `make test-e2e`. Runs the existing e2e suite unchanged. |
+| **Periodic jobs** | Add AllNamespaces variant for nightly runs |
+
+#### What this validates
+
+- OLM accepts the AllNamespaces CSV with a global OperatorGroup.
+- `WATCH_NAMESPACE` resolves to the pod's namespace (not empty).
+- The full e2e suite passes with identical behavior: DPA creation, Velero deployment, backup/restore operations, sub-controllers, credential management.
+- Any failures at this stage reveal real incompatibilities rather than test infrastructure gaps.
 
 #### Validation
 
-Full e2e suite passes with both `make deploy-olm` (OwnNamespace) and `make deploy-olm-allnamespaces`.
+Full existing e2e suite passes with `make deploy-olm-allnamespaces`.
+
+#### Risk: Low
+
+One new Makefile target and one new CI job. No code changes. The existing e2e suite is the test.
+
+### Phase 3: AllNamespaces-Specific E2E Test Scenarios
+
+With CI running the existing suite against AllNamespaces (Phase 2), this phase adds test scenarios specific to the AllNamespaces install mode.
+
+#### Changes
+
+| Area | Change |
+|---|---|
+| `tests/e2e/upgrade_suite_test.go` (lines 31-50) | Parameterize OperatorGroup creation to support both modes based on a test flag or env var |
+| Migration test | Test the documented migration path end-to-end: install OwnNamespace, switch channel, swap OperatorGroup, verify operator continues functioning |
+| Upgrade test | Verify upgrading from prior version on OwnNamespace channel still works (no regression in existing upgrade path) |
+| Singleton enforcement | Verify global DPA singleton is enforced in AllNamespaces mode via the existing `ClusterWideClient` validator |
+
+#### Validation
+
+All new test scenarios pass. Existing OwnNamespace e2e suite continues to pass (no regressions).
 
 #### Risk: Medium
 
 Test infrastructure changes are additive.
-
-### Phase 3: CI/Prow Integration
-
-AllNamespaces mode needs CI coverage.
-
-#### Changes
-
-| Area | Change |
-|---|---|
-| `openshift/release` config | Add new presubmit job(s) running e2e tests with `INSTALL_MODE=AllNamespaces` |
-| Job naming | e.g., `e2e-aws-allnamespaces` alongside existing `e2e-aws` |
-| Periodic jobs | Add AllNamespaces variants for nightly runs |
-
-#### Validation
-
-CI jobs pass on a test PR.
-
-#### Risk: Low
-
-Additive CI config in a separate repo.
 
 ### Phase 4: Migration Documentation
 
@@ -267,6 +285,17 @@ Brief operator unavailability during the OperatorGroup swap (seconds to approxim
 No impact on existing backups at rest.
 In-flight backups or restores should be completed before migration.
 
+### Phase 5: OwnNamespace Deprecation Plan
+
+Once both channels have coexisted for at least one release cycle and customers have had a migration window:
+
+- Announce deprecation of the OwnNamespace channel with a timeline.
+- Add a deprecation warning to the OwnNamespace CSV (via `olm.deprecated` annotation or operator log message).
+- After the deprecation window, stop publishing new versions to the OwnNamespace channel.
+- The final OwnNamespace CSV remains installable but receives no further updates.
+
+The timeline and communication plan are TBD and depend on customer adoption metrics.
+
 ## Alternatives Considered
 
 ### Single CSV with both install modes enabled
@@ -303,9 +332,10 @@ A security review of the velero SA permissions is still recommended as a general
 | Phase | Scope | Risk | Depends on | Parallelizable |
 |---|---|---|---|---|
 | 1. Bundle variants + AllNamespaces channel | Build infrastructure + CSV metadata | Medium | None | No (foundation) |
-| 2. E2E test infrastructure | Test infrastructure | Medium | Phase 1 | No |
-| 3. CI/Prow integration | CI config | Low | Phase 2 | Yes (with Phase 4) |
+| 2. Deploy + CI for AllNamespaces | Makefile target + Prow job | Low | Phase 1 | No |
+| 3. AllNamespaces-specific e2e tests | Test scenarios | Medium | Phase 2 | Yes (with Phase 4) |
 | 4. Migration documentation | Docs | Low | Phase 1 | Yes (with Phase 3) |
+| 5. OwnNamespace deprecation plan | Communication + timeline | Low | Phase 4 | No |
 
 ## Open Issues
 
