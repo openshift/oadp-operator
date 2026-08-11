@@ -3,7 +3,8 @@
 ## Abstract
 
 OADP operator currently supports only `OwnNamespace` install mode via OLM.
-This proposal describes a phased plan to add `AllNamespaces` install mode support, delivered as a separate OLM channel to allow customers to migrate at their own pace.
+This proposal describes a phased plan to add `AllNamespaces` install mode support, delivered via a second CSV to allow customers to migrate at their own pace.
+Two delivery options are presented for the second CSV: a separate channel within the existing OLM package, or a separate OLM package with its own catalog entry.
 
 ## Background
 
@@ -20,7 +21,7 @@ A `ClusterWideClient` (uncached) already exists for cross-namespace DPA validati
 
 ## Goals
 
-- Enable `AllNamespaces` install mode as a new OLM channel alongside the existing `OwnNamespace` channel.
+- Enable `AllNamespaces` install mode via a second CSV, delivered alongside the existing `OwnNamespace` CSV.
 - Provide a documented migration path for customers moving from `OwnNamespace` to `AllNamespaces`.
 - Maintain full backward compatibility for existing `OwnNamespace` installations.
 
@@ -36,7 +37,7 @@ The work is split into six phases, each independently mergeable:
 
 1. **Decouple `OPERATOR_NAMESPACE` from `WATCH_NAMESPACE`** (refactoring, no behavioral change).
 2. **Handle empty `WATCH_NAMESPACE`** in the controller-runtime manager (enables AllNamespaces code path).
-3. **Build infrastructure for two bundle variants** (kustomize overlays, Makefile targets, catalog with two channels).
+3. **Build infrastructure for two bundle variants** (kustomize overlays, Makefile targets, two CSVs). Delivery mechanism (channels vs packages) is decided in this phase.
 4. **E2E test infrastructure** for both install modes.
 5. **CI/Prow integration** with AllNamespaces-specific jobs.
 6. **Migration documentation** for customers.
@@ -118,12 +119,26 @@ Behavioral change for the empty-namespace path, but that path is not reachable u
 
 ### Phase 3: Build Infrastructure for Two Bundle Variants
 
-Produce two distinct OLM bundles from one codebase, shipped as separate channels in the same OLM package.
+Produce two distinct OLM bundles from one codebase.
+A single CSV cannot have both `OwnNamespace` and `AllNamespaces` enabled simultaneously, so two CSVs are required.
+The delivery mechanism for the second CSV is decided in this phase.
 
-#### Two-CSV Approach via Channels
+#### Common Build Changes (both options)
 
-A single CSV cannot have both `OwnNamespace` and `AllNamespaces` enabled simultaneously.
-Instead, the catalog will contain two channels per release, each with its own CSV:
+Regardless of delivery option, the following build changes are needed to produce two bundle variants from one codebase:
+
+| Area | Change |
+|---|---|
+| **CSV base template** | Keep `config/manifests/bases/oadp-operator.clusterserviceversion.yaml` as the shared base |
+| **Kustomize overlays** | Create `config/manifests/overlays/ownnamespace/` and `config/manifests/overlays/allnamespaces/` with patches for `installModes` and deployment env vars |
+| **AllNamespaces overlay** | Patches: (1) `installModes` set to only `AllNamespaces: true`, (2) add `OPERATOR_NAMESPACE` env var to deploymentSpec, (3) `WATCH_NAMESPACE` source remains `olm.targetNamespaces` (will be empty with global OperatorGroup) |
+| **OwnNamespace overlay** | Patches: keeps current behavior (only `OwnNamespace: true`). Identity transform initially. |
+| **Makefile** | Add `INSTALL_MODE ?= OwnNamespace`. New targets: `bundle-allnamespaces`, `bundle-build-allnamespaces` |
+
+#### Option A: Two Channels in the Same Package
+
+The AllNamespaces CSV is shipped as a separate channel within the existing `oadp-operator` package.
+Both channels live in the same catalog and share the same package identity.
 
 ```
 Catalog: oadp-operator-catalog
@@ -136,23 +151,69 @@ Catalog: oadp-operator-catalog
 
 Release branches follow the same pattern: `stable-1.6` (OwnNamespace) and `stable-1.6-allnamespaces` (AllNamespaces).
 
-#### Changes
+**Additional changes for Option A:**
 
 | Area | Change |
 |---|---|
-| **CSV base template** | Keep `config/manifests/bases/oadp-operator.clusterserviceversion.yaml` as the shared base |
-| **Kustomize overlays** | Create `config/manifests/overlays/ownnamespace/` and `config/manifests/overlays/allnamespaces/` with patches for `installModes` and deployment env vars |
-| **AllNamespaces overlay** | Patches: (1) `installModes` set to only `AllNamespaces: true`, (2) add `OPERATOR_NAMESPACE` env var to deploymentSpec, (3) `WATCH_NAMESPACE` source remains `olm.targetNamespaces` (will be empty with global OperatorGroup) |
-| **OwnNamespace overlay** | Patches: keeps current behavior (only `OwnNamespace: true`). Identity transform initially. |
-| **Makefile** | Add `INSTALL_MODE ?= OwnNamespace`. New targets: `bundle-allnamespaces`, `bundle-build-allnamespaces`, `catalog-build-allnamespaces` |
-| **Catalog build** | Parameterize `Dockerfile.catalog` and `catalog-build` target to produce a catalog with two channels: existing channel (OwnNamespace bundle) and new `-allnamespaces` channel (AllNamespaces bundle) |
+| **Catalog build** | Parameterize `Dockerfile.catalog` and `catalog-build` target to produce a single catalog with two channels: existing channel (OwnNamespace bundle) and new `-allnamespaces` channel (AllNamespaces bundle) |
 | **CSV naming** | AllNamespaces CSV uses a distinct version suffix: `oadp-operator.v99.0.0-allns` vs `oadp-operator.v99.0.0` |
+| **Channel naming** | Convention: `<existing-channel>-allnamespaces` (e.g., `dev-allnamespaces`, `stable-1.6-allnamespaces`) |
+
+**Trade-offs:**
+
+| Pro | Con |
+|---|---|
+| Single package in OperatorHub; cleaner customer experience | Every release branch must produce two bundles and two channel entries |
+| Migration via Subscription channel change (no uninstall/reinstall of the package) | Channel names are overloaded (channels typically mean release stability, not install topology) |
+| Single catalog image to build and publish | Customer must still manually swap the OperatorGroup after changing channel |
+
+#### Option B: Two Separate OLM Packages
+
+The AllNamespaces CSV is shipped as a separate OLM package with its own catalog entry.
+Each package has its own identity and upgrade graph.
+
+```
+Catalog: oadp-operator-catalog
+├── Package: oadp-operator                  ← OwnNamespace CSV
+│   └── Channel: dev
+│       └── oadp-operator.v99.0.0
+└── Package: oadp-operator-allnamespaces    ← AllNamespaces CSV
+    └── Channel: dev
+        └── oadp-operator-allnamespaces.v99.0.0
+```
+
+**Additional changes for Option B:**
+
+| Area | Change |
+|---|---|
+| **Catalog build** | Produce a single catalog containing two packages, each with its own channel(s). Or produce two separate catalogs (one per package). |
+| **CSV naming** | AllNamespaces CSV uses a distinct package name: `oadp-operator-allnamespaces` |
+| **Bundle metadata** | AllNamespaces bundle has its own `annotations.yaml` with `operators.operatorframework.io.bundle.package.v1: oadp-operator-allnamespaces` |
+| **Makefile** | Additional target: `catalog-build-allnamespaces` if producing separate catalogs |
+
+**Trade-offs:**
+
+| Pro | Con |
+|---|---|
+| Clean separation; no channel naming overload | Two tiles in OperatorHub; customers must know which to pick |
+| Each package has its own independent upgrade graph | Migration requires uninstalling the old package and installing the new one |
+| Channel names stay semantic (stable, dev, etc.) | Doubles catalog/release artifacts per version |
+| Simpler catalog structure per package | Customer loses the Subscription during migration (must re-create) |
+
+#### Decision Criteria
+
+The choice between Option A and Option B should consider:
+
+1. **Downstream release pipeline**: Does Konflux/ART handle two channels in one package easily, or is a second package simpler to wire up?
+2. **Migration UX priority**: Is avoiding uninstall/reinstall (Option A) worth the channel naming complexity?
+3. **Long-term intent**: If OwnNamespace will eventually be deprecated, Option A lets you sunset a channel; Option B requires deprecating an entire package.
+4. **OperatorHub presentation**: One tile with a channel picker (Option A) vs two tiles (Option B).
 
 #### Validation
 
 - `make bundle` and `make bundle-allnamespaces` both produce valid bundles.
 - `opm validate` passes on both bundles.
-- Catalog with two channels builds and serves correctly.
+- Catalog builds and serves correctly with the chosen delivery structure.
 
 #### Risk: Medium
 
@@ -161,15 +222,17 @@ Build plumbing only, no runtime impact.
 ### Phase 4: E2E Test Infrastructure
 
 Tests need to validate both install modes.
+The test infrastructure changes depend on the delivery option chosen in Phase 3.
 
 #### Changes
 
 | Area | Change |
 |---|---|
 | `Makefile` `deploy-olm` (line 634-642) | Parameterize OperatorGroup creation: when `INSTALL_MODE=AllNamespaces`, create OperatorGroup with empty `spec` (no `targetNamespaces`). Default keeps current behavior. |
-| `Makefile` | New target: `deploy-olm-allnamespaces` that sets `INSTALL_MODE=AllNamespaces` and `DEFAULT_CHANNEL=dev-allnamespaces` |
+| `Makefile` | New target: `deploy-olm-allnamespaces`. For Option A (channels): sets `INSTALL_MODE=AllNamespaces` and `DEFAULT_CHANNEL=dev-allnamespaces`. For Option B (packages): sets `INSTALL_MODE=AllNamespaces` and overrides `CATALOG_SOURCE_NAME` and subscription package name. |
 | `tests/e2e/upgrade_suite_test.go` (lines 31-50) | Parameterize OperatorGroup creation to support both modes based on a test flag |
 | E2E test scenarios | Add: install AllNamespaces, create DPA in operator namespace, verify Velero deploys. Verify singleton enforcement. Verify sub-controller namespace config. |
+| Migration test (Option A only) | Test switching channel on an existing Subscription and swapping the OperatorGroup to verify the documented migration path works end-to-end. |
 
 #### Validation
 
@@ -203,14 +266,15 @@ Additive CI config in a separate repo.
 
 Customers migrating from OwnNamespace to AllNamespaces need clear, tested manual steps.
 OLM does not automate the OperatorGroup swap.
+The migration path differs depending on the delivery option chosen in Phase 3.
 
-#### Prerequisites
+#### Prerequisites (both options)
 
 - Cluster admin access.
 - No active backups or restores in progress.
-- Current OADP version supports AllNamespaces channel (minimum version TBD).
+- Current OADP version supports the AllNamespaces CSV (minimum version TBD).
 
-#### Migration Steps
+#### Migration Path for Option A (Channels)
 
 **Step 1: Verify current state**
 
@@ -272,31 +336,114 @@ oc get dpa -n openshift-adp -o jsonpath='{.items[0].status.conditions}'
 oc get deployment -n openshift-adp -l app.kubernetes.io/name=velero
 ```
 
-#### Rollback Steps
+**Rollback (Option A):**
 
 1. Delete the global OperatorGroup.
 2. Create the namespaced OperatorGroup with `targetNamespaces: [openshift-adp]`.
 3. Switch the subscription channel back to the OwnNamespace channel.
 
-#### Expected Downtime
+#### Migration Path for Option B (Packages)
 
-Brief operator unavailability between steps 3 and 4 (seconds to approximately one minute).
+**Step 1: Verify current state**
+
+```bash
+oc get subscription oadp-operator -n openshift-adp -o yaml
+oc get operatorgroup -n openshift-adp -o yaml
+oc get dpa -n openshift-adp
+```
+
+**Step 2: Delete the existing subscription (keeps the DPA and Velero resources)**
+
+```bash
+oc delete subscription oadp-operator -n openshift-adp
+```
+
+**Step 3: Delete the OwnNamespace CSV**
+
+```bash
+CSV_NAME=$(oc get csv -n openshift-adp -o name | grep oadp-operator)
+oc delete $CSV_NAME -n openshift-adp
+```
+
+The operator pod is removed. DPA and Velero resources remain.
+
+**Step 4: Delete the existing namespaced OperatorGroup**
+
+```bash
+oc delete operatorgroup oadp-operator-group -n openshift-adp
+```
+
+**Step 5: Create a global OperatorGroup**
+
+```bash
+cat <<EOF | oc apply -f -
+apiVersion: operators.coreos.com/v1
+kind: OperatorGroup
+metadata:
+  name: oadp-operator-group
+  namespace: openshift-adp
+spec: {}
+EOF
+```
+
+**Step 6: Create a new subscription to the AllNamespaces package**
+
+```bash
+cat <<EOF | oc apply -f -
+apiVersion: operators.coreos.com/v1alpha1
+kind: Subscription
+metadata:
+  name: oadp-operator-allnamespaces
+  namespace: openshift-adp
+spec:
+  channel: stable-1.x
+  name: oadp-operator-allnamespaces
+  source: oadp-operator-catalog
+  sourceNamespace: openshift-marketplace
+  installPlanApproval: Automatic
+EOF
+```
+
+OLM installs the AllNamespaces CSV with `olm.targetNamespaces` empty.
+The operator starts in AllNamespaces mode and reconciles the existing DPA.
+
+**Step 7: Verify the migration**
+
+```bash
+# Operator pod is running
+oc get pods -n openshift-adp -l control-plane=controller-manager
+
+# CSV is Succeeded
+oc get csv -n openshift-adp
+
+# DPA is reconciled
+oc get dpa -n openshift-adp -o jsonpath='{.items[0].status.conditions}'
+
+# Velero is running
+oc get deployment -n openshift-adp -l app.kubernetes.io/name=velero
+```
+
+**Rollback (Option B):**
+
+1. Delete the AllNamespaces subscription and CSV.
+2. Delete the global OperatorGroup.
+3. Create the namespaced OperatorGroup with `targetNamespaces: [openshift-adp]`.
+4. Create a new Subscription to the original `oadp-operator` package.
+
+#### Expected Downtime (both options)
+
+Brief operator unavailability during the OperatorGroup swap (seconds to approximately one minute).
 No impact on existing backups at rest.
 In-flight backups or restores should be completed before migration.
+Option B has a slightly longer window because the subscription must also be re-created.
 
 ## Alternatives Considered
 
 ### Single CSV with both install modes enabled
 
 OLM allows a CSV to declare multiple `installModes` as `supported: true`, with the OperatorGroup determining which is active.
-This was rejected because the two modes cannot be enabled simultaneously on a single cluster, and having a single CSV that advertises both creates ambiguity about which mode is in use.
-Two separate CSVs in separate channels make the install mode explicit and independently releasable.
-
-### Two separate OLM packages
-
-A separate package (e.g., `oadp-operator-allns`) would provide clean separation but requires customers to uninstall and reinstall to migrate.
-The channel-based approach within a single package allows customers to switch by editing the Subscription, avoiding uninstall/reinstall.
-Both approaches still require manual OperatorGroup changes, so the channel approach provides a smoother migration UX with no additional risk.
+This was rejected because the two install modes cannot be enabled simultaneously, and having a single CSV that advertises both creates ambiguity about which mode is in use.
+Two separate CSVs make the install mode explicit and independently releasable.
 
 ## Security Considerations
 
@@ -307,8 +454,8 @@ A security review of the velero SA permissions should be conducted as part of Ph
 
 ## Compatibility
 
-- Existing `OwnNamespace` installations are unaffected. The OwnNamespace channel continues to exist and receive updates.
-- Migration from `OwnNamespace` to `AllNamespaces` is a manual process documented in Phase 6.
+- Existing `OwnNamespace` installations are unaffected. The OwnNamespace CSV continues to exist and receive updates regardless of delivery option.
+- Migration from `OwnNamespace` to `AllNamespaces` is a manual process documented in Phase 6. The exact steps depend on the delivery option chosen in Phase 3.
 - The `OPERATOR_NAMESPACE` env var (Phase 1) is additive and backward-compatible.
 - The `WATCH_NAMESPACE` empty-string handling (Phase 2) does not affect existing deployments where the var is always set to a non-empty value.
 
@@ -325,14 +472,19 @@ A security review of the velero SA permissions should be conducted as part of Ph
 
 ## Open Issues
 
-1. **DPA singleton scope**: In AllNamespaces mode, should we allow one DPA per namespace (multi-tenant Velero) or enforce a single DPA globally?
+1. **Delivery option**: Two channels in the same package (Option A) or two separate OLM packages (Option B)?
+This decision must be made in Phase 3 and affects Phases 4, 5, and 6.
+Key factors: downstream release pipeline compatibility (Konflux/ART), migration UX priority, and long-term deprecation strategy for OwnNamespace.
+See the Decision Criteria section in Phase 3 for details.
+
+2. **DPA singleton scope**: In AllNamespaces mode, should we allow one DPA per namespace (multi-tenant Velero) or enforce a single DPA globally?
 Initial recommendation is global singleton to minimize blast radius; multi-tenant support can follow as a separate enhancement.
 
-2. **Channel naming convention**: Proposed convention is `<existing-channel>-allnamespaces` (e.g., `dev-allnamespaces`, `stable-1.6-allnamespaces`).
+3. **Channel naming convention (Option A only)**: If channels are chosen, proposed convention is `<existing-channel>-allnamespaces` (e.g., `dev-allnamespaces`, `stable-1.6-allnamespaces`).
 Open to shorter alternatives if the convention is too verbose.
 
-3. **Velero operational scope**: Even when the operator watches all namespaces, Velero's deployment lives in one namespace and backs up resources across namespaces (this is existing behavior).
+4. **Velero operational scope**: Even when the operator watches all namespaces, Velero's deployment lives in one namespace and backs up resources across namespaces (this is existing behavior).
 No change expected, but worth validating in e2e tests.
 
-4. **Minimum version for migration**: Which OADP release will be the first to ship the AllNamespaces channel?
+5. **Minimum version for migration**: Which OADP release will be the first to ship the AllNamespaces CSV?
 This determines the migration documentation's version requirements.
