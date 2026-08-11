@@ -4,16 +4,21 @@
 
 OADP operator currently supports only `OwnNamespace` install mode via OLM.
 This proposal describes a phased plan to add `AllNamespaces` install mode support, delivered via a second CSV to allow customers to migrate at their own pace.
+The operator's runtime behavior remains identical: it watches only the namespace it is deployed in, regardless of install mode.
 Two delivery options are presented for the second CSV: a separate channel within the existing OLM package, or a separate OLM package with its own catalog entry.
 
 ## Background
 
 The OADP operator is installed via OLM with a strict `OwnNamespace` install mode.
 The CSV declares only `OwnNamespace: true` and all other modes are `supported: false`.
-At runtime, the `WATCH_NAMESPACE` environment variable serves double duty: it identifies both the namespace where the operator lives and the namespace scope for the controller-runtime cache.
 
-In `OwnNamespace` mode, `WATCH_NAMESPACE` is sourced from the `olm.targetNamespaces` CSV annotation (set by the OperatorGroup's `targetNamespaces`), which always resolves to the operator's own namespace.
-This conflation works today but breaks in `AllNamespaces` mode, where `olm.targetNamespaces` is empty (meaning "watch everything") but the operator still needs to know its own namespace for PSA labeling, STS credential setup, CLI/VMDP downloads, and sub-controller configuration.
+At runtime, the `WATCH_NAMESPACE` environment variable controls which namespace the controller-runtime cache monitors.
+In the OwnNamespace CSV, `WATCH_NAMESPACE` is sourced from the `olm.targetNamespaces` annotation, which OLM sets to the operator's own namespace.
+In the non-OLM deployment (`config/manager/manager.yaml`), `WATCH_NAMESPACE` is sourced from `metadata.namespace` (the pod's own namespace via downward API).
+
+The key insight is that `AllNamespaces` is an OLM install mode — it controls what OperatorGroup the CSV is compatible with, not what the operator actually watches at runtime.
+The AllNamespaces CSV can source `WATCH_NAMESPACE` from `metadata.namespace` (just like the non-OLM deployment does today) instead of from `olm.targetNamespaces`.
+This means the operator keeps watching only its own namespace by default, even when installed via a global OperatorGroup.
 
 RBAC is already cluster-scoped (ClusterRoles and ClusterRoleBindings), so no fundamental RBAC changes are required.
 No webhooks are currently enabled.
@@ -22,25 +27,26 @@ A `ClusterWideClient` (uncached) already exists for cross-namespace DPA validati
 ## Goals
 
 - Enable `AllNamespaces` install mode via a second CSV, delivered alongside the existing `OwnNamespace` CSV.
+- Keep runtime behavior identical to today: the operator watches only the namespace it is deployed in.
 - Provide a documented migration path for customers moving from `OwnNamespace` to `AllNamespaces`.
 - Maintain full backward compatibility for existing `OwnNamespace` installations.
 
 ## Non Goals
 
-- Multi-tenant Velero (one DPA per namespace) is out of scope for the initial implementation. Global DPA singleton enforcement will be maintained.
+- Actually watching all namespaces. The operator continues to watch only its own namespace. Cluster-wide watching can be enabled in the future by setting `WATCH_NAMESPACE` to empty, but that is a separate enhancement requiring additional work (see Future Enhancements).
+- Multi-tenant Velero (one DPA per namespace). Global DPA singleton enforcement will be maintained.
 - Removing `OwnNamespace` support. Both modes will coexist until a future deprecation decision.
 - `SingleNamespace` or `MultiNamespace` install mode support.
 
 ## High-Level Design
 
-The work is split into six phases, each independently mergeable:
+The work is split into five phases, each independently mergeable:
 
-1. **Decouple `OPERATOR_NAMESPACE` from `WATCH_NAMESPACE`** (refactoring, no behavioral change).
-2. **Handle empty `WATCH_NAMESPACE`** in the controller-runtime manager (enables AllNamespaces code path).
-3. **Build infrastructure for two bundle variants** (kustomize overlays, Makefile targets, two CSVs). Delivery mechanism (channels vs packages) is decided in this phase.
-4. **E2E test infrastructure** for both install modes.
-5. **CI/Prow integration** with AllNamespaces-specific jobs.
-6. **Migration documentation** for customers.
+1. **Enable AllNamespaces install mode in the CSV** (the core change: flip installModes, source `WATCH_NAMESPACE` from `metadata.namespace`).
+2. **Build infrastructure for two bundle variants** (kustomize overlays, Makefile targets, two CSVs). Delivery mechanism (channels vs packages) is decided in this phase.
+3. **E2E test infrastructure** for both install modes.
+4. **CI/Prow integration** with AllNamespaces-specific jobs.
+5. **Migration documentation** for customers.
 
 ## Detailed Design
 
@@ -61,63 +67,42 @@ The work is split into six phases, each independently mergeable:
 | RBAC | Already cluster-scoped (ClusterRoles) | `config/rbac/role.yaml`, CSV `clusterPermissions` |
 | OLM channels | Single channel: `dev` (release branches use e.g. `oadp-1.5`) | `Makefile` (lines 23, 33), `bundle/metadata/annotations.yaml` |
 
-### Phase 1: Decouple OPERATOR_NAMESPACE from WATCH_NAMESPACE
+### Phase 1: Enable AllNamespaces Install Mode in the CSV
 
-Introduce `OPERATOR_NAMESPACE` as a distinct concept from `WATCH_NAMESPACE`.
-Today `WATCH_NAMESPACE` is used for both "where the operator lives" and "what to watch."
-In `AllNamespaces` mode these diverge: `WATCH_NAMESPACE` is empty (watch all) but the operator still needs to know its home namespace.
+The core change.
+The AllNamespaces CSV differs from the OwnNamespace CSV in exactly two ways:
+
+1. `installModes` — only `AllNamespaces: true` (instead of only `OwnNamespace: true`).
+2. `WATCH_NAMESPACE` source — `metadata.namespace` via downward API (instead of `olm.targetNamespaces` annotation).
+
+With `WATCH_NAMESPACE` sourced from `metadata.namespace`, the operator always resolves to the pod's own namespace regardless of what `olm.targetNamespaces` contains (which would be empty under a global OperatorGroup).
+No Go code changes are needed. The operator binary is identical for both CSVs.
 
 #### Changes
 
-| File | Change | Lines |
-|---|---|---|
-| `config/manager/manager.yaml` | Add `OPERATOR_NAMESPACE` env var via downward API (`metadata.namespace`) | near 63 |
-| `cmd/main.go` | Add `getOperatorNamespace()` helper, modeled on `getWatchNamespace()` | near 348 |
-| `cmd/main.go` | `addPodSecurityPrivilegedLabels()` uses `operatorNamespace` instead of `watchNamespace` | 140 |
-| `cmd/main.go` | `CLIDownloadSetup` / `VMDPDownloadSetup` `Namespace` and `OperatorNamespace` use `operatorNamespace` | 312-329 |
-| `pkg/credentials/stsflow/stsflow.go` | Read `OPERATOR_NAMESPACE` instead of `WATCH_NAMESPACE` | 115 |
-| `internal/controller/nonadmin_controller.go` | Propagate `OPERATOR_NAMESPACE` (resolves existing TODO at line 176) | 176 |
-| `internal/controller/kubevirt_datamover_controller.go` | Propagate `OPERATOR_NAMESPACE` | 152 |
-| `internal/controller/vmfilerestore_controller.go` | Propagate `OPERATOR_NAMESPACE` | 184 |
+| File | Change |
+|---|---|
+| `config/manifests/bases/oadp-operator.clusterserviceversion.yaml` (lines 467-475) | Create an AllNamespaces variant with only `AllNamespaces: true` in `installModes` |
+| CSV deploymentSpec `WATCH_NAMESPACE` env var | Change source from `metadata.annotations['olm.targetNamespaces']` to `metadata.namespace` (downward API) in the AllNamespaces variant |
+| `make bundle` | Regenerate bundle to verify the OwnNamespace CSV is unchanged |
+
+#### What does NOT change
+
+- No Go code changes. `cmd/main.go`, controllers, and all runtime behavior are untouched.
+- `WATCH_NAMESPACE` always resolves to a non-empty namespace name (the pod's own namespace).
+- Cache scoping, PSA labeling, STS flow, CLI/VMDP downloads, sub-controller propagation all continue to work exactly as today.
+- RBAC is already cluster-scoped and does not need modification.
 
 #### Validation
 
-- `make test` passes.
-- Existing e2e tests pass unchanged (both vars resolve to the same value under OwnNamespace).
+- `make test` passes (no code changes).
+- Manual OLM install with AllNamespaces OperatorGroup: operator starts, `WATCH_NAMESPACE` = pod namespace, DPA reconciles normally.
 
 #### Risk: Low
 
-Pure refactoring. No behavioral change.
+No runtime behavioral change. The only change is in the CSV metadata and env var source.
 
-### Phase 2: Handle Empty WATCH_NAMESPACE in the Manager
-
-Make the controller-runtime manager work correctly when `WATCH_NAMESPACE` is empty, which signals AllNamespaces mode.
-
-#### Changes
-
-| File | Change | Lines |
-|---|---|---|
-| `cmd/main.go` | Conditional cache config: skip `DefaultNamespaces` when `watchNamespace` is empty (cache watches all namespaces) | 204-208 |
-| `cmd/main.go` | `getWatchNamespace()`: empty or unset is now valid; log info instead of error | 127-131, 348-360 |
-| `cmd/main.go` | Remove the `watchNamespace == ""` skip for CLI/VMDP setup (these use `operatorNamespace` from Phase 1) | 305-306 |
-| `cmd/main.go` | `addPodSecurityPrivilegedLabels`: already fixed in Phase 1 to use `operatorNamespace`; verify empty-string guard is removed | 362-368 |
-
-#### DPA Singleton Enforcement
-
-`validator.go` (line 144) uses `ClusterWideClient` to list all DPAs cluster-wide and enforce singleton constraints (NonAdminController, VolumeSnapshotMover).
-In AllNamespaces mode, global DPA singleton enforcement is maintained (one DPA across the entire cluster).
-Multi-tenant (one DPA per namespace) is a future enhancement.
-
-#### Validation
-
-- Unit tests for the empty `WATCH_NAMESPACE` code path.
-- Manual testing with `WATCH_NAMESPACE=""` and `OPERATOR_NAMESPACE=openshift-adp`.
-
-#### Risk: Medium
-
-Behavioral change for the empty-namespace path, but that path is not reachable until Phase 3 ships an AllNamespaces CSV.
-
-### Phase 3: Build Infrastructure for Two Bundle Variants
+### Phase 2: Build Infrastructure for Two Bundle Variants
 
 Produce two distinct OLM bundles from one codebase.
 A single CSV cannot have both `OwnNamespace` and `AllNamespaces` enabled simultaneously, so two CSVs are required.
@@ -130,9 +115,9 @@ Regardless of delivery option, the following build changes are needed to produce
 | Area | Change |
 |---|---|
 | **CSV base template** | Keep `config/manifests/bases/oadp-operator.clusterserviceversion.yaml` as the shared base |
-| **Kustomize overlays** | Create `config/manifests/overlays/ownnamespace/` and `config/manifests/overlays/allnamespaces/` with patches for `installModes` and deployment env vars |
-| **AllNamespaces overlay** | Patches: (1) `installModes` set to only `AllNamespaces: true`, (2) add `OPERATOR_NAMESPACE` env var to deploymentSpec, (3) `WATCH_NAMESPACE` source remains `olm.targetNamespaces` (will be empty with global OperatorGroup) |
-| **OwnNamespace overlay** | Patches: keeps current behavior (only `OwnNamespace: true`). Identity transform initially. |
+| **Kustomize overlays** | Create `config/manifests/overlays/ownnamespace/` and `config/manifests/overlays/allnamespaces/` with patches for `installModes` and `WATCH_NAMESPACE` env var source |
+| **AllNamespaces overlay** | Patches: (1) `installModes` set to only `AllNamespaces: true`, (2) `WATCH_NAMESPACE` source changed from `olm.targetNamespaces` to `metadata.namespace` |
+| **OwnNamespace overlay** | Patches: keeps current behavior (only `OwnNamespace: true`, `WATCH_NAMESPACE` from `olm.targetNamespaces`). Identity transform initially. |
 | **Makefile** | Add `INSTALL_MODE ?= OwnNamespace`. New targets: `bundle-allnamespaces`, `bundle-build-allnamespaces` |
 
 #### Option A: Two Channels in the Same Package
@@ -219,10 +204,10 @@ The choice between Option A and Option B should consider:
 
 Build plumbing only, no runtime impact.
 
-### Phase 4: E2E Test Infrastructure
+### Phase 3: E2E Test Infrastructure
 
 Tests need to validate both install modes.
-The test infrastructure changes depend on the delivery option chosen in Phase 3.
+The test infrastructure changes depend on the delivery option chosen in Phase 2.
 
 #### Changes
 
@@ -231,7 +216,7 @@ The test infrastructure changes depend on the delivery option chosen in Phase 3.
 | `Makefile` `deploy-olm` (line 634-642) | Parameterize OperatorGroup creation: when `INSTALL_MODE=AllNamespaces`, create OperatorGroup with empty `spec` (no `targetNamespaces`). Default keeps current behavior. |
 | `Makefile` | New target: `deploy-olm-allnamespaces`. For Option A (channels): sets `INSTALL_MODE=AllNamespaces` and `DEFAULT_CHANNEL=dev-allnamespaces`. For Option B (packages): sets `INSTALL_MODE=AllNamespaces` and overrides `CATALOG_SOURCE_NAME` and subscription package name. |
 | `tests/e2e/upgrade_suite_test.go` (lines 31-50) | Parameterize OperatorGroup creation to support both modes based on a test flag |
-| E2E test scenarios | Add: install AllNamespaces, create DPA in operator namespace, verify Velero deploys. Verify singleton enforcement. Verify sub-controller namespace config. |
+| E2E test scenarios | Add: install AllNamespaces, create DPA in operator namespace, verify Velero deploys. Verify `WATCH_NAMESPACE` resolves to operator namespace. Verify singleton enforcement. Verify sub-controller namespace config. |
 | Migration test (Option A only) | Test switching channel on an existing Subscription and swapping the OperatorGroup to verify the documented migration path works end-to-end. |
 
 #### Validation
@@ -242,7 +227,7 @@ Full e2e suite passes with both `make deploy-olm` (OwnNamespace) and `make deplo
 
 Test infrastructure changes are additive.
 
-### Phase 5: CI/Prow Integration
+### Phase 4: CI/Prow Integration
 
 AllNamespaces mode needs CI coverage.
 
@@ -262,11 +247,15 @@ CI jobs pass on a test PR.
 
 Additive CI config in a separate repo.
 
-### Phase 6: Migration Documentation
+### Phase 5: Migration Documentation
 
 Customers migrating from OwnNamespace to AllNamespaces need clear, tested manual steps.
 OLM does not automate the OperatorGroup swap.
-The migration path differs depending on the delivery option chosen in Phase 3.
+The migration path differs depending on the delivery option chosen in Phase 2.
+
+Note: after migration, the operator's runtime behavior is identical.
+`WATCH_NAMESPACE` is sourced from `metadata.namespace` in the AllNamespaces CSV, so it always resolves to the operator's own namespace.
+The operator does not start watching all namespaces.
 
 #### Prerequisites (both options)
 
@@ -316,9 +305,9 @@ spec: {}
 EOF
 ```
 
-OLM re-deploys the operator with `olm.targetNamespaces` empty.
-`WATCH_NAMESPACE` becomes empty.
-AllNamespaces mode is now active.
+OLM re-deploys the operator.
+`WATCH_NAMESPACE` is sourced from `metadata.namespace`, so the operator continues to watch only the `openshift-adp` namespace.
+Behavior is identical to before the migration.
 
 **Step 5: Verify the migration**
 
@@ -404,8 +393,9 @@ spec:
 EOF
 ```
 
-OLM installs the AllNamespaces CSV with `olm.targetNamespaces` empty.
-The operator starts in AllNamespaces mode and reconciles the existing DPA.
+OLM installs the AllNamespaces CSV.
+`WATCH_NAMESPACE` is sourced from `metadata.namespace`, so the operator watches only the `openshift-adp` namespace.
+The operator reconciles the existing DPA. Behavior is identical to before the migration.
 
 **Step 7: Verify the migration**
 
@@ -450,41 +440,55 @@ Two separate CSVs make the install mode explicit and independently releasable.
 The `velero` ServiceAccount's ClusterRole grants near-cluster-admin permissions (`apiGroups: ['*'], resources: ['*']`).
 In `OwnNamespace` mode this is contained by the OperatorGroup scope.
 In `AllNamespaces` mode the RBAC is identical (already cluster-scoped), but the perception of blast radius changes.
-A security review of the velero SA permissions should be conducted as part of Phase 3.
+Since the operator's runtime behavior is unchanged (still watches only its own namespace), the actual security posture does not change.
+A security review of the velero SA permissions is still recommended as a general hygiene item.
 
 ## Compatibility
 
 - Existing `OwnNamespace` installations are unaffected. The OwnNamespace CSV continues to exist and receive updates regardless of delivery option.
-- Migration from `OwnNamespace` to `AllNamespaces` is a manual process documented in Phase 6. The exact steps depend on the delivery option chosen in Phase 3.
-- The `OPERATOR_NAMESPACE` env var (Phase 1) is additive and backward-compatible.
-- The `WATCH_NAMESPACE` empty-string handling (Phase 2) does not affect existing deployments where the var is always set to a non-empty value.
+- Migration from `OwnNamespace` to `AllNamespaces` is a manual process documented in Phase 5. The exact steps depend on the delivery option chosen in Phase 2.
+- No Go code changes are required. The operator binary is identical for both CSVs.
+- Runtime behavior is identical in both modes: `WATCH_NAMESPACE` always resolves to the operator's own namespace.
 
 ## Implementation
 
 | Phase | Scope | Risk | Depends on | Parallelizable |
 |---|---|---|---|---|
-| 1. Decouple OPERATOR_NAMESPACE | Refactoring | Low | None | No (foundation) |
-| 2. Handle empty WATCH_NAMESPACE | Runtime behavior | Medium | Phase 1 | No |
-| 3. Two bundle variants | Build infrastructure | Medium | Phase 2 | No |
-| 4. E2E test infrastructure | Test infrastructure | Medium | Phase 3 | No |
-| 5. CI/Prow integration | CI config | Low | Phase 4 | Yes (with Phase 6) |
-| 6. Migration documentation | Docs | Low | Phase 3 | Yes (with Phase 5) |
+| 1. Enable AllNamespaces in CSV | CSV metadata | Low | None | No (foundation) |
+| 2. Two bundle variants | Build infrastructure | Medium | Phase 1 | No |
+| 3. E2E test infrastructure | Test infrastructure | Medium | Phase 2 | No |
+| 4. CI/Prow integration | CI config | Low | Phase 3 | Yes (with Phase 5) |
+| 5. Migration documentation | Docs | Low | Phase 2 | Yes (with Phase 4) |
 
 ## Open Issues
 
 1. **Delivery option**: Two channels in the same package (Option A) or two separate OLM packages (Option B)?
-This decision must be made in Phase 3 and affects Phases 4, 5, and 6.
+This decision must be made in Phase 2 and affects Phases 3, 4, and 5.
 Key factors: downstream release pipeline compatibility (Konflux/ART), migration UX priority, and long-term deprecation strategy for OwnNamespace.
-See the Decision Criteria section in Phase 3 for details.
+See the Decision Criteria section in Phase 2 for details.
 
-2. **DPA singleton scope**: In AllNamespaces mode, should we allow one DPA per namespace (multi-tenant Velero) or enforce a single DPA globally?
-Initial recommendation is global singleton to minimize blast radius; multi-tenant support can follow as a separate enhancement.
-
-3. **Channel naming convention (Option A only)**: If channels are chosen, proposed convention is `<existing-channel>-allnamespaces` (e.g., `dev-allnamespaces`, `stable-1.6-allnamespaces`).
+2. **Channel naming convention (Option A only)**: If channels are chosen, proposed convention is `<existing-channel>-allnamespaces` (e.g., `dev-allnamespaces`, `stable-1.6-allnamespaces`).
 Open to shorter alternatives if the convention is too verbose.
 
-4. **Velero operational scope**: Even when the operator watches all namespaces, Velero's deployment lives in one namespace and backs up resources across namespaces (this is existing behavior).
-No change expected, but worth validating in e2e tests.
-
-5. **Minimum version for migration**: Which OADP release will be the first to ship the AllNamespaces CSV?
+3. **Minimum version for migration**: Which OADP release will be the first to ship the AllNamespaces CSV?
 This determines the migration documentation's version requirements.
+
+## Future Enhancements
+
+These are out of scope for this proposal but are natural follow-on work:
+
+### Decouple OPERATOR_NAMESPACE from WATCH_NAMESPACE
+
+If a future requirement is for the operator to actually watch all namespaces (or a different namespace), `WATCH_NAMESPACE` would need to be set to empty or to a different value than the operator's own namespace.
+In that case, a separate `OPERATOR_NAMESPACE` env var (sourced from `metadata.namespace`) would be needed so the operator knows its own namespace for PSA labeling, STS credential setup, CLI/VMDP downloads, and sub-controller configuration.
+
+Key files that would need changes:
+- `cmd/main.go`: `addPodSecurityPrivilegedLabels()`, `CLIDownloadSetup`, `VMDPDownloadSetup` would use `OPERATOR_NAMESPACE` instead of `WATCH_NAMESPACE`.
+- `pkg/credentials/stsflow/stsflow.go`: Read `OPERATOR_NAMESPACE` for install namespace.
+- `internal/controller/nonadmin_controller.go`, `kubevirt_datamover_controller.go`, `vmfilerestore_controller.go`: Propagate `OPERATOR_NAMESPACE` to sub-controllers.
+
+### Handle Empty WATCH_NAMESPACE for Cluster-Wide Watching
+
+If `WATCH_NAMESPACE` is set to empty (to watch all namespaces), the controller-runtime manager's cache config must be updated to omit `DefaultNamespaces` instead of inserting an empty-string key.
+The `getWatchNamespace()` function in `cmd/main.go` would also need to treat empty/unset as valid rather than logging an error.
+DPA singleton enforcement scope would need a design decision: one DPA globally or one per namespace (multi-tenant Velero).
