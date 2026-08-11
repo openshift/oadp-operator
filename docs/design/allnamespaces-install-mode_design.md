@@ -40,13 +40,12 @@ A `ClusterWideClient` (uncached) already exists for cross-namespace DPA validati
 
 ## High-Level Design
 
-The work is split into five phases, each independently mergeable:
+The work is split into four phases, each independently mergeable:
 
-1. **Enable AllNamespaces install mode in the CSV** (the core change: flip installModes, source `WATCH_NAMESPACE` from `metadata.namespace`).
-2. **Build infrastructure for two bundle variants** (kustomize overlays, Makefile targets, two CSVs). Delivery mechanism (channels vs packages) is decided in this phase.
-3. **E2E test infrastructure** for both install modes.
-4. **CI/Prow integration** with AllNamespaces-specific jobs.
-5. **Migration documentation** for customers.
+1. **Build infrastructure for two bundle variants and enable AllNamespaces** (kustomize overlays that produce two CSVs — one with `OwnNamespace`, one with `AllNamespaces` and `WATCH_NAMESPACE` sourced from `metadata.namespace`). Delivery mechanism (channels vs packages) is decided in this phase. The existing OwnNamespace CSV is not modified.
+2. **E2E test infrastructure** for both install modes.
+3. **CI/Prow integration** with AllNamespaces-specific jobs.
+4. **Migration documentation** for customers.
 
 ## Detailed Design
 
@@ -67,9 +66,13 @@ The work is split into five phases, each independently mergeable:
 | RBAC | Already cluster-scoped (ClusterRoles) | `config/rbac/role.yaml`, CSV `clusterPermissions` |
 | OLM channels | Single channel: `dev` (release branches use e.g. `oadp-1.5`) | `Makefile` (lines 23, 33), `bundle/metadata/annotations.yaml` |
 
-### Phase 1: Enable AllNamespaces Install Mode in the CSV
+### Phase 1: Build Infrastructure for Two Bundle Variants and Enable AllNamespaces
 
-The core change.
+Produce two distinct OLM bundles from one codebase.
+A single CSV cannot have both `OwnNamespace` and `AllNamespaces` enabled simultaneously, so two CSVs are required.
+The CSV changes (installModes flip, `WATCH_NAMESPACE` source change) are applied only to the AllNamespaces variant via a kustomize overlay — the existing OwnNamespace CSV is never modified.
+The delivery mechanism for the second CSV is also decided in this phase.
+
 The AllNamespaces CSV differs from the OwnNamespace CSV in exactly two ways:
 
 1. `installModes` — only `AllNamespaces: true` (instead of only `OwnNamespace: true`).
@@ -78,43 +81,21 @@ The AllNamespaces CSV differs from the OwnNamespace CSV in exactly two ways:
 With `WATCH_NAMESPACE` sourced from `metadata.namespace`, the operator always resolves to the pod's own namespace regardless of what `olm.targetNamespaces` contains (which would be empty under a global OperatorGroup).
 No Go code changes are needed. The operator binary is identical for both CSVs.
 
-#### Changes
-
-| File | Change |
-|---|---|
-| `config/manifests/bases/oadp-operator.clusterserviceversion.yaml` (lines 467-475) | Create an AllNamespaces variant with only `AllNamespaces: true` in `installModes` |
-| CSV deploymentSpec `WATCH_NAMESPACE` env var | Change source from `metadata.annotations['olm.targetNamespaces']` to `metadata.namespace` (downward API) in the AllNamespaces variant |
-| `make bundle` | Regenerate bundle to verify the OwnNamespace CSV is unchanged |
-
 #### What does NOT change
 
 - No Go code changes. `cmd/main.go`, controllers, and all runtime behavior are untouched.
+- The existing OwnNamespace CSV, bundle, and channel are not modified.
 - `WATCH_NAMESPACE` always resolves to a non-empty namespace name (the pod's own namespace).
 - Cache scoping, PSA labeling, STS flow, CLI/VMDP downloads, sub-controller propagation all continue to work exactly as today.
 - RBAC is already cluster-scoped and does not need modification.
 
-#### Validation
-
-- `make test` passes (no code changes).
-- Manual OLM install with AllNamespaces OperatorGroup: operator starts, `WATCH_NAMESPACE` = pod namespace, DPA reconciles normally.
-
-#### Risk: Low
-
-No runtime behavioral change. The only change is in the CSV metadata and env var source.
-
-### Phase 2: Build Infrastructure for Two Bundle Variants
-
-Produce two distinct OLM bundles from one codebase.
-A single CSV cannot have both `OwnNamespace` and `AllNamespaces` enabled simultaneously, so two CSVs are required.
-The delivery mechanism for the second CSV is decided in this phase.
-
-#### Common Build Changes (both options)
+#### Common Build Changes (both delivery options)
 
 Regardless of delivery option, the following build changes are needed to produce two bundle variants from one codebase:
 
 | Area | Change |
 |---|---|
-| **CSV base template** | Keep `config/manifests/bases/oadp-operator.clusterserviceversion.yaml` as the shared base |
+| **CSV base template** | Keep `config/manifests/bases/oadp-operator.clusterserviceversion.yaml` as the shared base, unchanged |
 | **Kustomize overlays** | Create `config/manifests/overlays/ownnamespace/` and `config/manifests/overlays/allnamespaces/` with patches for `installModes` and `WATCH_NAMESPACE` env var source |
 | **AllNamespaces overlay** | Patches: (1) `installModes` set to only `AllNamespaces: true`, (2) `WATCH_NAMESPACE` source changed from `olm.targetNamespaces` to `metadata.namespace` |
 | **OwnNamespace overlay** | Patches: keeps current behavior (only `OwnNamespace: true`, `WATCH_NAMESPACE` from `olm.targetNamespaces`). Identity transform initially. |
@@ -204,17 +185,17 @@ The choice between Option A and Option B should consider:
 
 Build plumbing only, no runtime impact.
 
-### Phase 3: E2E Test Infrastructure
+### Phase 2: E2E Test Infrastructure
 
 Tests need to validate both install modes.
-The test infrastructure changes depend on the delivery option chosen in Phase 2.
+The test infrastructure changes depend on the delivery option chosen in Phase 1.
 
 #### Changes
 
 | Area | Change |
 |---|---|
-| `Makefile` `deploy-olm` (line 634-642) | Parameterize OperatorGroup creation: when `INSTALL_MODE=AllNamespaces`, create OperatorGroup with empty `spec` (no `targetNamespaces`). Default keeps current behavior. |
-| `Makefile` | New target: `deploy-olm-allnamespaces`. For Option A (channels): sets `INSTALL_MODE=AllNamespaces` and `DEFAULT_CHANNEL=dev-allnamespaces`. For Option B (packages): sets `INSTALL_MODE=AllNamespaces` and overrides `CATALOG_SOURCE_NAME` and subscription package name. |
+| `Makefile` `deploy-olm` (line 634-642) | Parameterize OperatorGroup creation: when `INSTALL_MODE=AllNamespaces`, create OperatorGroup with empty `spec` (no `targetNamespaces`). Default (`OwnNamespace`) keeps current behavior. |
+| `Makefile` | New target: `deploy-olm-allnamespaces`. For Option A (channels): sets `INSTALL_MODE=AllNamespaces` and `DEFAULT_CHANNEL=dev-allnamespaces`. For Option B (packages): sets `INSTALL_MODE=AllNamespaces` and overrides subscription package name. |
 | `tests/e2e/upgrade_suite_test.go` (lines 31-50) | Parameterize OperatorGroup creation to support both modes based on a test flag |
 | E2E test scenarios | Add: install AllNamespaces, create DPA in operator namespace, verify Velero deploys. Verify `WATCH_NAMESPACE` resolves to operator namespace. Verify singleton enforcement. Verify sub-controller namespace config. |
 | Migration test (Option A only) | Test switching channel on an existing Subscription and swapping the OperatorGroup to verify the documented migration path works end-to-end. |
@@ -227,7 +208,7 @@ Full e2e suite passes with both `make deploy-olm` (OwnNamespace) and `make deplo
 
 Test infrastructure changes are additive.
 
-### Phase 4: CI/Prow Integration
+### Phase 3: CI/Prow Integration
 
 AllNamespaces mode needs CI coverage.
 
@@ -247,11 +228,11 @@ CI jobs pass on a test PR.
 
 Additive CI config in a separate repo.
 
-### Phase 5: Migration Documentation
+### Phase 4: Migration Documentation
 
 Customers migrating from OwnNamespace to AllNamespaces need clear, tested manual steps.
 OLM does not automate the OperatorGroup swap.
-The migration path differs depending on the delivery option chosen in Phase 2.
+The migration path differs depending on the delivery option chosen in Phase 1.
 
 Note: after migration, the operator's runtime behavior is identical.
 `WATCH_NAMESPACE` is sourced from `metadata.namespace` in the AllNamespaces CSV, so it always resolves to the operator's own namespace.
@@ -446,7 +427,7 @@ A security review of the velero SA permissions is still recommended as a general
 ## Compatibility
 
 - Existing `OwnNamespace` installations are unaffected. The OwnNamespace CSV continues to exist and receive updates regardless of delivery option.
-- Migration from `OwnNamespace` to `AllNamespaces` is a manual process documented in Phase 5. The exact steps depend on the delivery option chosen in Phase 2.
+- Migration from `OwnNamespace` to `AllNamespaces` is a manual process documented in Phase 4. The exact steps depend on the delivery option chosen in Phase 1.
 - No Go code changes are required. The operator binary is identical for both CSVs.
 - Runtime behavior is identical in both modes: `WATCH_NAMESPACE` always resolves to the operator's own namespace.
 
@@ -454,18 +435,17 @@ A security review of the velero SA permissions is still recommended as a general
 
 | Phase | Scope | Risk | Depends on | Parallelizable |
 |---|---|---|---|---|
-| 1. Enable AllNamespaces in CSV | CSV metadata | Low | None | No (foundation) |
-| 2. Two bundle variants | Build infrastructure | Medium | Phase 1 | No |
-| 3. E2E test infrastructure | Test infrastructure | Medium | Phase 2 | No |
-| 4. CI/Prow integration | CI config | Low | Phase 3 | Yes (with Phase 5) |
-| 5. Migration documentation | Docs | Low | Phase 2 | Yes (with Phase 4) |
+| 1. Bundle variants + AllNamespaces CSV | Build infrastructure + CSV metadata | Medium | None | No (foundation) |
+| 2. E2E test infrastructure | Test infrastructure | Medium | Phase 1 | No |
+| 3. CI/Prow integration | CI config | Low | Phase 2 | Yes (with Phase 4) |
+| 4. Migration documentation | Docs | Low | Phase 1 | Yes (with Phase 3) |
 
 ## Open Issues
 
 1. **Delivery option**: Two channels in the same package (Option A) or two separate OLM packages (Option B)?
-This decision must be made in Phase 2 and affects Phases 3, 4, and 5.
+This decision must be made in Phase 1 and affects Phases 2, 3, and 4.
 Key factors: downstream release pipeline compatibility (Konflux/ART), migration UX priority, and long-term deprecation strategy for OwnNamespace.
-See the Decision Criteria section in Phase 2 for details.
+See the Decision Criteria section in Phase 1 for details.
 
 2. **Channel naming convention (Option A only)**: If channels are chosen, proposed convention is `<existing-channel>-allnamespaces` (e.g., `dev-allnamespaces`, `stable-1.6-allnamespaces`).
 Open to shorter alternatives if the convention is too verbose.
