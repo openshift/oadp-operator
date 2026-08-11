@@ -370,6 +370,18 @@ type VeleroConfig struct {
 	// Velero args are settings to customize velero server arguments. Overrides values in other fields.
 	// +optional
 	Args *VeleroServerArgs `json:"args,omitempty"`
+	// ExtraArgs are additional arguments to append to the Velero server.
+	// Keys are flag names (without leading --), values are flag values.
+	// These are merged additively on top of operator defaults and Args.
+	// If the unsupported-args annotation is set, it takes highest precedence
+	// and completely overrides all other args including ExtraArgs.
+	// Precedence: operator defaults / Args < ExtraArgs < unsupported-args annotation.
+	// Keys are rejected at admission time if they don't match the pattern below.
+	// common.MergeExtraArgs additionally normalizes keys (strips leading dashes)
+	// at runtime as a defensive fallback for CRs persisted before this validation existed.
+	// +optional
+	// +kubebuilder:validation:XValidation:rule="self.all(key, key.matches('^[A-Za-z0-9][A-Za-z0-9_.-]*$'))",message="extraArgs keys must be flag names without a leading '-', containing only alphanumeric characters, dots, underscores, or hyphens"
+	ExtraArgs map[string]string `json:"extraArgs,omitempty"`
 	// LoadAffinityConfig is the config for data path load affinity.
 	// +optional
 	LoadAffinityConfig []*LoadAffinity `json:"loadAffinity,omitempty"`
@@ -598,6 +610,18 @@ type NodeAgentConfig struct {
 	// Embedding KopiaRepoOptions
 	// +optional
 	KopiaRepoOptions `json:",inline"`
+	// ExtraArgs are additional arguments to append to the node-agent server.
+	// Keys are flag names (without leading --), values are flag values.
+	// These are merged additively on top of operator defaults.
+	// If the unsupported-args annotation is set, it takes highest precedence
+	// and completely overrides all other args including ExtraArgs.
+	// Precedence: operator defaults < ExtraArgs < unsupported-args annotation.
+	// Keys are rejected at admission time if they don't match the pattern below.
+	// common.MergeExtraArgs additionally normalizes keys (strips leading dashes)
+	// at runtime as a defensive fallback for CRs persisted before this validation existed.
+	// +optional
+	// +kubebuilder:validation:XValidation:rule="self.all(key, key.matches('^[A-Za-z0-9][A-Za-z0-9_.-]*$'))",message="extraArgs keys must be flag names without a leading '-', containing only alphanumeric characters, dots, underscores, or hyphens"
+	ExtraArgs map[string]string `json:"extraArgs,omitempty"`
 }
 
 type KopiaRepoOptions struct {
