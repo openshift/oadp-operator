@@ -300,15 +300,24 @@ vet: check-go ## Run go vet against code.
 	go vet -mod=mod ./...
 
 ENVTEST := $(shell pwd)/bin/setup-envtest
-ENVTESTPATH = $(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) -p path)
-ifeq ($(shell $(ENVTEST) list | grep $(ENVTEST_K8S_VERSION)),)
-	ENVTESTPATH = $(shell $(ENVTEST) --arch=amd64 use $(ENVTEST_K8S_VERSION) -p path)
-endif
+# Native-arch resolution first, falling back to amd64 only if that fails (e.g. no
+# native-arch envtest assets published for this k8s version). Done as a single shell
+# expression (not a make ifeq) so it's decided when ENVTESTPATH is actually referenced
+# in a recipe, after $(ENVTEST) is guaranteed installed for the host's real arch --
+# not at Makefile-parse time against a possibly-cold bin/ (see issue #2377).
+ENVTESTPATH = $(shell out=$$($(ENVTEST) use $(ENVTEST_K8S_VERSION) -p path 2>/dev/null); if [ -z "$$out" ]; then out=$$($(ENVTEST) --arch=amd64 use $(ENVTEST_K8S_VERSION) -p path 2>/dev/null); fi; echo "$$out")
+.PHONY: check-envtest-arch
+check-envtest-arch:
+	@if [ -f $(ENVTEST) ] && ! $(ENVTEST) --help >/dev/null 2>&1; then \
+		echo "$(ENVTEST) is not executable on this platform, removing and re-downloading"; \
+		rm -f $(ENVTEST); \
+	fi
+
 # Uses go-install-tool-versioned (see its doc comment above) for both the version and
-# architecture check, rather than a bespoke arch-only check here.
+# architecture check, in addition to check-envtest-arch's not-executable safety net above.
 .PHONY: envtest $(ENVTEST)
 envtest: $(ENVTEST) ## Download envtest-setup locally if necessary.
-$(ENVTEST): $(LOCALBIN)
+$(ENVTEST): check-envtest-arch $(LOCALBIN)
 	$(call go-install-tool-versioned,$(ENVTEST),sigs.k8s.io/controller-runtime/tools/setup-envtest@v0.0.0-20250308055145-5fe7bb3edc86,v0.0.0-20250308055145-5fe7bb3edc86)
 
 # If test results in prow are different, it is because the environment used.
