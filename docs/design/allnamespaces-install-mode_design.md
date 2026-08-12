@@ -102,7 +102,7 @@ No Go code changes are needed. The operator binary is identical for both CSVs.
 
 #### Catalog Structure
 
-```
+```text
 Catalog: oadp-operator-catalog
 └── Package: oadp-operator
     ├── Channel: dev                    ← OwnNamespace CSV
@@ -133,6 +133,7 @@ Release branches follow the same pattern: `stable-1.7` (OwnNamespace) and `stabl
 | **Catalog build** | Extend `catalog-build` to produce a single catalog with two channels: existing channel (OwnNamespace bundle) and new `-allnamespaces` channel (AllNamespaces bundle). Adds a second `opm render` + `olm.channel` entry to the FBC output. |
 | **CSV naming** | AllNamespaces CSV uses a distinct version suffix: `oadp-operator.v99.0.0-allns` vs `oadp-operator.v99.0.0` |
 | **Channel naming** | Convention: `<existing-channel>-allnamespaces` (e.g., `dev-allnamespaces`, `stable-1.7-allnamespaces`) |
+| **Cross-channel update graph** | The AllNamespaces channel's CSV must include an `olm.skipRange` that covers the OwnNamespace CSV version (e.g., `>=0.0.0 <99.0.0`), so OLM can resolve a valid update path when a customer switches channels. Without this, the channel switch fails silently — OLM cannot find an upgrade edge from the installed CSV to the new channel's head. |
 
 #### Validation
 
@@ -313,10 +314,10 @@ Both approaches still require manual OperatorGroup changes, so the channel appro
 ## Security Considerations
 
 The `velero` ServiceAccount's ClusterRole grants near-cluster-admin permissions (`apiGroups: ['*'], resources: ['*']`).
-In `OwnNamespace` mode this is contained by the OperatorGroup scope.
-In `AllNamespaces` mode the RBAC is identical (already cluster-scoped), but the perception of blast radius changes.
-Since the operator's runtime behavior is unchanged (still watches only its own namespace), the actual security posture does not change.
-A security review of the velero SA permissions is still recommended as a general hygiene item.
+These permissions are declared as `clusterPermissions` in the CSV and bound via `ClusterRoleBinding`, which is cluster-scoped regardless of the OperatorGroup's install mode.
+The `OwnNamespace` OperatorGroup does not restrict or contain these permissions — the RBAC posture is identical in both `OwnNamespace` and `AllNamespaces` modes.
+Since the operator's runtime behavior is also unchanged (still watches only its own namespace), the actual security posture does not change.
+A security review of the velero SA permissions is recommended as a general hygiene item, independent of this install mode change.
 
 ## Compatibility
 
