@@ -150,6 +150,9 @@ func (r *DPAReconciler) ReconcileNodeAgentDaemonset(log logr.Logger) (bool, erro
 		// If dpa.Spec.Configuration.NodeAgent enable exists and is false, attempt to delete.
 		deleteOptionPropagationForeground := metav1.DeletePropagationForeground
 		if err := r.Delete(deleteContext, ds, &client.DeleteOptions{PropagationPolicy: &deleteOptionPropagationForeground}); err != nil {
+			if errors.IsNotFound(err) {
+				return true, nil
+			}
 			// TODO: Come back and fix event recording to be consistent
 			r.EventRecorder.Event(ds, corev1.EventTypeNormal, "DeleteDaemonSetFailed", "Got DaemonSet to delete but could not delete err:"+err.Error())
 			return false, err
