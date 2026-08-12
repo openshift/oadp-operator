@@ -316,24 +316,16 @@ $(CONTROLLER_GEN): $(LOCALBIN)
 	fi
 	@ln -sf "$(LOCALBIN)/$(BRANCH_VERSION)/controller-gen" "$(LOCALBIN)/controller-gen"
 
-# Remove setup-envtest if it exists but cannot execute on this platform.
-# This can happen when a containerized Make target (e.g. podman/docker build
-# with a different GOARCH) writes a linux binary into the shared bin/ directory,
-# replacing the native host binary needed by `make test`.
-# Checked via exit code 126 specifically (POSIX "found but cannot execute" /
-# exec format error) rather than any nonzero exit, since setup-envtest's own
-# --help exits 2 by its own convention on a perfectly working binary.
+# Uses go-install-tool-versioned (see its doc comment above) instead of a bespoke arch check
+# here: an earlier version of this check ran `$(ENVTEST) --help` and treated any nonzero exit
+# as "wrong architecture" — but setup-envtest's own --help exits 2 by its own convention even
+# on a perfectly healthy binary, which under this Makefile's `.SHELLFLAGS = -ec` aborts the
+# whole recipe (confirmed with real GNU Make 4.4.1) rather than being caught, so it was
+# unconditionally reinstalling setup-envtest on every single invocation.
 .PHONY: envtest $(ENVTEST)
 envtest: $(ENVTEST) ## Download envtest-setup locally if necessary.
 $(ENVTEST): $(LOCALBIN)
-	@if [ -f $(ENVTEST) ]; then \
-		$(ENVTEST) --help >/dev/null 2>&1; \
-		if [ $$? -eq 126 ]; then \
-			echo "Removing incompatible setup-envtest binary (wrong architecture)"; \
-			rm -f $(ENVTEST); \
-		fi; \
-	fi
-	$(call go-install-tool,$(ENVTEST),sigs.k8s.io/controller-runtime/tools/setup-envtest@v0.0.0-20250308055145-5fe7bb3edc86)
+	$(call go-install-tool-versioned,$(ENVTEST),sigs.k8s.io/controller-runtime/tools/setup-envtest@v0.0.0-20250308055145-5fe7bb3edc86,v0.0.0-20250308055145-5fe7bb3edc86)
 
 .PHONY: operator-sdk
 OPERATOR_SDK ?= $(LOCALBIN)/$(BRANCH_VERSION)/operator-sdk
@@ -542,27 +534,38 @@ rm -rf $$TMP_DIR ;\
 endef
 
 # go-install-tool-versioned installs $2 to branch-specific path $1, but only if $1 is missing,
-# $1.version doesn't match the pinned version $3, or $1 exists but cannot execute on this
-# platform (checked via exit code 126, POSIX "found but cannot execute" / exec format error —
-# this can happen when a containerized build with a different GOARCH bind-mounts the host's
-# bin/ directory, e.g. `docker run --platform linux/amd64 -v $$PWD:$$PWD ... make manifests`).
-# Uses a sidecar marker file for the version check instead of introspecting the binary's own
-# --version output, because that output is unreliable for some tools when installed via
-# `go install` (e.g. kustomize reports "(devel)" or an unexpanded `$$Format:%H$$` placeholder
-# instead of its real version, depending on build-time factors).
+# doesn't have the pinned module version $3 embedded in it, or was built for a different
+# GOOS/GOARCH than this host. Uses `go version -m` to read the binary's embedded build info
+# directly (module version, GOOS, GOARCH) instead of executing it or trusting a sidecar marker
+# file — this avoids two real failure modes found in earlier attempts at this check:
+#   - Introspecting the binary's own --version/--help output is unreliable: some tools report
+#     a version string that depends on ldflags their own release process sets, which `go
+#     install` doesn't set (e.g. kustomize reporting "(devel)" or an unexpanded `$$Format:%H$$`
+#     placeholder), and some tools exit nonzero on --version even when perfectly healthy (e.g.
+#     kustomize exits 1, setup-envtest's --help exits 2) — so a naive "nonzero exit means
+#     broken" check is wrong, and worse, a bare failing probe command under `set -e`/`-o
+#     pipefail` (this Makefile's .SHELLFLAGS, honored by GNU Make 3.82+ — silently ignored by
+#     the ancient Make 3.81 macOS ships, which is why this went unnoticed locally) aborts the
+#     entire recipe rather than being caught. Verified directly against real GNU Make 4.4.1:
+#     the previous exit-code-126 version of this macro reliably crashed `make kustomize`
+#     with "Error 1" every time the binary already existed.
+#   - Actually executing the binary to test compatibility (this macro's own earlier approach,
+#     and the same technique in #2152) can't detect a wrong-arch binary at all in a container
+#     with qemu-user-static/binfmt_misc registered (common in multi-arch CI/build images):
+#     the foreign-arch binary runs under emulation and returns its own exit code, not an
+#     exec-format-error, defeating the whole check silently in exactly the environments where
+#     it matters most.
+# `go version -m` reads the embedded build info without ever executing the binary, sidestepping
+# both problems at once.
 define go-install-tool-versioned
-@ARCH_OK=1 ;\
-if [ -f $(1) ]; then \
-	$(1) --version >/dev/null 2>&1 ;\
-	if [ $$? -eq 126 ]; then ARCH_OK=0 ; fi ;\
-fi ;\
-if [ "$$ARCH_OK" = "1" ] && [ -f $(1) ] && [ -f $(1).version ] && [ "$$(cat $(1).version)" = "$(3)" ]; then \
+@BUILDINFO="$$(go version -m $(1) 2>/dev/null)" || BUILDINFO="" ;\
+MOD_VERSION="$$(printf '%s\n' "$$BUILDINFO" | awk '$$1=="mod"{print $$3; exit}')" ;\
+if [ -n "$$BUILDINFO" ] && [ "$$MOD_VERSION" = "$(3)" ] && printf '%s\n' "$$BUILDINFO" | grep -qF "GOOS=$$(go env GOOS)" && printf '%s\n' "$$BUILDINFO" | grep -qF "GOARCH=$$(go env GOARCH)"; then \
 	echo "$(notdir $(1)) $(3) is already installed" ;\
 else \
-	if [ "$$ARCH_OK" = "0" ]; then echo "$(notdir $(1)) exists but cannot execute on this platform, removing and re-downloading" ; fi ;\
 	set -e ;\
 	mkdir -p $(dir $(1)) ;\
-	rm -f $(1) $(1).version ;\
+	rm -f $(1) ;\
 	TMP_DIR=$$(mktemp -d) ;\
 	cd $$TMP_DIR ;\
 	go mod init tmp ;\
@@ -570,7 +573,6 @@ else \
 	GOBIN=$(dir $(1)) go install -a -mod=mod $(2) ;\
 	cd - >/dev/null ;\
 	rm -rf $$TMP_DIR ;\
-	echo "$(3)" > $(1).version ;\
 fi
 endef
 
