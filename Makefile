@@ -304,13 +304,8 @@ ENVTESTPATH = $(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) -p path)
 ifeq ($(shell $(ENVTEST) list | grep $(ENVTEST_K8S_VERSION)),)
 	ENVTESTPATH = $(shell $(ENVTEST) --arch=amd64 use $(ENVTEST_K8S_VERSION) -p path)
 endif
-# Uses go-install-tool-versioned (see its doc comment above) instead of a bespoke
-# check-envtest-arch target: an earlier version of this check ran `$(ENVTEST) --help` and
-# treated any nonzero exit as "wrong architecture" — but setup-envtest's own --help exits 2
-# by its own convention even on a perfectly healthy binary, which under this Makefile's
-# `.SHELLFLAGS = -ec` aborts the whole recipe (confirmed with real GNU Make 4.4.1) rather
-# than being caught, so it was unconditionally reinstalling setup-envtest on every single
-# invocation.
+# Uses go-install-tool-versioned (see its doc comment above) for both the version and
+# architecture check, rather than a bespoke arch-only check here.
 .PHONY: envtest $(ENVTEST)
 envtest: $(ENVTEST) ## Download envtest-setup locally if necessary.
 $(ENVTEST): $(LOCALBIN)
@@ -707,28 +702,23 @@ endef
 
 # go-install-tool-versioned installs $2 to branch-specific path $1, but only if $1 is missing,
 # doesn't have the pinned module version $3 embedded in it, or was built for a different
-# GOOS/GOARCH than this host. Uses `go version -m` to read the binary's embedded build info
-# directly (module version, GOOS, GOARCH) instead of executing it or trusting a sidecar marker
-# file — this avoids two real failure modes found in earlier attempts at this check:
-#   - Introspecting the binary's own --version/--help output is unreliable: some tools report
-#     a version string that depends on ldflags their own release process sets, which `go
-#     install` doesn't set (e.g. kustomize reporting "(devel)" or an unexpanded `$$Format:%H$$`
-#     placeholder), and some tools exit nonzero on --version even when perfectly healthy (e.g.
-#     kustomize exits 1, setup-envtest's --help exits 2) — so a naive "nonzero exit means
-#     broken" check is wrong, and worse, a bare failing probe command under `set -e`/`-o
-#     pipefail` (this Makefile's .SHELLFLAGS, honored by GNU Make 3.82+ — silently ignored by
-#     the ancient Make 3.81 macOS ships, which is why this went unnoticed locally) aborts the
-#     entire recipe rather than being caught. Verified directly against real GNU Make 4.4.1:
-#     the previous exit-code-126 version of this macro reliably crashed `make kustomize`
-#     with "Error 1" every time the binary already existed.
-#   - Actually executing the binary to test compatibility (this macro's own earlier approach,
-#     and the same technique in #2152) can't detect a wrong-arch binary at all in a container
-#     with qemu-user-static/binfmt_misc registered (common in multi-arch CI/build images):
-#     the foreign-arch binary runs under emulation and returns its own exit code, not an
-#     exec-format-error, defeating the whole check silently in exactly the environments where
-#     it matters most.
-# `go version -m` reads the embedded build info without ever executing the binary, sidestepping
-# both problems at once.
+# GOOS/GOARCH than this host. Uses `go version -m` to read a binary's embedded build info
+# (module version, GOOS, GOARCH) instead of executing it or trusting a sidecar marker file:
+#   - A binary's own --version/--help output is not a reliable version or health signal. It
+#     can depend on ldflags a tool's own release process sets, which `go install` doesn't set
+#     (e.g. kustomize can report "(devel)" or an unexpanded `$$Format:%H$$` placeholder instead
+#     of its real version), and some tools exit nonzero on --version even when perfectly
+#     healthy (kustomize exits 1, setup-envtest's --help exits 2) — so "nonzero exit means
+#     broken" is the wrong signal. It's also dangerous under this Makefile's
+#     `.SHELLFLAGS = -ec` (enables `set -e`, honored by GNU Make 3.82+ but silently ignored by
+#     the Make 3.81 macOS ships): a bare probe command that exits nonzero aborts the whole
+#     recipe unless it's wrapped in an `if`/`||` guard.
+#   - Executing the binary to test compatibility can't detect a wrong-arch binary at all
+#     inside a container with qemu-user-static/binfmt_misc registered (common in multi-arch
+#     CI/build images): the foreign-arch binary runs under emulation and returns its own exit
+#     code rather than an exec-format-error.
+# Reading embedded build info sidesteps both: no execution means no exit-code heuristic to
+# get wrong and no qemu blind spot.
 define go-install-tool-versioned
 @BUILDINFO="$$(go version -m $(1) 2>/dev/null)" || BUILDINFO="" ;\
 MOD_VERSION="$$(printf '%s\n' "$$BUILDINFO" | awk '$$1=="mod"{print $$3; exit}')" ;\
