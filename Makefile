@@ -316,9 +316,23 @@ $(CONTROLLER_GEN): $(LOCALBIN)
 	fi
 	@ln -sf "$(LOCALBIN)/$(BRANCH_VERSION)/controller-gen" "$(LOCALBIN)/controller-gen"
 
-.PHONY: envtest
+# Remove setup-envtest if it exists but cannot execute on this platform.
+# This can happen when a containerized Make target (e.g. podman/docker build
+# with a different GOARCH) writes a linux binary into the shared bin/ directory,
+# replacing the native host binary needed by `make test`.
+# Checked via exit code 126 specifically (POSIX "found but cannot execute" /
+# exec format error) rather than any nonzero exit, since setup-envtest's own
+# --help exits 2 by its own convention on a perfectly working binary.
+.PHONY: envtest $(ENVTEST)
 envtest: $(ENVTEST) ## Download envtest-setup locally if necessary.
 $(ENVTEST): $(LOCALBIN)
+	@if [ -f $(ENVTEST) ]; then \
+		$(ENVTEST) --help >/dev/null 2>&1; \
+		if [ $$? -eq 126 ]; then \
+			echo "Removing incompatible setup-envtest binary (wrong architecture)"; \
+			rm -f $(ENVTEST); \
+		fi; \
+	fi
 	$(call go-install-tool,$(ENVTEST),sigs.k8s.io/controller-runtime/tools/setup-envtest@v0.0.0-20250308055145-5fe7bb3edc86)
 
 .PHONY: operator-sdk
