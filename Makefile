@@ -712,15 +712,25 @@ rm -rf $$TMP_DIR ;\
 }
 endef
 
-# go-install-tool-versioned installs $2 to branch-specific path $1, but only if $1 is missing
-# or $1.version doesn't match the pinned version $3. Uses a sidecar marker file instead of
-# introspecting the binary's own --version output, because that output is unreliable for some
-# tools when installed via `go install` (e.g. kustomize reports "(devel)" or an unexpanded
-# `$$Format:%H$$` placeholder instead of its real version, depending on build-time factors).
+# go-install-tool-versioned installs $2 to branch-specific path $1, but only if $1 is missing,
+# $1.version doesn't match the pinned version $3, or $1 exists but cannot execute on this
+# platform (checked via exit code 126, POSIX "found but cannot execute" / exec format error —
+# this can happen when a containerized build with a different GOARCH bind-mounts the host's
+# bin/ directory, e.g. `docker run --platform linux/amd64 -v $$PWD:$$PWD ... make manifests`).
+# Uses a sidecar marker file for the version check instead of introspecting the binary's own
+# --version output, because that output is unreliable for some tools when installed via
+# `go install` (e.g. kustomize reports "(devel)" or an unexpanded `$$Format:%H$$` placeholder
+# instead of its real version, depending on build-time factors).
 define go-install-tool-versioned
-@if [ -f $(1) ] && [ -f $(1).version ] && [ "$$(cat $(1).version)" = "$(3)" ]; then \
+@ARCH_OK=1 ;\
+if [ -f $(1) ]; then \
+	$(1) --version >/dev/null 2>&1 ;\
+	if [ $$? -eq 126 ]; then ARCH_OK=0 ; fi ;\
+fi ;\
+if [ "$$ARCH_OK" = "1" ] && [ -f $(1) ] && [ -f $(1).version ] && [ "$$(cat $(1).version)" = "$(3)" ]; then \
 	echo "$(notdir $(1)) $(3) is already installed" ;\
 else \
+	if [ "$$ARCH_OK" = "0" ]; then echo "$(notdir $(1)) exists but cannot execute on this platform, removing and re-downloading" ; fi ;\
 	set -e ;\
 	mkdir -p $(dir $(1)) ;\
 	rm -f $(1) $(1).version ;\
