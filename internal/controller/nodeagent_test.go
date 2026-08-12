@@ -2036,7 +2036,9 @@ func TestDPAReconciler_updateNodeAgentCM(t *testing.T) {
 						"cpuRequest": "100m",
 						"memoryRequest": "100Mi",
 						"cpuLimit": "200m",
-						"memoryLimit": "200Mi"
+						"memoryLimit": "200Mi",
+						"ephemeralStorageRequest": "0",
+						"ephemeralStorageLimit": "0"
 					},
 					"restorePVC": {
 						"ignoreDelayBinding": true

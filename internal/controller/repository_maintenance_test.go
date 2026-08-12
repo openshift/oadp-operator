@@ -84,7 +84,7 @@ func TestDataProtectionApplicationReconciler_updateRepositoryMaintenanceCM(t *te
 					},
 				},
 				Data: map[string]string{
-					"global":            `{"loadAffinity":[{"nodeSelector":{"matchLabels":{"app.kubernetes.io/name":"test-dpa"}}}],"podResources":{"cpuRequest":"100m","memoryRequest":"128Mi","cpuLimit":"200m","memoryLimit":"256Mi"}}`,
+					"global":            `{"loadAffinity":[{"nodeSelector":{"matchLabels":{"app.kubernetes.io/name":"test-dpa"}}}],"podResources":{"cpuRequest":"100m","memoryRequest":"128Mi","cpuLimit":"200m","memoryLimit":"256Mi","ephemeralStorageRequest":"0","ephemeralStorageLimit":"0"}}`,
 					"maintenance-job-1": `{"loadAffinity":[{"nodeSelector":{"matchLabels":{"app.kubernetes.io/name":"test-dpa"}}}]}`,
 				},
 			},
@@ -192,7 +192,7 @@ func TestDataProtectionApplicationReconciler_updateRepositoryMaintenanceCM(t *te
 					},
 				},
 				Data: map[string]string{
-					"global": `{"podResources":{"cpuRequest":"100m","memoryRequest":"128Mi"},"podAnnotations":{"sidecar.istio.io/inject":"false"},"podLabels":{"network-access":"allowed"}}`,
+					"global": `{"podResources":{"cpuRequest":"100m","memoryRequest":"128Mi","cpuLimit":"0","memoryLimit":"0","ephemeralStorageRequest":"0","ephemeralStorageLimit":"0"},"podAnnotations":{"sidecar.istio.io/inject":"false"},"podLabels":{"network-access":"allowed"}}`,
 				},
 			},
 		},
