@@ -369,14 +369,15 @@ var _ = ginkgo.Describe("VM backup and restore tests", ginkgo.Ordered, func() {
 		// once during development, so a node with an old layer cached would
 		// silently run a stale binary and make this test's result meaningless.
 		// Plugin digest is the pr-44 build at commit 4fb7ed9 (post coderabbit-iterate
-		// convergence); controller digest is the multi-arch index for
-		// kdm-controller:issue-73-phase3-datadownload-controller (linux/amd64 +
-		// linux/arm64), so it still resolves per-node architecture.
+		// convergence); controller digest is the multi-arch manifest-list index for
+		// kubevirt-datamover-controller:issue-73-phase3-datadownload-controller
+		// (linux/amd64 + linux/arm64) at commit e66317e, so it still resolves
+		// per-node architecture.
 		if dpaCR.UnsupportedOverrides == nil {
 			dpaCR.UnsupportedOverrides = map[v1alpha1.UnsupportedImageKey]string{}
 		}
 		dpaCR.UnsupportedOverrides[v1alpha1.KubeVirtDatamoverPluginImageKey] = "quay.io/tkaovila/kubevirt-datamover-plugin@sha256:54c88bda836544eb1e4080c29d4d93141db619fa8322b0451bb2135b4c2ff82d"
-		dpaCR.UnsupportedOverrides[v1alpha1.KubeVirtDatamoverControllerImageKey] = "quay.io/tkaovila/kdm-controller@sha256:f163e843e47532dabcccd810d70b2c0e60f467ff5e779d4846f6699676ff774c"
+		dpaCR.UnsupportedOverrides[v1alpha1.KubeVirtDatamoverControllerImageKey] = "quay.io/tkaovila/kubevirt-datamover-controller@sha256:6d3d80dc7f0096114f4b1da2379194bca100fc063f0fd26ee97e9c8d2e21856f"
 
 		err = lib.DeleteBackupRepositories(runTimeClientForSuiteRun, namespace)
 		gomega.Expect(err).To(gomega.BeNil())
