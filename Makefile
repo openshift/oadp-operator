@@ -304,11 +304,17 @@ ENVTESTPATH = $(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) -p path)
 ifeq ($(shell $(ENVTEST) list | grep $(ENVTEST_K8S_VERSION)),)
 	ENVTESTPATH = $(shell $(ENVTEST) --arch=amd64 use $(ENVTEST_K8S_VERSION) -p path)
 endif
+# Checked via exit code 126 specifically (POSIX "found but cannot execute" /
+# exec format error) rather than any nonzero exit, since setup-envtest's own
+# --help exits 2 by its own convention on a perfectly working binary.
 .PHONY: check-envtest-arch
 check-envtest-arch:
-	@if [ -f $(ENVTEST) ] && ! $(ENVTEST) --help >/dev/null 2>&1; then \
-		echo "$(ENVTEST) is not executable on this platform, removing and re-downloading"; \
-		rm -f $(ENVTEST); \
+	@if [ -f $(ENVTEST) ]; then \
+		$(ENVTEST) --help >/dev/null 2>&1; \
+		if [ $$? -eq 126 ]; then \
+			echo "$(ENVTEST) is not executable on this platform, removing and re-downloading"; \
+			rm -f $(ENVTEST); \
+		fi; \
 	fi
 
 $(ENVTEST): check-envtest-arch ## Download envtest-setup locally if necessary.
