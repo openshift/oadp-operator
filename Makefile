@@ -300,17 +300,14 @@ vet: check-go ## Run go vet against code.
 	go vet -mod=mod ./...
 
 ENVTEST := $(shell pwd)/bin/setup-envtest
-ENVTESTPATH = $(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) -p path)
-ifeq ($(shell $(ENVTEST) list | grep $(ENVTEST_K8S_VERSION)),)
-	ENVTESTPATH = $(shell $(ENVTEST) --arch=amd64 use $(ENVTEST_K8S_VERSION) -p path)
-endif
-# Uses go-install-tool-versioned (see its doc comment above) instead of a bespoke
-# check-envtest-arch target: an earlier version of this check ran `$(ENVTEST) --help` and
-# treated any nonzero exit as "wrong architecture" — but setup-envtest's own --help exits 2
-# by its own convention even on a perfectly healthy binary, which under this Makefile's
-# `.SHELLFLAGS = -ec` aborts the whole recipe (confirmed with real GNU Make 4.4.1) rather
-# than being caught, so it was unconditionally reinstalling setup-envtest on every single
-# invocation.
+# Native-arch resolution first, falling back to amd64 only if that fails (e.g. no
+# native-arch envtest assets published for this k8s version). Done as a single shell
+# expression (not a make ifeq) so it's decided when ENVTESTPATH is actually referenced
+# in a recipe, after $(ENVTEST) is guaranteed installed for the host's real arch --
+# not at Makefile-parse time against a possibly-cold bin/ (see issue #2377).
+ENVTESTPATH = $(shell out=$$($(ENVTEST) use $(ENVTEST_K8S_VERSION) -p path 2>/dev/null); if [ -z "$$out" ]; then out=$$($(ENVTEST) --arch=amd64 use $(ENVTEST_K8S_VERSION) -p path 2>/dev/null); fi; echo "$$out")
+# Uses go-install-tool-versioned (see its doc comment below) for both the version and
+# architecture check, rather than a bespoke arch-only check here.
 .PHONY: envtest $(ENVTEST)
 envtest: $(ENVTEST) ## Download envtest-setup locally if necessary.
 $(ENVTEST): $(LOCALBIN)
