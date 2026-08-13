@@ -2271,8 +2271,12 @@ func TestDPAReconciler_updateNodeAgentCM(t *testing.T) {
 			if err != nil {
 				t.Fatalf("error in creating fake client, likely programmer error")
 			}
+			var dpaSpecBeforeTest = oadpv1alpha1.DataProtectionApplicationSpec{}
 			if tt.dpa != nil && tt.dpa.Spec.Configuration != nil {
 				tt.dpa.AutoCorrect()
+				// Snapshot the DPA Spec before calling updateNodeAgentCM,
+				// Required to test the DPA is unchanged.
+				dpaSpecBeforeTest = *tt.dpa.Spec.DeepCopy()
 			}
 
 			r := &DataProtectionApplicationReconciler{
@@ -2309,6 +2313,13 @@ func TestDPAReconciler_updateNodeAgentCM(t *testing.T) {
 			// Compare the unmarshalled maps
 			require.Equal(t, wantMap, gotMap, "ConfigMaps are not equal")
 
+			// Require that updateNodeAgentCM did not mutate the DPA Spec.
+			// PodResource output will not match the original object if not all fields are set.
+			if tt.dpa != nil {
+				require.Truef(t, reflect.DeepEqual(tt.dpa.Spec, dpaSpecBeforeTest),
+					"updateNodeAgentCM must not modify the DPA Spec: diff=%s",
+					cmp.Diff(dpaSpecBeforeTest, tt.dpa.Spec))
+			}
 		})
 	}
 }
