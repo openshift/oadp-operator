@@ -24,8 +24,8 @@ The `Progressing` condition is set to `true` when resources our operator
 manages are created, updated, or scaling up/down. Some examples:
 - The velero deployment is created
 - The velero deployment is rolling out
-- The restic daemonset is created
-- The restic daemonset is scaling up or down
+- The node-agent daemonset is created
+- The node-agent daemonset is scaling up or down
 
 ## Available
 
@@ -34,8 +34,8 @@ operator manages have been updated to the latest version, and all requested
 updates have been completed. Some examples:
 - The velero deployment replica is available
 - No old velero deployment replicas are running
-- The restic daemonset replicas are available
-- No old restic daemonset replicas are running
+- The node-agent daemonset replicas are available
+- No old node-agent daemonset replicas are running
 
 ## Degraded
 

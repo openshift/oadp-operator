@@ -27,6 +27,8 @@ superseded-by:
 
 # TODO: Velero KRM Plugin Design
 
+> **Obsolete:** This three-phase design proposal (KRM function integration, new plugin types) was proposed in 2022 but was never implemented. The design is retained for historical reference only.
+
 ### Release Signoff Checklist
 
 - [ ] Enhancement is `implementable`

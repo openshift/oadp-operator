@@ -27,7 +27,7 @@
               uploaderType: kopia
         ```
 
-- The `spec.configuration.restic` field is being deprecated in OADP 1.3, and will be removed in OADP 1.4. To avoid seeing deprecating warnings about it, use the new syntax:
+- The `spec.configuration.restic` field is deprecated in OADP 1.3. To avoid seeing deprecation warnings, use the new syntax:
 ```diff
  spec:
    configuration:
@@ -106,7 +106,7 @@ Follow theses [basic install verification](../docs/install_olm.md#verify-install
 For example:
 
 ```
-velero backup create example-backup --include-namespaces mysql-persistent --snapshot-move-data=true
+oc oadp backup create example-backup --include-namespaces mysql-persistent --snapshot-move-data=true
 ```
 or
 ```yaml

@@ -520,14 +520,14 @@ EOF
 oc wait --for=condition=available deployment/rosa-test-app -n test-backup-rosa --timeout=300s
 
 # Create backup
-velero backup create rosa-sts-test --include-namespaces=test-backup-rosa
+oc oadp backup create rosa-sts-test --include-namespaces=test-backup-rosa
 ----
 
 . Monitor backup status:
 +
 [source,bash]
 ----
-velero backup describe rosa-sts-test --details
+oc oadp backup describe rosa-sts-test --details
 
 # Verify backup files in S3
 aws s3 ls s3://${VELERO_BUCKET_NAME}/velero/backups/ --recursive

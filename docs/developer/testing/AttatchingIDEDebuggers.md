@@ -16,14 +16,14 @@ Create `.vscode/launch.json` file with following content
             "type": "go",
             "request": "launch",
             "mode": "test",
-            "program": "${workspaceRoot}/tests/e2e/e2e_suite_test.go",
+            "program": "${workspaceFolder}/tests/e2e/e2e_suite_test.go",
             "env": {
                 // "KUBECONFIG": "/path/to/.kube/config",
                 "KUBERNETES_MASTER": "http://localhost:8080",
                 // modifying values from test-e2e flags
                 "E2E_USE_ENV_FLAGS": "true",
                 "VELERO_NAMESPACE": "openshift-adp",
-                "SETTINGS": "${workspaceRoot}/.vscode/default_settings.json",
+                "SETTINGS": "${workspaceFolder}/.vscode/default_settings.json",
                 "CLOUD_CREDENTIALS": "",
                 "VELERO_INSTANCE_NAME": "",
                 "PROVIDER": "",
@@ -37,7 +37,7 @@ Create `.vscode/launch.json` file with following content
             "type": "go",
             "request": "launch",
             "mode": "debug",
-            "program": "${workspaceRoot}/main.go",
+            "program": "${workspaceFolder}/cmd/main.go",
             "env": {
                 "WATCH_NAMESPACE": "openshift-adp",
                 // "KUBECONFIG": "",

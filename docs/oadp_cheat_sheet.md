@@ -61,66 +61,67 @@ oc explain dataprotectionapplications.oadp.openshift.io
 oc explain dataprotectionapplications.oadp.openshift.io.spec.features.dataMover
 ```
 
-## Velero commands:
+## OADP CLI commands:
 
-## Enable Velero and Restic Cli
+The `oc oadp` (or `kubectl oadp`) plugin wraps Velero and Restic directly, so no
+alias or pod exec is required to run the commands below. For raw `restic`
+access (not just Velero's restic subcommands), you can still alias it:
 ```
-alias velero='oc -n openshift-adp exec deployment/velero -c velero -it -- ./velero'
 alias restic='oc -n openshift-adp exec deployment/velero -c velero -it -- /usr/bin/restic'
 ```
 
-#### Enable Velero Shell completion
+#### Enable OADP CLI Shell completion
 
 ##### Bash
 Linux:
 ```
-velero completion bash > /etc/bash_completion.d/velero
+oc oadp completion bash > /etc/bash_completion.d/oc-oadp
 ```
 MacOS:
 ```
-velero completion bash > /usr/local/etc/bash_completion.d/velero
+oc oadp completion bash > /usr/local/etc/bash_completion.d/oc-oadp
 ```
 
 ### List Backups
 ```
-velero backup get
+oc oadp backup get
 ```
 
 ## Create a Backup 
 
 #### Backup with Defaults
 ```
-velero backup create backup $backup_name --include-namespaces $namespace
+oc oadp backup create backup $backup_name --include-namespaces $namespace
 ```
 
 #### Backup using restic for PV data
 ```
-velero backup create backup $backup_name --include-namespaces $namespace --default-volumes-to-fs-backup
+oc oadp backup create backup $backup_name --include-namespaces $namespace --default-volumes-to-fs-backup
 ```
 
 #### Create a backup excluding the velero and default namespaces.
 ```  
-velero backup create $backup_name --exclude-namespaces velero,default
+oc oadp backup create $backup_name --exclude-namespaces velero,default
 ```
 
 #### Create a backup based on a schedule named daily-backup.
 ```
-velero backup create --from-schedule daily-backup
+oc oadp backup create --from-schedule daily-backup
 ```
 
 #### View the YAML for a backup that doesn't snapshot volumes, without sending it to the server.
 ```
-velero backup create $backup_name --snapshot-volumes=false -o yaml
+oc oadp backup create $backup_name --snapshot-volumes=false -o yaml
 ```
 
 #### Wait for a backup to complete before returning from the command.
 ```
-velero backup create $backup_name --wait
+oc oadp backup create $backup_name --wait
 ```
 
 #### Delete a Backup
 ```
-velero backup delete $backup_name
+oc oadp backup delete $backup_name
 ```
 
 ## Debug a Failed or Partially Failed Backup
@@ -129,12 +130,12 @@ Two simple steps should provide the information required
 
 #### Logs
 ```
-velero backup logs $backup_name
+oc oadp backup logs $backup_name
 ```
 
 #### Describe
 ```
-velero backup describe $backup_name --details
+oc oadp backup describe $backup_name --details
 ```
 
 ```
@@ -145,7 +146,7 @@ Annotations:  velero.io/source-cluster-k8s-gitversion=v1.23.5+b0357ed
               velero.io/source-cluster-k8s-major-version=1
               velero.io/source-cluster-k8s-minor-version=23
 
-Phase:  (run `velero backup logs mssql-persistent` for more information)
+Phase:  (run `oc oadp backup logs mssql-persistent` for more information)
 
 Errors:    2
 Warnings:  0

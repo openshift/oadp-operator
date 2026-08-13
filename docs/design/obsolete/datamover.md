@@ -16,6 +16,8 @@ status: implementable
 
 # Data Mover CRD design
 
+> **Obsolete:** This design describes the VolumeSnapshotMover (VSM) / VolSync-based data mover system which was removed in OADP 1.3 (2024). The VSM controller, VolSync integration, VolumeSnapshotBackup/VolumeSnapshotRestore CRDs, and the `datamover.oadp.openshift.io` API group were all replaced by Velero Built-in Data Mover (VBDM) using DataUpload/DataDownload CRDs. See [upstream-datamover.md](../upstream-datamover.md) for the replacement design.
+
 ## Release Signoff Checklist
 
 - [x] Enhancement is `implementable`

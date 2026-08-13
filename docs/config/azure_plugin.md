@@ -59,7 +59,7 @@ spec:
   configuration:
     nodeAgent:
       enable: true
-      uploaderType: restic
+      uploaderType: kopia
     velero:
       defaultPlugins:
         - openshift
@@ -113,7 +113,7 @@ spec:
   configuration:
     nodeAgent:
       enable: true
-      uploaderType: restic
+      uploaderType: kopia
     velero:
       defaultPlugins:
         - openshift

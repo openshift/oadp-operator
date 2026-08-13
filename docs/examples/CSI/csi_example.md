@@ -3,13 +3,13 @@
 
 ### Prerequisites
 * OADP operator, a credentials secret, and a DataProtectionApplication (DPA) CR
-  are all created. Follow [these steps](/docs/install_olm.md) for installation instructions.
+  are all created. Follow [these steps](../../install_olm.md) for installation instructions.
 
   - Make sure your DPA CR is similar to below in the install step.
     Note the `EnableCSI` feature flag and the `csi` default plugin.
 
 * Information on `backupLocations` and `snapshotLocations` specs
-  can be found [here](/docs/config/bsl_and_vsl.md).
+  can be found [here](../../config/bsl_and_vsl.md).
 
     ```
     apiVersion: oadp.openshift.io/v1alpha1
@@ -55,7 +55,7 @@
 
 <hr style="height:1px;border:none;color:#333;">
 
-### StorageClass and VolumeShapshotClass Requirements:
+### StorageClass and VolumeSnapshotClass Requirements:
 
 - A `StorageClass` and a `VolumeSnapshotClass` are needed before the mysql or any application
 with persistent data is created. The app will map to the `StorageClass`, which contains information about the CSI driver.

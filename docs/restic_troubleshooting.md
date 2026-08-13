@@ -1,4 +1,7 @@
 # Velero Restic Troubleshooting Tips
+
+> **Deprecation Notice:** The restic uploader has been deprecated and was removed in OADP 1.6 / Velero 1.17. Users should migrate to kopia. See [kopia_troubleshooting.md](kopia_troubleshooting.md) for kopia-specific troubleshooting.
+
 This document contains commands for both Velero Restic Filesystem copy and for OADP's datamover feature.
 
 ## Additional information can be found in the restic documentation

@@ -25,7 +25,7 @@ spec:
       - aws
     nodeAgent:
       enable: true
-      uploaderType: restic
+      uploaderType: kopia
   backupLocations:
     - name: default
       velero:

@@ -21,6 +21,7 @@ import (
 
 	oadpv1alpha1 "github.com/openshift/oadp-operator/api/v1alpha1"
 	"github.com/openshift/oadp-operator/pkg/common"
+	"github.com/openshift/oadp-operator/pkg/credentials/stsflow"
 )
 
 const (
@@ -179,6 +180,20 @@ func ensureKubevirtDatamoverRequiredSpecs(
 		})
 	}
 
+	// Add Azure workload identity environment variables if configured
+	var envFrom []corev1.EnvFromSource
+	azureClientID := os.Getenv(stsflow.ClientIDEnvKey)
+	if azureClientID != "" && os.Getenv(stsflow.TenantIDEnvKey) != "" && os.Getenv(stsflow.SubscriptionIDEnvKey) != "" {
+		envFrom = append(envFrom, corev1.EnvFromSource{
+			SecretRef: &corev1.SecretEnvSource{
+				LocalObjectReference: corev1.LocalObjectReference{
+					Name: stsflow.AzureWorkloadIdentitySecretName,
+				},
+			},
+		})
+		r.Log.Info("Added Azure workload identity secret reference to KubeVirt DataMover container")
+	}
+
 	// Track DPA resource version for change detection
 	currentKubevirtDatamoverEnabled := r.checkKubevirtDatamoverEnabled()
 	if len(kdmDpaResourceVersion) == 0 ||
@@ -240,6 +255,10 @@ func ensureKubevirtDatamoverRequiredSpecs(
 			args = append(args, fmt.Sprintf("--max-incremental-backups=%d",
 				*dpa.Spec.Configuration.KubevirtDatamover.MaxIncrementalBackups))
 		}
+		if dpa.Spec.Configuration.KubevirtDatamover.StaleDataUploadThreshold != nil {
+			args = append(args, fmt.Sprintf("--stale-dataupload-threshold=%s",
+				dpa.Spec.Configuration.KubevirtDatamover.StaleDataUploadThreshold.Duration.String()))
+		}
 	}
 
 	// Build container spec
@@ -251,6 +270,7 @@ func ensureKubevirtDatamoverRequiredSpecs(
 		Command:         []string{"/manager"},
 		Args:            args,
 		Env:             envVars,
+		EnvFrom:         envFrom,
 		Ports: []corev1.ContainerPort{
 			{
 				Name:          "https",
@@ -263,6 +283,11 @@ func ensureKubevirtDatamoverRequiredSpecs(
 			{
 				Name:      "tmp",
 				MountPath: "/tmp",
+			},
+			{
+				Name:      "bound-sa-token",
+				MountPath: "/var/run/secrets/openshift/serviceaccount",
+				ReadOnly:  true,
 			},
 		},
 		SecurityContext: &corev1.SecurityContext{
@@ -310,6 +335,7 @@ func ensureKubevirtDatamoverRequiredSpecs(
 				kubevirtDatamoverContainer.ImagePullPolicy = imagePullPolicy
 				kubevirtDatamoverContainer.Args = args
 				kubevirtDatamoverContainer.Env = envVars
+				kubevirtDatamoverContainer.EnvFrom = envFrom
 				kubevirtDatamoverContainer.Resources = resources
 				kubevirtDatamoverContainer.TerminationMessagePolicy = corev1.TerminationMessageFallbackToLogsOnError
 				kubevirtDatamoverContainerFound = true
@@ -329,9 +355,25 @@ func ensureKubevirtDatamoverRequiredSpecs(
 				EmptyDir: &corev1.EmptyDirVolumeSource{},
 			},
 		},
+		{
+			Name: "bound-sa-token",
+			VolumeSource: corev1.VolumeSource{
+				Projected: &corev1.ProjectedVolumeSource{
+					Sources: []corev1.VolumeProjection{
+						{
+							ServiceAccountToken: &corev1.ServiceAccountTokenProjection{
+								Audience:          "openshift",
+								ExpirationSeconds: ptr.To(int64(3600)),
+								Path:              "token",
+							},
+						},
+					},
+				},
+			},
+		},
 	}
 	deploymentObject.Spec.Template.Spec.RestartPolicy = corev1.RestartPolicyAlways
-	deploymentObject.Spec.Template.Spec.ServiceAccountName = kubevirtDatamoverObjectName
+	deploymentObject.Spec.Template.Spec.ServiceAccountName = "velero"
 	return nil
 }
 

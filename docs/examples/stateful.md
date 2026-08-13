@@ -4,12 +4,12 @@
 
 ### Prerequisites
 * OADP operator, a credentials secret, and a DataProtectionApplication (DPA) CR
-  are all created. Follow [these steps](/docs/install_olm.md) for installation instructions.
+  are all created. Follow [these steps](../install_olm.md) for installation instructions.
 
   - Make sure your DPA CR is similar to below in the install step.
 
 * Information on `backupLocations` and `snapshotLocations` specs
-  can be found [here](/docs/config/bsl_and_vsl.md).
+  can be found [here](../config/bsl_and_vsl.md).
 
 
     ```

@@ -1,6 +1,6 @@
 # Onboarding new default plugin
 
-api/v1alpha1/oadp_types.go
+api/v1alpha1/dataprotectionapplication_types.go
 -  new `const <name> DefaultPlugin`
 -  new `const <name> UnsupportedImageKey`
 
@@ -16,7 +16,7 @@ pkg/credentials/credentials.go
 - add case to `getPluginImage` function
 - add new plugin to map `PluginSpecificFields`
 
-controllers/velero_test.go
+internal/controller/velero_test.go
 - Add tests for buildVeleroDeployment in check plugin exist in velero deployment as initContainer
 
 docs/config/plugins.md

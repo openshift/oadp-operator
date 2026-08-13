@@ -15,11 +15,11 @@ NooBaa CRDs are not present, please install the OCS Operator (Noobaa Operator)
 ```
 
 This error messae implies that the NooBaa CRDs are not present in the OpenShift 
-cluster. It means either the OCS (OpenShift Container Storage Operator) was not 
+cluster. It means either the ODF (OpenShift Data Foundation) Operator was not 
 installed from the OperatorHub before performing the NooBaa steps, or it might 
-be the case the OCS Operator installation might have failed.
+be the case the ODF Operator installation might have failed.
 
-<b>Note: </b> The OCS Operator should be installed explicitly in the 
+<b>Note: </b> The ODF (OpenShift Data Foundation) Operator should be installed explicitly in the 
 `openshift-storage` namespace.
 
 ### NooBaa Operator (OCS Operator) transient issue

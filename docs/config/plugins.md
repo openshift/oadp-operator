@@ -16,7 +16,7 @@ installing Velero:
    - `GCP` [Plugins for Google Cloud Platform](https://github.com/vmware-tanzu/velero-plugin-for-gcp)
    - `Azure` [Plugins for Microsoft Azure](https://github.com/vmware-tanzu/velero-plugin-for-microsoft-azure)
    - `OpenShift` [OpenShift Velero Plugin](https://github.com/openshift/openshift-velero-plugin)
-   - `CSI` [Plugins for CSI](https://github.com/vmware-tanzu/velero-plugin-for-csi)
+   - `CSI` [Plugins for CSI](https://github.com/vmware-tanzu/velero-plugin-for-csi) (**Note:** Since OADP 1.4 / Velero 1.14, the CSI plugin code is built into Velero core. Adding `csi` to `defaultPlugins` is no longer required for CSI snapshot support.)
    - `kubevirt` [Plugins for Kubevirt](https://github.com/kubevirt/kubevirt-velero-plugin)
 
    Note that only one of `AWS` and `Legacy AWS` may be installed at the same time. `Legacy AWS` is intended for use with certain S3 providers that do not support the V2 AWS SDK APIs used in the `AWS` plugin.

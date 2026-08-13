@@ -1,5 +1,5 @@
 <hr style="height:1px;border:none;color:#333;">
-<h1 align="center">Use Self-Sigend Certificate</h1>
+<h1 align="center">Use Self-Signed Certificate</h1>
 <hr style="height:1px;border:none;color:#333;">
 
 ### Use Velero with a storage provider secured by a self-signed certificate
@@ -25,7 +25,7 @@ spec:
       - aws
     nodeAgent:
       enable: true
-      uploaderType: restic
+      uploaderType: kopia
   backupLocations:
     - name: default
       velero:
