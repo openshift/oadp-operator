@@ -48,9 +48,7 @@ func (r *DataProtectionApplicationReconciler) updateRepositoryMaintenanceCM(cm *
 	// https://github.com/vmware-tanzu/velero/issues/9159
 	for key, config := range r.dpa.Spec.Configuration.RepositoryMaintenance {
 		// Velero parses a resource string of "" as invalid, replace with unbounded if unset
-		if config.PodResources != nil {
-			setPodResourcesDefaults(config.PodResources)
-		}
+		config.PodResources = newPodResourcesWithUnboundedDefaults(config.PodResources)
 		configJSON, err := json.Marshal(config)
 		if err != nil {
 			return fmt.Errorf("failed to serialize repository maintenance config for key %s: %w", key, err)

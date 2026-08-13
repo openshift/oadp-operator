@@ -13,27 +13,45 @@ const unbounded = "0"
 
 // PodResources with emptystring will trigger parsing errors in Velero.
 // Replace empty string with unbounded so partial resource setting is accepted.
-func setPodResourcesDefaults(pr *kube.PodResources) {
+//
+// Returns a new PodResources objects with any default values set to "0".
+// If nil, returns the existing nil pointer.
+func newPodResourcesWithUnboundedDefaults(pr *kube.PodResources) *kube.PodResources {
 	if pr == nil {
-		return
+		return pr
 	}
 
+	prWithUnboundedDefaults := &kube.PodResources{}
 	if pr.CPURequest == "" {
-		pr.CPURequest = unbounded
+		prWithUnboundedDefaults.CPURequest = unbounded
+	} else {
+		prWithUnboundedDefaults.CPURequest = pr.CPURequest
 	}
 	if pr.CPULimit == "" {
-		pr.CPULimit = unbounded
+		prWithUnboundedDefaults.CPULimit = unbounded
+	} else {
+		prWithUnboundedDefaults.CPULimit = pr.CPULimit
 	}
 	if pr.MemoryRequest == "" {
-		pr.MemoryRequest = unbounded
+		prWithUnboundedDefaults.MemoryRequest = unbounded
+	} else {
+		prWithUnboundedDefaults.MemoryRequest = pr.MemoryRequest
 	}
 	if pr.MemoryLimit == "" {
-		pr.MemoryLimit = unbounded
+		prWithUnboundedDefaults.MemoryLimit = unbounded
+	} else {
+		prWithUnboundedDefaults.MemoryLimit = pr.MemoryLimit
 	}
 	if pr.EphemeralStorageRequest == "" {
-		pr.EphemeralStorageRequest = unbounded
+		prWithUnboundedDefaults.EphemeralStorageRequest = unbounded
+	} else {
+		prWithUnboundedDefaults.EphemeralStorageRequest = pr.EphemeralStorageRequest
 	}
 	if pr.EphemeralStorageLimit == "" {
-		pr.EphemeralStorageLimit = unbounded
+		prWithUnboundedDefaults.EphemeralStorageLimit = unbounded
+	} else {
+		prWithUnboundedDefaults.EphemeralStorageLimit = pr.EphemeralStorageLimit
 	}
+
+	return prWithUnboundedDefaults
 }
