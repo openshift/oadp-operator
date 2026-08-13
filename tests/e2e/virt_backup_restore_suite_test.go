@@ -80,26 +80,27 @@ func vmPoweredOff(vmnamespace, vmname string) VerificationFunction {
 
 // vmPvcsBound verifies that each named PVC exists and is Bound in the given
 // namespace. Used to confirm all disks of a multi-PVC VM came back after restore.
-func vmPvcsBound(pvcNamespace string, pvcNames ...string) VerificationFunction {
+func vmPvcsBound(pvcNames ...string) VerificationFunction {
 	return VerificationFunction(func(ocClient client.Client, namespace string) error {
 		allBound := func() bool {
 			for _, name := range pvcNames {
 				ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-				pvc, err := kubernetesClientForSuiteRun.CoreV1().PersistentVolumeClaims(pvcNamespace).Get(ctx, name, metav1.GetOptions{})
+				pvc := &corev1.PersistentVolumeClaim{}
+				err := ocClient.Get(ctx, client.ObjectKey{Namespace: namespace, Name: name}, pvc)
 				cancel()
 				if err != nil {
-					log.Printf("Error getting PVC %s/%s: %v", pvcNamespace, name, err)
+					log.Printf("Error getting PVC %s/%s: %v", namespace, name, err)
 					return false
 				}
 				if pvc.Status.Phase != corev1.ClaimBound {
-					log.Printf("PVC %s/%s is %s, not yet Bound", pvcNamespace, name, pvc.Status.Phase)
+					log.Printf("PVC %s/%s is %s, not yet Bound", namespace, name, pvc.Status.Phase)
 					return false
 				}
 			}
 			return true
 		}
 		gomega.Eventually(allBound, time.Minute*10, time.Second*10).Should(gomega.BeTrue(),
-			"expected PVCs %v in namespace %s to be Bound", pvcNames, pvcNamespace)
+			"expected PVCs %v in namespace %s to be Bound", pvcNames, namespace)
 		return nil
 	})
 }
@@ -526,7 +527,7 @@ var _ = ginkgo.Describe("VM backup and restore tests", ginkgo.Ordered, func() {
 				SkipVerifyLogs:    true,
 				BackupRestoreType: lib.CSIDataMover,
 				BackupTimeout:     20 * time.Minute,
-				PostRestoreVerify: vmPvcsBound("cirros-multipvc-test", "cirros-multipvc-test-disk", "cirros-multipvc-test-datadisk"),
+				PostRestoreVerify: vmPvcsBound("cirros-multipvc-test-disk", "cirros-multipvc-test-datadisk"),
 			},
 		}, nil),
 
@@ -1051,6 +1052,19 @@ var _ = ginkgo.Describe("VM backup and restore tests", ginkgo.Ordered, func() {
 				fullBackupPayloadSizeMiB   = 32
 			)
 
+			// This single It runs a full backup, a real restore, and a second,
+			// deliberately-broken restore reusing the same backup -- combined
+			// timeouts (backup + first restore + rejected-restore poll, each
+			// budgeted generously below) summing past an hour. It can't be split
+			// into separate Its: the suite's shared per-test AfterEach tears down
+			// the DPA (and with it, velero/BSL) after every single It, and a
+			// freshly recreated DPA gets a new random BSL S3 prefix each time --
+			// a second It could not restore from this same backup at all.
+			//
+			// If the rejection-path half below (the deliberately-triggered PVC
+			// binding conflict) can ever be made to run off its own small,
+			// independently-created backup rather than reusing this one, that's
+			// the natural point to break it out into its own spec later.
 			ginkgo.It("restore a VM from a full kubevirt-datamover CBT backup", ginkgo.Label("virt", "kdm"), func() {
 				// Cross-checks alpineCase.HasGuestAgent against the VMI's actual live
 				// condition, rather than trusting the fixture's declared value blindly --
@@ -1204,11 +1218,8 @@ var _ = ginkgo.Describe("VM backup and restore tests", ginkgo.Ordered, func() {
 				// halt; that race is now closed, so nothing does this naturally anymore --
 				// triggered on purpose here instead, to lock in that the VM correctly stays
 				// halted (rather than silently starting on top of un-restored data) when a
-				// restore's DataDownload fails. This stays inside the same It as the restore
-				// above rather than a separate one: the suite's shared per-test AfterEach
-				// tears down the DPA (and with it, velero/BSL) after every single It, and a
-				// freshly recreated DPA gets a new random BSL S3 prefix each time -- a second
-				// It could not have restored from this same backup at all.
+				// restore's DataDownload fails. See the comment above this It for why this
+				// stays inside the same spec rather than a separate one.
 				ginkgo.By("deleting the VM again to restore into a clean namespace")
 				err = v.RemoveVm(alpineNamespace, alpineVMName, 5*time.Minute)
 				gomega.Expect(err).To(gomega.BeNil(), "failed to remove VM %s/%s", alpineNamespace, alpineVMName)
@@ -1265,15 +1276,26 @@ var _ = ginkgo.Describe("VM backup and restore tests", ginkgo.Ordered, func() {
 					_, statusErr := v.GetVmStatus(alpineNamespace, alpineVMName)
 					return statusErr
 				}, 3*time.Minute, time.Second*5).Should(gomega.Succeed(), "restored VM %s/%s never appeared", alpineNamespace, alpineVMName)
+				// A persistent GetVmStatus error would otherwise return "" forever,
+				// which trivially satisfies ShouldNot(Equal("Running")) -- making a
+				// broken/unreachable API server look identical to "confirmed halted".
+				// Fail loudly instead once errors run 3 polls in a row (30s), rather
+				// than let an unreadable VM status silently pass as a positive result.
+				consecutiveStatusErrors := 0
 				gomega.Consistently(func() string {
 					status, statusErr := v.GetVmStatus(alpineNamespace, alpineVMName)
 					if statusErr != nil {
-						log.Printf("transient error reading VM %s/%s status during Consistently poll: %v", alpineNamespace, alpineVMName, statusErr)
+						consecutiveStatusErrors++
+						log.Printf("transient error reading VM %s/%s status during Consistently poll (%d consecutive): %v", alpineNamespace, alpineVMName, consecutiveStatusErrors, statusErr)
+						if consecutiveStatusErrors >= 3 {
+							return "Running" // force a failure -- can't confirm "halted" from an unreadable status
+						}
 						return ""
 					}
+					consecutiveStatusErrors = 0
 					return status
 				}, time.Minute, time.Second*10).ShouldNot(gomega.Equal("Running"),
-					"VM %s/%s unexpectedly reached Running status despite its DataDownload failing", alpineNamespace, alpineVMName)
+					"VM %s/%s unexpectedly reached Running status (or its status became persistently unreadable) despite its DataDownload failing", alpineNamespace, alpineVMName)
 
 				err = v.RemoveVm(alpineNamespace, alpineVMName, 5*time.Minute)
 				gomega.Expect(err).To(gomega.BeNil(), "failed to remove VM %s/%s", alpineNamespace, alpineVMName)
