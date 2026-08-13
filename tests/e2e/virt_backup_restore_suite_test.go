@@ -343,42 +343,6 @@ var _ = ginkgo.Describe("VM backup and restore tests", ginkgo.Ordered, func() {
 		dpaCR.VeleroDefaultPlugins = append(dpaCR.VeleroDefaultPlugins, v1alpha1.DefaultPluginKubeVirt)
 		dpaCR.VeleroDefaultPlugins = append(dpaCR.VeleroDefaultPlugins, v1alpha1.DefaultPluginKubeVirtDataMover)
 
-		// TODO: remove once migtools/kubevirt-datamover-plugin#44 and the
-		// kubevirt-datamover-controller issue #73 phase 3 work merge and the
-		// default images include their fixes.
-		//
-		// Always set (not gated behind an env var): a prior version of this gate
-		// silently fell back to the operator's default (mainline `:latest`) images
-		// whenever the env var wasn't set, which doesn't contain either fix at all —
-		// costing a full debugging session chasing phantom bugs (RBAC, "controller
-		// never starts") that were actually just this suite testing the wrong build.
-		// Unconditional pinning means the suite fails loudly/obviously (wrong image
-		// digest, pull error) instead of silently passing against unrelated code.
-		//
-		// Together these two images carry the fix for the VM-eager-start race:
-		// the plugin halts an auto-starting VM at restore time (stashing its
-		// original run strategy) so virt-launcher can't consume — and thus
-		// WaitForFirstConsumer-bind the wrong PV onto — the target PVC before the
-		// DataDownloads have populated it; the controller flips the VM back to its
-		// stashed run state once every sibling DataDownload for that VM completes.
-		// Both halves are required: the plugin alone leaves the VM halted forever,
-		// the controller alone has nothing to flip.
-		//
-		// Both images are pinned by digest rather than by tag. These are mutable
-		// personal-registry tags that have already been rebuilt in place more than
-		// once during development, so a node with an old layer cached would
-		// silently run a stale binary and make this test's result meaningless.
-		// Plugin digest is the pr-44 build at commit 4fb7ed9 (post coderabbit-iterate
-		// convergence); controller digest is the multi-arch manifest-list index for
-		// kubevirt-datamover-controller:issue-73-phase3-datadownload-controller
-		// (linux/amd64 + linux/arm64) at commit e66317e, so it still resolves
-		// per-node architecture.
-		if dpaCR.UnsupportedOverrides == nil {
-			dpaCR.UnsupportedOverrides = map[v1alpha1.UnsupportedImageKey]string{}
-		}
-		dpaCR.UnsupportedOverrides[v1alpha1.KubeVirtDatamoverPluginImageKey] = "quay.io/tkaovila/kubevirt-datamover-plugin@sha256:54c88bda836544eb1e4080c29d4d93141db619fa8322b0451bb2135b4c2ff82d"
-		dpaCR.UnsupportedOverrides[v1alpha1.KubeVirtDatamoverControllerImageKey] = "quay.io/tkaovila/kubevirt-datamover-controller@sha256:6d3d80dc7f0096114f4b1da2379194bca100fc063f0fd26ee97e9c8d2e21856f"
-
 		err = lib.DeleteBackupRepositories(runTimeClientForSuiteRun, namespace)
 		gomega.Expect(err).To(gomega.BeNil())
 		err = lib.InstallApplication(v.Client, "./sample-applications/virtual-machines/cirros-test/cirros-rbac.yaml")
