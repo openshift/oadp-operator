@@ -302,36 +302,6 @@ func IsDeploymentReady(ocClient client.Client, namespace, dName string) wait.Con
 	}
 }
 
-// IsDeploymentRolledOut checks that a Deployment has finished rolling out — unlike
-// IsDeploymentReady, which only checks AvailableReplicas == Replicas and can false-positive
-// against stale pre-rollout pods, this also requires the controller to have observed the
-// latest generation and updated all replicas to it.
-func IsDeploymentRolledOut(ocClient client.Client, namespace, dName string) wait.ConditionFunc {
-	return func() (bool, error) {
-		deployment := appsv1.Deployment{}
-		err := ocClient.Get(context.Background(), client.ObjectKey{
-			Namespace: namespace,
-			Name:      dName,
-		}, &deployment)
-		if err != nil {
-			return false, err
-		}
-		log.Printf("Deployment %s generation: %d, observed: %d, updatedReplicas: %d, status: %v",
-			dName, deployment.Generation, deployment.Status.ObservedGeneration, deployment.Status.UpdatedReplicas, deployment.Status)
-		if deployment.Status.ObservedGeneration < deployment.Generation {
-			return false, nil
-		}
-		wantReplicas := int32(1)
-		if deployment.Spec.Replicas != nil {
-			wantReplicas = *deployment.Spec.Replicas
-		}
-		if deployment.Status.UpdatedReplicas != wantReplicas || deployment.Status.AvailableReplicas != wantReplicas || deployment.Status.Replicas != wantReplicas {
-			return false, nil
-		}
-		return true, nil
-	}
-}
-
 // IsStatefulSetReady checks if a StatefulSet is ready
 func IsStatefulSetReady(ocClient client.Client, namespace, name string) wait.ConditionFunc {
 	return func() (bool, error) {
