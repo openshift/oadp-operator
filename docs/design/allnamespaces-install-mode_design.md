@@ -195,8 +195,21 @@ OLM Classic coexists with OLMv1 throughout the OpenShift 4 lifecycle.
 | Phase | Scope | Risk | Depends on |
 |---|---|---|---|
 | 1. CSV changes | CSV metadata (installModes, WATCH_NAMESPACE source, permissions) | Low | None |
-| 2. Deploy + CI for AllNamespaces | Makefile target + Prow job | Low | Phase 1 |
-| 3. Migration documentation | Docs for OperatorGroup swap | Low | Phase 1 |
+| 2. Deploy + CI for AllNamespaces | Makefile target + Prow job running existing e2e suite | Low | Phase 1 |
+| 3. AllNamespaces install e2e tests | Test scenarios for AllNamespaces-specific behavior | Medium | Phase 2 |
+| 4. Migration documentation | Docs for OperatorGroup swap | Low | Phase 2 |
+
+### Phase 3: AllNamespaces Install E2E Tests
+
+With Phase 2 providing baseline signal from the existing e2e suite, this phase adds test scenarios that specifically validate AllNamespaces install behavior.
+
+Test scenarios:
+
+- **AllNamespaces fresh install**: install with `--install-mode AllNamespaces`, verify CSV Succeeded, WATCH_NAMESPACE = pod namespace, DPA reconciles, Velero deploys.
+- **OwnNamespace to AllNamespaces migration**: install OwnNamespace, swap OperatorGroup to global, verify operator re-deploys and DPA continues functioning without re-creation.
+- **AllNamespaces to OwnNamespace rollback**: reverse the migration, verify operator recovers.
+- **Upgrade with AllNamespaces**: upgrade from a prior OADP version (OwnNamespace-only CSV) to the new version (dual-mode CSV), verify the upgrade succeeds and the existing namespaced OperatorGroup continues to work.
+- **Upgrade test parameterization**: the existing upgrade test (`upgrade_suite_test.go`) hardcodes a namespaced OperatorGroup. Parameterize to also test with a global OperatorGroup.
 
 ### Upgrade Path
 
