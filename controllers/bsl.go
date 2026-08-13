@@ -487,3 +487,69 @@ func (r *DPAReconciler) ensureSecretDataExists(dpa *oadpv1alpha1.DataProtectionA
 	}
 	return nil
 }
+
+// processCACertForBSLs creates a ConfigMap containing CA certificates from BackupStorageLocations.
+// Returns the ConfigMap name if certificates were found, empty string otherwise.
+func (r *DPAReconciler) processCACertForBSLs(dpa *oadpv1alpha1.DataProtectionApplication) (string, error) {
+	var caCertData []byte
+
+	for _, bslSpec := range dpa.Spec.BackupLocations {
+		var caCert []byte
+
+		if bslSpec.Velero != nil && bslSpec.Velero.ObjectStorage != nil {
+			caCert = bslSpec.Velero.ObjectStorage.CACert
+		}
+		if bslSpec.CloudStorage != nil {
+			caCert = bslSpec.CloudStorage.CACert
+		}
+
+		if len(caCert) > 0 {
+			caCertData = append(caCertData, caCert...)
+			caCertData = append(caCertData, '\n')
+		}
+	}
+
+	if len(caCertData) == 0 {
+		return "", nil
+	}
+
+	configMapName := caBundleConfigMapName
+	configMap := &corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      configMapName,
+			Namespace: dpa.Namespace,
+		},
+	}
+
+	op, err := controllerutil.CreateOrPatch(r.Context, r.Client, configMap, func() error {
+		if configMap.Labels == nil {
+			configMap.Labels = make(map[string]string)
+		}
+		configMap.Labels["app.kubernetes.io/name"] = common.Velero
+		configMap.Labels["app.kubernetes.io/managed-by"] = common.OADPOperator
+		configMap.Labels["app.kubernetes.io/component"] = "ca-bundle"
+		configMap.Labels[oadpv1alpha1.OadpOperatorLabel] = "True"
+
+		if configMap.Data == nil {
+			configMap.Data = make(map[string]string)
+		}
+		configMap.Data[caBundleFileName] = string(caCertData)
+
+		return nil
+	})
+
+	if err != nil {
+		return "", fmt.Errorf("failed to create/update CA bundle ConfigMap: %w", err)
+	}
+
+	if op == controllerutil.OperationResultCreated || op == controllerutil.OperationResultUpdated {
+		r.Log.Info("CA certificate ConfigMap processed", "configMap", configMapName, "operation", op)
+		r.EventRecorder.Event(configMap,
+			corev1.EventTypeNormal,
+			"CACertificateConfigMapReconciled",
+			fmt.Sprintf("performed %s on CA certificate ConfigMap %s/%s", op, configMap.Namespace, configMap.Name),
+		)
+	}
+
+	return configMapName, nil
+}

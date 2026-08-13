@@ -2591,3 +2591,146 @@ func TestDPAReconciler_ReconcileBackupStorageLocations(t *testing.T) {
 		})
 	}
 }
+
+func TestProcessCACertForBSLs(t *testing.T) {
+	testCACertPEM := `-----BEGIN CERTIFICATE-----
+MIIDNzCCAh+gAwIBAgIJAJ7qAHESwpNwMA0GCSqGSIb3DQEBCwUAMDMxMTAvBgNV
+BAMMKGVjMi01NC0yMTEtOC0yNDguY29tcHV0ZS0xLmFtYXpvbmF3cy5jb20wHhcN
+MjUwMTI0MTcxNjQyWhcNMjYwMTI0MTcxNjQyWjAzMTEwLwYDVQQDDChlYzItNTQt
+-----END CERTIFICATE-----`
+
+	tests := []struct {
+		name              string
+		backupLocations   []oadpv1alpha1.BackupLocation
+		wantConfigMapName string
+		wantError         bool
+	}{
+		{
+			name: "BSL with Velero CA certificate",
+			backupLocations: []oadpv1alpha1.BackupLocation{
+				{
+					Velero: &velerov1.BackupStorageLocationSpec{
+						Provider: "aws",
+						StorageType: velerov1.StorageType{
+							ObjectStorage: &velerov1.ObjectStorageLocation{
+								Bucket: "test-bucket",
+								CACert: []byte(testCACertPEM),
+							},
+						},
+					},
+				},
+			},
+			wantConfigMapName: caBundleConfigMapName,
+			wantError:         false,
+		},
+		{
+			name: "BSL with CloudStorage CA certificate",
+			backupLocations: []oadpv1alpha1.BackupLocation{
+				{
+					CloudStorage: &oadpv1alpha1.CloudStorageLocation{
+						CloudStorageRef: corev1.LocalObjectReference{Name: "test-bucket"},
+						CACert:          []byte(testCACertPEM),
+					},
+				},
+			},
+			wantConfigMapName: caBundleConfigMapName,
+			wantError:         false,
+		},
+		{
+			name: "BSL without CA certificate",
+			backupLocations: []oadpv1alpha1.BackupLocation{
+				{
+					Velero: &velerov1.BackupStorageLocationSpec{
+						Provider: "aws",
+						StorageType: velerov1.StorageType{
+							ObjectStorage: &velerov1.ObjectStorageLocation{
+								Bucket: "test-bucket",
+							},
+						},
+					},
+				},
+			},
+			wantConfigMapName: "",
+			wantError:         false,
+		},
+		{
+			name:              "No backup locations",
+			backupLocations:   []oadpv1alpha1.BackupLocation{},
+			wantConfigMapName: "",
+			wantError:         false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			dpa := &oadpv1alpha1.DataProtectionApplication{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-dpa",
+					Namespace: "test-ns",
+				},
+				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
+					BackupLocations: tt.backupLocations,
+				},
+			}
+
+			fakeClient, err := getFakeClientFromObjects(dpa)
+			if err != nil {
+				t.Fatalf("error creating fake client: %v", err)
+			}
+
+			r := &DPAReconciler{
+				Client:        fakeClient,
+				Scheme:        fakeClient.Scheme(),
+				Log:           logr.Discard(),
+				Context:       context.Background(),
+				EventRecorder: record.NewFakeRecorder(10),
+				NamespacedName: types.NamespacedName{
+					Name:      dpa.Name,
+					Namespace: dpa.Namespace,
+				},
+			}
+
+			gotConfigMapName, err := r.processCACertForBSLs(dpa)
+
+			if tt.wantError {
+				if err == nil {
+					t.Errorf("expected error but got nil")
+				}
+				return
+			}
+			if err != nil {
+				t.Errorf("unexpected error: %v", err)
+				return
+			}
+
+			if gotConfigMapName != tt.wantConfigMapName {
+				t.Errorf("expected ConfigMap name %q, got %q", tt.wantConfigMapName, gotConfigMapName)
+			}
+
+			if tt.wantConfigMapName != "" {
+				configMap := &corev1.ConfigMap{}
+				err := fakeClient.Get(context.Background(), types.NamespacedName{
+					Name:      tt.wantConfigMapName,
+					Namespace: dpa.Namespace,
+				}, configMap)
+				if err != nil {
+					t.Fatalf("expected ConfigMap to exist: %v", err)
+				}
+
+				if _, ok := configMap.Data[caBundleFileName]; !ok {
+					t.Error("ConfigMap missing ca-bundle.pem data key")
+				}
+
+				if configMap.Labels["app.kubernetes.io/name"] != "velero" {
+					t.Errorf("expected label app.kubernetes.io/name=velero, got %s", configMap.Labels["app.kubernetes.io/name"])
+				}
+				if configMap.Labels["app.kubernetes.io/component"] != "ca-bundle" {
+					t.Errorf("expected label app.kubernetes.io/component=ca-bundle, got %s", configMap.Labels["app.kubernetes.io/component"])
+				}
+				if configMap.Labels[oadpv1alpha1.OadpOperatorLabel] != "True" {
+					t.Errorf("expected OADP operator label to be True")
+				}
+			}
+		})
+	}
+}

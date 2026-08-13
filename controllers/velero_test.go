@@ -2276,3 +2276,213 @@ func TestDPAReconciler_VeleroDebugEnvironment(t *testing.T) {
 		})
 	}
 }
+
+func TestDPAReconciler_processCACertificatesForVelero(t *testing.T) {
+	tests := []struct {
+		name            string
+		dpa             *oadpv1alpha1.DataProtectionApplication
+		configMapName   string
+		wantErr         bool
+		wantVolume      bool
+		wantVolumeMount bool
+		wantEnvVar      bool
+	}{
+		{
+			name: "should mount CA certificate ConfigMap and set AWS_CA_BUNDLE when certificates exist",
+			dpa: &oadpv1alpha1.DataProtectionApplication{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-dpa",
+					Namespace: "test-ns",
+				},
+				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
+					BackupLocations: []oadpv1alpha1.BackupLocation{
+						{
+							Velero: &velerov1.BackupStorageLocationSpec{
+								Provider: "aws",
+								StorageType: velerov1.StorageType{
+									ObjectStorage: &velerov1.ObjectStorageLocation{
+										CACert: []byte("test-ca-cert"),
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			configMapName:   caBundleConfigMapName,
+			wantErr:         false,
+			wantVolume:      true,
+			wantVolumeMount: true,
+			wantEnvVar:      true,
+		},
+		{
+			name: "should not mount or set environment variables when no CA certificates exist",
+			dpa: &oadpv1alpha1.DataProtectionApplication{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-dpa",
+					Namespace: "test-ns",
+				},
+				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
+					BackupLocations: []oadpv1alpha1.BackupLocation{
+						{
+							Velero: &velerov1.BackupStorageLocationSpec{
+								Provider: "aws",
+								StorageType: velerov1.StorageType{
+									ObjectStorage: &velerov1.ObjectStorageLocation{
+										Bucket: "test-bucket",
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			configMapName:   "",
+			wantErr:         false,
+			wantVolume:      false,
+			wantVolumeMount: false,
+			wantEnvVar:      false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Create fake client with DPA and optional ConfigMap
+			objs := []client.Object{tt.dpa}
+			if tt.configMapName != "" {
+				configMap := &corev1.ConfigMap{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      tt.configMapName,
+						Namespace: tt.dpa.Namespace,
+					},
+					Data: map[string]string{
+						caBundleFileName: "test-ca-cert",
+					},
+				}
+				objs = append(objs, configMap)
+			}
+
+			fakeClient, err := getFakeClientFromObjects(objs...)
+			if err != nil {
+				t.Fatalf("error creating fake client: %v", err)
+			}
+
+			r := &DPAReconciler{
+				Client:        fakeClient,
+				Scheme:        fakeClient.Scheme(),
+				Log:           logr.Discard(),
+				Context:       context.Background(),
+				EventRecorder: record.NewFakeRecorder(10),
+				NamespacedName: types.NamespacedName{
+					Name:      tt.dpa.Name,
+					Namespace: tt.dpa.Namespace,
+				},
+			}
+
+			veleroDeployment := &appsv1.Deployment{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "velero",
+					Namespace: tt.dpa.Namespace,
+				},
+				Spec: appsv1.DeploymentSpec{
+					Template: corev1.PodTemplateSpec{
+						Spec: corev1.PodSpec{
+							Containers: []corev1.Container{
+								{
+									Name: common.Velero,
+								},
+							},
+						},
+					},
+				},
+			}
+
+			veleroContainer := &veleroDeployment.Spec.Template.Spec.Containers[0]
+			originalVolumeCount := len(veleroDeployment.Spec.Template.Spec.Volumes)
+			originalVolumeMountCount := len(veleroContainer.VolumeMounts)
+			originalEnvCount := len(veleroContainer.Env)
+
+			err = r.processCACertificatesForVelero(tt.dpa, veleroDeployment, veleroContainer)
+
+			if (err != nil) != tt.wantErr {
+				t.Errorf("processCACertificatesForVelero() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+
+			if tt.wantVolume {
+				if len(veleroDeployment.Spec.Template.Spec.Volumes) != originalVolumeCount+1 {
+					t.Errorf("Expected volume count to increase by 1, got %d", len(veleroDeployment.Spec.Template.Spec.Volumes))
+				}
+				foundVolume := false
+				for _, volume := range veleroDeployment.Spec.Template.Spec.Volumes {
+					if volume.Name == caCertVolumeName {
+						foundVolume = true
+						if volume.ConfigMap == nil {
+							t.Error("Expected ConfigMap volume source")
+						} else if volume.ConfigMap.Name != tt.configMapName {
+							t.Errorf("Expected ConfigMap name %s, got %s", tt.configMapName, volume.ConfigMap.Name)
+						}
+						break
+					}
+				}
+				if !foundVolume {
+					t.Errorf("Expected volume '%s' to be added", caCertVolumeName)
+				}
+			} else {
+				if len(veleroDeployment.Spec.Template.Spec.Volumes) != originalVolumeCount {
+					t.Errorf("Expected no volume changes, got %d, want %d", len(veleroDeployment.Spec.Template.Spec.Volumes), originalVolumeCount)
+				}
+			}
+
+			if tt.wantVolumeMount {
+				if len(veleroContainer.VolumeMounts) != originalVolumeMountCount+1 {
+					t.Errorf("Expected volume mount count to increase by 1, got %d", len(veleroContainer.VolumeMounts))
+				}
+				foundVolumeMount := false
+				for _, vm := range veleroContainer.VolumeMounts {
+					if vm.Name == caCertVolumeName {
+						foundVolumeMount = true
+						if vm.MountPath != caCertMountPath {
+							t.Errorf("Expected mount path %s, got %s", caCertMountPath, vm.MountPath)
+						}
+						if !vm.ReadOnly {
+							t.Error("Expected volume mount to be read-only")
+						}
+						break
+					}
+				}
+				if !foundVolumeMount {
+					t.Errorf("Expected volume mount '%s' to be added", caCertVolumeName)
+				}
+			} else {
+				if len(veleroContainer.VolumeMounts) != originalVolumeMountCount {
+					t.Errorf("Expected no volume mount changes, got %d, want %d", len(veleroContainer.VolumeMounts), originalVolumeMountCount)
+				}
+			}
+
+			if tt.wantEnvVar {
+				if len(veleroContainer.Env) != originalEnvCount+1 {
+					t.Errorf("Expected env var count to increase by 1, got %d", len(veleroContainer.Env))
+				}
+				foundEnv := false
+				for _, env := range veleroContainer.Env {
+					if env.Name == "AWS_CA_BUNDLE" {
+						foundEnv = true
+						expectedValue := caCertMountPath + "/" + caBundleFileName
+						if env.Value != expectedValue {
+							t.Errorf("Expected AWS_CA_BUNDLE value %s, got %s", expectedValue, env.Value)
+						}
+						break
+					}
+				}
+				if !foundEnv {
+					t.Error("Expected AWS_CA_BUNDLE environment variable to be set")
+				}
+			} else {
+				if len(veleroContainer.Env) != originalEnvCount {
+					t.Errorf("Expected no env var changes, got %d, want %d", len(veleroContainer.Env), originalEnvCount)
+				}
+			}
+		})
+	}
+}
