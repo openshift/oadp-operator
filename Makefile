@@ -333,7 +333,7 @@ ifneq ($(shell $(OPERATOR_SDK) version | cut -d'"' -f2),$(OPERATOR_SDK_VERSION))
 	set -e; \
 	mkdir -p $(dir $(OPERATOR_SDK)) ;\
 	OS=$(shell go env GOOS) && ARCH=$(shell go env GOARCH) && \
-	curl -sSLo $(OPERATOR_SDK) https://github.com/operator-framework/operator-sdk/releases/download/$(OPERATOR_SDK_VERSION)/operator-sdk_$${OS}_$${ARCH} ;\
+	curl --retry 5 --retry-delay 5 -sSLo $(OPERATOR_SDK) https://github.com/operator-framework/operator-sdk/releases/download/$(OPERATOR_SDK_VERSION)/operator-sdk_$${OS}_$${ARCH} ;\
 	chmod +x $(OPERATOR_SDK);
 endif
 	@if [ -L "$(LOCALBIN)/operator-sdk" ]; then \
@@ -370,7 +370,7 @@ ifneq ($(shell $(OPM) version | cut -d'"' -f2),$(OPM_VERSION))
 	set -e ;\
 	mkdir -p $(dir $(OPM)) ;\
 	OS=$(shell go env GOOS) && ARCH=$(shell go env GOARCH) && \
-	curl -sSLo $(OPM) https://github.com/operator-framework/operator-registry/releases/download/$(OPM_VERSION)/$${OS}-$${ARCH}-opm ;\
+	curl --retry 5 --retry-delay 5 -sSLo $(OPM) https://github.com/operator-framework/operator-registry/releases/download/$(OPM_VERSION)/$${OS}-$${ARCH}-opm ;\
 	chmod +x $(OPM)
 endif
 	@if [ -L "$(LOCALBIN)/opm" ]; then \
@@ -499,7 +499,7 @@ else
     endif
 endif
 submit-coverage:
-	curl -Os https://uploader.codecov.io/latest/$(OS_String)/codecov
+	curl --retry 5 --retry-delay 5 -Os https://uploader.codecov.io/latest/$(OS_String)/codecov
 	chmod +x codecov
 	./codecov -C $(shell git rev-parse HEAD) -r openshift/oadp-operator --nonZero
 	rm -f codecov
