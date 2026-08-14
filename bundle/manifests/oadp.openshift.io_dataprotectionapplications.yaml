@@ -1997,7 +1997,7 @@ spec:
                         datamover:
                           description: |-
                             DataMover specifies the data mover to be used by the backup.
-                            If DataMover is "" or "velero", the built-in data mover will be used.
+                            If DataMover is "" or "velero", the default built-in data mover will be used.
                           type: string
                         defaultVolumesToFsBackup:
                           description: |-
@@ -2316,6 +2316,11 @@ spec:
                           x-kubernetes-map-type: atomic
                         metadata:
                           properties:
+                            annotations:
+                              additionalProperties:
+                                type: string
+                              nullable: true
+                              type: object
                             labels:
                               additionalProperties:
                                 type: string
@@ -2844,6 +2849,14 @@ spec:
                             from. If specified, and BackupName is empty, Velero will restore
                             from the most recent successful backup created from this schedule.
                           type: string
+                        skipDefaultResourceModifier:
+                          description: |-
+                            SkipDefaultResourceModifier controls whether the server-configured default
+                            resource modifier is applied to this restore.
+                            When true, the default modifier is skipped even if configured on the server.
+                            Has no effect when a per-restore ResourceModifier is specified.
+                          nullable: true
+                          type: boolean
                         uploaderConfig:
                           description: UploaderConfig specifies the configuration for the restore.
                           nullable: true
