@@ -32,6 +32,7 @@ type ReconcileKubevirtDatamoverControllerScenario struct {
 	eventWords               []string
 	kubevirtDatamoverEnabled bool
 	deployment               *appsv1.Deployment
+	kubevirtDatamoverConfig  *oadpv1alpha1.KubevirtDatamoverConfig
 }
 
 func createTestKubevirtDatamoverDeployment(namespace string) *appsv1.Deployment {
@@ -104,6 +105,10 @@ func runReconcileKubevirtDatamoverControllerTest(
 		)
 	}
 
+	if scenario.kubevirtDatamoverConfig != nil {
+		dpa.Spec.Configuration.KubevirtDatamover = scenario.kubevirtDatamoverConfig
+	}
+
 	gomega.Expect(k8sClient.Create(ctx, dpa)).To(gomega.Succeed())
 
 	if scenario.deployment != nil {
@@ -143,6 +148,26 @@ func runReconcileKubevirtDatamoverControllerTest(
 		}
 	} else {
 		gomega.Expect(len(event.Events)).To(gomega.Equal(0))
+	}
+
+	if scenario.kubevirtDatamoverConfig != nil && scenario.kubevirtDatamoverConfig.MaxConcurrentDataMovers != nil {
+		deployment := &appsv1.Deployment{}
+		gomega.Expect(k8sClient.Get(ctx, types.NamespacedName{
+			Name:      kubevirtDatamoverObjectName,
+			Namespace: scenario.namespace,
+		}, deployment)).To(gomega.Succeed())
+
+		var container *corev1.Container
+		for i := range deployment.Spec.Template.Spec.Containers {
+			if deployment.Spec.Template.Spec.Containers[i].Name == "manager" {
+				container = &deployment.Spec.Template.Spec.Containers[i]
+				break
+			}
+		}
+		gomega.Expect(container).ToNot(gomega.BeNil())
+		gomega.Expect(container.Args).To(gomega.ContainElement(
+			fmt.Sprintf("--max-concurrent-data-movers=%d", *scenario.kubevirtDatamoverConfig.MaxConcurrentDataMovers),
+		))
 	}
 }
 
@@ -200,6 +225,15 @@ var _ = ginkgo.Describe("Test ReconcileKubevirtDatamoverController function", fu
 			dpa:                      "kdm-test-1-dpa",
 			eventWords:               []string{"Normal", "KubevirtDatamoverDeploymentReconciled", "created"},
 			kubevirtDatamoverEnabled: true,
+		}),
+		ginkgo.Entry("Should create kubevirt-datamover deployment with max-concurrent-data-movers configured", ReconcileKubevirtDatamoverControllerScenario{
+			namespace:                "kdm-test-1b",
+			dpa:                      "kdm-test-1b-dpa",
+			eventWords:               []string{"Normal", "KubevirtDatamoverDeploymentReconciled", "created"},
+			kubevirtDatamoverEnabled: true,
+			kubevirtDatamoverConfig: &oadpv1alpha1.KubevirtDatamoverConfig{
+				MaxConcurrentDataMovers: ptr.To(int32(3)),
+			},
 		}),
 		ginkgo.Entry("Should update kubevirt-datamover deployment", ReconcileKubevirtDatamoverControllerScenario{
 			namespace:                "kdm-test-2",
@@ -749,6 +783,70 @@ func TestEnsureKubevirtDatamoverRequiredSpecs(t *testing.T) {
 			expectError:      false,
 		},
 		{
+			name: "Should include --max-concurrent-data-movers arg when configured",
+			dpa: &oadpv1alpha1.DataProtectionApplication{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:            "test-dpa",
+					Namespace:       "test-namespace",
+					ResourceVersion: "12345",
+				},
+				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
+					Configuration: &oadpv1alpha1.ApplicationConfig{
+						Velero: &oadpv1alpha1.VeleroConfig{},
+						KubevirtDatamover: &oadpv1alpha1.KubevirtDatamoverConfig{
+							MaxConcurrentDataMovers: ptr.To(int32(5)),
+						},
+					},
+				},
+			},
+			existingContainers: nil,
+			expectedEnvCount:   3,
+			expectError:        false,
+		},
+		{
+			name: "Should not include --max-concurrent-data-movers arg when not configured",
+			dpa: &oadpv1alpha1.DataProtectionApplication{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:            "test-dpa",
+					Namespace:       "test-namespace",
+					ResourceVersion: "12345",
+				},
+				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
+					Configuration: &oadpv1alpha1.ApplicationConfig{
+						Velero: &oadpv1alpha1.VeleroConfig{},
+					},
+				},
+			},
+			existingContainers: nil,
+			expectedEnvCount:   3,
+			expectError:        false,
+		},
+		{
+			name: "Should update --max-concurrent-data-movers arg on existing container",
+			dpa: &oadpv1alpha1.DataProtectionApplication{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:            "test-dpa",
+					Namespace:       "test-namespace",
+					ResourceVersion: "12345",
+				},
+				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
+					Configuration: &oadpv1alpha1.ApplicationConfig{
+						Velero: &oadpv1alpha1.VeleroConfig{},
+						KubevirtDatamover: &oadpv1alpha1.KubevirtDatamoverConfig{
+							MaxConcurrentDataMovers: ptr.To(int32(10)),
+						},
+					},
+				},
+			},
+			existingContainers: []corev1.Container{{
+				Name:  "manager",
+				Image: "old",
+				Args:  []string{"--leader-elect", "--max-concurrent-data-movers=2", "--old-arg"},
+			}},
+			expectedEnvCount: 3,
+			expectError:      false,
+		},
+		{
 			name: "Should error when manager container not found",
 			dpa: &oadpv1alpha1.DataProtectionApplication{
 				ObjectMeta: metav1.ObjectMeta{
@@ -884,6 +982,35 @@ func TestEnsureKubevirtDatamoverRequiredSpecs(t *testing.T) {
 				for _, arg := range container.Args {
 					if strings.Contains(arg, "--max-incremental-backups") {
 						t.Errorf("unexpected --max-incremental-backups arg found: %s", arg)
+					}
+				}
+			}
+
+			// Verify --max-concurrent-data-movers arg
+			if tt.dpa.Spec.Configuration != nil && tt.dpa.Spec.Configuration.KubevirtDatamover != nil &&
+				tt.dpa.Spec.Configuration.KubevirtDatamover.MaxConcurrentDataMovers != nil {
+				expectedArg := fmt.Sprintf("--max-concurrent-data-movers=%d",
+					*tt.dpa.Spec.Configuration.KubevirtDatamover.MaxConcurrentDataMovers)
+				hasArg := false
+				maxConcurrentArgCount := 0
+				for _, arg := range container.Args {
+					if strings.HasPrefix(arg, "--max-concurrent-data-movers=") {
+						maxConcurrentArgCount++
+					}
+					if arg == expectedArg {
+						hasArg = true
+					}
+				}
+				if !hasArg {
+					t.Errorf("expected arg %s in container args %v", expectedArg, container.Args)
+				}
+				if maxConcurrentArgCount != 1 {
+					t.Errorf("expected exactly one --max-concurrent-data-movers arg, got %d in %v", maxConcurrentArgCount, container.Args)
+				}
+			} else {
+				for _, arg := range container.Args {
+					if strings.Contains(arg, "--max-concurrent-data-movers") {
+						t.Errorf("unexpected --max-concurrent-data-movers arg found: %s", arg)
 					}
 				}
 			}

@@ -231,6 +231,14 @@ spec:
                     kubevirtDatamover:
                       description: KubevirtDatamover configures the kubevirt-datamover-controller for VM backup/restore.
                       properties:
+                        maxConcurrentDataMovers:
+                          description: |-
+                            MaxConcurrentDataMovers is the maximum number of concurrent active
+                            DataUploads/DataDownloads per direction (DU and DD counted independently).
+                            0 means unlimited (default behavior).
+                          format: int32
+                          minimum: 0
+                          type: integer
                         maxIncrementalBackups:
                           description: |-
                             MaxIncrementalBackups is the maximum number of incremental backups per VM

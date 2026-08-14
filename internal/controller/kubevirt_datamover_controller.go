@@ -240,6 +240,10 @@ func ensureKubevirtDatamoverRequiredSpecs(
 			args = append(args, fmt.Sprintf("--max-incremental-backups=%d",
 				*dpa.Spec.Configuration.KubevirtDatamover.MaxIncrementalBackups))
 		}
+		if dpa.Spec.Configuration.KubevirtDatamover.MaxConcurrentDataMovers != nil {
+			args = append(args, fmt.Sprintf("--max-concurrent-data-movers=%d",
+				*dpa.Spec.Configuration.KubevirtDatamover.MaxConcurrentDataMovers))
+		}
 	}
 
 	// Build container spec

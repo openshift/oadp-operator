@@ -658,6 +658,13 @@ type KubevirtDatamoverConfig struct {
 	// +kubebuilder:validation:Minimum=0
 	// +optional
 	MaxIncrementalBackups *int32 `json:"maxIncrementalBackups,omitempty"`
+
+	// MaxConcurrentDataMovers is the maximum number of concurrent active
+	// DataUploads/DataDownloads per direction (DU and DD counted independently).
+	// 0 means unlimited (default behavior).
+	// +kubebuilder:validation:Minimum=0
+	// +optional
+	MaxConcurrentDataMovers *int32 `json:"maxConcurrentDataMovers,omitempty"`
 }
 
 // ApplicationConfig defines the configuration for the Data Protection Application
