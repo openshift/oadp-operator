@@ -657,11 +657,25 @@ func createTestBuiltVeleroDeployment(options TestBuiltVeleroDeploymentOptions) *
 					ServiceAccountName:            common.Velero,
 					TerminationGracePeriodSeconds: ptr.To(int64(30)),
 					DNSPolicy:                     corev1.DNSClusterFirst,
-					NodeSelector: map[string]string{
-						"kubernetes.io/os": "linux",
-					},
 					OS: &corev1.PodOS{
 						Name: "linux",
+					},
+					Affinity: &corev1.Affinity{
+						NodeAffinity: &corev1.NodeAffinity{
+							RequiredDuringSchedulingIgnoredDuringExecution: &corev1.NodeSelector{
+								NodeSelectorTerms: []corev1.NodeSelectorTerm{
+									{
+										MatchExpressions: []corev1.NodeSelectorRequirement{
+											{
+												Key:      "kubernetes.io/os",
+												Values:   []string{"windows"},
+												Operator: corev1.NodeSelectorOpNotIn,
+											},
+										},
+									},
+								},
+							},
+						},
 					},
 					DeprecatedServiceAccount: common.Velero,
 					SecurityContext:          &corev1.PodSecurityContext{},
