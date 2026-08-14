@@ -11,6 +11,8 @@ spec:
     kind: BackupRepository
     listKind: BackupRepositoryList
     plural: backuprepositories
+    shortNames:
+    - repo
     singular: backuprepository
   scope: Namespaced
   versions:
@@ -69,9 +71,7 @@ spec:
                 - ""
                 type: string
               resticIdentifier:
-                description: |-
-                  ResticIdentifier is the full restic-compatible string for identifying
-                  this repository. This field is only used when RepositoryType is "restic".
+                description: Deprecated
                 type: string
               volumeNamespace:
                 description: |-
