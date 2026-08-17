@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"hash/fnv"
 	"log"
 	"strings"
 	"time"
@@ -1795,8 +1796,25 @@ func (v *VirtOperator) WriteRandomPayloadToGuestBlockDevice(kubeConfig *rest.Con
 // can never overlap. Shared plumbing for ChecksumPVCBlockDeviceRegion so the pod
 // lifecycle (creation, Running wait, teardown-before-return) exists in exactly
 // one place.
+// checksumHelperPodName builds "checksum-helper-"+pvcName, truncated with a
+// short hash suffix if that would exceed Kubernetes' 63-char DNS label limit
+// for object names. Not a concern for this suite's own short fixture PVC
+// names today, but a future longer-named PVC scenario would otherwise fail
+// pod creation with an opaque "invalid name" error instead of running.
+func checksumHelperPodName(pvcName string) string {
+	const prefix = "checksum-helper-"
+	name := prefix + pvcName
+	if len(name) <= 63 {
+		return name
+	}
+	h := fnv.New32a()
+	_, _ = h.Write([]byte(pvcName))
+	suffix := fmt.Sprintf("-%08x", h.Sum32())
+	return name[:63-len(suffix)] + suffix
+}
+
 func (v *VirtOperator) runInPVCBlockDeviceHelperPod(kubeConfig *rest.Config, namespace, pvcName, command string) (stdout string, err error) {
-	podName := "checksum-helper-" + pvcName
+	podName := checksumHelperPodName(pvcName)
 	pod := &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      podName,

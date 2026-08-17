@@ -40,12 +40,17 @@ RUN curl --retry 5 --retry-delay 5 -fsSL https://claude.ai/install.sh | bash && 
 # rm -rf before each attempt: a clone that fails partway through can leave a
 # non-empty target directory behind, which would make the next attempt fail
 # with "destination path already exists" instead of actually retrying.
+# The trailing `test -d .../.git` is load-bearing, not decoration: without it,
+# `&& break || sleep 5` makes the loop's own exit status the last `sleep`'s
+# (always 0), so RUN succeeds even after all 3 clone attempts fail -- silently
+# shipping an image with no velero checkout instead of failing the build here.
 RUN for i in 1 2 3; do \
       rm -rf /go/src/github.com/openshift/velero && \
       git clone --depth 1 --branch oadp-dev \
         https://github.com/openshift/velero.git \
         /go/src/github.com/openshift/velero && break || sleep 5; \
-    done
+    done; \
+    test -d /go/src/github.com/openshift/velero/.git
 
 RUN go mod download && \
     mkdir -p $(go env GOCACHE) && \
