@@ -248,6 +248,12 @@ spec:
                           format: int32
                           minimum: 0
                           type: integer
+                        staleDataUploadThreshold:
+                          description: |-
+                            StaleDataUploadThreshold is the duration after which a DataUpload in an
+                            active phase is considered stale and will no longer block younger
+                            DataUploads for the same VM. Default is 2h.
+                          type: string
                       type: object
                     nodeAgent:
                       description: NodeAgent is needed to allow selection between kopia or restic
@@ -302,6 +308,23 @@ spec:
                             enable defines a boolean pointer whether we want the daemonset to
                             exist or not
                           type: boolean
+                        extraArgs:
+                          additionalProperties:
+                            type: string
+                          description: |-
+                            ExtraArgs are additional arguments to append to the node-agent server.
+                            Keys are flag names (without leading --), values are flag values.
+                            These are merged additively on top of operator defaults.
+                            If the unsupported-args annotation is set, it takes highest precedence
+                            and completely overrides all other args including ExtraArgs.
+                            Precedence: operator defaults < ExtraArgs < unsupported-args annotation.
+                            Keys are rejected at admission time if they don't match the pattern below.
+                            common.MergeExtraArgs additionally normalizes keys (strips leading dashes)
+                            at runtime as a defensive fallback for CRs persisted before this validation existed.
+                          type: object
+                          x-kubernetes-validations:
+                            - message: extraArgs keys must be flag names without a leading '-', containing only alphanumeric characters, dots, underscores, or hyphens
+                              rule: self.all(key, key.matches('^[A-Za-z0-9][A-Za-z0-9_.-]*$'))
                         fullMaintenanceInterval:
                           description: |-
                             fullMaintenanceInterval determines the time between kopia full maintenance operations.
@@ -458,7 +481,9 @@ spec:
                                 description: EnvVar represents an environment variable present in a Container.
                                 properties:
                                   name:
-                                    description: Name of the environment variable. Must be a C_IDENTIFIER.
+                                    description: |-
+                                      Name of the environment variable.
+                                      May consist of any printable ASCII characters except '='.
                                     type: string
                                   value:
                                     description: |-
@@ -510,6 +535,42 @@ spec:
                                             type: string
                                         required:
                                           - fieldPath
+                                        type: object
+                                        x-kubernetes-map-type: atomic
+                                      fileKeyRef:
+                                        description: |-
+                                          FileKeyRef selects a key of the env file.
+                                          Requires the EnvFiles feature gate to be enabled.
+                                        properties:
+                                          key:
+                                            description: |-
+                                              The key within the env file. An invalid key will prevent the pod from starting.
+                                              The keys defined within a source may consist of any printable ASCII characters except '='.
+                                              During Alpha stage of the EnvFiles feature gate, the key size is limited to 128 characters.
+                                            type: string
+                                          optional:
+                                            default: false
+                                            description: |-
+                                              Specify whether the file or its key must be defined. If the file or key
+                                              does not exist, then the env var is not published.
+                                              If optional is set to true and the specified key does not exist,
+                                              the environment variable will not be set in the Pod's containers.
+
+                                              If optional is set to false and the specified key does not exist,
+                                              an error will be returned during Pod creation.
+                                            type: boolean
+                                          path:
+                                            description: |-
+                                              The path within the volume from which to select the file.
+                                              Must be relative and may not contain the '..' path or start with '..'.
+                                            type: string
+                                          volumeName:
+                                            description: The name of the volume mount containing the env file.
+                                            type: string
+                                        required:
+                                          - key
+                                          - path
+                                          - volumeName
                                         type: object
                                         x-kubernetes-map-type: atomic
                                       resourceFieldRef:
@@ -583,7 +644,7 @@ spec:
                                     Claims lists the names of resources, defined in spec.resourceClaims,
                                     that are used by this container.
 
-                                    This is an alpha field and requires enabling the
+                                    This field depends on the
                                     DynamicResourceAllocation feature gate.
 
                                     This field is immutable. It can only be set for containers.
@@ -654,9 +715,10 @@ spec:
                                   operator:
                                     description: |-
                                       Operator represents a key's relationship to the value.
-                                      Valid operators are Exists and Equal. Defaults to Equal.
+                                      Valid operators are Exists, Equal, Lt, and Gt. Defaults to Equal.
                                       Exists is equivalent to wildcard for value, so that a pod can
                                       tolerate all taints of a particular category.
+                                      Lt and Gt perform numeric comparisons (requires feature gate TaintTolerationComparisonOperators).
                                     type: string
                                   tolerationSeconds:
                                     description: |-
@@ -685,6 +747,10 @@ spec:
                             cpuLimit:
                               type: string
                             cpuRequest:
+                              type: string
+                            ephemeralStorageLimit:
+                              type: string
+                            ephemeralStorageRequest:
                               type: string
                             memoryLimit:
                               type: string
@@ -802,6 +868,10 @@ spec:
                                 type: string
                               cpuRequest:
                                 type: string
+                              ephemeralStorageLimit:
+                                type: string
+                              ephemeralStorageRequest:
+                                type: string
                               memoryLimit:
                                 type: string
                               memoryRequest:
@@ -840,7 +910,9 @@ spec:
                                 description: EnvVar represents an environment variable present in a Container.
                                 properties:
                                   name:
-                                    description: Name of the environment variable. Must be a C_IDENTIFIER.
+                                    description: |-
+                                      Name of the environment variable.
+                                      May consist of any printable ASCII characters except '='.
                                     type: string
                                   value:
                                     description: |-
@@ -892,6 +964,42 @@ spec:
                                             type: string
                                         required:
                                           - fieldPath
+                                        type: object
+                                        x-kubernetes-map-type: atomic
+                                      fileKeyRef:
+                                        description: |-
+                                          FileKeyRef selects a key of the env file.
+                                          Requires the EnvFiles feature gate to be enabled.
+                                        properties:
+                                          key:
+                                            description: |-
+                                              The key within the env file. An invalid key will prevent the pod from starting.
+                                              The keys defined within a source may consist of any printable ASCII characters except '='.
+                                              During Alpha stage of the EnvFiles feature gate, the key size is limited to 128 characters.
+                                            type: string
+                                          optional:
+                                            default: false
+                                            description: |-
+                                              Specify whether the file or its key must be defined. If the file or key
+                                              does not exist, then the env var is not published.
+                                              If optional is set to true and the specified key does not exist,
+                                              the environment variable will not be set in the Pod's containers.
+
+                                              If optional is set to false and the specified key does not exist,
+                                              an error will be returned during Pod creation.
+                                            type: boolean
+                                          path:
+                                            description: |-
+                                              The path within the volume from which to select the file.
+                                              Must be relative and may not contain the '..' path or start with '..'.
+                                            type: string
+                                          volumeName:
+                                            description: The name of the volume mount containing the env file.
+                                            type: string
+                                        required:
+                                          - key
+                                          - path
+                                          - volumeName
                                         type: object
                                         x-kubernetes-map-type: atomic
                                       resourceFieldRef:
@@ -965,7 +1073,7 @@ spec:
                                     Claims lists the names of resources, defined in spec.resourceClaims,
                                     that are used by this container.
 
-                                    This is an alpha field and requires enabling the
+                                    This field depends on the
                                     DynamicResourceAllocation feature gate.
 
                                     This field is immutable. It can only be set for containers.
@@ -1040,9 +1148,10 @@ spec:
                                   operator:
                                     description: |-
                                       Operator represents a key's relationship to the value.
-                                      Valid operators are Exists and Equal. Defaults to Equal.
+                                      Valid operators are Exists, Equal, Lt, and Gt. Defaults to Equal.
                                       Exists is equivalent to wildcard for value, so that a pod can
                                       tolerate all taints of a particular category.
+                                      Lt and Gt perform numeric comparisons (requires feature gate TaintTolerationComparisonOperators).
                                     type: string
                                   tolerationSeconds:
                                     description: |-
@@ -1282,6 +1391,23 @@ spec:
                             the 1-second polling interval for the first 10 seconds while waiting
                             for the snaphandle
                           type: boolean
+                        extraArgs:
+                          additionalProperties:
+                            type: string
+                          description: |-
+                            ExtraArgs are additional arguments to append to the Velero server.
+                            Keys are flag names (without leading --), values are flag values.
+                            These are merged additively on top of operator defaults and Args.
+                            If the unsupported-args annotation is set, it takes highest precedence
+                            and completely overrides all other args including ExtraArgs.
+                            Precedence: operator defaults / Args < ExtraArgs < unsupported-args annotation.
+                            Keys are rejected at admission time if they don't match the pattern below.
+                            common.MergeExtraArgs additionally normalizes keys (strips leading dashes)
+                            at runtime as a defensive fallback for CRs persisted before this validation existed.
+                          type: object
+                          x-kubernetes-validations:
+                            - message: extraArgs keys must be flag names without a leading '-', containing only alphanumeric characters, dots, underscores, or hyphens
+                              rule: self.all(key, key.matches('^[A-Za-z0-9][A-Za-z0-9_.-]*$'))
                         featureFlags:
                           description: featureFlags defines the list of features to enable for Velero instance
                           items:
@@ -1383,7 +1509,9 @@ spec:
                                 description: EnvVar represents an environment variable present in a Container.
                                 properties:
                                   name:
-                                    description: Name of the environment variable. Must be a C_IDENTIFIER.
+                                    description: |-
+                                      Name of the environment variable.
+                                      May consist of any printable ASCII characters except '='.
                                     type: string
                                   value:
                                     description: |-
@@ -1435,6 +1563,42 @@ spec:
                                             type: string
                                         required:
                                           - fieldPath
+                                        type: object
+                                        x-kubernetes-map-type: atomic
+                                      fileKeyRef:
+                                        description: |-
+                                          FileKeyRef selects a key of the env file.
+                                          Requires the EnvFiles feature gate to be enabled.
+                                        properties:
+                                          key:
+                                            description: |-
+                                              The key within the env file. An invalid key will prevent the pod from starting.
+                                              The keys defined within a source may consist of any printable ASCII characters except '='.
+                                              During Alpha stage of the EnvFiles feature gate, the key size is limited to 128 characters.
+                                            type: string
+                                          optional:
+                                            default: false
+                                            description: |-
+                                              Specify whether the file or its key must be defined. If the file or key
+                                              does not exist, then the env var is not published.
+                                              If optional is set to true and the specified key does not exist,
+                                              the environment variable will not be set in the Pod's containers.
+
+                                              If optional is set to false and the specified key does not exist,
+                                              an error will be returned during Pod creation.
+                                            type: boolean
+                                          path:
+                                            description: |-
+                                              The path within the volume from which to select the file.
+                                              Must be relative and may not contain the '..' path or start with '..'.
+                                            type: string
+                                          volumeName:
+                                            description: The name of the volume mount containing the env file.
+                                            type: string
+                                        required:
+                                          - key
+                                          - path
+                                          - volumeName
                                         type: object
                                         x-kubernetes-map-type: atomic
                                       resourceFieldRef:
@@ -1508,7 +1672,7 @@ spec:
                                     Claims lists the names of resources, defined in spec.resourceClaims,
                                     that are used by this container.
 
-                                    This is an alpha field and requires enabling the
+                                    This field depends on the
                                     DynamicResourceAllocation feature gate.
 
                                     This field is immutable. It can only be set for containers.
@@ -1583,9 +1747,10 @@ spec:
                                   operator:
                                     description: |-
                                       Operator represents a key's relationship to the value.
-                                      Valid operators are Exists and Equal. Defaults to Equal.
+                                      Valid operators are Exists, Equal, Lt, and Gt. Defaults to Equal.
                                       Exists is equivalent to wildcard for value, so that a pod can
                                       tolerate all taints of a particular category.
+                                      Lt and Gt perform numeric comparisons (requires feature gate TaintTolerationComparisonOperators).
                                     type: string
                                   tolerationSeconds:
                                     description: |-
@@ -1825,6 +1990,12 @@ spec:
                     enforceBackupSpec:
                       description: which bakup spec field values to enforce
                       properties:
+                        backupType:
+                          description: BackupType specifies how volume data is backed up, with possible values including Full and Incremental.
+                          enum:
+                            - Full
+                            - Incremental
+                          type: string
                         csiSnapshotTimeout:
                           description: |-
                             CSISnapshotTimeout specifies the time used to wait for CSI VolumeSnapshot status turns to
@@ -1834,7 +2005,7 @@ spec:
                         datamover:
                           description: |-
                             DataMover specifies the data mover to be used by the backup.
-                            If DataMover is "" or "velero", the built-in data mover will be used.
+                            If DataMover is "" or "velero", the default built-in data mover will be used.
                           type: string
                         defaultVolumesToFsBackup:
                           description: |-
@@ -2153,6 +2324,11 @@ spec:
                           x-kubernetes-map-type: atomic
                         metadata:
                           properties:
+                            annotations:
+                              additionalProperties:
+                                type: string
+                              nullable: true
+                              type: object
                             labels:
                               additionalProperties:
                                 type: string
@@ -2621,6 +2797,33 @@ spec:
                             - name
                           type: object
                           x-kubernetes-map-type: atomic
+                        resourcePolicy:
+                          description: |-
+                            ResourcePolicy specifies the reference to a ConfigMap containing resource
+                            filter policies for this restore. The ConfigMap can contain a
+                            namespacedFilterPolicies section that specifies per-namespace resource type
+                            filters, label selectors, and resource name patterns, and a
+                            clusterScopedFilterPolicy section for per-kind filtering of cluster-scoped
+                            resources. The ConfigMap format is the same as for BackupSpec.ResourcePolicy.
+                          nullable: true
+                          properties:
+                            apiGroup:
+                              description: |-
+                                APIGroup is the group for the resource being referenced.
+                                If APIGroup is not specified, the specified Kind must be in the core API group.
+                                For any other third-party types, APIGroup is required.
+                              type: string
+                            kind:
+                              description: Kind is the type of resource being referenced
+                              type: string
+                            name:
+                              description: Name is the name of resource being referenced
+                              type: string
+                          required:
+                            - kind
+                            - name
+                          type: object
+                          x-kubernetes-map-type: atomic
                         restorePVs:
                           description: |-
                             RestorePVs specifies whether to restore all included
@@ -2654,6 +2857,14 @@ spec:
                             from. If specified, and BackupName is empty, Velero will restore
                             from the most recent successful backup created from this schedule.
                           type: string
+                        skipDefaultResourceModifier:
+                          description: |-
+                            SkipDefaultResourceModifier controls whether the server-configured default
+                            resource modifier is applied to this restore.
+                            When true, the default modifier is skipped even if configured on the server.
+                            Has no effect when a per-restore ResourceModifier is specified.
+                          nullable: true
+                          type: boolean
                         uploaderConfig:
                           description: UploaderConfig specifies the configuration for the restore.
                           nullable: true
@@ -2843,7 +3054,7 @@ spec:
                             Claims lists the names of resources, defined in spec.resourceClaims,
                             that are used by this container.
 
-                            This is an alpha field and requires enabling the
+                            This field depends on the
                             DynamicResourceAllocation feature gate.
 
                             This field is immutable. It can only be set for containers.

@@ -702,6 +702,10 @@ func (r *DataProtectionApplicationReconciler) customizeNodeAgentDaemonset(ds *ap
 				nodeAgentContainer.Args = append(nodeAgentContainer.Args, fmt.Sprintf("--log-format=%s", dpa.Spec.LogFormat))
 			}
 
+			if len(dpa.Spec.Configuration.NodeAgent.ExtraArgs) > 0 {
+				nodeAgentContainer.Args = common.MergeExtraArgs(nodeAgentContainer.Args, dpa.Spec.Configuration.NodeAgent.ExtraArgs)
+			}
+
 			// Apply unsupported server args from the specified ConfigMap.
 			// This will completely override any previously set args for the node-agent server.
 			// If the ConfigMap exists and is not empty, its key-value pairs will be used as the new CLI arguments.
