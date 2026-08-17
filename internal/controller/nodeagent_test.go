@@ -2274,6 +2274,98 @@ func TestDPAReconciler_updateNodeAgentCM(t *testing.T) {
 				}`,
 			}),
 		},
+		{
+			name: "Given DPA CR instance with only memoryLimit, all other resource quantities should be '0' on output, for memory eviction support",
+			nodeAgentConfigMap: &corev1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      common.NodeAgentConfigMapPrefix + testCmName,
+					Namespace: testCmNs,
+				},
+			},
+			dpa: &oadpv1alpha1.DataProtectionApplication{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      testCmName,
+					Namespace: testCmNs,
+				},
+				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
+					Configuration: &oadpv1alpha1.ApplicationConfig{
+						Velero: &oadpv1alpha1.VeleroConfig{
+							DefaultPlugins: []oadpv1alpha1.DefaultPlugin{
+								oadpv1alpha1.DefaultPluginAWS,
+							},
+						},
+						NodeAgent: &oadpv1alpha1.NodeAgentConfig{
+							NodeAgentCommonFields: oadpv1alpha1.NodeAgentCommonFields{},
+							NodeAgentConfigMapSettings: oadpv1alpha1.NodeAgentConfigMapSettings{
+								PodResources: &kube.PodResources{
+									MemoryLimit: "100Mi",
+								},
+							},
+						},
+					},
+				},
+			},
+			wantErr: false,
+			wantNodeAgentConfigMap: createTestBuiltNodeAgentCM(map[string]string{
+				"node-agent-config": `{
+					"podResources": {
+						"cpuRequest": "0",
+						"memoryRequest": "0",
+						"cpuLimit": "0",
+						"memoryLimit": "100Mi",
+						"ephemeralStorageRequest": "0",
+						"ephemeralStorageLimit": "0"
+					},
+					"privilegedFsBackup": true
+				}`,
+			}),
+		},
+		{
+			name: "Given DPA CR instance with only ephemeralStorageLimit, all other resource quantities should be '0' on output, for ephemeral-storage eviction support",
+			nodeAgentConfigMap: &corev1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      common.NodeAgentConfigMapPrefix + testCmName,
+					Namespace: testCmNs,
+				},
+			},
+			dpa: &oadpv1alpha1.DataProtectionApplication{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      testCmName,
+					Namespace: testCmNs,
+				},
+				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
+					Configuration: &oadpv1alpha1.ApplicationConfig{
+						Velero: &oadpv1alpha1.VeleroConfig{
+							DefaultPlugins: []oadpv1alpha1.DefaultPlugin{
+								oadpv1alpha1.DefaultPluginAWS,
+							},
+						},
+						NodeAgent: &oadpv1alpha1.NodeAgentConfig{
+							NodeAgentCommonFields: oadpv1alpha1.NodeAgentCommonFields{},
+							NodeAgentConfigMapSettings: oadpv1alpha1.NodeAgentConfigMapSettings{
+								PodResources: &kube.PodResources{
+									EphemeralStorageLimit: "250Mi",
+								},
+							},
+						},
+					},
+				},
+			},
+			wantErr: false,
+			wantNodeAgentConfigMap: createTestBuiltNodeAgentCM(map[string]string{
+				"node-agent-config": `{
+					"podResources": {
+						"cpuRequest": "0",
+						"memoryRequest": "0",
+						"cpuLimit": "0",
+						"memoryLimit": "0",
+						"ephemeralStorageRequest": "0",
+						"ephemeralStorageLimit": "250Mi"
+					},
+					"privilegedFsBackup": true
+				}`,
+			}),
+		},
 	}
 
 	for _, tt := range tests {
