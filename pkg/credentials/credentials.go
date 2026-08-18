@@ -4,13 +4,14 @@ import (
 	"context"
 	"errors"
 	"os"
-	"strings"
 
 	velerov1 "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+
+	logf "sigs.k8s.io/controller-runtime/pkg/log"
 
 	oadpv1alpha1 "github.com/openshift/oadp-operator/api/v1alpha1"
 	"github.com/openshift/oadp-operator/pkg/client"
@@ -84,24 +85,6 @@ var (
 		},
 	}
 )
-
-// Get secretName and secretKey from "secretName/secretKey"
-func GetSecretNameKeyFromCredentialsFileConfigString(credentialsFile string) (string, string, error) {
-	credentialsFile = strings.TrimSpace(credentialsFile)
-	if credentialsFile == "" {
-		return "", "", nil
-	}
-	nameKeyArray := strings.Split(credentialsFile, "/")
-	if len(nameKeyArray) != 2 {
-		return "", "", errors.New("credentials file is not supported")
-	}
-	return nameKeyArray[0], nameKeyArray[1], nil
-}
-
-func GetSecretNameFromCredentialsFileConfigString(credentialsFile string) (string, error) {
-	name, _, err := GetSecretNameKeyFromCredentialsFileConfigString(credentialsFile)
-	return name, err
-}
 
 func getAWSPluginImage(dpa *oadpv1alpha1.DataProtectionApplication) string {
 	if dpa.Spec.UnsupportedOverrides[oadpv1alpha1.AWSPluginImageKey] != "" {
@@ -259,19 +242,21 @@ func AppendCloudProviderVolumes(dpa *oadpv1alpha1.DataProtectionApplication, ds 
 	for _, bslSpec := range dpa.Spec.BackupLocations {
 		if bslSpec.Velero != nil {
 			if _, ok := bslSpec.Velero.Config["credentialsFile"]; ok {
-				if secretName, err := GetSecretNameFromCredentialsFileConfigString(bslSpec.Velero.Config["credentialsFile"]); err == nil {
-					ds.Spec.Template.Spec.Volumes = append(
-						ds.Spec.Template.Spec.Volumes,
-						corev1.Volume{
-							Name: secretName,
-							VolumeSource: corev1.VolumeSource{
-								Secret: &corev1.SecretVolumeSource{
-									SecretName: secretName,
-								},
+				logf.Log.Info("DEPRECATED: config.credentialsFile is ignored and will not be used to resolve provider credentials; use spec.credential (SecretKeySelector) instead")
+			}
+			if bslSpec.Velero.Credential != nil && len(bslSpec.Velero.Credential.Name) > 0 {
+				secretName := bslSpec.Velero.Credential.Name
+				ds.Spec.Template.Spec.Volumes = append(
+					ds.Spec.Template.Spec.Volumes,
+					corev1.Volume{
+						Name: secretName,
+						VolumeSource: corev1.VolumeSource{
+							Secret: &corev1.SecretVolumeSource{
+								SecretName: secretName,
 							},
 						},
-					)
-				}
+					},
+				)
 			}
 		}
 
@@ -284,10 +269,7 @@ func GetSecretNameAndKey(bslSpec *velerov1.BackupStorageLocationSpec, plugin oad
 	secretName := PluginSpecificFields[plugin].SecretName
 	secretKey := PluginSpecificFields[plugin].PluginSecretKey
 	if _, ok := bslSpec.Config["credentialsFile"]; ok {
-		if secretName, secretKey, err :=
-			GetSecretNameKeyFromCredentialsFileConfigString(bslSpec.Config["credentialsFile"]); err == nil {
-			return secretName, secretKey
-		}
+		logf.Log.Info("DEPRECATED: config.credentialsFile is ignored and will not be used to resolve provider credentials; use spec.credential (SecretKeySelector) instead")
 	}
 	// check if user specified the Credential Name and Key
 	credential := bslSpec.Credential

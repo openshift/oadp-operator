@@ -35,7 +35,6 @@ const (
 var validAWSKeys = map[string]bool{
 	AWSProfile:            true,
 	AWSRegion:             true,
-	CredentialsFileKey:    true,
 	EnableSharedConfigKey: true,
 }
 

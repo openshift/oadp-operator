@@ -256,16 +256,19 @@ func (r *DataProtectionApplicationReconciler) getSecretNameAndKeyFromCloudStorag
 
 // TODO: refactor and reduce duplicate secret gets in registry.go and bsl.go
 func (r *DataProtectionApplicationReconciler) getSecretNameAndKey(config map[string]string, credential *corev1.SecretKeySelector, plugin oadpv1alpha1.DefaultPlugin) (string, string, error) {
-	// Assume default values unless user has overriden them
+
+	// Fallback default values based on plugin type
 	secretName := credentials.PluginSpecificFields[plugin].SecretName
 	secretKey := credentials.PluginSpecificFields[plugin].PluginSecretKey
+
+	// Override default values if either of the following are present
+
+	// DEPRECIATED: user specified credentials are no longer accepted, upstream avoids it due to path traversal issues
+	// We also remove it to prevent drift with upstream logic
 	if _, ok := config["credentialsFile"]; ok {
-		if secretName, secretKey, err :=
-			credentials.GetSecretNameKeyFromCredentialsFileConfigString(config["credentialsFile"]); err == nil {
-			r.Log.Info(fmt.Sprintf("credentialsFile secret: %s, key: %s", secretName, secretKey))
-			return secretName, secretKey, nil
-		}
+		r.Log.Info("DEPRECATED: config.credentialsFile is ignored and will not be used to resolve provider credentials; use spec.credential (SecretKeySelector) instead", "plugin", plugin)
 	}
+
 	// check if user specified the Credential Name and Key
 	if credential != nil {
 		if len(credential.Name) > 0 {
