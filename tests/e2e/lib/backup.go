@@ -159,6 +159,18 @@ func GetDataUploadForBackup(ocClient client.Client, veleroNamespace, backupName 
 	return du.Name, du.Annotations[annotationExpectedBackupType], nil
 }
 
+// ListDataUploadsForBackup returns every DataUpload created for a kubevirt-datamover
+// backup, unlike GetDataUploadForBackup which assumes exactly one -- a multi-disk VM
+// backup creates one DataUpload per disk, all sharing the same backup-name label.
+func ListDataUploadsForBackup(ocClient client.Client, veleroNamespace, backupName string) ([]velerov2alpha1.DataUpload, error) {
+	list := velerov2alpha1.DataUploadList{}
+	err := ocClient.List(context.Background(), &list, client.InNamespace(veleroNamespace), client.MatchingLabels{velero.BackupNameLabel: backupName})
+	if err != nil {
+		return nil, fmt.Errorf("failed to list DataUploads for backup %s: %w", backupName, err)
+	}
+	return list.Items, nil
+}
+
 func GetBackup(c client.Client, namespace string, name string) (*velero.Backup, error) {
 	backup := velero.Backup{}
 	err := c.Get(context.Background(), client.ObjectKey{
