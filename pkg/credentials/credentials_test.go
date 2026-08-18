@@ -1,8 +1,12 @@
 package credentials
 
 import (
+	"reflect"
 	"testing"
 
+	velerov1 "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
+	appsv1 "k8s.io/api/apps/v1"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	oadpv1alpha1 "github.com/openshift/oadp-operator/api/v1alpha1"
@@ -478,6 +482,120 @@ func TestCredentials_getPluginImage(t *testing.T) {
 			gotImage := GetPluginImage(tt.pluginName, tt.dpa)
 			if gotImage != tt.wantImage {
 				t.Errorf("Expected plugin image %v did not match %v", tt.wantImage, gotImage)
+			}
+		})
+	}
+}
+
+func TestGetSecretNameAndKey(t *testing.T) {
+	tests := []struct {
+		name           string
+		bslSpec        *velerov1.BackupStorageLocationSpec
+		wantSecretName string
+		wantSecretKey  string
+	}{
+		{
+			name: "no credential or credentialsFile, plugin defaults are returned",
+			bslSpec: &velerov1.BackupStorageLocationSpec{
+				Provider: "aws",
+			},
+			wantSecretName: "cloud-credentials",
+			wantSecretKey:  "cloud",
+		},
+		{
+			name: "only credentialsFile set, it is ignored and plugin defaults are returned",
+			bslSpec: &velerov1.BackupStorageLocationSpec{
+				Provider: "aws",
+				Config: map[string]string{
+					"credentialsFile": "custom-secret/custom-key",
+				},
+			},
+			wantSecretName: "cloud-credentials",
+			wantSecretKey:  "cloud",
+		},
+		{
+			name: "credential set, it takes precedence over credentialsFile",
+			bslSpec: &velerov1.BackupStorageLocationSpec{
+				Provider: "aws",
+				Credential: &corev1.SecretKeySelector{
+					LocalObjectReference: corev1.LocalObjectReference{Name: "custom-secret"},
+					Key:                  "custom-key",
+				},
+				Config: map[string]string{
+					"credentialsFile": "some-other-secret/some-other-key",
+				},
+			},
+			wantSecretName: "custom-secret",
+			wantSecretKey:  "custom-key",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			gotName, gotKey := GetSecretNameAndKey(tt.bslSpec, oadpv1alpha1.DefaultPlugin(tt.bslSpec.Provider))
+			if gotName != tt.wantSecretName {
+				t.Errorf("expected secret name %v, got %v", tt.wantSecretName, gotName)
+			}
+			if gotKey != tt.wantSecretKey {
+				t.Errorf("expected secret key %v, got %v", tt.wantSecretKey, gotKey)
+			}
+		})
+	}
+}
+
+func TestAppendCloudProviderVolumes_CredentialsFile(t *testing.T) {
+	tests := []struct {
+		name            string
+		backupLocations []oadpv1alpha1.BackupLocation
+		wantVolumeNames []string
+	}{
+		{
+			name: "given spec.credential set on BSL, a volume is mounted for it",
+			backupLocations: []oadpv1alpha1.BackupLocation{
+				{
+					Velero: &velerov1.BackupStorageLocationSpec{
+						Credential: &corev1.SecretKeySelector{
+							LocalObjectReference: corev1.LocalObjectReference{Name: "custom-secret"},
+							Key:                  "cloud",
+						},
+					},
+				},
+			},
+			wantVolumeNames: []string{"custom-secret"},
+		},
+		{
+			name: "given only config.credentialsFile set on BSL, no volume is mounted for it",
+			backupLocations: []oadpv1alpha1.BackupLocation{
+				{
+					Velero: &velerov1.BackupStorageLocationSpec{
+						Config: map[string]string{
+							"credentialsFile": "some-secret/cloud",
+						},
+					},
+				},
+			},
+			wantVolumeNames: nil,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			dpa := &oadpv1alpha1.DataProtectionApplication{
+				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
+					Configuration: &oadpv1alpha1.ApplicationConfig{
+						Velero: &oadpv1alpha1.VeleroConfig{},
+					},
+					BackupLocations: tt.backupLocations,
+				},
+			}
+			ds := &appsv1.DaemonSet{}
+
+			AppendCloudProviderVolumes(dpa, ds, map[string]bool{})
+
+			var gotVolumeNames []string
+			for _, v := range ds.Spec.Template.Spec.Volumes {
+				gotVolumeNames = append(gotVolumeNames, v.Name)
+			}
+			if !reflect.DeepEqual(tt.wantVolumeNames, gotVolumeNames) {
+				t.Errorf("expected volumes %#v, got %#v", tt.wantVolumeNames, gotVolumeNames)
 			}
 		})
 	}

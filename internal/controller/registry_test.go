@@ -214,6 +214,54 @@ func TestDPAReconciler_getSecretNameAndKey(t *testing.T) {
 
 			wantProfile: "aws-provider-no-cred",
 		},
+		{
+			name: "given only config.credentialsFile, it is ignored and default secret name/key are returned",
+			bsl: &oadpv1alpha1.BackupLocation{
+				Velero: &velerov1.BackupStorageLocationSpec{
+					Provider: AWSProvider,
+					Config: map[string]string{
+						Region:            "aws-region",
+						"credentialsFile": "cloud-credentials-aws/cloud",
+					},
+				},
+			},
+			secret: &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "cloud-credentials",
+					Namespace: "test-ns",
+				},
+				Data: secretData,
+			},
+
+			wantProfile: "aws-provider-no-cred",
+		},
+		{
+			name: "given both config.credentialsFile and spec.credential, spec.credential takes precedence",
+			bsl: &oadpv1alpha1.BackupLocation{
+				Velero: &velerov1.BackupStorageLocationSpec{
+					Provider: AWSProvider,
+					Credential: &corev1.SecretKeySelector{
+						LocalObjectReference: corev1.LocalObjectReference{
+							Name: "cloud-credentials-aws",
+						},
+						Key: "cloud",
+					},
+					Config: map[string]string{
+						Region:            "aws-region",
+						"credentialsFile": "some-other-secret/some-other-key",
+					},
+				},
+			},
+			secret: &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "cloud-credentials-aws",
+					Namespace: "test-ns",
+				},
+				Data: secretData,
+			},
+
+			wantProfile: "aws-provider",
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

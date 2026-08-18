@@ -259,6 +259,40 @@ func TestDPAReconciler_ValidateVolumeSnapshotLocation(t *testing.T) {
 				Data: map[string][]byte{"cloud": []byte("dummy_data")},
 			},
 		},
+		{
+			name: "test AWS VSL with region specified and credentialsFile config key is rejected",
+			dpa: &oadpv1alpha1.DataProtectionApplication{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-Velero-VSL",
+					Namespace: "test-ns",
+				},
+				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
+					Configuration: &oadpv1alpha1.ApplicationConfig{
+						Velero: &oadpv1alpha1.VeleroConfig{},
+					},
+					SnapshotLocations: []oadpv1alpha1.SnapshotLocation{
+						{
+							Velero: &velerov1.VolumeSnapshotLocationSpec{
+								Provider: AWSProvider,
+								Config: map[string]string{
+									Region:             "us-east-1",
+									CredentialsFileKey: "/tmp/credentials/openshift-adp/cloud-credentials-credentials",
+								},
+							},
+						},
+					},
+				},
+			},
+			want:    false,
+			wantErr: true,
+			secret: &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "cloud-credentials",
+					Namespace: "test-ns",
+				},
+				Data: map[string][]byte{"cloud": []byte("dummy_data")},
+			},
+		},
 
 		// GCP tests
 		{
