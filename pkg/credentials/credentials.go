@@ -300,14 +300,16 @@ func GetSecretNameAndKey(bslSpec *velerov1.BackupStorageLocationSpec, plugin oad
 	// Assume default values unless user has overriden them
 	secretName := PluginSpecificFields[plugin].SecretName
 	secretKey := PluginSpecificFields[plugin].PluginSecretKey
-	if _, ok := bslSpec.Config["credentialsFile"]; ok {
-		if secretName, secretKey, err :=
-			GetSecretNameKeyFromCredentialsFileConfigString(bslSpec.Config["credentialsFile"]); err == nil {
-			return secretName, secretKey
+	credential := bslSpec.Credential
+	if credential == nil {
+		if credFile, ok := bslSpec.Config["credentialsFile"]; ok {
+			if cfSecretName, cfSecretKey, err := GetSecretNameKeyFromCredentialsFileConfigString(credFile); err == nil {
+				secretName = cfSecretName
+				secretKey = cfSecretKey
+			}
 		}
 	}
 	// check if user specified the Credential Name and Key
-	credential := bslSpec.Credential
 	if credential != nil {
 		if len(credential.Name) > 0 {
 			secretName = credential.Name

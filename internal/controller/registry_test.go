@@ -214,6 +214,81 @@ func TestDPAReconciler_getSecretNameAndKey(t *testing.T) {
 
 			wantProfile: "aws-provider-no-cred",
 		},
+		{
+			name: "given only credentialsFile config, it is translated to secret name and key",
+			bsl: &oadpv1alpha1.BackupLocation{
+				Velero: &velerov1.BackupStorageLocationSpec{
+					Provider: AWSProvider,
+					Config: map[string]string{
+						Region:            "aws-region",
+						"credentialsFile": "legacy-secret/legacy-key",
+					},
+				},
+			},
+			secret: &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "legacy-secret",
+					Namespace: "test-ns",
+				},
+				Data: secretData,
+			},
+			wantSecretName: "legacy-secret",
+			wantSecretKey:  "legacy-key",
+		},
+		{
+			name: "given both credentialsFile config and spec.credential, spec.credential wins",
+			bsl: &oadpv1alpha1.BackupLocation{
+				Velero: &velerov1.BackupStorageLocationSpec{
+					Provider: AWSProvider,
+					Credential: &corev1.SecretKeySelector{
+						LocalObjectReference: corev1.LocalObjectReference{
+							Name: "cloud-credentials-aws",
+						},
+						Key: "cloud",
+					},
+					Config: map[string]string{
+						Region:            "aws-region",
+						"credentialsFile": "legacy-secret/legacy-key",
+					},
+				},
+			},
+			secret: &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "cloud-credentials-aws",
+					Namespace: "test-ns",
+				},
+				Data: secretData,
+			},
+			wantSecretName: "cloud-credentials-aws",
+			wantSecretKey:  "cloud",
+		},
+		{
+			name: "given mismatched credentialsFile and spec.credential, spec.credential wins and mismatch is logged",
+			bsl: &oadpv1alpha1.BackupLocation{
+				Velero: &velerov1.BackupStorageLocationSpec{
+					Provider: AWSProvider,
+					Credential: &corev1.SecretKeySelector{
+						LocalObjectReference: corev1.LocalObjectReference{
+							Name: "cloud-credentials-aws",
+						},
+						Key: "cloud",
+					},
+					Config: map[string]string{
+						Region:            "aws-region",
+						"credentialsFile": "different-secret/different-key",
+					},
+				},
+			},
+			secret: &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "cloud-credentials-aws",
+					Namespace: "test-ns",
+				},
+				Data: secretData,
+			},
+			wantSecretName: "cloud-credentials-aws",
+			wantSecretKey:  "cloud",
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

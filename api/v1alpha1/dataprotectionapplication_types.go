@@ -43,6 +43,10 @@ const (
 	ConditionKubevirtDatamoverReady = "KubevirtDatamoverReady"
 )
 
+// ConditionCredentialsFileDeprecated warns when a BackupLocation or SnapshotLocation
+// uses the deprecated config.credentialsFile instead of spec.credential.
+const ConditionCredentialsFileDeprecated = "CredentialsFileDeprecated"
+
 // Readiness condition reasons
 const (
 	ReasonDeploymentReady    = "DeploymentReady"
