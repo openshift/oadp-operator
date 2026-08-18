@@ -182,6 +182,10 @@ func (r *DataProtectionApplicationReconciler) updateNodeAgentCM(cm *corev1.Confi
 		}
 	}
 
+	// If PodResources is set all fields must be filled for the Velero parser or it will be rejected.
+	// Fill unused fields with "0" as "" will cause parser rejection.
+	configWithPrivileged.PodResources = newPodResourcesWithUnboundedDefaults(configWithPrivileged.PodResources)
+
 	// Convert NodeAgentConfigMapSettings to a generic map
 	configNodeAgentJSON, err := json.Marshal(configWithPrivileged)
 	if err != nil {

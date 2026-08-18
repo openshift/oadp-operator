@@ -3,9 +3,11 @@ package controller
 import (
 	"context"
 	"encoding/json"
+	"reflect"
 	"testing"
 
 	"github.com/go-logr/logr"
+	"github.com/google/go-cmp/cmp"
 	"github.com/stretchr/testify/require"
 	"github.com/vmware-tanzu/velero/pkg/util/kube"
 	corev1 "k8s.io/api/core/v1"
@@ -84,7 +86,7 @@ func TestDataProtectionApplicationReconciler_updateRepositoryMaintenanceCM(t *te
 					},
 				},
 				Data: map[string]string{
-					"global":            `{"loadAffinity":[{"nodeSelector":{"matchLabels":{"app.kubernetes.io/name":"test-dpa"}}}],"podResources":{"cpuRequest":"100m","memoryRequest":"128Mi","cpuLimit":"200m","memoryLimit":"256Mi"}}`,
+					"global":            `{"loadAffinity":[{"nodeSelector":{"matchLabels":{"app.kubernetes.io/name":"test-dpa"}}}],"podResources":{"cpuRequest":"100m","memoryRequest":"128Mi","cpuLimit":"200m","memoryLimit":"256Mi","ephemeralStorageRequest":"0","ephemeralStorageLimit":"0"}}`,
 					"maintenance-job-1": `{"loadAffinity":[{"nodeSelector":{"matchLabels":{"app.kubernetes.io/name":"test-dpa"}}}]}`,
 				},
 			},
@@ -192,7 +194,7 @@ func TestDataProtectionApplicationReconciler_updateRepositoryMaintenanceCM(t *te
 					},
 				},
 				Data: map[string]string{
-					"global": `{"podResources":{"cpuRequest":"100m","memoryRequest":"128Mi"},"podAnnotations":{"sidecar.istio.io/inject":"false"},"podLabels":{"network-access":"allowed"}}`,
+					"global": `{"podResources":{"cpuRequest":"100m","memoryRequest":"128Mi","cpuLimit":"0","memoryLimit":"0","ephemeralStorageRequest":"0","ephemeralStorageLimit":"0"},"podAnnotations":{"sidecar.istio.io/inject":"false"},"podLabels":{"network-access":"allowed"}}`,
 				},
 			},
 		},
@@ -204,6 +206,14 @@ func TestDataProtectionApplicationReconciler_updateRepositoryMaintenanceCM(t *te
 			if err != nil {
 				t.Errorf("error in creating fake client, likely programmer error")
 			}
+
+			var dpaSpecBeforeTest = oadpv1alpha1.DataProtectionApplicationSpec{}
+			if tt.dpa != nil {
+				// Snapshot the DPA Spec before calling updateRepositoryMaintenanceCM,
+				// Required to test the DPA is unchanged.
+				dpaSpecBeforeTest = *tt.dpa.Spec.DeepCopy()
+			}
+
 			r := &DataProtectionApplicationReconciler{
 				Client:  fakeClient,
 				Scheme:  fakeClient.Scheme(),
@@ -236,6 +246,14 @@ func TestDataProtectionApplicationReconciler_updateRepositoryMaintenanceCM(t *te
 				require.NoError(t, json.Unmarshal([]byte(expectedData), &expectedMap), "Failed to unmarshal expected Data for key %s", key)
 				require.NoError(t, json.Unmarshal([]byte(actualData), &actualMap), "Failed to unmarshal actual Data for key %s", key)
 				require.Equal(t, expectedMap, actualMap, "ConfigMap Data does not match for key %s", key)
+			}
+
+			// Require that updateRepositoryMaintenanceCM did not mutate the DPA Spec.
+			// PodResource output will not match the original object if not all fields are set.
+			if tt.dpa != nil {
+				require.Truef(t, reflect.DeepEqual(tt.dpa.Spec, dpaSpecBeforeTest),
+					"updateRepositoryMaintenanceCM must not modify the DPA Spec: diff=%s",
+					cmp.Diff(dpaSpecBeforeTest, tt.dpa.Spec))
 			}
 		})
 	}
