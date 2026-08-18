@@ -45,13 +45,14 @@ import (
 // DataProtectionApplicationReconciler reconciles a DataProtectionApplication object
 type DataProtectionApplicationReconciler struct {
 	client.Client
-	Scheme            *runtime.Scheme
-	Log               logr.Logger
-	Context           context.Context
-	NamespacedName    types.NamespacedName
-	EventRecorder     record.EventRecorder
-	dpa               *oadpv1alpha1.DataProtectionApplication
-	ClusterWideClient client.Client
+	Scheme                      *runtime.Scheme
+	Log                         logr.Logger
+	Context                     context.Context
+	NamespacedName              types.NamespacedName
+	EventRecorder               record.EventRecorder
+	dpa                         *oadpv1alpha1.DataProtectionApplication
+	ClusterWideClient           client.Client
+	credentialsFileUsageDetected bool
 }
 
 var debugMode = os.Getenv("DEBUG") == "true"
@@ -83,6 +84,7 @@ func (r *DataProtectionApplicationReconciler) Reconcile(ctx context.Context, req
 	r.Context = ctx
 	r.NamespacedName = req.NamespacedName
 	r.dpa = &oadpv1alpha1.DataProtectionApplication{}
+	r.credentialsFileUsageDetected = false
 
 	if err := r.Get(ctx, req.NamespacedName, r.dpa); err != nil {
 		logger.Error(err, "unable to fetch DataProtectionApplication CR")
@@ -132,6 +134,19 @@ func (r *DataProtectionApplicationReconciler) Reconcile(ctx context.Context, req
 			},
 		)
 	}
+
+	// Set warning condition if credentialsFile was used
+	if r.credentialsFileUsageDetected {
+		apimeta.SetStatusCondition(&r.dpa.Status.Conditions,
+			metav1.Condition{
+				Type:    oadpv1alpha1.ConditionReconciled,
+				Status:  metav1.ConditionTrue,
+				Reason:  "CredentialsFileDeprecated",
+				Message: "credentialsFile is deprecated and will be removed in a future release. Please migrate to spec.credential configuration.",
+			},
+		)
+	}
+
 	statusErr := r.Client.Status().Update(ctx, r.dpa)
 	if err == nil { // Don't mask previous error
 		err = statusErr
@@ -224,4 +239,9 @@ func ReconcileBatch(l logr.Logger, reconcileFuncs ...ReconcileFunc) (bool, error
 		}
 	}
 	return true, nil
+}
+
+// recordCredentialsFileUsage marks that credentialsFile was detected and translated
+func (r *DataProtectionApplicationReconciler) recordCredentialsFileUsage() {
+	r.credentialsFileUsageDetected = true
 }

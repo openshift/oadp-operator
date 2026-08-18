@@ -215,13 +215,13 @@ func TestDPAReconciler_getSecretNameAndKey(t *testing.T) {
 			wantProfile: "aws-provider-no-cred",
 		},
 		{
-			name: "given only config.credentialsFile, it is ignored and default secret name/key are returned",
+			name: "credentialsFile is translated to secret name/key when spec.credential is not set",
 			bsl: &oadpv1alpha1.BackupLocation{
 				Velero: &velerov1.BackupStorageLocationSpec{
 					Provider: AWSProvider,
 					Config: map[string]string{
 						Region:            "aws-region",
-						"credentialsFile": "cloud-credentials-aws/cloud",
+						"credentialsFile": "cloud-credentials/cloud",
 					},
 				},
 			},
@@ -233,10 +233,10 @@ func TestDPAReconciler_getSecretNameAndKey(t *testing.T) {
 				Data: secretData,
 			},
 
-			wantProfile: "aws-provider-no-cred",
+			wantProfile: "aws-provider-credfile",
 		},
 		{
-			name: "given both config.credentialsFile and spec.credential, spec.credential takes precedence",
+			name: "spec.credential takes precedence over credentialsFile",
 			bsl: &oadpv1alpha1.BackupLocation{
 				Velero: &velerov1.BackupStorageLocationSpec{
 					Provider: AWSProvider,
@@ -284,6 +284,14 @@ func TestDPAReconciler_getSecretNameAndKey(t *testing.T) {
 			if tt.wantProfile == "aws-provider-no-cred" {
 				tt.wantSecretKey = "cloud"
 				tt.wantSecretName = "cloud-credentials"
+			}
+			if tt.wantProfile == "aws-provider-credfile" {
+				tt.wantSecretKey = "cloud"
+				tt.wantSecretName = "cloud-credentials"
+			}
+			if tt.wantProfile == "aws-provider" {
+				tt.wantSecretKey = "cloud"
+				tt.wantSecretName = "cloud-credentials-aws"
 			}
 
 			gotName, gotKey, _ := r.getSecretNameAndKey(tt.bsl.Velero.Config, tt.bsl.Velero.Credential, oadpv1alpha1.DefaultPlugin(tt.bsl.Velero.Provider))

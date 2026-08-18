@@ -264,12 +264,22 @@ func (r *DataProtectionApplicationReconciler) getSecretNameAndKey(config map[str
 	// Override default values if either of the following are present
 
 	// DEPRECIATED: user specified credentials are no longer accepted, upstream avoids it due to path traversal issues
-	// We also remove it to prevent drift with upstream logic
-	if _, ok := config["credentialsFile"]; ok {
-		r.Log.Info("DEPRECATED: config.credentialsFile is ignored and will not be used to resolve provider credentials; use spec.credential (SecretKeySelector) instead", "plugin", plugin)
+	// Translate credentialsFile to spec.credential if spec.credential is not set
+	if credFile, ok := config["credentialsFile"]; ok && credFile != "" {
+		if credential == nil || credential.Name == "" {
+			// credentialsFile is set and spec.credential is not, translate it
+			if cfSecretName, cfSecretKey, err := credentials.GetSecretNameKeyFromCredentialsFileConfigString(credFile); err == nil {
+				secretName = cfSecretName
+				secretKey = cfSecretKey
+				r.Log.Info(fmt.Sprintf("translated credentialsFile to secret: %s, key: %s", secretName, secretKey))
+				// mark that credentialsFile was used for translation
+				r.recordCredentialsFileUsage()
+				return secretName, secretKey, r.verifySecretContent(secretName, secretKey)
+			}
+		}
 	}
 
-	// check if user specified the Credential Name and Key
+	// spec.credential takes precedence over credentialsFile
 	if credential != nil {
 		if len(credential.Name) > 0 {
 			secretName = credential.Name
@@ -280,6 +290,10 @@ func (r *DataProtectionApplicationReconciler) getSecretNameAndKey(config map[str
 			secretKey = credential.Key
 		} else {
 			return "", "", fmt.Errorf("secret key specified for location cannot be empty")
+		}
+		// Record that credentialsFile was present even though spec.credential is being used
+		if credFile, ok := config["credentialsFile"]; ok && credFile != "" {
+			r.recordCredentialsFileUsage()
 		}
 	}
 
