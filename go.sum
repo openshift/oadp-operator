@@ -700,8 +700,8 @@ github.com/openshift/api v0.0.0-20240524162738-d899f8877d22 h1:AW8KUN4k7qR2egrCC
 github.com/openshift/api v0.0.0-20240524162738-d899f8877d22/go.mod h1:7Hm1kLJGxWT6eysOpD2zUztdn+w91eiERn6KtI5o9aw=
 github.com/openshift/hypershift/api v0.0.0-20241128081537-8326d865eaf5 h1:z8AkPjlJ/CPqED/EPtlgQKYEt8+Edc30ZR8eQWOEigA=
 github.com/openshift/hypershift/api v0.0.0-20241128081537-8326d865eaf5/go.mod h1:3UlUlywmXBCEMF3GACTvMAOvv2lU5qzUDvTYFXeGbKU=
-github.com/openshift/velero v0.10.2-0.20260727171802-afb201fb788d h1:+F7Wy6LqWNIr6AUM0csPrwO+0TG/2wfrGv2bBxkqTlU=
-github.com/openshift/velero v0.10.2-0.20260727171802-afb201fb788d/go.mod h1:QeXucIcbXAlE0+eJNGZT0TDlYdvxKTMpQ+wx4EC4LUk=
+github.com/openshift/velero v0.10.2-0.20260731193937-7c457d695c37 h1:qMRADC8LP+8eCM+uArOLe2/VZV+Ew6dWWkN6A+K3JtA=
+github.com/openshift/velero v0.10.2-0.20260731193937-7c457d695c37/go.mod h1:QeXucIcbXAlE0+eJNGZT0TDlYdvxKTMpQ+wx4EC4LUk=
 github.com/opentracing/opentracing-go v1.1.0/go.mod h1:UkNAQd3GIcIGf0SeVgPpRdFStlNbqXla1AfSYxPUl2o=
 github.com/operator-framework/api v0.10.0/go.mod h1:tV0BUNvly7szq28ZPBXhjp1Sqg5yHCOeX19ui9K4vjI=
 github.com/operator-framework/api v0.10.7 h1:GlZJ6m+0WSVdSsSjTbhKKAvHXamWJXhwXHUhVwL8LBE=
