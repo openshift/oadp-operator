@@ -6,10 +6,8 @@ import (
 	"os"
 	"strings"
 
-	velerov1 "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 
 	oadpv1alpha1 "github.com/openshift/oadp-operator/api/v1alpha1"
@@ -295,63 +293,6 @@ func AppendCloudProviderVolumes(dpa *oadpv1alpha1.DataProtectionApplication, ds 
 	}
 }
 
-// TODO: remove duplicate func in registry.go - refactoring away registry.go later
-func GetSecretNameAndKey(bslSpec *velerov1.BackupStorageLocationSpec, plugin oadpv1alpha1.DefaultPlugin) (string, string) {
-	// Assume default values unless user has overriden them
-	secretName := PluginSpecificFields[plugin].SecretName
-	secretKey := PluginSpecificFields[plugin].PluginSecretKey
-	credential := bslSpec.Credential
-	if credential == nil {
-		if credFile, ok := bslSpec.Config["credentialsFile"]; ok {
-			if cfSecretName, cfSecretKey, err := GetSecretNameKeyFromCredentialsFileConfigString(credFile); err == nil {
-				secretName = cfSecretName
-				secretKey = cfSecretKey
-			}
-		}
-	}
-	// check if user specified the Credential Name and Key
-	if credential != nil {
-		if len(credential.Name) > 0 {
-			secretName = credential.Name
-		}
-		if len(credential.Key) > 0 {
-			secretKey = credential.Key
-		}
-	}
-
-	return secretName, secretKey
-}
-
-// TODO: remove duplicate func in registry.go - refactoring away registry.go later
-// Get for a given backup location
-// - secret name
-// - key
-// - bsl config
-// - provider
-// - error
-func GetSecretNameKeyConfigProviderForBackupLocation(blspec oadpv1alpha1.BackupLocation, namespace string) (string, string, string, map[string]string, error) {
-	if blspec.Velero != nil {
-		name, key := GetSecretNameAndKey(blspec.Velero, oadpv1alpha1.DefaultPlugin(blspec.Velero.Provider))
-		return name, key, blspec.Velero.Provider, blspec.Velero.Config, nil
-	}
-	if blspec.CloudStorage != nil {
-		if blspec.CloudStorage.Credential != nil {
-			// Get CloudStorageRef provider
-			cs := oadpv1alpha1.CloudStorage{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      blspec.CloudStorage.CloudStorageRef.Name,
-					Namespace: namespace,
-				},
-			}
-			err := client.GetClient().Get(context.Background(), types.NamespacedName{Namespace: namespace, Name: blspec.CloudStorage.CloudStorageRef.Name}, &cs)
-			if err != nil {
-				return "", "", "", nil, err
-			}
-			return blspec.CloudStorage.Credential.Name, blspec.CloudStorage.Credential.Key, string(cs.Spec.Provider), blspec.CloudStorage.Config, nil
-		}
-	}
-	return "", "", "", nil, nil
-}
 
 func GetDecodedSecret(secretName, secretKey, namespace string) (s string, err error) {
 	bytes, err := GetDecodedSecretAsByte(secretName, secretKey, namespace)
