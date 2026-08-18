@@ -6,6 +6,7 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"os"
 	"strings"
 	"time"
 
@@ -14,9 +15,11 @@ import (
 	"github.com/onsi/gomega"
 	velero "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
 	velerov2alpha1 "github.com/vmware-tanzu/velero/pkg/apis/velero/v2alpha1"
+	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/openshift/oadp-operator/api/v1alpha1"
@@ -215,6 +218,29 @@ func runVmBackupAndRestore(brCase VmBackupRestoreCase, updateLastBRcase func(brC
 	gomega.Expect(err).To(gomega.BeNil())
 }
 
+// waitForKubevirtDatamoverControllerRollout waits for the kubevirt-datamover-controller
+// deployment to finish rolling out after a DPA config change (image override or a flag
+// value baked into its args, e.g. --max-concurrent-data-movers) that only takes effect
+// once the deployment's pods are recreated.
+func waitForKubevirtDatamoverControllerRollout(cl client.Client, timeout time.Duration) {
+	gomega.Eventually(func() bool {
+		deployment := &appsv1.Deployment{}
+		if err := cl.Get(context.Background(), client.ObjectKey{
+			Namespace: namespace,
+			Name:      "oadp-kubevirt-datamover-controller-manager",
+		}, deployment); err != nil {
+			return false
+		}
+		if deployment.Spec.Replicas == nil {
+			return false
+		}
+		return deployment.Generation == deployment.Status.ObservedGeneration &&
+			deployment.Status.UpdatedReplicas == *deployment.Spec.Replicas &&
+			deployment.Status.ReadyReplicas == *deployment.Spec.Replicas &&
+			deployment.Status.Replicas == *deployment.Spec.Replicas
+	}, timeout, time.Second*5).Should(gomega.BeTrue(), "kubevirt-datamover-controller deployment did not roll out in time")
+}
+
 // runKubevirtDMBackup creates a kubevirt-datamover backup of vmNamespace's VM(s), waits
 // for it to complete successfully, and returns the resulting DataUpload's name and its
 // controller-recorded expected-backup-type annotation. Shared between the
@@ -227,17 +253,14 @@ func runVmBackupAndRestore(brCase VmBackupRestoreCase, updateLastBRcase func(brC
 // virt-controller deletes it once its checkpoint is absorbed into the
 // VirtualMachineBackupTracker, which can happen well before the overall backup finishes
 // uploading data to the BSL -- checking VirtualMachineBackup status after waiting for full
-// completion (as this function used to) can race against that cleanup and find nothing.
+// completion can race against that cleanup and find nothing.
 func runKubevirtDMBackup(v *lib.VirtOperator, vmNamespace, backupName string, onDataUploadFound func(dataUploadName, expectedBackupType string)) {
 	err := lib.EnsureKubevirtVolumePolicy(dpaCR.Client, namespace)
 	gomega.Expect(err).ToNot(gomega.HaveOccurred(), "failed to ensure kubevirt volume policy")
 
 	// Verify that the kubevirt-datamover controller creates a VirtualMachineBackupTracker
 	// in the VM namespace during the backup, confirming VEP-25 incremental backup is
-	// active -- every caller of this function gets this check for free (formerly only
-	// checked by the now-removed runCBTVmBackup/"backup with CBT" DescribeTable, whose
-	// coverage would otherwise have silently disappeared when that table was dropped as
-	// redundant with the restore tests below).
+	// active -- every caller of this function gets this check for free.
 	vmbtSeen := false
 	vmbtCheckDone := make(chan struct{})
 	go func() {
@@ -547,12 +570,11 @@ var _ = ginkgo.Describe("VM backup and restore tests", ginkgo.Ordered, func() {
 		}, nil),
 	)
 
-	// The Fedora CBT case that used to live in a "backup with CBT" DescribeTable
-	// here (backup-only, no restore) moved to a full backup+restore It in the
-	// "Kubevirt datamover restore from a CBT backup" Describe block below --
-	// a backup-only check duplicated no coverage a restore test doesn't already
-	// provide as its own first step, same reasoning that removed the CirrOS
-	// backup-only entry earlier. See that block's Fedora It for the useEmulation
+	// Fedora CBT coverage lives in the "Kubevirt datamover restore from a CBT backup"
+	// Describe block below as a full backup+restore It, not a backup-only case here:
+	// a backup-only check duplicates no coverage a restore test doesn't already
+	// provide as its own first step (same reasoning applies to CirrOS, which has no
+	// backup-only entry either). See that block's Fedora It for the useEmulation
 	// gating and why it's structural-only (no guest-exec data-integrity check --
 	// Fedora's qemu-ga blacklists guest-exec by default).
 
@@ -975,6 +997,170 @@ var _ = ginkgo.Describe("VM backup and restore tests", ginkgo.Ordered, func() {
 		})
 	})
 
+	// TEMPORARY: this Describe block requires a kubevirt-datamover-controller image built
+	// from migtools/kubevirt-datamover-controller#186+#187 (the DD/DU concurrency limiter),
+	// which is not yet merged upstream. Both the image override and the MaxConcurrentDataMovers
+	// DPA field are exercised here via a KubeVirtDatamoverControllerImageKey UnsupportedOverride
+	// pointing at a combined build of those two PRs -- remove the override (and drop
+	// TEST_KDM_CONCURRENCY_IMAGE) once #186/#187 merge and a release image carries the flag.
+	ginkgo.Describe("Kubevirt datamover max-concurrent-data-movers limiter", ginkgo.Ordered, ginkgo.Label("virt", "kdm"), func() {
+		// kubevirt-datamover creates exactly one DataUpload per VM backup (VM-level, not
+		// per-disk -- a multi-disk VM's whole backup is still a single DataUpload), so
+		// observing the limiter in action needs two VMs backed up concurrently, not one
+		// multi-disk VM. Namespace/VM names below must match what's baked into each
+		// template's YAML -- InstallApplication applies it verbatim, it doesn't
+		// parameterize on these consts.
+		type concurrencyVM struct {
+			namespace string
+			name      string
+			template  string
+		}
+		vms := []concurrencyVM{
+			{
+				namespace: "cirros-concurrency-a",
+				name:      "cirros-concurrency-a",
+				template:  "./sample-applications/virtual-machines/cirros-test/cirros-test-concurrency-a.yaml",
+			},
+			{
+				namespace: "cirros-concurrency-b",
+				name:      "cirros-concurrency-b",
+				template:  "./sample-applications/virtual-machines/cirros-test/cirros-test-concurrency-b.yaml",
+			},
+		}
+		const concurrencyBackup = "cirros-concurrency-backup"
+
+		// originalDpaSpec is the DPA spec that existed before this block's BeforeAll ran,
+		// so AfterAll can restore it -- or nil if no DPA existed yet (e.g. this spec run
+		// in isolation via --focus, without an earlier Describe block in this suite
+		// having already created one), in which case AfterAll leaves the DPA this block
+		// itself created for the suite's own AfterSuite to tear down.
+		var originalDpaSpec *v1alpha1.DataProtectionApplicationSpec
+		var setupRan bool
+
+		ginkgo.BeforeAll(func() {
+			overrideImage := os.Getenv("TEST_KDM_CONCURRENCY_IMAGE")
+			if overrideImage == "" {
+				ginkgo.Skip("TEST_KDM_CONCURRENCY_IMAGE not set -- skipping until a kubevirt-datamover-controller#186+#187 image is available")
+			}
+			setupRan = true
+
+			newSpec := dpaCR.Build(lib.CSIDataMover)
+			if dpa, err := dpaCR.Get(); err == nil {
+				originalDpaSpec = dpa.Spec.DeepCopy()
+				newSpec = dpa.Spec.DeepCopy()
+			}
+			if newSpec.Configuration.KubevirtDatamover == nil {
+				newSpec.Configuration.KubevirtDatamover = &v1alpha1.KubevirtDatamoverConfig{}
+			}
+			newSpec.Configuration.KubevirtDatamover.MaxConcurrentDataMovers = ptr.To(int32(1))
+			if newSpec.UnsupportedOverrides == nil {
+				newSpec.UnsupportedOverrides = map[v1alpha1.UnsupportedImageKey]string{}
+			}
+			newSpec.UnsupportedOverrides[v1alpha1.KubeVirtDatamoverControllerImageKey] = overrideImage
+			gomega.Expect(dpaCR.CreateOrUpdate(newSpec)).To(gomega.Succeed())
+			gomega.Eventually(dpaCR.IsReconciledTrue(), time.Minute*3, time.Second*5).Should(gomega.BeTrue())
+			waitForKubevirtDatamoverControllerRollout(dpaCR.Client, 5*time.Minute)
+
+			for _, vm := range vms {
+				_ = v.RemoveVm(vm.namespace, vm.name, 2*time.Minute)
+				err = lib.DeleteNamespace(v.Clientset, vm.namespace)
+				gomega.Expect(err).To(gomega.BeNil())
+				gomega.Eventually(v.IsNamespaceDeletedClearingStuckVMBFinalizers(kubernetesClientForSuiteRun, vm.namespace), time.Minute*2, time.Second*5).Should(gomega.BeTrue())
+				err = lib.CreateNamespace(v.Clientset, vm.namespace)
+				gomega.Expect(err).To(gomega.BeNil())
+				err = lib.InstallApplication(v.Client, vm.template)
+				gomega.Expect(err).To(gomega.BeNil())
+			}
+			for _, vm := range vms {
+				err = wait.PollUntilContextTimeout(context.Background(), 10*time.Second, 15*time.Minute, true, func(ctx context.Context) (bool, error) {
+					status, statusErr := v.GetVmStatus(vm.namespace, vm.name)
+					if statusErr != nil {
+						return false, nil
+					}
+					return status == "Running", nil
+				})
+				gomega.Expect(err).ToNot(gomega.HaveOccurred())
+				err = v.WaitForVMReady(vm.namespace, vm.name, 5*time.Minute)
+				gomega.Expect(err).ToNot(gomega.HaveOccurred())
+			}
+		})
+
+		ginkgo.AfterAll(func() {
+			if !setupRan {
+				return // BeforeAll skipped -- nothing to tear down
+			}
+			if err := lib.DeleteVeleroBackupAndRestore(dpaCR.Client, kubernetesClientForSuiteRun, kubeConfig, namespace, concurrencyBackup, ""); err != nil {
+				log.Printf("failed to delete backup %s during teardown: %v", concurrencyBackup, err)
+			}
+			for _, vm := range vms {
+				_ = v.RemoveVm(vm.namespace, vm.name, 5*time.Minute)
+				_ = lib.DeleteNamespace(v.Clientset, vm.namespace)
+			}
+
+			if originalDpaSpec == nil {
+				return // no DPA existed before this block's BeforeAll -- leave ours for AfterSuite to clean up
+			}
+			gomega.Expect(dpaCR.CreateOrUpdate(originalDpaSpec)).To(gomega.Succeed())
+			waitForKubevirtDatamoverControllerRollout(dpaCR.Client, 5*time.Minute)
+		})
+
+		ginkgo.It("limits concurrent active DataUploads across two VM backups to the configured max", func() {
+			err := lib.EnsureKubevirtVolumePolicy(dpaCR.Client, namespace)
+			gomega.Expect(err).ToNot(gomega.HaveOccurred(), "failed to ensure kubevirt volume policy")
+			includedNamespaces := make([]string, len(vms))
+			for i, vm := range vms {
+				includedNamespaces[i] = vm.namespace
+			}
+			err = lib.CreateBackupWithVolumePolicy(dpaCR.Client, namespace, concurrencyBackup, includedNamespaces, true)
+			gomega.Expect(err).ToNot(gomega.HaveOccurred())
+
+			// One Backup spanning both VMs' namespaces produces one DataUpload per VM
+			// (kubevirt-datamover backs up at VM granularity, not per-disk). Accepted and
+			// Prepared are pre-gate phases every DU passes through regardless of the
+			// limit -- countOtherActiveDataUploads counts them as "active" only so a DU
+			// already occupying a resource window blocks a THIRD DU's pod from starting,
+			// not because two DUs can't both sit in Accepted/Prepared at once. The actual
+			// resource the limiter protects is the running datamover pod itself, i.e.
+			// InProgress: that phase is what must never exceed the configured max at
+			// once -- sampled while the backup is still running, since both DUs
+			// finishing near-simultaneously on these small CirrOS disks would otherwise
+			// make the limiter's effect unobservable after the fact.
+			maxInProgressObserved := 0
+			gomega.Eventually(func() (velero.BackupPhase, error) {
+				backup, err := lib.GetBackup(dpaCR.Client, namespace, concurrencyBackup)
+				if err != nil {
+					return "", err
+				}
+				dus, err := lib.ListDataUploadsForBackup(dpaCR.Client, namespace, concurrencyBackup)
+				if err != nil {
+					return "", err
+				}
+				inProgress := 0
+				for _, du := range dus {
+					if du.Status.Phase == velerov2alpha1.DataUploadPhaseInProgress {
+						inProgress++
+					}
+				}
+				if inProgress > maxInProgressObserved {
+					maxInProgressObserved = inProgress
+				}
+				gomega.Expect(inProgress).To(gomega.BeNumerically("<=", 1),
+					"more than the configured max-concurrent-data-movers=1 DataUploads had a running datamover pod at once: %d", inProgress)
+				return backup.Status.Phase, nil
+			}, 20*time.Minute, time.Second*5).Should(gomega.Equal(velero.BackupPhaseCompleted))
+
+			dus, err := lib.ListDataUploadsForBackup(dpaCR.Client, namespace, concurrencyBackup)
+			gomega.Expect(err).ToNot(gomega.HaveOccurred())
+			gomega.Expect(dus).To(gomega.HaveLen(len(vms)), "expected one DataUpload per VM")
+			for _, du := range dus {
+				gomega.Expect(du.Status.Phase).To(gomega.Equal(velerov2alpha1.DataUploadPhaseCompleted),
+					"DataUpload %s did not complete", du.Name)
+			}
+			gomega.Expect(maxInProgressObserved).To(gomega.BeNumerically(">", 0),
+				"never observed an InProgress DataUpload -- the sampling window likely missed the whole backup")
+		})
+	})
+
 	// Promotes the former "restore from an incremental (not full) kubevirt-datamover
 	// CBT backup" PIt to a live It, now that phase 5 of
 	// https://github.com/migtools/kubevirt-datamover-controller/issues/73 has a real
@@ -1391,11 +1577,11 @@ var _ = ginkgo.Describe("VM backup and restore tests", ginkgo.Ordered, func() {
 				ginkgo.By("verifying both payloads independently, each gated on its own bracket-stability")
 				// Bracketed the same way the full-backup It's payload check is: only
 				// trust these reads if the restored VM was still Halted immediately
-				// before AND after both of them -- confirmed live (this session's own
-				// full-backup validation run) that the sibling-completion hold can
-				// release fast enough for the VM to already be Running by the time this
-				// check runs, which would make a mismatch here meaningless (comparing
-				// against a disk the booted guest may have already written to).
+				// before AND after both of them -- confirmed live against a real cluster
+				// that the sibling-completion hold can release fast enough for the VM
+				// to already be Running by the time this check runs, which would make a
+				// mismatch here meaningless (comparing against a disk the booted guest
+				// may have already written to).
 				prePayloadStatus, preStatusErr := v.GetVmStatus(alpineNamespace, alpineVMName)
 				vmStillHalted := preStatusErr == nil && prePayloadStatus != "Running"
 				var restoredA, restoredB string
