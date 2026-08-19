@@ -417,7 +417,7 @@ func (r *DPAReconciler) customizeNodeAgentDaemonset(dpa *oadpv1alpha1.DataProtec
 			nodeAgentContainer.ImagePullPolicy = imagePullPolicy
 			setContainerDefaults(nodeAgentContainer)
 
-			if len(dpa.Spec.Configuration.NodeAgent.ExtraArgs) > 0 {
+			if !useResticConf && len(dpa.Spec.Configuration.NodeAgent.ExtraArgs) > 0 {
 				nodeAgentContainer.Args = common.MergeExtraArgs(nodeAgentContainer.Args, dpa.Spec.Configuration.NodeAgent.ExtraArgs)
 			}
 
