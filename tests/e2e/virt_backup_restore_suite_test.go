@@ -991,16 +991,9 @@ var _ = ginkgo.Describe("VM backup and restore tests", ginkgo.Ordered, func() {
 		})
 	})
 
-	// TEMPORARY: this Describe block requires a kubevirt-datamover-controller image built
-	// from migtools/kubevirt-datamover-controller#186+#187 (the DD/DU concurrency limiter),
-	// which is not yet merged upstream. Both the image override and the MaxConcurrentDataMovers
-	// DPA field are exercised here via a KubeVirtDatamoverControllerImageKey UnsupportedOverride
-	// pointing at a combined build of those two PRs, hardcoded below (kdmConcurrencyImage)
-	// rather than env-var-gated: an env var Prow never sets means this spec always skips in
-	// CI and produces no real signal. REVERT ONCE GREEN IN PROW: once this has run and
-	// passed in Prow (proving the combined image + this spec work end-to-end), and again
-	// once #186/#187 actually merge upstream, drop kdmConcurrencyImage and the override
-	// logic below, leaving the deployment on its normal default/RELATED_IMAGE_* image.
+	// Exercises the MaxConcurrentDataMovers DPA field against the default
+	// kubevirt-datamover-controller image, which carries the DD/DU concurrency limiter
+	// (migtools/kubevirt-datamover-controller#186 and #187) as of their merge.
 	ginkgo.Describe("Kubevirt datamover max-concurrent-data-movers limiter", ginkgo.Ordered, ginkgo.Label("virt", "kdm"), func() {
 		// kubevirt-datamover creates exactly one DataUpload per VM backup (VM-level, not
 		// per-disk -- a multi-disk VM's whole backup is still a single DataUpload), so
@@ -1026,8 +1019,6 @@ var _ = ginkgo.Describe("VM backup and restore tests", ginkgo.Ordered, func() {
 			},
 		}
 		const concurrencyBackup = "cirros-concurrency-backup"
-		// TEMPORARY: see REVERT ONCE GREEN IN PROW note above this Describe block.
-		const kdmConcurrencyImage = "quay.io/tkaovila/kubevirt-datamover-controller:tmp-combine-186-187"
 
 		// originalDpaSpec is the DPA spec that existed before this block's BeforeAll ran,
 		// so AfterAll can restore it -- or nil if no DPA existed yet (e.g. this spec run
@@ -1035,24 +1026,10 @@ var _ = ginkgo.Describe("VM backup and restore tests", ginkgo.Ordered, func() {
 		// having already created one), in which case AfterAll leaves the DPA this block
 		// itself created for the suite's own AfterSuite to tear down.
 		var originalDpaSpec *v1alpha1.DataProtectionApplicationSpec
-		var originalUnsupportedOverrides map[v1alpha1.UnsupportedImageKey]string
 		var setupRan bool
 
 		ginkgo.BeforeAll(func() {
-			overrideImage := kdmConcurrencyImage
 			setupRan = true
-
-			// dpaCR.CreateOrUpdate always writes dpaCR.UnsupportedOverrides onto the
-			// patch it sends, ignoring whatever's set on the *spec* argument's own
-			// UnsupportedOverrides field -- so the image override has to be set on
-			// the shared dpaCR struct itself, not threaded through a one-off spec.
-			originalUnsupportedOverrides = dpaCR.UnsupportedOverrides
-			newOverrides := map[v1alpha1.UnsupportedImageKey]string{}
-			for k, val := range originalUnsupportedOverrides {
-				newOverrides[k] = val
-			}
-			newOverrides[v1alpha1.KubeVirtDatamoverControllerImageKey] = overrideImage
-			dpaCR.UnsupportedOverrides = newOverrides
 
 			newSpec := dpaCR.Build(lib.CSIDataMover)
 			if dpa, err := dpaCR.Get(); err == nil {
@@ -1103,7 +1080,6 @@ var _ = ginkgo.Describe("VM backup and restore tests", ginkgo.Ordered, func() {
 				_ = lib.DeleteNamespace(v.Clientset, vm.namespace)
 			}
 
-			dpaCR.UnsupportedOverrides = originalUnsupportedOverrides
 			if originalDpaSpec == nil {
 				return // no DPA existed before this block's BeforeAll -- leave ours for AfterSuite to clean up
 			}
