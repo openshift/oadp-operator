@@ -377,6 +377,16 @@ func DeleteBackupRepository(c client.Client, namespace string, name string) erro
 	return nil
 }
 
+func DeleteBackup(c client.Client, namespace string, name string) error {
+	err := c.Delete(context.Background(), &velero.Backup{
+		ObjectMeta: metav1.ObjectMeta{Namespace: namespace, Name: name},
+	})
+	if apierrors.IsNotFound(err) {
+		return nil
+	}
+	return err
+}
+
 // DeleteBackupRepositories deletes all BackupRepositories in the given namespace.
 func DeleteBackupRepositories(c client.Client, namespace string) error {
 	log.Printf("Checking if backuprepository's exist in %s", namespace)
