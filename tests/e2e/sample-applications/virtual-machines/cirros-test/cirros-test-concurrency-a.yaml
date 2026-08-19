@@ -1,0 +1,55 @@
+apiVersion: v1
+kind: List
+items:
+  - apiVersion: kubevirt.io/v1
+    kind: VirtualMachine
+    metadata:
+      labels:
+        app: cirros-concurrency-a
+        changedBlockTracking: "true"
+      name: cirros-concurrency-a
+      namespace: cirros-concurrency-a
+    spec:
+      dataVolumeTemplates:
+      - metadata:
+          annotations:
+            cdi.kubevirt.io/storage.deleteAfterCompletion: "false"
+          name: cirros-concurrency-a-disk
+        spec:
+          pvc:
+            accessModes:
+            - ReadWriteOnce
+            resources:
+              requests:
+                storage: 150Mi
+            volumeMode: Block
+          source:
+            registry:
+              pullMethod: node
+              url: docker://quay.io/kubevirt/cirros-container-disk-demo
+      running: true
+      template:
+        metadata:
+          name: cirros-concurrency-a
+        spec:
+          domain:
+            devices:
+              disks:
+              - disk:
+                  bus: virtio
+                name: volume0
+              interfaces:
+              - masquerade: {}
+                name: default
+              rng: {}
+            resources:
+              requests:
+                memory: 256M
+          networks:
+          - name: default
+            pod: {}
+          terminationGracePeriodSeconds: 0
+          volumes:
+          - dataVolume:
+              name: cirros-concurrency-a-disk
+            name: volume0

@@ -1,0 +1,75 @@
+apiVersion: v1
+kind: List
+items:
+  - apiVersion: kubevirt.io/v1
+    kind: VirtualMachine
+    metadata:
+      labels:
+        app: cirros-multipvc-cbt-test
+        changedBlockTracking: "true"
+      name: cirros-multipvc-cbt-test
+      namespace: cirros-multipvc-cbt-test
+    spec:
+      dataVolumeTemplates:
+      - metadata:
+          annotations:
+            cdi.kubevirt.io/storage.deleteAfterCompletion: "false"
+          name: cirros-multipvc-cbt-test-disk
+        spec:
+          pvc:
+            accessModes:
+            - ReadWriteOnce
+            resources:
+              requests:
+                storage: 150Mi
+            volumeMode: Block
+          source:
+            registry:
+              pullMethod: node
+              url: docker://quay.io/kubevirt/cirros-container-disk-demo
+      - metadata:
+          annotations:
+            cdi.kubevirt.io/storage.deleteAfterCompletion: "false"
+          name: cirros-multipvc-cbt-test-datadisk
+        spec:
+          pvc:
+            accessModes:
+            - ReadWriteOnce
+            resources:
+              requests:
+                storage: 100Mi
+            volumeMode: Block
+          source:
+            blank: {}
+      running: true
+      template:
+        metadata:
+          name: cirros-multipvc-cbt-test
+        spec:
+          domain:
+            devices:
+              disks:
+              - disk:
+                  bus: virtio
+                name: volume0
+              - disk:
+                  bus: virtio
+                name: volume1
+              interfaces:
+              - masquerade: {}
+                name: default
+              rng: {}
+            resources:
+              requests:
+                memory: 256M
+          networks:
+          - name: default
+            pod: {}
+          terminationGracePeriodSeconds: 0
+          volumes:
+          - dataVolume:
+              name: cirros-multipvc-cbt-test-disk
+            name: volume0
+          - dataVolume:
+              name: cirros-multipvc-cbt-test-datadisk
+            name: volume1

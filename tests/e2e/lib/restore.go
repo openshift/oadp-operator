@@ -8,6 +8,7 @@ import (
 	"time"
 
 	velero "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
+	velerov2alpha1 "github.com/vmware-tanzu/velero/pkg/apis/velero/v2alpha1"
 	"github.com/vmware-tanzu/velero/pkg/cmd/util/downloadrequest"
 	"github.com/vmware-tanzu/velero/pkg/cmd/util/output"
 	"github.com/vmware-tanzu/velero/pkg/label"
@@ -100,6 +101,32 @@ func IsRestoreDone(ocClient client.Client, veleroNamespace, name string) wait.Co
 		return !IsRestorePhaseNotDone(string(restore.Status.Phase)), nil
 
 	}
+}
+
+// annotationRestoreBlockMode is stamped by the kubevirt-datamover-plugin's PVC
+// RestoreItemAction onto the DataDownload it creates, recording whether the target
+// PVC's volumeMode is Block. Mirrors the pattern of annotationExpectedBackupType in
+// backup.go: a literal copy of the controller's own annotation key rather than an
+// import, since these e2e tests don't otherwise depend on that module.
+const annotationRestoreBlockMode = "kubevirt-datamover.io/restore-block-mode"
+
+// GetDataDownloadForRestore returns the name, status.phase ("Completed"/"Failed"/etc.),
+// and restore-block-mode annotation of the single DataDownload created for a
+// kubevirt-datamover restore (labeled velero.io/restore-name=restoreName). Assumes
+// exactly one DataDownload per restore (true for a single-disk VM). Proves the
+// RestoreItemAction plugin actually engaged the datamover path rather than a normal
+// restore falling through some other way, and which volumeMode it restored onto.
+func GetDataDownloadForRestore(ocClient client.Client, veleroNamespace, restoreName string) (dataDownloadName, phase string, blockMode bool, err error) {
+	list := velerov2alpha1.DataDownloadList{}
+	err = ocClient.List(context.Background(), &list, client.InNamespace(veleroNamespace), client.MatchingLabels{velero.RestoreNameLabel: restoreName})
+	if err != nil {
+		return "", "", false, fmt.Errorf("failed to list DataDownloads for restore %s: %w", restoreName, err)
+	}
+	if len(list.Items) != 1 {
+		return "", "", false, fmt.Errorf("expected exactly 1 DataDownload for restore %s in %s, found %d", restoreName, veleroNamespace, len(list.Items))
+	}
+	dd := list.Items[0]
+	return dd.Name, string(dd.Status.Phase), dd.Annotations[annotationRestoreBlockMode] == "true", nil
 }
 
 func IsRestoreCompletedSuccessfully(c *kubernetes.Clientset, ocClient client.Client, veleroNamespace, name string) (bool, error) {

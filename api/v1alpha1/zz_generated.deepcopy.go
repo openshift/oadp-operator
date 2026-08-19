@@ -745,6 +745,11 @@ func (in *KubevirtDatamoverConfig) DeepCopyInto(out *KubevirtDatamoverConfig) {
 		*out = new(int32)
 		**out = **in
 	}
+	if in.MaxConcurrentDataMovers != nil {
+		in, out := &in.MaxConcurrentDataMovers, &out.MaxConcurrentDataMovers
+		*out = new(int32)
+		**out = **in
+	}
 	if in.StaleDataUploadThreshold != nil {
 		in, out := &in.StaleDataUploadThreshold, &out.StaleDataUploadThreshold
 		*out = new(v1.Duration)

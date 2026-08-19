@@ -2,9 +2,11 @@ package lib
 
 import (
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"hash/fnv"
 	"log"
 	"strings"
 	"time"
@@ -16,10 +18,13 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/version"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
+	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -104,6 +109,16 @@ var virtualMachineInstanceGvr = schema.GroupVersionResource{
 var virtualMachineBackupTrackerGvr = schema.GroupVersionResource{
 	Group:    "backup.kubevirt.io",
 	Resource: "virtualmachinebackuptrackers",
+	Version:  "v1alpha1",
+}
+
+// virtualMachineBackupGvr is the per-backup VirtualMachineBackup (VMB) resource — distinct
+// from VirtualMachineBackupTracker (VMBT, tracked via virtualMachineBackupTrackerGvr above),
+// which persists checkpoint state across backups. VMB.Status.Type reports "full" or
+// "incremental" for a single completed backup.
+var virtualMachineBackupGvr = schema.GroupVersionResource{
+	Group:    "backup.kubevirt.io",
+	Resource: "virtualmachinebackups",
 	Version:  "v1alpha1",
 }
 
@@ -922,6 +937,46 @@ func (v *VirtOperator) WaitForVMReady(namespace, name string, timeout time.Durat
 	})
 }
 
+// HasQemuGuestAgent reports whether vmName's VMI currently has a connected
+// qemu-guest-agent, via the VMI's own "AgentConnected" status condition --
+// the same signal kubevirt-datamover's own filesystem-freeze attempt depends
+// on. Useful for a test to decide up front whether a real, guest-quiesced
+// filesystem freeze can be trusted for a given VM fixture (guest-agent-backed
+// images like Fedora) versus one that can't (CirrOS, which ships no agent at
+// all, so freeze always fails and the guest stays writable through backup --
+// confirmed directly: kubevirt-datamover-controller logs a "Guest agent is not
+// responding" warning on every CirrOS backup, and reading the same live
+// CirrOS VM's disk twice a few seconds apart, with no backup involved at all,
+// produces two different checksums purely from the guest's own filesystem
+// churn). Returns false (not an error) if the VMI doesn't exist or has no
+// conditions yet -- both mean "no agent connected right now," not "unknown".
+func (v *VirtOperator) HasQemuGuestAgent(namespace, name string) (bool, error) {
+	vmi, err := v.Dynamic.Resource(virtualMachineInstanceGvr).Namespace(namespace).Get(context.Background(), name, metav1.GetOptions{})
+	if apierrors.IsNotFound(err) {
+		return false, nil
+	}
+	if err != nil {
+		return false, fmt.Errorf("failed to get VMI %s/%s: %w", namespace, name, err)
+	}
+	conditions, found, err := unstructured.NestedSlice(vmi.UnstructuredContent(), "status", "conditions")
+	if err != nil {
+		return false, fmt.Errorf("failed to read status.conditions on VMI %s/%s: %w", namespace, name, err)
+	}
+	if !found {
+		return false, nil
+	}
+	for _, c := range conditions {
+		cond, ok := c.(map[string]interface{})
+		if !ok {
+			continue
+		}
+		if cond["type"] == "AgentConnected" && cond["status"] == "True" {
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
 // StopVm stops a VM with a REST call to "stop". This is needed because a
 // poweroff from inside the VM results in KubeVirt restarting it.
 // From the KubeVirt API reference:
@@ -1247,6 +1302,23 @@ func (v *VirtOperator) EnableCBTFeatureGate(timeout time.Duration) error {
 	return nil
 }
 
+// IsEmulationEnabled reads spec.configuration.developerConfiguration.useEmulation
+// off the live KubeVirt CR. When true, KubeVirt is running under software emulation
+// (no /dev/kvm) -- some guest OSes (Fedora in particular) are known unreliable under
+// emulation, so callers use this to skip those VM variants rather than fail flakily.
+func (v *VirtOperator) IsEmulationEnabled() (bool, error) {
+	kvList, err := v.Dynamic.Resource(kubevirtCrGvr).Namespace(v.Namespace).List(context.Background(), metav1.ListOptions{})
+	if err != nil {
+		return false, fmt.Errorf("failed to list KubeVirt CR: %w", err)
+	}
+	if len(kvList.Items) == 0 {
+		return false, fmt.Errorf("no KubeVirt CR found in namespace %s", v.Namespace)
+	}
+	kv := &kvList.Items[0]
+	useEmulation, _, _ := unstructured.NestedBool(kv.UnstructuredContent(), "spec", "configuration", "developerConfiguration", "useEmulation")
+	return useEmulation, nil
+}
+
 // EnableCBTLabelSelector patches the HCO's kubevirt.kubevirt.io/jsonpatch
 // annotation to inject changedBlockTrackingLabelSelectors into the KubeVirt CR.
 // If the annotation already contains patches (e.g. emulation), the CBT patch
@@ -1358,4 +1430,523 @@ func (v *VirtOperator) CheckVMBackupTrackerExists(namespace string) (bool, error
 		return false, fmt.Errorf("failed to list VirtualMachineBackupTrackers in %s: %w", namespace, err)
 	}
 	return len(list.Items) > 0, nil
+}
+
+// GetVMBBackupType finds the VirtualMachineBackup in namespace whose
+// annotationDataUploadName annotation matches dataUploadName, and returns its
+// status.type ("full"/"incremental") and status.checkpointName.
+func (v *VirtOperator) GetVMBBackupType(namespace, dataUploadName string) (backupType, checkpointName string, err error) {
+	list, err := v.Dynamic.Resource(virtualMachineBackupGvr).Namespace(namespace).List(context.Background(), metav1.ListOptions{})
+	if err != nil {
+		return "", "", fmt.Errorf("failed to list VirtualMachineBackups in %s: %w", namespace, err)
+	}
+	for _, vmb := range list.Items {
+		if vmb.GetAnnotations()[annotationDataUploadName] != dataUploadName {
+			continue
+		}
+		found := false
+		backupType, found, err = unstructured.NestedString(vmb.Object, "status", "type")
+		if err != nil {
+			return "", "", fmt.Errorf("failed to read status.type from VirtualMachineBackup %s/%s: %w", namespace, vmb.GetName(), err)
+		}
+		if !found {
+			return "", "", fmt.Errorf("VirtualMachineBackup %s/%s has no status.type yet", namespace, vmb.GetName())
+		}
+		foundCheckpoint := false
+		checkpointName, foundCheckpoint, err = unstructured.NestedString(vmb.Object, "status", "checkpointName")
+		if err != nil {
+			return "", "", fmt.Errorf("failed to read status.checkpointName from VirtualMachineBackup %s/%s: %w", namespace, vmb.GetName(), err)
+		}
+		if !foundCheckpoint {
+			return "", "", fmt.Errorf("VirtualMachineBackup %s/%s has no status.checkpointName yet", namespace, vmb.GetName())
+		}
+		return backupType, checkpointName, nil
+	}
+	return "", "", fmt.Errorf("no VirtualMachineBackup found in %s with %s=%s", namespace, annotationDataUploadName, dataUploadName)
+}
+
+// vmbBackupProtectionFinalizer is the finalizer virt-controller stamps on a
+// VirtualMachineBackup while it is protecting an in-progress backup.
+const vmbBackupProtectionFinalizer = "backup.kubevirt.io/vmbackup-protection"
+
+// ClearStuckVMBFinalizers is a workaround for https://github.com/kubevirt/kubevirt/issues/18724:
+// once a VirtualMachineBackup's backing VirtualMachineBackupTracker no longer exists,
+// virt-controller's VMBackupController.sync() returns early before removeBackupFinalizer() can
+// run, so a VMB already being deleted never has its backup.kubevirt.io/vmbackup-protection
+// finalizer released -- blocking namespace deletion forever. Best-effort and safe to call
+// repeatedly (e.g. on every poll of a namespace-deletion wait); remove once that issue is fixed.
+func (v *VirtOperator) ClearStuckVMBFinalizers(namespace string) {
+	list, err := v.Dynamic.Resource(virtualMachineBackupGvr).Namespace(namespace).List(context.Background(), metav1.ListOptions{})
+	if err != nil {
+		return
+	}
+	for i := range list.Items {
+		item := &list.Items[i]
+		if item.GetDeletionTimestamp() == nil || len(item.GetFinalizers()) == 0 {
+			continue
+		}
+		remaining := make([]string, 0, len(item.GetFinalizers()))
+		for _, f := range item.GetFinalizers() {
+			if f != vmbBackupProtectionFinalizer {
+				remaining = append(remaining, f)
+			}
+		}
+		if len(remaining) == len(item.GetFinalizers()) {
+			continue
+		}
+		patchObj := map[string]any{"metadata": map[string]any{"finalizers": remaining}}
+		patch, err := json.Marshal(patchObj)
+		if err != nil {
+			log.Printf("workaround for kubevirt#18724: failed to marshal finalizer patch for VirtualMachineBackup %s/%s: %v", namespace, item.GetName(), err)
+			continue
+		}
+		_, err = v.Dynamic.Resource(virtualMachineBackupGvr).Namespace(namespace).Patch(
+			context.Background(), item.GetName(), types.MergePatchType, patch, metav1.PatchOptions{},
+		)
+		if err != nil && !apierrors.IsNotFound(err) {
+			log.Printf("workaround for kubevirt#18724: failed to clear stuck finalizer on VirtualMachineBackup %s/%s: %v", namespace, item.GetName(), err)
+			continue
+		}
+		log.Printf("workaround for kubevirt#18724: cleared stuck finalizer on VirtualMachineBackup %s/%s", namespace, item.GetName())
+	}
+}
+
+// IsNamespaceDeletedClearingStuckVMBFinalizers wraps IsNamespaceDeleted, additionally calling
+// ClearStuckVMBFinalizers on every poll -- a workaround for
+// https://github.com/kubevirt/kubevirt/issues/18724 which otherwise leaves virt test namespaces
+// stuck Terminating forever. Revert call sites to plain IsNamespaceDeleted once that issue is
+// fixed.
+func (v *VirtOperator) IsNamespaceDeletedClearingStuckVMBFinalizers(clientset *kubernetes.Clientset, namespace string) wait.ConditionFunc {
+	return func() (bool, error) {
+		v.ClearStuckVMBFinalizers(namespace)
+		return IsNamespaceDeleted(clientset, namespace)()
+	}
+}
+
+// GetVirtLauncherPod finds the virt-launcher pod for vmName in namespace, by listing pods
+// labeled kubevirt.io=virt-launcher and matching the kubevirt.io/domain annotation (which
+// KubeVirt sets to the VMI name) — mirrors the pattern used by kubevirt-velero-plugin's
+// GetLauncherPod (pkg/util/util.go).
+func (v *VirtOperator) GetVirtLauncherPod(namespace, vmName string) (*corev1.Pod, error) {
+	pods, err := GetAllPodsWithLabel(v.Clientset, namespace, "kubevirt.io=virt-launcher")
+	if err != nil {
+		return nil, fmt.Errorf("failed to list virt-launcher pods in %s: %w", namespace, err)
+	}
+	for i := range pods.Items {
+		pod := &pods.Items[i]
+		if pod.DeletionTimestamp != nil || pod.Status.Phase != corev1.PodRunning {
+			continue
+		}
+		if pod.Annotations["kubevirt.io/domain"] == vmName {
+			return pod, nil
+		}
+	}
+	return nil, fmt.Errorf("no virt-launcher pod found for VM %s/%s", namespace, vmName)
+}
+
+// RunVirshCommand execs `virsh <args...>` inside vmName's virt-launcher pod's compute
+// container via ExecuteCommandInPodsSh. kubeConfig is the suite's *rest.Config (VirtOperator
+// itself only carries a *kubernetes.Clientset, not a rest.Config, so it's passed in here).
+func (v *VirtOperator) RunVirshCommand(kubeConfig *rest.Config, namespace, vmName string, args ...string) (string, error) {
+	pod, err := v.GetVirtLauncherPod(namespace, vmName)
+	if err != nil {
+		return "", err
+	}
+	stdout, stderr, err := ExecuteCommandInPodsSh(ProxyPodParameters{
+		KubeClient:    v.Clientset,
+		KubeConfig:    kubeConfig,
+		Namespace:     namespace,
+		PodName:       pod.Name,
+		ContainerName: "compute",
+	}, "virsh "+strings.Join(args, " "))
+	if err != nil {
+		return "", fmt.Errorf("virsh command failed (stderr: %s): %w", stderr, err)
+	}
+	return stdout, nil
+}
+
+// ChecksumBlockDeviceRegion hashes only a fixed-size region starting at
+// offsetMiB of the raw block device backing volumeName inside vmName's
+// virt-launcher pod's compute container -- pairs with
+// WriteRandomPayloadToGuestBlockDevice (which writes the region THROUGH THE
+// GUEST, so the write is CBT-tracked) on the source side and
+// ChecksumPVCBlockDeviceRegion on the restored side for the payload-bracketing
+// hard assertion (see the comments around the payload checks in
+// virt_backup_restore_suite_test.go). iflag=direct bypasses the page cache so
+// the read reflects what is actually on the device, not a cached copy.
+func (v *VirtOperator) ChecksumBlockDeviceRegion(kubeConfig *rest.Config, namespace, vmName, volumeName string, offsetMiB, sizeMiB int) (string, error) {
+	pod, err := v.GetVirtLauncherPod(namespace, vmName)
+	if err != nil {
+		return "", err
+	}
+	stdout, stderr, err := ExecuteShellCommandInPod(ProxyPodParameters{
+		KubeClient:    v.Clientset,
+		KubeConfig:    kubeConfig,
+		Namespace:     namespace,
+		PodName:       pod.Name,
+		ContainerName: "compute",
+	}, fmt.Sprintf("dd if=/dev/%s bs=1M skip=%d count=%d iflag=direct 2>/dev/null | sha256sum", volumeName, offsetMiB, sizeMiB))
+	if err != nil {
+		return "", fmt.Errorf("checksum of /dev/%s region (offset=%dMiB size=%dMiB) in %s/%s failed (stderr: %s): %w", volumeName, offsetMiB, sizeMiB, namespace, pod.Name, stderr, err)
+	}
+	fields := strings.Fields(stdout)
+	if len(fields) == 0 {
+		return "", fmt.Errorf("sha256sum produced no output for /dev/%s region in %s/%s", volumeName, namespace, pod.Name)
+	}
+	return fields[0], nil
+}
+
+// GuestExecResult is the outcome of a qemu-guest-agent "guest-exec" call made
+// via RunGuestExecScript.
+type GuestExecResult struct {
+	ExitCode int
+	Stdout   string
+	Stderr   string
+}
+
+// lastNonEmptyLine returns the last non-empty line of s, tolerating both \n
+// and \r\n line endings (execArgsInPod's TTY can inject \r). virsh's own JSON
+// reply to a qemu-agent-command is always the final line of output -- this
+// strips any leading noise a given libvirt/polkit setup prints first.
+// Confirmed live: on at least one cluster, every virsh qemu-agent-command
+// invocation prints "Authorization not available. Check if polkit service is
+// running or see debug message for more information." on its own line before
+// the actual {"return":...} reply.
+func lastNonEmptyLine(s string) string {
+	lines := strings.Split(strings.ReplaceAll(s, "\r\n", "\n"), "\n")
+	for i := len(lines) - 1; i >= 0; i-- {
+		if trimmed := strings.TrimSpace(lines[i]); trimmed != "" {
+			return trimmed
+		}
+	}
+	return ""
+}
+
+// RunGuestExecScript runs script INSIDE the guest OS (not the virt-launcher
+// pod) via qemu-guest-agent's "guest-exec" QMP command, dispatched through
+// `virsh qemu-agent-command` in the compute container. This is what makes a
+// write CBT-tracked: the write goes guest -> virtio-blk -> qemu's own block
+// I/O path, which is exactly what the dirty-bitmap observes -- unlike a
+// host-side dd straight to the virt-launcher pod's /dev/<volume>, which
+// bypasses that path entirely.
+//
+// domainName is the libvirt domain name virsh addresses this VM by, which is
+// NOT necessarily vmName -- KubeVirt commonly namespaces it (e.g.
+// "<namespace>_<vmName>"). Confirmed live against the 260716-aws-amd64
+// cluster via `virsh list --all` in the compute container: KubeVirt names the
+// libvirt domain "<namespace>_<vmName>", not the bare VM name -- don't assume
+// the bare name is correct for a different cluster/KubeVirt version without
+// re-confirming.
+//
+// Deliberately does NOT go through RunVirshCommand: that helper dispatches
+// via ExecuteCommandInPodsSh, which naively does strings.Split(cmd, " ") with
+// no shell involved -- fine for space-free args like "checkpoint-list", but
+// it would corrupt a JSON payload containing spaces. This instead builds the
+// full `virsh qemu-agent-command <domain> '<json>'` string itself and runs it
+// via ExecuteShellCommandInPod (a real `sh -c`, so the JSON survives as one
+// argv element).
+//
+// script itself is base64-encoded before being embedded in the guest-exec
+// JSON's "arg" list (as `echo <b64> | base64 -d | /bin/sh`) so it can contain
+// arbitrary shell content (quotes, pipes, redirects) without needing any
+// escaping inside the JSON string or the outer single-quoted shell wrapper --
+// the base64 alphabet has no JSON- or shell-special characters, and
+// json.Marshal's own output never contains an unescaped single quote, so
+// wrapping it in single quotes for virsh's own argv is safe.
+func (v *VirtOperator) RunGuestExecScript(kubeConfig *rest.Config, namespace, vmName, domainName, script string) (*GuestExecResult, error) {
+	pod, err := v.GetVirtLauncherPod(namespace, vmName)
+	if err != nil {
+		return nil, err
+	}
+	params := ProxyPodParameters{
+		KubeClient:    v.Clientset,
+		KubeConfig:    kubeConfig,
+		Namespace:     namespace,
+		PodName:       pod.Name,
+		ContainerName: "compute",
+	}
+
+	encoded := base64.StdEncoding.EncodeToString([]byte(script))
+	execJSON, err := json.Marshal(map[string]any{
+		"execute": "guest-exec",
+		"arguments": map[string]any{
+			"path":           "/bin/sh",
+			"arg":            []string{"-c", "echo " + encoded + " | base64 -d | /bin/sh"},
+			"capture-output": true,
+		},
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal guest-exec dispatch JSON: %w", err)
+	}
+	dispatchCmd := fmt.Sprintf("virsh qemu-agent-command %s '%s' --timeout 30", domainName, execJSON)
+	stdout, stderr, err := ExecuteShellCommandInPod(params, dispatchCmd)
+	if err != nil {
+		return nil, fmt.Errorf("guest-exec dispatch failed for VM %s/%s (domain %s, stderr: %s): %w", namespace, vmName, domainName, stderr, err)
+	}
+	var dispatchReply struct {
+		Return struct {
+			PID int `json:"pid"`
+		} `json:"return"`
+	}
+	// execArgsInPod's exec uses a TTY, which merges stderr into stdout and can
+	// inject \r. Confirmed live: on at least one cluster, virsh prints a
+	// polkit warning line ("Authorization not available. Check if polkit
+	// service is running...") BEFORE its actual JSON reply, so the reply is
+	// not necessarily the only thing in stdout -- lastNonEmptyLine takes
+	// virsh's own last line rather than assuming the whole output is JSON.
+	// The raw output is always included in the error below so an unexpected
+	// preamble (or a real virsh error) is visible, not just an opaque
+	// "invalid character" JSON error.
+	if err := json.Unmarshal([]byte(lastNonEmptyLine(stdout)), &dispatchReply); err != nil {
+		return nil, fmt.Errorf("failed to parse guest-exec dispatch reply for VM %s/%s (domain %s, raw output: %q): %w", namespace, vmName, domainName, stdout, err)
+	}
+
+	statusJSON, err := json.Marshal(map[string]any{
+		"execute": "guest-exec-status",
+		"arguments": map[string]any{
+			"pid": dispatchReply.Return.PID,
+		},
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal guest-exec-status JSON: %w", err)
+	}
+	statusCmd := fmt.Sprintf("virsh qemu-agent-command %s '%s' --timeout 30", domainName, statusJSON)
+
+	var result GuestExecResult
+	err = wait.PollUntilContextTimeout(context.Background(), 2*time.Second, 2*time.Minute, true, func(ctx context.Context) (bool, error) {
+		out, stderr, err := ExecuteShellCommandInPod(params, statusCmd)
+		if err != nil {
+			return false, fmt.Errorf("guest-exec-status poll failed for VM %s/%s (domain %s, stderr: %s): %w", namespace, vmName, domainName, stderr, err)
+		}
+		var statusReply struct {
+			Return struct {
+				Exited   bool   `json:"exited"`
+				ExitCode int    `json:"exitcode"`
+				OutData  string `json:"out-data"`
+				ErrData  string `json:"err-data"`
+			} `json:"return"`
+		}
+		if err := json.Unmarshal([]byte(lastNonEmptyLine(out)), &statusReply); err != nil {
+			return false, fmt.Errorf("failed to parse guest-exec-status reply for VM %s/%s (domain %s, raw output: %q): %w", namespace, vmName, domainName, out, err)
+		}
+		if !statusReply.Return.Exited {
+			return false, nil
+		}
+		outBytes, err := base64.StdEncoding.DecodeString(statusReply.Return.OutData)
+		if err != nil {
+			return false, fmt.Errorf("failed to base64-decode guest-exec out-data for VM %s/%s (domain %s): %w", namespace, vmName, domainName, err)
+		}
+		errBytes, err := base64.StdEncoding.DecodeString(statusReply.Return.ErrData)
+		if err != nil {
+			return false, fmt.Errorf("failed to base64-decode guest-exec err-data for VM %s/%s (domain %s): %w", namespace, vmName, domainName, err)
+		}
+		result = GuestExecResult{ExitCode: statusReply.Return.ExitCode, Stdout: string(outBytes), Stderr: string(errBytes)}
+		return true, nil
+	})
+	if err != nil {
+		return nil, fmt.Errorf("guest-exec did not complete for VM %s/%s (domain %s): %w", namespace, vmName, domainName, err)
+	}
+	return &result, nil
+}
+
+// WriteRandomPayloadToGuestBlockDevice writes sizeMiB of random bytes at
+// offsetMiB into guestDevice (e.g. "/dev/vda") FROM INSIDE THE GUEST via
+// RunGuestExecScript, rather than from the host side. Because the write goes
+// through the guest's own block driver -> qemu I/O path, it IS visible to
+// qemu's CBT dirty-bitmap tracking -- unlike a host-side dd straight to the
+// virt-launcher pod's /dev/<volume>, this is safe to use for
+// incremental-backup data-integrity assertions.
+//
+// conv=fsync plus a following `sync` ensure the bytes are actually flushed
+// through to the virtio-blk device before this returns, not left sitting in
+// the guest's page cache -- the same bracket-verify pattern this pairs with
+// (checksumming immediately before/after a backup window) depends on the
+// write being durable at the moment it completes, not still buffered.
+//
+// There is deliberately no guest-side checksum counterpart to this function:
+// reading the payload back via a guest-exec `sha256sum` would only prove the
+// guest's own page cache believes the bytes are there, not that they reached
+// qemu's block layer, which would make a bracket-verify built on it
+// worthless. Use the existing host-side ChecksumBlockDeviceRegion (source)
+// and ChecksumPVCBlockDeviceRegion (restored side) for all reads instead.
+func (v *VirtOperator) WriteRandomPayloadToGuestBlockDevice(kubeConfig *rest.Config, namespace, vmName, domainName, guestDevice string, offsetMiB, sizeMiB int) error {
+	script := fmt.Sprintf("dd if=/dev/urandom of=%s bs=1M seek=%d count=%d conv=fsync && sync", guestDevice, offsetMiB, sizeMiB)
+	result, err := v.RunGuestExecScript(kubeConfig, namespace, vmName, domainName, script)
+	if err != nil {
+		return err
+	}
+	if result.ExitCode != 0 {
+		return fmt.Errorf("guest write to %s in VM %s/%s (domain %s) failed (exit %d): %s", guestDevice, namespace, vmName, domainName, result.ExitCode, result.Stderr)
+	}
+	return nil
+}
+
+// runInPVCBlockDeviceHelperPod creates a throwaway pod mounting pvcName as a raw
+// block device at /dev/block, waits for it to reach Running, execs command inside
+// it, then tears the pod down before returning. Needed specifically for the
+// restored side of a data-integrity check: while this PR's fix holds a restored
+// VM Halted (no VMI, hence no virt-launcher pod at all) until every sibling
+// DataDownload completes, there is no VM-owned pod to exec into at that point --
+// confirmed directly: ChecksumBlockDeviceRegion failed with "no virt-launcher pod
+// found" immediately after DataDownload reached Completed, because the halt
+// really does mean no launcher pod exists yet, not merely a paused one. The
+// helper pod is deleted (and its deletion awaited) before returning, so the PVC
+// is free again by the time the caller lets the VM resume and its virt-launcher
+// pod tries to attach the same PVC -- PVC access mode here is RWO, so the two
+// can never overlap. Shared plumbing for ChecksumPVCBlockDeviceRegion so the pod
+// lifecycle (creation, Running wait, teardown-before-return) exists in exactly
+// one place.
+// checksumHelperPodName builds "checksum-helper-"+pvcName, truncated with a
+// short hash suffix if that would exceed Kubernetes' 63-char DNS label limit
+// for object names. Not a concern for this suite's own short fixture PVC
+// names today, but a future longer-named PVC scenario would otherwise fail
+// pod creation with an opaque "invalid name" error instead of running.
+func checksumHelperPodName(pvcName string) string {
+	const prefix = "checksum-helper-"
+	name := prefix + pvcName
+	if len(name) <= 63 {
+		return name
+	}
+	h := fnv.New32a()
+	_, _ = h.Write([]byte(pvcName))
+	suffix := fmt.Sprintf("-%08x", h.Sum32())
+	return name[:63-len(suffix)] + suffix
+}
+
+func (v *VirtOperator) runInPVCBlockDeviceHelperPod(kubeConfig *rest.Config, namespace, pvcName, command string) (stdout string, err error) {
+	podName := checksumHelperPodName(pvcName)
+	pod := &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      podName,
+			Namespace: namespace,
+		},
+		Spec: corev1.PodSpec{
+			RestartPolicy: corev1.RestartPolicyNever,
+			SecurityContext: &corev1.PodSecurityContext{
+				RunAsNonRoot: ptr.To(true),
+			},
+			Containers: []corev1.Container{
+				{
+					Name:    "checksum",
+					Image:   "registry.access.redhat.com/ubi9/ubi:latest",
+					Command: []string{"/bin/sleep", "infinity"},
+					SecurityContext: &corev1.SecurityContext{
+						AllowPrivilegeEscalation: ptr.To(false),
+						Capabilities:             &corev1.Capabilities{Drop: []corev1.Capability{"ALL"}},
+						SeccompProfile:           &corev1.SeccompProfile{Type: corev1.SeccompProfileTypeRuntimeDefault},
+					},
+					VolumeDevices: []corev1.VolumeDevice{
+						{Name: "block", DevicePath: "/dev/block"},
+					},
+				},
+			},
+			Volumes: []corev1.Volume{
+				{
+					Name: "block",
+					VolumeSource: corev1.VolumeSource{
+						PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
+							ClaimName: pvcName,
+						},
+					},
+				},
+			},
+		},
+	}
+
+	// Surfaced rather than ignored: the caller's next step is letting the VM's own
+	// virt-launcher pod attach this same RWO PVC, which a still-present helper pod
+	// silently blocks. Returning a checksum while the pod is still holding the PVC
+	// would turn that into a confusing VM-never-started failure much later on.
+	defer func() {
+		if delErr := v.Clientset.CoreV1().Pods(namespace).Delete(context.Background(), podName, metav1.DeleteOptions{GracePeriodSeconds: ptr.To(int64(0))}); delErr != nil && !apierrors.IsNotFound(delErr) {
+			if err == nil {
+				err = fmt.Errorf("failed to delete checksum helper pod %s/%s: %w", namespace, podName, delErr)
+			}
+			return
+		}
+		if waitErr := wait.PollUntilContextTimeout(context.Background(), 2*time.Second, 60*time.Second, true, func(ctx context.Context) (bool, error) {
+			_, getErr := v.Clientset.CoreV1().Pods(namespace).Get(ctx, podName, metav1.GetOptions{})
+			return apierrors.IsNotFound(getErr), nil
+		}); waitErr != nil && err == nil {
+			err = fmt.Errorf("checksum helper pod %s/%s was not gone before returning, PVC %s may still be attached to it: %w", namespace, podName, pvcName, waitErr)
+		}
+	}()
+
+	if _, createErr := v.Clientset.CoreV1().Pods(namespace).Create(context.Background(), pod, metav1.CreateOptions{}); createErr != nil {
+		return "", fmt.Errorf("failed to create checksum helper pod for PVC %s/%s: %w", namespace, pvcName, createErr)
+	}
+
+	err = wait.PollUntilContextTimeout(context.Background(), 2*time.Second, 120*time.Second, true, func(ctx context.Context) (bool, error) {
+		p, getErr := v.Clientset.CoreV1().Pods(namespace).Get(ctx, podName, metav1.GetOptions{})
+		if getErr != nil {
+			return false, getErr
+		}
+		return p.Status.Phase == corev1.PodRunning, nil
+	})
+	if err != nil {
+		return "", fmt.Errorf("checksum helper pod for PVC %s/%s never became Running: %w", namespace, pvcName, err)
+	}
+
+	var stderr string
+	stdout, stderr, err = ExecuteShellCommandInPod(ProxyPodParameters{
+		KubeClient:    v.Clientset,
+		KubeConfig:    kubeConfig,
+		Namespace:     namespace,
+		PodName:       podName,
+		ContainerName: "checksum",
+	}, command)
+	if err != nil {
+		return "", fmt.Errorf("command %q against PVC %s/%s failed (stderr: %s): %w", command, namespace, pvcName, stderr, err)
+	}
+	return stdout, nil
+}
+
+// ChecksumPVCBlockDeviceRegion hashes only a fixed-size region of the block
+// device starting at offsetMiB -- pairs with
+// WriteRandomPayloadToGuestBlockDevice/ChecksumBlockDeviceRegion on the source
+// side for the payload-bracketing hard assertion (see the comments around the
+// payload checks in virt_backup_restore_suite_test.go). iflag=direct bypasses
+// the page cache so the read reflects what is actually on the PV, not a
+// cached copy.
+func (v *VirtOperator) ChecksumPVCBlockDeviceRegion(kubeConfig *rest.Config, namespace, pvcName string, offsetMiB, sizeMiB int) (string, error) {
+	stdout, err := v.runInPVCBlockDeviceHelperPod(kubeConfig, namespace, pvcName,
+		fmt.Sprintf("dd if=/dev/block bs=1M skip=%d count=%d iflag=direct 2>/dev/null | sha256sum", offsetMiB, sizeMiB))
+	if err != nil {
+		return "", err
+	}
+	fields := strings.Fields(stdout)
+	if len(fields) == 0 {
+		return "", fmt.Errorf("sha256sum produced no output for PVC %s/%s region (offset=%dMiB size=%dMiB)", namespace, pvcName, offsetMiB, sizeMiB)
+	}
+	return fields[0], nil
+}
+
+// SetVMAnnotation sets a single annotation on a VirtualMachine CR, retrying on update
+// conflicts. Used e.g. to set the per-VM "kubevirt-datamover.io/max-incremental-backups"
+// override, which takes precedence over the global DPA-level setting — scoped to one VM and
+// takes effect immediately (no controller rollout to wait for), unlike patching the DPA.
+func (v *VirtOperator) SetVMAnnotation(namespace, vmName, key, value string) error {
+	return wait.PollUntilContextTimeout(context.Background(), 2*time.Second, 30*time.Second, true, func(ctx context.Context) (bool, error) {
+		vm, err := v.Dynamic.Resource(virtualMachineGvr).Namespace(namespace).Get(ctx, vmName, metav1.GetOptions{})
+		if err != nil {
+			return false, fmt.Errorf("failed to get VM %s/%s: %w", namespace, vmName, err)
+		}
+		annotations, _, _ := unstructured.NestedMap(vm.UnstructuredContent(), "metadata", "annotations")
+		if annotations == nil {
+			annotations = make(map[string]interface{})
+		}
+		annotations[key] = value
+		if err := unstructured.SetNestedMap(vm.UnstructuredContent(), annotations, "metadata", "annotations"); err != nil {
+			return false, fmt.Errorf("failed to set annotation %s on VM %s/%s: %w", key, namespace, vmName, err)
+		}
+		_, err = v.Dynamic.Resource(virtualMachineGvr).Namespace(namespace).Update(ctx, vm, metav1.UpdateOptions{})
+		if err != nil {
+			if apierrors.IsConflict(err) {
+				log.Printf("VM %s/%s annotation update conflict, retrying...", namespace, vmName)
+				return false, nil
+			}
+			return false, err
+		}
+		return true, nil
+	})
 }

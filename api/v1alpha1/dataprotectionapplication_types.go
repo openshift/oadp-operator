@@ -683,6 +683,13 @@ type KubevirtDatamoverConfig struct {
 	// +optional
 	MaxIncrementalBackups *int32 `json:"maxIncrementalBackups,omitempty"`
 
+	// MaxConcurrentDataMovers is the maximum number of concurrent active
+	// DataUploads/DataDownloads per direction (DU and DD counted independently).
+	// 0 means unlimited (default behavior).
+	// +kubebuilder:validation:Minimum=0
+	// +optional
+	MaxConcurrentDataMovers *int32 `json:"maxConcurrentDataMovers,omitempty"`
+
 	// StaleDataUploadThreshold is the duration after which a DataUpload in an
 	// active phase is considered stale and will no longer block younger
 	// DataUploads for the same VM. Default is 2h.
