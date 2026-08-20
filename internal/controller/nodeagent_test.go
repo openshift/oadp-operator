@@ -2047,7 +2047,9 @@ func TestDPAReconciler_updateNodeAgentCM(t *testing.T) {
 						"cpuRequest": "100m",
 						"memoryRequest": "100Mi",
 						"cpuLimit": "200m",
-						"memoryLimit": "200Mi"
+						"memoryLimit": "200Mi",
+						"ephemeralStorageRequest": "0",
+						"ephemeralStorageLimit": "0"
 					},
 					"restorePVC": {
 						"ignoreDelayBinding": true
@@ -2272,6 +2274,98 @@ func TestDPAReconciler_updateNodeAgentCM(t *testing.T) {
 				}`,
 			}),
 		},
+		{
+			name: "Given DPA CR instance with only memoryLimit, all other resource quantities should be '0' on output, for memory eviction support",
+			nodeAgentConfigMap: &corev1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      common.NodeAgentConfigMapPrefix + testCmName,
+					Namespace: testCmNs,
+				},
+			},
+			dpa: &oadpv1alpha1.DataProtectionApplication{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      testCmName,
+					Namespace: testCmNs,
+				},
+				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
+					Configuration: &oadpv1alpha1.ApplicationConfig{
+						Velero: &oadpv1alpha1.VeleroConfig{
+							DefaultPlugins: []oadpv1alpha1.DefaultPlugin{
+								oadpv1alpha1.DefaultPluginAWS,
+							},
+						},
+						NodeAgent: &oadpv1alpha1.NodeAgentConfig{
+							NodeAgentCommonFields: oadpv1alpha1.NodeAgentCommonFields{},
+							NodeAgentConfigMapSettings: oadpv1alpha1.NodeAgentConfigMapSettings{
+								PodResources: &kube.PodResources{
+									MemoryLimit: "100Mi",
+								},
+							},
+						},
+					},
+				},
+			},
+			wantErr: false,
+			wantNodeAgentConfigMap: createTestBuiltNodeAgentCM(map[string]string{
+				"node-agent-config": `{
+					"podResources": {
+						"cpuRequest": "0",
+						"memoryRequest": "0",
+						"cpuLimit": "0",
+						"memoryLimit": "100Mi",
+						"ephemeralStorageRequest": "0",
+						"ephemeralStorageLimit": "0"
+					},
+					"privilegedFsBackup": true
+				}`,
+			}),
+		},
+		{
+			name: "Given DPA CR instance with only ephemeralStorageLimit, all other resource quantities should be '0' on output, for ephemeral-storage eviction support",
+			nodeAgentConfigMap: &corev1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      common.NodeAgentConfigMapPrefix + testCmName,
+					Namespace: testCmNs,
+				},
+			},
+			dpa: &oadpv1alpha1.DataProtectionApplication{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      testCmName,
+					Namespace: testCmNs,
+				},
+				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
+					Configuration: &oadpv1alpha1.ApplicationConfig{
+						Velero: &oadpv1alpha1.VeleroConfig{
+							DefaultPlugins: []oadpv1alpha1.DefaultPlugin{
+								oadpv1alpha1.DefaultPluginAWS,
+							},
+						},
+						NodeAgent: &oadpv1alpha1.NodeAgentConfig{
+							NodeAgentCommonFields: oadpv1alpha1.NodeAgentCommonFields{},
+							NodeAgentConfigMapSettings: oadpv1alpha1.NodeAgentConfigMapSettings{
+								PodResources: &kube.PodResources{
+									EphemeralStorageLimit: "250Mi",
+								},
+							},
+						},
+					},
+				},
+			},
+			wantErr: false,
+			wantNodeAgentConfigMap: createTestBuiltNodeAgentCM(map[string]string{
+				"node-agent-config": `{
+					"podResources": {
+						"cpuRequest": "0",
+						"memoryRequest": "0",
+						"cpuLimit": "0",
+						"memoryLimit": "0",
+						"ephemeralStorageRequest": "0",
+						"ephemeralStorageLimit": "250Mi"
+					},
+					"privilegedFsBackup": true
+				}`,
+			}),
+		},
 	}
 
 	for _, tt := range tests {
@@ -2280,8 +2374,12 @@ func TestDPAReconciler_updateNodeAgentCM(t *testing.T) {
 			if err != nil {
 				t.Fatalf("error in creating fake client, likely programmer error")
 			}
+			var dpaSpecBeforeTest = oadpv1alpha1.DataProtectionApplicationSpec{}
 			if tt.dpa != nil && tt.dpa.Spec.Configuration != nil {
 				tt.dpa.AutoCorrect()
+				// Snapshot the DPA Spec before calling updateNodeAgentCM,
+				// Required to test the DPA is unchanged.
+				dpaSpecBeforeTest = *tt.dpa.Spec.DeepCopy()
 			}
 
 			r := &DataProtectionApplicationReconciler{
@@ -2318,6 +2416,13 @@ func TestDPAReconciler_updateNodeAgentCM(t *testing.T) {
 			// Compare the unmarshalled maps
 			require.Equal(t, wantMap, gotMap, "ConfigMaps are not equal")
 
+			// Require that updateNodeAgentCM did not mutate the DPA Spec.
+			// PodResource output will not match the original object if not all fields are set.
+			if tt.dpa != nil {
+				require.Truef(t, reflect.DeepEqual(tt.dpa.Spec, dpaSpecBeforeTest),
+					"updateNodeAgentCM must not modify the DPA Spec: diff=%s",
+					cmp.Diff(dpaSpecBeforeTest, tt.dpa.Spec))
+			}
 		})
 	}
 }
