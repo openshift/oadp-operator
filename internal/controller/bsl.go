@@ -258,11 +258,12 @@ func (r *DataProtectionApplicationReconciler) ReconcileBackupStorageLocations(lo
 					}
 				}
 
-				// Add region from CloudStorage CR if specified
-				if bucket.Spec.Region != "" && bsl.Spec.Config == nil {
-					bsl.Spec.Config = make(map[string]string)
-				}
-				if bucket.Spec.Region != "" {
+				// Add region from CloudStorage CR only for AWS provider.
+				// Currently only AWS supports region in BSL config.
+				if bucket.Spec.Provider == oadpv1alpha1.AWSBucketProvider && bucket.Spec.Region != "" {
+					if bsl.Spec.Config == nil {
+						bsl.Spec.Config = make(map[string]string)
+					}
 					bsl.Spec.Config["region"] = bucket.Spec.Region
 				}
 
