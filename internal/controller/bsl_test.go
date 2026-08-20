@@ -3336,7 +3336,6 @@ func TestDPAReconciler_ReconcileBackupStorageLocations(t *testing.T) {
 					Config: map[string]string{
 						"storageAccount": "mystorageaccount",
 						"resourceGroup":  "myresourcegroup",
-						"region":         "eastus",
 					},
 					StorageType: velerov1.StorageType{
 						ObjectStorage: &velerov1.ObjectStorageLocation{
