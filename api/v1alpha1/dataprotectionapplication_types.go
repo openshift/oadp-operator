@@ -688,6 +688,13 @@ type KubevirtDatamoverConfig struct {
 	// DataUploads for the same VM. Default is 2h.
 	// +optional
 	StaleDataUploadThreshold *metav1.Duration `json:"staleDataUploadThreshold,omitempty"`
+
+	// MaxConcurrentDataMovers is the maximum number of concurrent active
+	// DataUploads/DataDownloads per direction (DU and DD counted independently).
+	// 0 means unlimited (default behavior).
+	// +kubebuilder:validation:Minimum=0
+	// +optional
+	MaxConcurrentDataMovers *int32 `json:"maxConcurrentDataMovers,omitempty"`
 }
 
 // ApplicationConfig defines the configuration for the Data Protection Application

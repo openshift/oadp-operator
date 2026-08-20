@@ -259,6 +259,10 @@ func ensureKubevirtDatamoverRequiredSpecs(
 			args = append(args, fmt.Sprintf("--stale-dataupload-threshold=%s",
 				dpa.Spec.Configuration.KubevirtDatamover.StaleDataUploadThreshold.Duration.String()))
 		}
+		if dpa.Spec.Configuration.KubevirtDatamover.MaxConcurrentDataMovers != nil {
+			args = append(args, fmt.Sprintf("--max-concurrent-data-movers=%d",
+				*dpa.Spec.Configuration.KubevirtDatamover.MaxConcurrentDataMovers))
+		}
 	}
 
 	// Build container spec
