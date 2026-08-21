@@ -136,7 +136,7 @@ spec:
 ```
 
 - **maxIncrementalBackups**: the number of incremental (changed-blocks-only) backups the controller will chain together before it forces a full backup for a given VM. Set to `0` (the default) for unlimited incrementals, meaning the controller will keep chaining incremental backups indefinitely unless something else forces a full backup, such as a broken checkpoint chain. You can also override this per VM with the `kubevirt-datamover.io/max-incremental-backups` annotation on the VirtualMachine, which takes priority over the DPA-wide setting.
-- **maxConcurrentDataMovers**: the maximum number of active DataUploads the controller will process at the same time, and separately, the maximum number of active DataDownloads it will process at the same time. It's the same configured number applied to both, but DataUploads and DataDownloads are counted independently against it, so a value of `5` allows up to 5 backups and up to 5 restores running concurrently, not 5 total. Set to `0` (the default) for unlimited. Lower this if a large batch of simultaneous VM backups or restores is putting more load on your storage or object storage endpoint than you want.
+- **maxConcurrentDataMovers**: the maximum number of active DataUploads the controller will process at the same time, and separately, the maximum number of active DataDownloads it will process at the same time. It's the same configured number applied to both, but DataUploads and DataDownloads are counted independently against it, so a value of `5` allows up to 5 backups and up to 5 restores running concurrently, not 5 total. Set to `0` (the default) for unlimited. If you have a large number of VMs, set this explicitly rather than leaving it unlimited, a Backup that targets many VMs at once will otherwise try to run all of their DataUploads concurrently, which can overload your storage backend or object storage endpoint. (There is an open proposal to change the shipped default from `0` to `3`, see [migtools/kubevirt-datamover-controller#193](https://github.com/migtools/kubevirt-datamover-controller/issues/193). This doc reflects the current default as of this writing.)
 - **staleDataUploadThreshold**: how long a `DataUpload` can sit in an active phase (Accepted, Prepared, InProgress) before the controller treats it as stale and stops letting it block newer DataUploads for the same VM. Defaults to 2 hours. Raise this if your VMs have very large disks and backups routinely take longer than 2 hours to complete.
 
 All three fields are optional. If you leave them unset, the controller uses its built-in defaults.
@@ -145,7 +145,7 @@ You can also override the temporary backup PVC size on a per-VM basis with the `
 
 ## Volume policy configuration
 
-Velero decides which backup path to use for a given PVC through volume policies. To route a VM's disks through KubeVirt DataMover rather than a CSI snapshot, add a custom action to your Velero volume policy that targets `kubevirt` as the datamover. The ConfigMap's data key must be exactly `policy.yaml`, that's the key Velero looks for when it reads the referenced ConfigMap:
+Velero decides which backup path to use for a given PVC through volume policies. To route a VM's disks through KubeVirt DataMover rather than a CSI snapshot, add a custom action to your Velero volume policy that targets `kubevirt` as the datamover. The ConfigMap needs to hold exactly one data entry, Velero rejects a ConfigMap with zero or more than one key, but the key itself can be named anything you like. Velero just reads whatever single value is in `data` and treats it as the policy YAML, it does not look for a key called `policy.yaml` specifically. Most examples (including this one) use `policy.yaml` by convention, but if you create the ConfigMap from a file with a different name, that works fine too.
 
 ```yaml
 apiVersion: v1
@@ -164,7 +164,13 @@ data:
             datamover: kubevirt
 ```
 
-An empty `conditions: {}` matches every volume, so combine this with `includedNamespaces` on your `Backup` (or a separate policy entry) if you need to be more selective about which PVCs get routed through KubeVirt DataMover. If you want to condition on the CSI driver instead, Velero's `csi.driver` condition requires an exact driver name and does not support wildcards, so a plain `csi: {}` (matches any CSI-backed volume) or a fully spelled out driver name works, but `driver: "*"` does not match anything.
+You can also create the same ConfigMap directly from a policy file on disk instead of writing it inline:
+
+```bash
+oc create cm kubevirt-volume-policy -n openshift-adp --from-file policy.yaml
+```
+
+An empty `conditions: {}` matches every volume, so combine this with `includedNamespaces` on your `Backup` (or a separate policy entry) if you need to be more selective about which PVCs get routed through KubeVirt DataMover. Velero evaluates volume policy entries in order and stops at the first match, so a catch-all entry like the one above always needs to come last in your `volumePolicies` list. If you put it first, it will match every volume and none of the more specific entries after it will ever be considered. If you want to condition on the CSI driver instead, Velero's `csi.driver` condition requires an exact driver name and does not support wildcards, so a plain `csi: {}` (matches any CSI-backed volume) or a fully spelled out driver name works, but `driver: "*"` does not match anything.
 
 Reference this ConfigMap from your Velero `Backup` object's `spec.resourcePolicy`:
 
@@ -183,9 +189,15 @@ spec:
     name: kubevirt-volume-policy
 ```
 
+Or reference it directly when creating the backup with the `oc oadp` CLI plugin instead of writing the YAML by hand:
+
+```bash
+oc oadp backup create my-vm-backup --include-namespaces my-vm-namespace --resource-policies-configmap kubevirt-volume-policy --snapshot-move-data
+```
+
 Velero treats `custom` actions with unrecognized parameters as a signal to hand off data movement to whichever plugin claims the volume, which in this case is the kubevirt-datamover-plugin.
 
-If you back up a namespace that has both VMs and regular workloads, this policy only changes behavior for volumes attached to VirtualMachines. PVCs that are not owned by a VM continue to use Velero's normal CSI snapshot or File System Backup path.
+If you back up a namespace that has both VMs and regular workloads, this policy only changes behavior for volumes attached to VirtualMachines. PVCs that are not owned by a VM do not meet the kubevirt-datamover-plugin's prerequisites, so the plugin will not pick them up even though the volume policy matched them. Velero itself has no way to tell in advance whether a given PVC belongs to a VM, so for non-VM volumes this custom policy effectively behaves the same as a `skip` action: Velero hands the volume off looking for a datamover plugin to claim it, none does, and the volume ends up not being moved by this policy at all. If you need non-VM PVCs in the same namespace to still get backed up through CSI snapshots or File System Backup, keep this custom policy scoped with `includedNamespaces` or a label selector so it only ever matches VM-owned volumes, rather than relying on it to fall back safely for everything else.
 
 ## Storage provider and credential setup
 

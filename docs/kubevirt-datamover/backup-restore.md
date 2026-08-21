@@ -64,7 +64,7 @@ You should see `Enabled`. If it isn't, try restarting the VM (`virtctl stop` the
 
 ## Step 2: Create a volume policy that routes VM disks through KubeVirt DataMover
 
-Create a ConfigMap containing the volume policy, if you have not already done so as part of your DPA configuration. The data key must be exactly `policy.yaml`, that's the key Velero looks for:
+Create a ConfigMap containing the volume policy, if you have not already done so as part of your DPA configuration. The ConfigMap must have exactly one entry under `data`, but the key name does not matter, Velero reads whatever single value is there. `policy.yaml` is just the conventional name used in most examples:
 
 ```yaml
 apiVersion: v1
@@ -82,6 +82,14 @@ data:
           parameters:
             datamover: kubevirt
 ```
+
+If you would rather keep your policy in a separate file and create the ConfigMap from it, that works the same way:
+
+```bash
+oc create cm kubevirt-volume-policy -n openshift-adp --from-file policy.yaml
+```
+
+See [configuration.md](./configuration.md#volume-policy-configuration) for more on how volume policy matching works and what to watch out for with catch-all entries.
 
 ## Step 3: Run a backup
 
@@ -103,12 +111,18 @@ spec:
     name: kubevirt-volume-policy
 ```
 
+Or create the same backup with the `oc oadp` CLI plugin instead of writing the YAML by hand:
+
+```bash
+oc oadp backup create my-vm-backup --include-namespaces my-vm-namespace --resource-policies-configmap kubevirt-volume-policy --snapshot-move-data
+```
+
 `snapshotMoveData: true` is required. KubeVirt DataMover always moves the backed up data to your object storage location, it does not leave data sitting in an in-cluster snapshot the way a CSI-only backup might.
 
 Watch the backup progress:
 
 ```bash
-oc get backup my-vm-backup -n openshift-adp -w
+oc get backups.velero.io my-vm-backup -n openshift-adp -w
 ```
 
 Behind the scenes, when Velero gets to the VM's disks, the kubevirt-datamover-plugin creates a `DataUpload` custom resource with `spec.datamover: kubevirt`. The kubevirt-datamover-controller picks that up and works through a series of phases: `New`, `Accepted`, `Prepared`, `InProgress`, and finally `Completed` (or `Failed` if something goes wrong). You can watch this directly if you want more granular visibility than the Backup object gives you:
@@ -126,7 +140,7 @@ You don't need to manage full-versus-incremental yourself. The controller decide
 ## Step 4: Confirm the backup completed successfully
 
 ```bash
-oc get backup my-vm-backup -n openshift-adp -o jsonpath='{.status.phase}'
+oc get backups.velero.io my-vm-backup -n openshift-adp -o jsonpath='{.status.phase}'
 ```
 
 You should see `Completed`. Check the `DataUpload` object's phase too, since Velero can sometimes report a backup as complete while individual DataUploads are still finishing up in edge cases:
