@@ -146,6 +146,19 @@ func (r *DataProtectionApplicationReconciler) Reconcile(ctx context.Context, req
 		)
 	}
 
+	if dpaUsesCredentialsFile(r.dpa) {
+		apimeta.SetStatusCondition(&r.dpa.Status.Conditions,
+			metav1.Condition{
+				Type:    oadpv1alpha1.ConditionCredentialsFileDeprecated,
+				Status:  metav1.ConditionTrue,
+				Reason:  "CredentialsFileDeprecated",
+				Message: "config.credentialsFile is deprecated and will be removed in a future release. Please migrate to spec.credential.",
+			},
+		)
+	} else {
+		apimeta.RemoveStatusCondition(&r.dpa.Status.Conditions, oadpv1alpha1.ConditionCredentialsFileDeprecated)
+	}
+
 	// Update readiness conditions for all components
 	allReady, readinessErr := r.updateReadinessConditions()
 	if readinessErr != nil {
@@ -166,6 +179,26 @@ func (r *DataProtectionApplicationReconciler) Reconcile(ctx context.Context, req
 	}
 
 	return ctrl.Result{}, err
+}
+
+// dpaUsesCredentialsFile reports whether any BackupLocation or SnapshotLocation in the
+// DPA still configures the deprecated config.credentialsFile instead of spec.credential.
+func dpaUsesCredentialsFile(dpa *oadpv1alpha1.DataProtectionApplication) bool {
+	for _, bsl := range dpa.Spec.BackupLocations {
+		if bsl.Velero != nil {
+			if _, ok := bsl.Velero.Config["credentialsFile"]; ok {
+				return true
+			}
+		}
+	}
+	for _, vsl := range dpa.Spec.SnapshotLocations {
+		if vsl.Velero != nil {
+			if _, ok := vsl.Velero.Config["credentialsFile"]; ok {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 // SetupWithManager sets up the controller with the Manager.

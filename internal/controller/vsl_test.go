@@ -259,6 +259,82 @@ func TestDPAReconciler_ValidateVolumeSnapshotLocation(t *testing.T) {
 				Data: map[string][]byte{"cloud": []byte("dummy_data")},
 			},
 		},
+		{
+			name: "test AWS VSL with credentialsFile config and matching secret is allowed",
+			dpa: &oadpv1alpha1.DataProtectionApplication{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-Velero-VSL",
+					Namespace: "test-ns",
+				},
+				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
+					Configuration: &oadpv1alpha1.ApplicationConfig{
+						Velero: &oadpv1alpha1.VeleroConfig{
+							DefaultPlugins: []oadpv1alpha1.DefaultPlugin{
+								oadpv1alpha1.DefaultPluginAWS,
+							},
+						},
+					},
+					SnapshotLocations: []oadpv1alpha1.SnapshotLocation{
+						{
+							Velero: &velerov1.VolumeSnapshotLocationSpec{
+								Provider: AWSProvider,
+								Config: map[string]string{
+									Region:            "us-east-1",
+									"credentialsFile": "legacy-vsl-secret/legacy-key",
+								},
+							},
+						},
+					},
+				},
+			},
+			want:    true,
+			wantErr: false,
+			secret: &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "legacy-vsl-secret",
+					Namespace: "test-ns",
+				},
+				Data: map[string][]byte{"legacy-key": []byte("dummy_data")},
+			},
+		},
+		{
+			name: "test AWS VSL with credentialsFile config pointing at missing secret is rejected",
+			dpa: &oadpv1alpha1.DataProtectionApplication{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-Velero-VSL",
+					Namespace: "test-ns",
+				},
+				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
+					Configuration: &oadpv1alpha1.ApplicationConfig{
+						Velero: &oadpv1alpha1.VeleroConfig{
+							DefaultPlugins: []oadpv1alpha1.DefaultPlugin{
+								oadpv1alpha1.DefaultPluginAWS,
+							},
+						},
+					},
+					SnapshotLocations: []oadpv1alpha1.SnapshotLocation{
+						{
+							Velero: &velerov1.VolumeSnapshotLocationSpec{
+								Provider: AWSProvider,
+								Config: map[string]string{
+									Region:            "us-east-1",
+									"credentialsFile": "nonexistent-secret/legacy-key",
+								},
+							},
+						},
+					},
+				},
+			},
+			want:    false,
+			wantErr: true,
+			secret: &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "cloud-credentials",
+					Namespace: "test-ns",
+				},
+				Data: map[string][]byte{"cloud": []byte("dummy_data")},
+			},
+		},
 
 		// GCP tests
 		{

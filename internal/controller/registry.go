@@ -268,11 +268,18 @@ func (r *DataProtectionApplicationReconciler) getSecretNameAndKey(config map[str
 	// Assume default values unless user has overriden them
 	secretName := credentials.PluginSpecificFields[plugin].SecretName
 	secretKey := credentials.PluginSpecificFields[plugin].PluginSecretKey
-	if _, ok := config["credentialsFile"]; ok {
-		if secretName, secretKey, err :=
-			credentials.GetSecretNameKeyFromCredentialsFileConfigString(config["credentialsFile"]); err == nil {
-			r.Log.Info(fmt.Sprintf("credentialsFile secret: %s, key: %s", secretName, secretKey))
-			return secretName, secretKey, nil
+	if credFile, ok := config["credentialsFile"]; ok {
+		if credential != nil {
+			if cfSecretName, cfSecretKey, parseErr := credentials.GetSecretNameKeyFromCredentialsFileConfigString(credFile); parseErr == nil &&
+				(cfSecretName != credential.Name || cfSecretKey != credential.Key) {
+				r.Log.Info("config.credentialsFile and spec.credential point to different secrets; plugin behavior will change when credentialsFile support is removed",
+					"credentialsFile", credFile, "spec.credential.name", credential.Name, "spec.credential.key", credential.Key, "plugin", plugin)
+			}
+			r.Log.Info("config.credentialsFile is deprecated and ignored because spec.credential is set; remove config.credentialsFile", "plugin", plugin)
+		} else if cfSecretName, cfSecretKey, err := credentials.GetSecretNameKeyFromCredentialsFileConfigString(credFile); err == nil {
+			secretName = cfSecretName
+			secretKey = cfSecretKey
+			r.Log.Info("config.credentialsFile is deprecated; translating to secret reference, please migrate to spec.credential", "plugin", plugin, "secretName", secretName, "secretKey", secretKey)
 		}
 	}
 	// check if user specified the Credential Name and Key
