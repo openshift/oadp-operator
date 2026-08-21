@@ -275,6 +275,12 @@ func (r *DataProtectionApplicationReconciler) ReconcileBackupStorageLocations(lo
 					bsl.Spec.Config[k] = v
 				}
 
+				// Defensive cleanup: region is only supported in BSL config for AWS.
+				// Remove stale region values that might remain from prior reconciliations
+				if bucket.Spec.Provider != oadpv1alpha1.AWSBucketProvider {
+					delete(bsl.Spec.Config, "region")
+				}
+
 				// Handle enableSharedConfig from CloudStorage CR
 				if bucket.Spec.EnableSharedConfig != nil && *bucket.Spec.EnableSharedConfig {
 					if bsl.Spec.Config == nil {
@@ -479,7 +485,7 @@ func (r *DataProtectionApplicationReconciler) populateBSLFromCloudStorage(bslSpe
 	}
 
 	// Add region if specified in CloudStorage
-	if cloudStorage.Spec.Region != "" {
+	if cloudStorage.Spec.Provider == oadpv1alpha1.AWSBucketProvider && cloudStorage.Spec.Region != "" {
 		bslSpec.Velero.Config["region"] = cloudStorage.Spec.Region
 	}
 
