@@ -4674,7 +4674,6 @@ func TestDPAReconciler_populateBSLFromCloudStorage(t *testing.T) {
 						},
 					},
 					Config: map[string]string{
-						"region":         "eastus",
 						"storageAccount": "mystorageaccount",
 					},
 					Credential: &corev1.SecretKeySelector{
