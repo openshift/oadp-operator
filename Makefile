@@ -202,7 +202,7 @@ vet: check-go ## Run go vet against code.
 .PHONY: test
 test: check-go vet envtest ## Run unit tests; run Go linters checks; check if api and bundle folders are up to date; and check if go dependencies are valid
 	@make versions
-	KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) --bin-dir $(LOCALBIN) -p path)" go test -mod=mod $(shell go list -mod=mod ./... | grep -v /tests/e2e) -coverprofile cover.out
+	KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) --bin-dir $(LOCALBIN) -p path)" go test -mod=mod $(shell go list -mod=mod ./... | grep -v /tests/e2e | grep -v /tests/olmv1) -coverprofile cover.out
 	@make lint
 	@make api-isupdated
 	@make bundle-isupdated
@@ -1084,7 +1084,25 @@ test-e2e: test-e2e-setup install-ginkgo $(if $(MUST_GATHER_REPO),build-must-gath
 		fi; \
 		./tests/e2e/scripts/analyze_failures.sh $${EXIT_CODE:-0}; \
 	fi; \
-	exit $${EXIT_CODE:-0}
+	echo $${EXIT_CODE:-0} > /tmp/oadp-e2e-exit-code
+	# OLMv0→OLMv1 migration test runs after e2e. It removes the OLMv0 install
+	# (Subscription, CSV, CRDs) and reinstalls via OLMv1 ClusterExtension.
+	#
+	# CI:    Prow's optional-operators-subscribe already created the OLMv0 install.
+	#        The test auto-detects the CatalogSource image from the Subscription.
+	# Local: Requires OLMv0 install first (make deploy-olm). The test auto-detects
+	#        the CatalogSource, but if you used a custom catalog you may need to set
+	#        OLMV1_CATALOG_IMAGE. If this step fails locally, check:
+	#        - OCP 4.20+ is required (OLMv1 APIs must exist)
+	#        - ttl.sh catalog images expire after TTL_DURATION (default 1h)
+	#        - Run "make test-upgrade-v0-to-olmv1" standalone to iterate on failures
+	#
+	# Migration failure does not mask the e2e exit code. Migration results are
+	# captured separately in junit_olmv1_report.xml.
+	-$(MAKE) test-upgrade-v0-to-olmv1
+	@E2E_EXIT=$$(cat /tmp/oadp-e2e-exit-code 2>/dev/null || echo 0); \
+	rm -f /tmp/oadp-e2e-exit-code; \
+	exit $$E2E_EXIT
 
 .PHONY: test-e2e-cleanup
 test-e2e-cleanup: login-required
@@ -1101,6 +1119,312 @@ test-e2e-cleanup: login-required
 	$(OC_CLI) delete ns mongo-persistent --ignore-not-found=true
 	$(OC_CLI) delete ns mysql-persistent --ignore-not-found=true
 	rm -rf $(SETTINGS_TMP)
+
+##@ OLMv1 Tests
+#
+# OLMv1 migration and lifecycle tests validate installing OADP via OLMv1
+# ClusterExtension, including migrating from an existing OLMv0 (Subscription/CSV)
+# install. Two complementary approaches exist:
+#
+# Makefile targets (upgrade-v0-to-olmv1):
+#   Shell-based migration using oc commands. Useful for local development and
+#   quick iteration. Builds fresh operator/bundle/catalog images, removes OLMv0
+#   resources, creates a ClusterCatalog, and installs via ClusterExtension.
+#
+# Go tests (test-upgrade-v0-to-olmv1):
+#   Ginkgo test suite that performs the same migration with detailed assertions,
+#   version verification, and structured JUnit output for CI reporting.
+#
+# Local usage:
+#   make deploy-olm                    # Install OADP via OLMv0 first
+#   make upgrade-v0-to-olmv1           # Shell-based migration (builds fresh images)
+#   # or
+#   make test-upgrade-v0-to-olmv1      # Go test migration (needs catalog-image or
+#                                      # pre-existing CatalogSource to auto-detect)
+#
+# CI/Prow usage (presubmit with optional-operators-subscribe workflow):
+#   1. ci-operator builds the test image from build/ci-Dockerfile
+#   2. optional-operators-subscribe creates a CatalogSource (from OO_INDEX) +
+#      OperatorGroup + Subscription in OO_INSTALL_NAMESPACE (openshift-adp),
+#      giving us a running OLMv0 install
+#   3. The test step runs: make test-upgrade-v0-to-olmv1
+#   4. The Go test auto-detects the CatalogSource image from the Subscription,
+#      removes all OLMv0 resources, creates a ClusterCatalog from the same image,
+#      and installs via ClusterExtension
+#   5. Version is verified: OLMv0 CSV version must match OLMv1 installed version
+#
+# The Go test is compatible with any CatalogSource placement (openshift-marketplace
+# or operator namespace) — it reads spec.sourceNamespace from the Subscription.
+
+OLMV1_PACKAGE ?= oadp-operator
+OLMV1_NAMESPACE ?= $(OADP_TEST_NAMESPACE)
+OLMV1_CHANNEL ?= $(DEFAULT_CHANNEL)
+OLMV1_VERSION ?= $(VERSION)
+OLMV1_UPGRADE_VERSION ?=
+OLMV1_CATALOG ?= oadp-olmv1-test-catalog
+OLMV1_CATALOG_IMAGE ?= ttl.sh/oadp-operator-catalog-$(GIT_REV):$(TTL_DURATION)
+OLMV1_SERVICE_ACCOUNT ?= $(OLMV1_PACKAGE)-installer
+OLMV1_INSTALLER_BINDING ?= $(OLMV1_SERVICE_ACCOUNT)-binding
+OLMV1_FAIL_FAST ?= true
+
+OLMV1_GINKGO_FLAGS = --vv \
+	--no-color=$(OPENSHIFT_CI) \
+	--label-filter="olmv1" \
+	--junit-report="$(ARTIFACT_DIR)/junit_olmv1_report.xml" \
+	--fail-fast=$(OLMV1_FAIL_FAST) \
+	--timeout=30m
+
+.PHONY: test-olmv1
+test-olmv1: OLMV1_OPERATOR_IMAGE?=ttl.sh/oadp-operator-$(GIT_REV):$(TTL_DURATION)
+test-olmv1: OLMV1_BUNDLE_IMAGE?=ttl.sh/oadp-operator-bundle-$(GIT_REV):$(TTL_DURATION)
+test-olmv1: login-required install-ginkgo ## Run OLMv1 lifecycle tests (install, verify, upgrade, cleanup) against a cluster with OLMv1 enabled.
+	@echo "=== OLMv1 test configuration ==="
+	@echo "  Package:       $(OLMV1_PACKAGE)"
+	@echo "  Namespace:     $(OLMV1_NAMESPACE)"
+	@echo "  Channel:       $(OLMV1_CHANNEL)"
+	@echo "  Version:       $(OLMV1_VERSION)"
+	@echo "  Catalog:       $(OLMV1_CATALOG)"
+	@echo "  Catalog Image: $(OLMV1_CATALOG_IMAGE)"
+	@echo "  Operator:      $(OLMV1_OPERATOR_IMAGE)"
+	@echo "  Bundle:        $(OLMV1_BUNDLE_IMAGE)"
+	@echo "=== Building operator, bundle, and catalog images ==="
+	IMG=$(OLMV1_OPERATOR_IMAGE) BUNDLE_IMG=$(OLMV1_BUNDLE_IMAGE) BUNDLE_IMGS=$(OLMV1_BUNDLE_IMAGE) CATALOG_IMG=$(OLMV1_CATALOG_IMAGE) \
+		$(MAKE) docker-build docker-push bundle bundle-build bundle-push catalog-build catalog-push
+	ginkgo run -mod=mod $(OLMV1_GINKGO_FLAGS) $(GINKGO_ARGS) tests/olmv1/ -- \
+	-namespace=$(OLMV1_NAMESPACE) \
+	-package=$(OLMV1_PACKAGE) \
+	-channel=$(OLMV1_CHANNEL) \
+	-version=$(OLMV1_VERSION) \
+	-upgrade-version=$(OLMV1_UPGRADE_VERSION) \
+	-catalog=$(OLMV1_CATALOG) \
+	-catalog-image=$(OLMV1_CATALOG_IMAGE) \
+	-service-account=$(OLMV1_SERVICE_ACCOUNT) \
+	-artifact_dir=$(ARTIFACT_DIR)
+
+.PHONY: test-olmv1-cleanup
+test-olmv1-cleanup: login-required ## Cleanup resources created by OLMv1 tests.
+	$(OC_CLI) delete clusterextension $(OLMV1_PACKAGE) --ignore-not-found=true
+	$(OC_CLI) delete clustercatalog $(OLMV1_CATALOG) --ignore-not-found=true
+	$(OC_CLI) delete clusterrolebinding $(OLMV1_INSTALLER_BINDING) --ignore-not-found=true
+	$(OC_CLI) delete sa $(OLMV1_SERVICE_ACCOUNT) -n $(OLMV1_NAMESPACE) --ignore-not-found=true
+
+# deploy-olmv1-mirror-catalog: Deploy a ClusterCatalog from a productized index
+# image for testing when the current OCP version's redhat-operator-index does
+# not include redhat-oadp-operator (e.g., 4.22 only ships OLMv1-curated packages).
+#
+# Usage:
+#   make deploy-olmv1-mirror-catalog                                    # defaults to v4.21
+#   make deploy-olmv1-mirror-catalog OLMV1_MIRROR_INDEX=registry.redhat.io/redhat/redhat-operator-index:v4.20
+#   make deploy-olmv1-mirror-catalog OLMV1_MIRROR_PACKAGE=redhat-oadp-operator
+OLMV1_MIRROR_INDEX ?= registry.redhat.io/redhat/redhat-operator-index:v4.21
+OLMV1_MIRROR_CATALOG ?= oadp-v0-mirror-test-catalog
+OLMV1_MIRROR_PACKAGE ?= redhat-oadp-operator
+
+.PHONY: deploy-olmv1-mirror-catalog
+deploy-olmv1-mirror-catalog: login-required ## Deploy a ClusterCatalog from a productized index image for OLMv1 testing.
+	@echo "=== Deploying mirror ClusterCatalog from $(OLMV1_MIRROR_INDEX) ==="
+	@printf '%s\n' \
+		'apiVersion: olm.operatorframework.io/v1' \
+		'kind: ClusterCatalog' \
+		'metadata:' \
+		'  name: $(OLMV1_MIRROR_CATALOG)' \
+		'spec:' \
+		'  source:' \
+		'    type: Image' \
+		'    image:' \
+		'      ref: $(OLMV1_MIRROR_INDEX)' \
+		| $(OC_CLI) apply -f -
+	@echo "Waiting for ClusterCatalog $(OLMV1_MIRROR_CATALOG) to be serving..."
+	$(OC_CLI) wait clustercatalog/$(OLMV1_MIRROR_CATALOG) --for=condition=Serving=True --timeout=300s
+	@echo ""
+	@echo "Mirror catalog ready. Install $(OLMV1_MIRROR_PACKAGE) via OLMv1:"
+	@echo "  make test-olmv1 OLMV1_PACKAGE=$(OLMV1_MIRROR_PACKAGE) OLMV1_CATALOG=$(OLMV1_MIRROR_CATALOG) OLMV1_CATALOG_IMAGE=$(OLMV1_MIRROR_INDEX)"
+	@echo "  # or for migration test:"
+	@echo "  make test-upgrade-v0-to-olmv1 OLMV1_PACKAGE=$(OLMV1_MIRROR_PACKAGE) OLMV1_CATALOG=$(OLMV1_MIRROR_CATALOG) OLMV1_CATALOG_IMAGE=$(OLMV1_MIRROR_INDEX)"
+
+.PHONY: undeploy-olmv1-mirror-catalog
+undeploy-olmv1-mirror-catalog: login-required ## Remove the mirror ClusterCatalog.
+	$(OC_CLI) delete clustercatalog $(OLMV1_MIRROR_CATALOG) --ignore-not-found=true
+
+OLMV1_MANIFEST ?= oadp-olmv1-manifest.yaml
+
+.PHONY: generate-olmv1-manifest
+generate-olmv1-manifest: ## Generate OLMv1 install manifest (Namespace, SA, CRB, ClusterExtension) per OCPSTRAT-2268 template.
+	@printf '%s\n' \
+		'---' \
+		'apiVersion: v1' \
+		'kind: Namespace' \
+		'metadata:' \
+		'  name: $(OLMV1_NAMESPACE)' \
+		'---' \
+		'apiVersion: v1' \
+		'kind: ServiceAccount' \
+		'metadata:' \
+		'  name: $(OLMV1_SERVICE_ACCOUNT)' \
+		'  namespace: $(OLMV1_NAMESPACE)' \
+		'---' \
+		'apiVersion: rbac.authorization.k8s.io/v1' \
+		'kind: ClusterRoleBinding' \
+		'metadata:' \
+		'  name: $(OLMV1_INSTALLER_BINDING)' \
+		'roleRef:' \
+		'  apiGroup: rbac.authorization.k8s.io' \
+		'  kind: ClusterRole' \
+		'  name: cluster-admin' \
+		'subjects:' \
+		'- kind: ServiceAccount' \
+		'  name: $(OLMV1_SERVICE_ACCOUNT)' \
+		'  namespace: $(OLMV1_NAMESPACE)' \
+		'---' \
+		'apiVersion: olm.operatorframework.io/v1' \
+		'kind: ClusterExtension' \
+		'metadata:' \
+		'  name: $(OLMV1_PACKAGE)' \
+		'spec:' \
+		'  namespace: $(OLMV1_NAMESPACE)' \
+		'  serviceAccount:' \
+		'    name: $(OLMV1_SERVICE_ACCOUNT)' \
+		'  config:' \
+		'    configType: Inline' \
+		'    inline:' \
+		'      watchNamespace: $(OLMV1_NAMESPACE)' \
+		'  source:' \
+		'    sourceType: Catalog' \
+		'    catalog:' \
+		'      packageName: $(OLMV1_PACKAGE)' \
+		> $(OLMV1_MANIFEST)
+	@if [ -n "$(OLMV1_PIN_CATALOG)" ]; then \
+		printf '      selector:\n' >> $(OLMV1_MANIFEST); \
+		printf '        matchLabels:\n' >> $(OLMV1_MANIFEST); \
+		printf '          olm.operatorframework.io/metadata.name: %s\n' '$(OLMV1_PIN_CATALOG)' >> $(OLMV1_MANIFEST); \
+	fi
+	@if [ -n "$(OLMV1_CHANNEL)" ]; then \
+		printf '      channels:\n' >> $(OLMV1_MANIFEST); \
+		printf '      - %s\n' '$(OLMV1_CHANNEL)' >> $(OLMV1_MANIFEST); \
+	fi
+	@if [ -n "$(OLMV1_VERSION)" ]; then \
+		printf '      version: "%s"\n' '$(OLMV1_VERSION)' >> $(OLMV1_MANIFEST); \
+	fi
+	@echo "Generated $(OLMV1_MANIFEST)"
+
+# upgrade-v0-to-olmv1: Shell-based OLMv0→OLMv1 migration for local development.
+# Builds fresh operator+bundle+catalog images (ttl.sh), removes OLMv0 resources,
+# creates ClusterCatalog, and installs via ClusterExtension.
+# Skip the build by passing OLMV1_CATALOG_IMAGE=<image>.
+# Usage: make deploy-olm && make upgrade-v0-to-olmv1
+.PHONY: upgrade-v0-to-olmv1
+upgrade-v0-to-olmv1: UPGRADE_OPERATOR_IMAGE?=ttl.sh/oadp-operator-$(GIT_REV):$(TTL_DURATION)
+upgrade-v0-to-olmv1: UPGRADE_BUNDLE_IMAGE?=ttl.sh/oadp-operator-bundle-$(GIT_REV):$(TTL_DURATION)
+upgrade-v0-to-olmv1: UPGRADE_CATALOG_IMAGE?=ttl.sh/oadp-operator-catalog-$(GIT_REV):$(TTL_DURATION)
+upgrade-v0-to-olmv1: UPGRADE_TMP:=$(shell mktemp -d)/
+upgrade-v0-to-olmv1: login-required ## Migrate an existing OLMv0 OADP install to OLMv1 (ClusterExtension). Requires OCP 4.20+.
+	$(OC_CLI) whoami
+	@echo "=== Phase 1: Building fresh catalog image ==="
+	@if [ -n "$(OLMV1_CATALOG_IMAGE)" ]; then \
+		echo "Using provided catalog image: $(OLMV1_CATALOG_IMAGE)"; \
+		echo "$(OLMV1_CATALOG_IMAGE)" > /tmp/oadp-migrate-catalog-image; \
+	else \
+		echo "Building operator, bundle, and catalog images (avoids expired ttl.sh images)..."; \
+		echo "  Operator: $(UPGRADE_OPERATOR_IMAGE)"; \
+		echo "  Bundle:   $(UPGRADE_BUNDLE_IMAGE)"; \
+		echo "  Catalog:  $(UPGRADE_CATALOG_IMAGE)"; \
+		cp -r . $(UPGRADE_TMP) && cd $(UPGRADE_TMP) && \
+		IMG=$(UPGRADE_OPERATOR_IMAGE) BUNDLE_IMG=$(UPGRADE_BUNDLE_IMAGE) BUNDLE_IMGS=$(UPGRADE_BUNDLE_IMAGE) CATALOG_IMG=$(UPGRADE_CATALOG_IMAGE) \
+			make docker-build docker-push bundle bundle-build bundle-push catalog-build catalog-push; \
+		chmod -R 777 $(UPGRADE_TMP) && rm -rf $(UPGRADE_TMP); \
+		echo "$(UPGRADE_CATALOG_IMAGE)" > /tmp/oadp-migrate-catalog-image; \
+	fi
+	@echo "=== Phase 2: Removing OLMv0 resources ==="
+	-$(OC_CLI) delete subscription oadp-operator -n $(OADP_TEST_NAMESPACE) --ignore-not-found=true
+	-$(OC_CLI) get subscription -n $(OADP_TEST_NAMESPACE) -o name 2>/dev/null | \
+		xargs -I {} sh -c '$(OC_CLI) get {} -n $(OADP_TEST_NAMESPACE) -o jsonpath='"'"'{.metadata.name}{"\t"}{.spec.source}{"\n"}'"'"' 2>/dev/null' | \
+		grep "$(CATALOG_SOURCE_NAME)" | cut -f1 | \
+		xargs -I {} $(OC_CLI) delete subscription {} -n $(OADP_TEST_NAMESPACE) --ignore-not-found=true || true
+	-$(OC_CLI) delete csv -l operators.coreos.com/oadp-operator.$(OADP_TEST_NAMESPACE) -n $(OADP_TEST_NAMESPACE) --ignore-not-found=true
+	-$(OC_CLI) get csv -n $(OADP_TEST_NAMESPACE) -o name 2>/dev/null | grep oadp-operator | \
+		xargs -I {} $(OC_CLI) delete {} -n $(OADP_TEST_NAMESPACE) --ignore-not-found=true || true
+	-$(OC_CLI) delete operatorgroup oadp-operator-group -n $(OADP_TEST_NAMESPACE) --ignore-not-found=true
+	-$(OC_CLI) delete catalogsource $(CATALOG_SOURCE_NAME) -n $(CATALOG_SOURCE_NAMESPACE) --ignore-not-found=true
+	# CI (optional-operators-subscribe) may place CatalogSource in the operator namespace
+	-$(OC_CLI) delete catalogsource --all -n $(OADP_TEST_NAMESPACE) --ignore-not-found=true || true
+	@echo "=== Phase 3: Removing orphaned OADP/Velero CRDs ==="
+	# OLMv1 cannot adopt CRDs it did not create
+	-CRDS=$$($(OC_CLI) get crd -o name 2>/dev/null | grep -E '\.oadp\.openshift\.io|\.velero\.io'); \
+		if [ -n "$$CRDS" ]; then echo "$$CRDS" | xargs $(OC_CLI) delete --ignore-not-found=true; fi || true
+	@echo "=== Phase 3b: Removing OLMv0-managed remnant resources ==="
+	# OLMv1 cannot adopt resources created by OLMv0's CSV (labeled olm.managed=true)
+	-$(OC_CLI) delete sa,roles,rolebindings,deployments -l olm.managed=true -n $(OADP_TEST_NAMESPACE) --ignore-not-found=true || true
+	# Only delete cluster-scoped resources related to OADP (avoid breaking other operators in shared clusters)
+	-CRS=$$($(OC_CLI) get clusterroles -l olm.managed=true -o name 2>/dev/null | grep -E 'oadp|velero|$(OADP_TEST_NAMESPACE)'); \
+		if [ -n "$$CRS" ]; then echo "$$CRS" | xargs $(OC_CLI) delete --ignore-not-found=true; fi || true
+	-CRBS=$$($(OC_CLI) get clusterrolebindings -l olm.managed=true -o name 2>/dev/null | grep -E 'oadp|velero|$(OADP_TEST_NAMESPACE)'); \
+		if [ -n "$$CRBS" ]; then echo "$$CRBS" | xargs $(OC_CLI) delete --ignore-not-found=true; fi || true
+	@echo "=== Phase 4: Creating ClusterCatalog ==="
+	@if [ -f /tmp/oadp-migrate-catalog-image ]; then \
+		CATALOG_IMG=$$(cat /tmp/oadp-migrate-catalog-image); \
+		echo "Creating ClusterCatalog $(OLMV1_CATALOG) from image $$CATALOG_IMG"; \
+		printf '%s\n' \
+			'apiVersion: olm.operatorframework.io/v1' \
+			'kind: ClusterCatalog' \
+			'metadata:' \
+			'  name: $(OLMV1_CATALOG)' \
+			'spec:' \
+			'  source:' \
+			'    type: Image' \
+			'    image:' \
+			"      ref: $$CATALOG_IMG" \
+			| $(OC_CLI) apply -f -; \
+		echo "Waiting for ClusterCatalog to be serving..."; \
+		if ! $(OC_CLI) wait clustercatalog/$(OLMV1_CATALOG) --for=condition=Serving=True --timeout=120s; then \
+			echo ""; \
+			echo "ERROR: ClusterCatalog $(OLMV1_CATALOG) failed to reach Serving state."; \
+			echo "Catalog image: $$CATALOG_IMG"; \
+			echo "This usually means the catalog image is expired or cannot be pulled."; \
+			echo "If using ttl.sh, images expire after TTL_DURATION (default: 1h)."; \
+			echo ""; \
+			echo "=== ClusterCatalog status ==="; \
+			$(OC_CLI) get clustercatalog $(OLMV1_CATALOG) -o yaml 2>/dev/null || true; \
+			echo "=== catalogd pod logs (last 30 lines) ==="; \
+			$(OC_CLI) logs -n openshift-catalogd -l app.kubernetes.io/name=catalogd --tail=30 2>/dev/null || true; \
+			rm -f /tmp/oadp-migrate-catalog-image; \
+			exit 1; \
+		fi; \
+		rm -f /tmp/oadp-migrate-catalog-image; \
+	else \
+		echo "Skipping — no custom catalog to migrate"; \
+	fi
+	@echo "=== Phase 5: Applying OLMv1 manifest ==="
+	-$(OC_CLI) delete clusterextension $(OLMV1_PACKAGE) --ignore-not-found=true
+	$(MAKE) generate-olmv1-manifest OLMV1_PIN_CATALOG=$(OLMV1_CATALOG)
+	$(OC_CLI) apply -f $(OLMV1_MANIFEST)
+	@echo "=== Phase 6: Waiting for ClusterExtension Installed=True ==="
+	$(OC_CLI) wait clusterextension/$(OLMV1_PACKAGE) \
+		--for=condition=Installed=True --timeout=600s
+	@echo "Migration complete."
+	$(OC_CLI) get clusterextension $(OLMV1_PACKAGE)
+
+# test-upgrade-v0-to-olmv1: Ginkgo-based OLMv0→OLMv1 migration test with assertions.
+# Expects a pre-existing OLMv0 install (Subscription + CSV running).
+#
+# Local:  make deploy-olm && make test-upgrade-v0-to-olmv1 OLMV1_CATALOG_IMAGE=<image>
+# CI:     Prow's optional-operators-subscribe installs OLMv0 first, then this target
+#         runs. The test auto-detects the CatalogSource image from the Subscription
+#         (no OLMV1_CATALOG_IMAGE needed — works with CI-created CatalogSource in any
+#         namespace). Verifies same version installed before/after migration.
+.PHONY: test-upgrade-v0-to-olmv1
+test-upgrade-v0-to-olmv1: login-required install-ginkgo ## Test OLMv0->OLMv1 migration path. Expects a pre-existing OLMv0 OADP install (run make deploy-olm first).
+	ginkgo run -mod=mod $(OLMV1_GINKGO_FLAGS) \
+		--label-filter="olmv1-migrate" \
+		$(GINKGO_ARGS) tests/olmv1/ -- \
+		-namespace=$(OLMV1_NAMESPACE) \
+		-package=$(OLMV1_PACKAGE) \
+		-channel=$(OLMV1_CHANNEL) \
+		-version=$(OLMV1_VERSION) \
+		-catalog=$(OLMV1_CATALOG) \
+		-catalog-image=$(OLMV1_CATALOG_IMAGE) \
+		-service-account=$(OLMV1_SERVICE_ACCOUNT) \
+		-migrate=true \
+		-artifact_dir=$(ARTIFACT_DIR)
 
 .PHONY: update-non-admin-manifests
 update-non-admin-manifests: NON_ADMIN_CONTROLLER_IMG?=quay.io/konveyor/oadp-non-admin:latest
