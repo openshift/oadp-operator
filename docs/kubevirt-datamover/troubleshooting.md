@@ -47,6 +47,23 @@ If the very first backup on a VM you expect to be incremental turns out to be a 
 3. HCO has the CBT feature gate enabled cluster-wide, and the HCO/KubeVirt version meets the minimum (HCO 1.18+, KubeVirt 1.8.2+).
 4. The VM was restarted after the label was added, if you added it to an already-running VM. Some KubeVirt versions only pick up CBT at VM start.
 
+### CBT backup fails with "no space left on device"
+
+If a DataUpload fails and the underlying VirtualMachineBackup or virt-launcher logs mention `SyncFailed` and `No space left on device`, this is usually not a problem with your actual VM disk, it is the small overlay volume KubeVirt uses internally to track changed blocks running out of room. On some storage backends, that overlay volume gets provisioned at its bare minimum size (around 10-11Mi), which is not enough headroom for VMs with large disks or a lot of write activity between backups.
+
+The fix is to point that overlay volume at a storage class with a larger minimum allocation, by setting `vmStateStorageClass` on the HyperConverged CR:
+
+```bash
+oc patch hyperconverged kubevirt-hyperconverged -n openshift-cnv --type merge \
+  -p '{"spec":{"storage":{"vmStateStorageClass":"standard-csi"}}}'
+```
+
+Pick a storage class where PVCs round up to at least 1Gi or so (many CSI drivers do this automatically). This is a cluster-wide HCO setting, not something you configure per VM or through the DPA.
+
+### VM backup reports success but restored disk has no data
+
+On some VM configurations, most commonly Fedora or RHEL VMs using a DataSource-backed DataVolume with EFI and SMM firmware enabled, a VirtualMachineBackup can report `Done: True` and a `VirtualMachineBackupCompletedSuccessfully` condition while the actual backup PVC ends up empty or the restore comes back with none of the VM's data. If this happens, check the events on the VirtualMachineBackup and its associated pods for `HotplugFailed`, which is the real underlying failure that the top-level status doesn't currently surface clearly. Smaller VMs based on a plain containerdisk (CirrOS test images, for example) are not affected. Until this is fixed, treat a successful-looking VMB status on an EFI/SMM Fedora or RHEL VM with some suspicion and verify restored data directly rather than trusting the status alone.
+
 ### Restore fails partway through
 
 Check the DataDownload's phase and events the same way you would for a DataUpload:
@@ -76,15 +93,22 @@ oc get dpa -A
 
 If you see a warning that VM restore requires the `kubevirt` plugin, add `kubevirt` alongside `kubevirt-datamover` in `spec.configuration.velero.defaultPlugins`. `kubevirt-datamover` handles disk data movement, but VM metadata and file-level restore actions are handled by the separate kubevirt-velero-plugin (the `kubevirt` plugin). Both need to be present for a complete VM backup and restore workflow.
 
+### "Failed freezing guest filesystem" warning during backup
+
+If the VirtualMachineBackup status includes a warning like `Failed freezing guest filesystem: ... QEMU guest agent is not connected`, and your VM does not have the QEMU guest agent installed and running, this is expected and not a failure. KubeVirt attempts to quiesce (freeze) the guest filesystem for a cleaner backup, but without a guest agent it can't, so it falls back to a crash-consistent backup instead, the same way a hard power-cycle would leave the disk. The backup still completes successfully. If you want quiesced, application-consistent backups, install `qemu-guest-agent` in the guest OS. There is currently no way to require quiescing and fail the backup instead of falling back, that behavior is still under development upstream.
+
 ## Known limitations
 
 - **VM must be running**: KubeVirt DataMover backs up VMs through CBT, which requires the VM to be running (`spec.running: true`, `status.printableStatus: Running`) at backup time. Offline (stopped) VM backup through this path is not supported.
 - **Single active backup per VM**: only one DataUpload can be active for a given VM at a time. Concurrent backups of the same VM are not supported.
 - **Block volume mode required**: CBT-based backup only works with `volumeMode: Block` PVCs. Filesystem-mode disks fall back to whatever your volume policy routes them to (typically a CSI snapshot or File System Backup), not KubeVirt DataMover.
+- **EFI/SMM Fedora and RHEL VMs may back up zero data without an obvious error**: see "VM backup reports success but restored disk has no data" above.
 - **Object storage required**: KubeVirt DataMover always requires `snapshotMoveData: true` and a working BackupStorageLocation. There is no in-cluster-snapshot-only mode.
 - **Cluster-wide singleton controller**: only one DPA per cluster can have KubeVirt DataMover enabled.
 - **VirtualMachineBackup/VirtualMachineBackupTracker are transient**: the controller creates and deletes these CRs as part of normal operation, archiving their state to object storage. If you are scripting around these objects directly, expect them to disappear once a backup or restore completes; treat the archived JSON in object storage as the durable record, not the live cluster objects.
 - **Restore chains rebuild incrementally**: a restore from a VM with a long incremental chain replays each checkpoint in sequence via `qemu-img rebase`, rather than restoring straight from the full backup. A very long incremental chain can make individual restores slower than you might expect, even though it keeps backups themselves fast. This is a reasonable trade to be aware of when deciding on your `maxIncrementalBackups` setting.
 - **No user-triggered full backup**: there is currently no supported way to force a one-off full backup from the Backup or VirtualMachine object. The controller falls back to a full backup automatically when it can't validate the existing checkpoint chain or when `maxIncrementalBackups` is reached.
+- **Log tail is capped at 100 lines**: when the controller captures a datamover or downloader pod's logs before deleting it, it only keeps the last 100 lines. For most failures this is enough, but if you need earlier output from a long-running transfer, you will need to catch the pod while it is still alive with `oc logs`.
+- **Cancellation cleanup is best effort**: canceling a DataUpload or DataDownload tells the controller to clean up the pod and any temporary PVCs it created, but if that cleanup itself fails, the operation still moves to `Canceled` rather than getting stuck, and the cleanup error is only logged, not retried automatically. Leftover pods or PVCs from a failed cleanup are still owned by the DataUpload/DataDownload, so Kubernetes garbage collection removes them once the parent object itself is deleted, but it's worth checking for orphaned resources in the `openshift-adp` namespace after canceling an operation, especially if you see something odd in the namespace afterward.
 
 If you run into an issue that is not covered here, the most useful thing to collect before opening a bug report is the full controller log around the time of the failure, plus `oc describe` output for the affected DataUpload or DataDownload and the corresponding Velero Backup or Restore object.

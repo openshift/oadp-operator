@@ -126,6 +126,7 @@ spec:
   configuration:
     kubevirtDatamover:
       maxIncrementalBackups: 10
+      maxConcurrentDataMovers: 5
       staleDataUploadThreshold: 3h
     velero:
       defaultPlugins:
@@ -135,9 +136,12 @@ spec:
 ```
 
 - **maxIncrementalBackups**: the number of incremental (changed-blocks-only) backups the controller will chain together before it forces a full backup for a given VM. Set to `0` (the default) for unlimited incrementals, meaning the controller will keep chaining incremental backups indefinitely unless something else forces a full backup, such as a broken checkpoint chain. You can also override this per VM with the `kubevirt-datamover.io/max-incremental-backups` annotation on the VirtualMachine, which takes priority over the DPA-wide setting.
+- **maxConcurrentDataMovers**: the maximum number of active DataUploads the controller will process at the same time, and separately, the maximum number of active DataDownloads it will process at the same time. It's the same configured number applied to both, but DataUploads and DataDownloads are counted independently against it, so a value of `5` allows up to 5 backups and up to 5 restores running concurrently, not 5 total. Set to `0` (the default) for unlimited. Lower this if a large batch of simultaneous VM backups or restores is putting more load on your storage or object storage endpoint than you want.
 - **staleDataUploadThreshold**: how long a `DataUpload` can sit in an active phase (Accepted, Prepared, InProgress) before the controller treats it as stale and stops letting it block newer DataUploads for the same VM. Defaults to 2 hours. Raise this if your VMs have very large disks and backups routinely take longer than 2 hours to complete.
 
-Both fields are optional. If you leave them unset, the controller uses its built-in defaults.
+All three fields are optional. If you leave them unset, the controller uses its built-in defaults.
+
+You can also override the temporary backup PVC size on a per-VM basis with the `kubevirt-datamover.io/backup-pvc-size` annotation on the VirtualMachine (a Kubernetes quantity, for example `50Gi`). The controller normally calculates this size from the VM's disk, so you only need this if you have a VM where the automatic sizing isn't giving you enough headroom.
 
 ## Volume policy configuration
 

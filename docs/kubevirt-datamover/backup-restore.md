@@ -158,6 +158,10 @@ On the restore path, the kubevirt-datamover-plugin's Restore Item Action creates
 
 Once the `DataDownload` reaches `Completed`, the restored PVC is bound and rebound to the new VM created by Velero's standard VM restore path (handled by kubevirt-velero-plugin), and the VM should come up with its data intact.
 
+### Expect the restored VM to start out halted
+
+Before the restore, the plugin stops the VM and remembers whether it was running or stopped at backup time. This is expected and not a sign of a failed restore. If the VM had more than one disk, each disk gets its own `DataDownload`, and the controller only puts the VM back into its original run state once every one of those `DataDownload`s for that VM has reached `Completed`. In practice this means a freshly restored multi-disk VM can sit in a Halted or Stopped state for a little while, then start on its own once all of its disks are done. Don't start the VM manually while restores are still in progress, just wait for it to come up by itself.
+
 Check that the VM started correctly:
 
 ```bash
