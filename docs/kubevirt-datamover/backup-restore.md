@@ -54,11 +54,17 @@ Two things matter here for KubeVirt DataMover to work correctly:
 - The disk's `volumeMode` must be `Block`. CBT tracking relies on being able to read raw changed blocks off the underlying volume, which is not available in filesystem-mode PVCs.
 - The label goes on the `VirtualMachine`, not on the `DataVolume` or `PersistentVolumeClaim`.
 
-If you apply the label to an existing VM that is already running, you may need to restart the VM (stop and start it again) for CBT to actually start tracking, depending on your KubeVirt version. Check that CBT is active by describing the VM's VirtualMachineInstance and looking for CBT status in KubeVirt's own status fields, or simply proceed to the backup step below and confirm the first backup succeeds as a full backup.
+If you apply the label to an existing VM that is already running, you may need to restart the VM (stop and start it again) for CBT to actually start tracking, depending on your KubeVirt version. Check that CBT is active on the VirtualMachine itself:
+
+```bash
+oc get vm my-vm -n my-vm-namespace -o jsonpath='{.status.changedBlockTracking.state}'
+```
+
+You should see `Enabled`. If it isn't, try restarting the VM (`virtctl stop` then `virtctl start`), or simply proceed to the backup step below and confirm the first backup succeeds as a full backup.
 
 ## Step 2: Create a volume policy that routes VM disks through KubeVirt DataMover
 
-Create a ConfigMap containing the volume policy, if you have not already done so as part of your DPA configuration:
+Create a ConfigMap containing the volume policy, if you have not already done so as part of your DPA configuration. The data key must be exactly `policy.yaml`, that's the key Velero looks for:
 
 ```yaml
 apiVersion: v1
@@ -67,12 +73,10 @@ metadata:
   name: kubevirt-volume-policy
   namespace: openshift-adp
 data:
-  volume-policy.yaml: |
+  policy.yaml: |
     version: v1
     volumePolicies:
-      - conditions:
-          csi:
-            driver: "*"
+      - conditions: {}
         action:
           type: custom
           parameters:
@@ -115,15 +119,9 @@ oc get datauploads.velero.io -n openshift-adp -w
 
 Along the way, the controller creates a KubeVirt `VirtualMachineBackup` for your VM to trigger the actual CBT snapshot, and a `VirtualMachineBackupTracker` to record the checkpoint chain for that VM. These objects are temporary. Once a backup finishes, the controller archives their state into your object storage bucket and removes the CR from the cluster, so do not be surprised if you cannot find them after the backup completes.
 
-The first backup you take for a given VM is always a full backup, since there is no previous checkpoint to diff against. Subsequent backups are incremental by default: only the blocks that changed since the last checkpoint get uploaded, which makes them much faster and cheaper on storage than a full backup.
+### When a full backup happens automatically
 
-### Forcing a full backup
-
-If you need to force a fresh full backup instead of an incremental one, for example after a maintenance operation that you suspect broke the checkpoint chain, add this annotation to the VirtualMachine before running the backup:
-
-```bash
-oc annotate vm my-vm -n my-vm-namespace kubevirt-datamover.io/force-full-backup=true
-```
+You don't need to manage full-versus-incremental yourself. The controller decides this on its own, and falls back to a full backup automatically in a few situations: when it can't find or validate a previous checkpoint chain in your BackupStorageLocation (for example, if something in the bucket was deleted or changed outside of normal operation), or when the `maxIncrementalBackups` limit configured on the DPA has been reached for that VM (see [configuration.md](./configuration.md)). There is currently no supported way to request a one-off full backup directly from the Backup or VirtualMachine object; if you suspect a checkpoint chain is broken, the safest option today is deleting the VM's checkpoint index in object storage so the next backup starts fresh, or lowering `maxIncrementalBackups` temporarily.
 
 ## Step 4: Confirm the backup completed successfully
 

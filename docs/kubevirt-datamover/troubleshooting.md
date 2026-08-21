@@ -78,11 +78,13 @@ If you see a warning that VM restore requires the `kubevirt` plugin, add `kubevi
 
 ## Known limitations
 
+- **VM must be running**: KubeVirt DataMover backs up VMs through CBT, which requires the VM to be running (`spec.running: true`, `status.printableStatus: Running`) at backup time. Offline (stopped) VM backup through this path is not supported.
 - **Single active backup per VM**: only one DataUpload can be active for a given VM at a time. Concurrent backups of the same VM are not supported.
 - **Block volume mode required**: CBT-based backup only works with `volumeMode: Block` PVCs. Filesystem-mode disks fall back to whatever your volume policy routes them to (typically a CSI snapshot or File System Backup), not KubeVirt DataMover.
 - **Object storage required**: KubeVirt DataMover always requires `snapshotMoveData: true` and a working BackupStorageLocation. There is no in-cluster-snapshot-only mode.
 - **Cluster-wide singleton controller**: only one DPA per cluster can have KubeVirt DataMover enabled.
 - **VirtualMachineBackup/VirtualMachineBackupTracker are transient**: the controller creates and deletes these CRs as part of normal operation, archiving their state to object storage. If you are scripting around these objects directly, expect them to disappear once a backup or restore completes; treat the archived JSON in object storage as the durable record, not the live cluster objects.
 - **Restore chains rebuild incrementally**: a restore from a VM with a long incremental chain replays each checkpoint in sequence via `qemu-img rebase`, rather than restoring straight from the full backup. A very long incremental chain can make individual restores slower than you might expect, even though it keeps backups themselves fast. This is a reasonable trade to be aware of when deciding on your `maxIncrementalBackups` setting.
+- **No user-triggered full backup**: there is currently no supported way to force a one-off full backup from the Backup or VirtualMachine object. The controller falls back to a full backup automatically when it can't validate the existing checkpoint chain or when `maxIncrementalBackups` is reached.
 
 If you run into an issue that is not covered here, the most useful thing to collect before opening a bug report is the full controller log around the time of the failure, plus `oc describe` output for the affected DataUpload or DataDownload and the corresponding Velero Backup or Restore object.

@@ -16,21 +16,49 @@ You do not interact with the plugin or the controller directly. Everything is dr
 
 Before enabling KubeVirt DataMover, make sure your cluster meets these requirements:
 
-- OpenShift Virtualization (HCO) version 1.18 or later
-- KubeVirt version 1.8.2 or later (this version includes a fix for a QEMU backup abort race that KubeVirt DataMover depends on)
-- Changed Block Tracking enabled at the HCO level (see below)
-- An object storage backend configured as a Velero BackupStorageLocation, with `snapshotMoveData: true` set on the DPA (KubeVirt DataMover always moves data to object storage, it does not do in-cluster snapshots)
+- OpenShift Virtualization (HCO) version 1.18 or later. HCO 1.18+ and the `backup.kubevirt.io` CRDs are required for CBT support.
+- KubeVirt version 1.8.2 or later (this version includes a fix for a QEMU backup abort race that KubeVirt DataMover depends on).
+- Changed Block Tracking enabled at the HCO level (see below).
+- The VM you want to back up must be running. Offline (stopped) VM backup is not supported.
+- An object storage backend configured as a Velero BackupStorageLocation. Backups that use KubeVirt DataMover must set `snapshotMoveData: true` on the Velero `Backup` object (or `spec.configuration.velero.defaultSnapshotMoveData: true` on the DPA to make it the default for all backups), since KubeVirt DataMover always moves data to object storage rather than leaving it as an in-cluster snapshot.
 
 ### Enabling Changed Block Tracking
 
-CBT is an HCO-level feature gate. Enable it on the `HyperConverged` custom resource:
+CBT enablement is a two-part configuration on the `HyperConverged` (HCO) custom resource: enabling the feature gate, and telling KubeVirt which VM label to treat as opting a VM into CBT.
+
+First, enable the `incrementalBackup` feature gate. This is a first-class field on the HCO CR and automatically turns on the underlying `IncrementalBackup` and `UtilityVolumes` feature gates on the KubeVirt CR:
 
 ```bash
-oc patch hyperconverged kubevirt-hyperconverged -n openshift-cnv \
-  --type=json -p '[{"op": "add", "path": "/spec/featureGates/enableCommonBootImageImport", "value": true}]'
+oc patch hyperconverged kubevirt-hyperconverged -n openshift-cnv --type merge -p '
+spec:
+  featureGates:
+    incrementalBackup: true
+'
 ```
 
-The actual flag name and path can differ across HCO releases, so check the `HyperConverged` CR in your cluster and the OpenShift Virtualization release notes for the exact feature gate name that enables CBT for your version. Once enabled, KubeVirt itself will support incremental backups based on changed disk blocks for VMs whose storage class and volume mode support it (CBT currently works with block-mode PVCs on CSI drivers that expose block volumes).
+Second, configure the label selector KubeVirt uses to decide which VMs have CBT enabled. This field, `changedBlockTrackingLabelSelectors`, lives on the underlying KubeVirt CR that HCO manages, so it has to be injected through a `kubevirt.kubevirt.io/jsonpatch` annotation on the HCO CR rather than set directly:
+
+```bash
+oc annotate hyperconverged kubevirt-hyperconverged -n openshift-cnv --overwrite \
+  kubevirt.kubevirt.io/jsonpatch='[{"op":"add","path":"/spec/configuration/changedBlockTrackingLabelSelectors","value":{"virtualMachineLabelSelector":{"matchLabels":{"changedBlockTracking":"true"}}}}]'
+```
+
+This example selector matches any VM labeled `changedBlockTracking: "true"`, which is the label used throughout this documentation and the sample manifests. You can choose a different label or match expression if you prefer, as long as it stays consistent between this HCO configuration and the labels you put on your VMs.
+
+Verify the configuration took effect:
+
+```bash
+oc get kubevirt kubevirt-hyperconverged -n openshift-cnv \
+  -o jsonpath='{.spec.configuration.changedBlockTrackingLabelSelectors}'
+```
+
+Expected output:
+
+```json
+{"virtualMachineLabelSelector":{"matchLabels":{"changedBlockTracking":"true"}}}
+```
+
+Once both of these are in place, KubeVirt supports incremental backups based on changed disk blocks for VMs that carry the matching label, provided the VM's disks use `volumeMode: Block` (CBT tracking does not work with filesystem-mode volumes). See [backup-restore.md](./backup-restore.md) for how to label a VM and confirm CBT is active on it.
 
 ## Enabling the plugin in the DPA
 
@@ -113,28 +141,45 @@ Both fields are optional. If you leave them unset, the controller uses its built
 
 ## Volume policy configuration
 
-Velero decides which backup path to use for a given PVC through volume policies. To route a VM's disks through KubeVirt DataMover rather than a CSI snapshot, add a custom action to your Velero volume policy that targets `kubevirt` as the datamover:
+Velero decides which backup path to use for a given PVC through volume policies. To route a VM's disks through KubeVirt DataMover rather than a CSI snapshot, add a custom action to your Velero volume policy that targets `kubevirt` as the datamover. The ConfigMap's data key must be exactly `policy.yaml`, that's the key Velero looks for when it reads the referenced ConfigMap:
 
 ```yaml
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: change-storage-class-config
+  name: kubevirt-volume-policy
   namespace: openshift-adp
 data:
-  volume-policy.yaml: |
+  policy.yaml: |
     version: v1
     volumePolicies:
-      - conditions:
-          csi:
-            driver: "*"
+      - conditions: {}
         action:
           type: custom
           parameters:
             datamover: kubevirt
 ```
 
-Reference this ConfigMap from your Velero `Backup` (or from the DPA if you configure volume policies globally, depending on how your Velero setup handles policy ConfigMaps). Velero treats `custom` actions with unrecognized parameters as a signal to hand off data movement to whichever plugin claims the volume, which in this case is the kubevirt-datamover-plugin.
+An empty `conditions: {}` matches every volume, so combine this with `includedNamespaces` on your `Backup` (or a separate policy entry) if you need to be more selective about which PVCs get routed through KubeVirt DataMover. If you want to condition on the CSI driver instead, Velero's `csi.driver` condition requires an exact driver name and does not support wildcards, so a plain `csi: {}` (matches any CSI-backed volume) or a fully spelled out driver name works, but `driver: "*"` does not match anything.
+
+Reference this ConfigMap from your Velero `Backup` object's `spec.resourcePolicy`:
+
+```yaml
+apiVersion: velero.io/v1
+kind: Backup
+metadata:
+  name: my-vm-backup
+  namespace: openshift-adp
+spec:
+  includedNamespaces:
+  - my-vm-namespace
+  snapshotMoveData: true
+  resourcePolicy:
+    kind: ConfigMap
+    name: kubevirt-volume-policy
+```
+
+Velero treats `custom` actions with unrecognized parameters as a signal to hand off data movement to whichever plugin claims the volume, which in this case is the kubevirt-datamover-plugin.
 
 If you back up a namespace that has both VMs and regular workloads, this policy only changes behavior for volumes attached to VirtualMachines. PVCs that are not owned by a VM continue to use Velero's normal CSI snapshot or File System Backup path.
 
