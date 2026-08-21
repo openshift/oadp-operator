@@ -48,7 +48,7 @@ This example selector matches any VM labeled `changedBlockTracking: "true"`, whi
 Verify the configuration took effect:
 
 ```bash
-oc get kubevirt kubevirt-hyperconverged -n openshift-cnv \
+oc get kubevirt kubevirt-kubevirt-hyperconverged -n openshift-cnv \
   -o jsonpath='{.spec.configuration.changedBlockTrackingLabelSelectors}'
 ```
 
