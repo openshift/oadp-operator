@@ -29,25 +29,22 @@ OLMv1 is not a version bump — it is a ground-up redesign that consolidates the
 
 It is declarative, GitOps-friendly, and uses a cluster-admin security model instead of namespace-scoped ServiceAccount RBAC.
 
-**OLMv1 GA only supports AllNamespaces mode.** 
+**OLMv1 GA only supports AllNamespaces mode.** The rationale, as documented in the [OLMv1 single/own namespace enhancement proposal](https://github.com/openshift/enhancements/pull/1849):
 
-The rationale:
 1. **CRDs are cluster-scoped singletons.** Only one definition of a CRD can exist per cluster. OLMv0's multi-tenancy promise — that multiple operator instances in different namespaces could each own their own CRDs — was architecturally flawed.
 2. **Dependency resolution requires a global view.** OLMv1's explicit dependency model cannot work at namespace scope.
 3. **PSA and security are simpler at cluster scope.** Managed platforms (ROSA, OSD) operate cluster-admin anyway.
 
-
-
-`OwnNamespace` and `SingleNamespace` are available only as unsupported Tech Preview behind the `TechPreviewNoUpgrade` feature gate — a one-way toggle that permanently blocks cluster upgrades:
+`OwnNamespace` and `SingleNamespace` were added as Tech Preview in OCP 4.19 ([OCPSTRAT-1711](https://issues.redhat.com/browse/OCPSTRAT-1711)) behind the `TechPreviewNoUpgrade` feature gate — a cluster-wide toggle that, while enabled, blocks upgrading to the next OCP minor version:
 
 - OCP 4.21 release notes explicitly state these modes "continued as a Technology Preview feature" and are "not recommended for production use."
-- A planned GA promotion in 4.22 was reversed; the Operator Framework team confirmed the feature was moved back to alpha/TP status with no current plans to re-promote a namespace-scoping model.
+- A planned GA promotion was subsequently reversed. [OPRUN-4514](https://issues.redhat.com/browse/OPRUN-4514) ("Revert Single/Own Namespace promotion to GA") explicitly states the goal was to return the feature to `TPNU` status; the upstream revert is [operator-controller#2568](https://github.com/operator-framework/operator-controller/pull/2568).
 
-They are not a viable option for production operators.
+`OwnNamespace` and `SingleNamespace` are not a viable option for production operators.
 
 ### OADP Operator
 
-OADP is installed via OLM with only `OwnNamespace` install mode supported. At runtime, the `WATCH_NAMESPACE` environment variable controls which namespace the controller-runtime cache monitors.
+Against this backdrop, OADP today is installed via OLM with only `OwnNamespace` install mode supported. At runtime, the `WATCH_NAMESPACE` environment variable controls which namespace the controller-runtime cache monitors.
 
 The OLM-deployed CSV sources `WATCH_NAMESPACE` from the `olm.targetNamespaces` annotation, which OLM sets based on the OperatorGroup:
 
@@ -65,7 +62,7 @@ Both issues are CSV metadata problems, not Go code problems.
 AllNamespaces is the strategically correct direction:
 
 - OLMv1 GA (OCP 4.18) shipped with AllNamespaces-only support.
-- OwnNamespace was added as Tech Preview in OCP 4.19 and remains TP.
+- OwnNamespace was added as Tech Preview in OCP 4.19 ([OCPSTRAT-1711](https://issues.redhat.com/browse/OCPSTRAT-1711)) and remains TP.
 - Enabling AllNamespaces now positions OADP for OLMv1 readiness without requiring disruptive changes to runtime behavior — the operator continues watching only its own namespace.
 
 > **Note:** AllNamespaces here refers to the install mode (how OLM deploys the operator), not the operator's watch scope.
@@ -134,8 +131,7 @@ Adding installMode support is a safe superset change in OLM — it never blocks 
       fieldPath: metadata.namespace
 ```
 
-- `operator-sdk generate bundle` automatically rewrites `metadata.namespace` to `olm.targetNamespaces` during bundle generation.
-- This substitution is hardcoded in the SDK and cannot be disabled.
+- `operator-sdk generate bundle` automatically rewrites `metadata.namespace` to `olm.targetNamespaces` during bundle generation. This substitution is hardcoded in the SDK and cannot be disabled via flags or configuration.
 - A post-generation patch step is required to restore `metadata.namespace`.
 - OLM still sets the `olm.targetNamespaces` annotation on the pod template regardless — it is simply unused by the operator's env var.
 
@@ -144,15 +140,15 @@ Adding installMode support is a safe superset change in OLM — it never blocks 
 The CSV declares `clusterPermissions` for three SAs but only `openshift-adp-controller-manager` has a `permissions` entry. Add `permissions` entries for `non-admin-controller` and `velero` with leader-election rules (configmaps, leases, events).
 
 - The `velero` SA does not actually perform leader election — these are placeholder rules required solely to satisfy OLM's SA creation requirement.
-- In AllNamespaces mode, OLM promotes these to ClusterRoles/ClusterRoleBindings via `ensureSingletonRBAC`.
-- In OwnNamespace mode, they remain namespace-scoped Roles/RoleBindings.
+- In AllNamespaces mode, OLM promotes these namespace-scoped Role/RoleBinding entries to ClusterRoles/ClusterRoleBindings (via its internal `ensureSingletonRBAC` reconciler, which merges all operator permissions into a single cluster-scoped set).
+- In OwnNamespace mode, they remain namespace-scoped Roles/RoleBindings — no change to existing behavior.
 
 ### OLM Behavior in AllNamespaces Mode
 
 These OLM behaviors do not affect operator functionality but should be understood:
 
 - **CSV copies**: OLM copies the CSV to every namespace. On large clusters, `OLMConfig.spec.features.disableCopiedCSVs: true` disables this.
-- **CRD ownership**: The operator globally owns its CRDs. Customers running standalone upstream Velero alongside OADP would hit `InterOperatorGroupOwnerConflict`.
+- **CRD ownership**: The operator globally owns its CRDs. This is a pre-existing constraint of OADP's cluster-scoped CRD ownership — customers running standalone upstream Velero alongside OADP would hit `InterOperatorGroupOwnerConflict` regardless of install mode.
 - **Dual installation prevention**: OLM prevents installing the operator in two namespaces with overlapping OperatorGroups.
 
 ### OperatorHub User Experience
