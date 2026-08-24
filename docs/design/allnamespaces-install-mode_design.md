@@ -4,7 +4,7 @@
 
 - Enable `AllNamespaces` install mode alongside the existing `OwnNamespace` mode in a single CSV.
 - The operator's runtime behavior is unchanged — it watches only the namespace it is deployed in.
-- No Go code changes are required.
+- Two CSV metadata changes and one minimal Go code change are required.
 
 ## Background
 
@@ -46,16 +46,24 @@ It is declarative, GitOps-friendly, and uses a cluster-admin security model inst
 
 Against this backdrop, OADP today is installed via OLM with only `OwnNamespace` install mode supported. At runtime, the `WATCH_NAMESPACE` environment variable controls which namespace the controller-runtime cache monitors.
 
-The OLM-deployed CSV sources `WATCH_NAMESPACE` from the `olm.targetNamespaces` annotation, which OLM sets based on the OperatorGroup:
+Two distinct pieces of information are at play, set by different actors:
 
-- In `OwnNamespace` mode this resolves to the operator's namespace.
-- In `AllNamespaces` mode this would be `""` (empty) — breaking PSA labeling, STS credential flow, CLI/VMDP setup, and the cache configuration.
+- **`olm.targetNamespaces`** — a pod annotation set by OLM at install time, based on the OperatorGroup. In OwnNamespace mode this is `openshift-adp`; in AllNamespaces mode this is `""` (empty). Per the [OLM OperatorGroup design](https://github.com/operator-framework/operator-lifecycle-manager/blob/master/doc/design/operatorgroups.md), the empty string is the intentional signal for "watch all namespaces" — *"the consuming operator must know to treat `""` as an all namespace configuration."*
+- **`metadata.namespace`** — a standard Kubernetes pod field set by Kubernetes itself. Always the pod's actual namespace (`openshift-adp`), regardless of install mode or OperatorGroup.
 
-The fix is to source `WATCH_NAMESPACE` from `metadata.namespace` (the pod's own namespace via Kubernetes downward API) instead. This resolves to the same value under OwnNamespace (backward-compatible) and correctly resolves to the pod's namespace under AllNamespaces.
+In OwnNamespace mode these happen to be the same value, which is why the distinction hasn't mattered until now.
+
+`WATCH_NAMESPACE` is currently sourced from `olm.targetNamespaces`. In AllNamespaces mode it becomes `""`, which breaks PSA labeling, STS credential flow, CLI/VMDP setup, and the cache configuration — all of which need to know *where the operator lives*, not just *what it watches*.
+
+To understand why this can't be fixed purely at the CSV level, it helps to trace what happens at each phase:
+
+- **Bundle time**: `operator-sdk generate bundle` generates the CSV from the manager deployment spec. The SDK's `setNamespacedFields` function ([source](https://github.com/operator-framework/operator-sdk/blob/299157a814e674f8f40d1b91ee77d64a90e850de/internal/generate/clusterserviceversion/clusterserviceversion_updaters.go)) unconditionally rewrites any env var named `WATCH_NAMESPACE` to source from `olm.targetNamespaces`. This is hardcoded and cannot be disabled.
+- **Install time**: OLM deploys the operator pod and sets `olm.targetNamespaces` based on the OperatorGroup — `openshift-adp` in OwnNamespace mode, `""` in AllNamespaces mode.
+- **Runtime**: The kubelet resolves the fieldRef. `WATCH_NAMESPACE` is `""` under AllNamespaces.
+
+The fix has two parts: a new `OPERATOR_NAMESPACE` env var (sourced from `metadata.namespace`, which the SDK does not rewrite) gives the operator its own namespace. A minimal Go code change reads `WATCH_NAMESPACE` and, if empty, falls back to `OPERATOR_NAMESPACE` for the watch scope — aligning with OLM's stated contract that operators must handle `""` themselves.
 
 Additionally, OLM requires every ServiceAccount declared in `clusterPermissions` to have a corresponding `permissions` (namespace-scoped Role) entry when running in AllNamespaces mode. Two of the three OADP ServiceAccounts currently lack this entry.
-
-Both issues are CSV metadata problems, not Go code problems.
 
 ### OLMv1 Alignment
 
@@ -80,22 +88,22 @@ AllNamespaces is the strategically correct direction:
 
 ## High-Level Design
 
-Three CSV metadata changes, no Go code changes:
+Two CSV metadata changes and one minimal Go code change:
 
 | # | Change | Why |
 |---|---|---|
 | 1 | Enable `AllNamespaces: true` in `installModes` | Allow installation with a global OperatorGroup |
-| 2 | Source `WATCH_NAMESPACE` from `metadata.namespace` | Avoid empty value under AllNamespaces; backward-compatible under OwnNamespace |
+| 2 | Add `OPERATOR_NAMESPACE` env var (from `metadata.namespace`) + Go fallback | `WATCH_NAMESPACE` is `""` in AllNamespaces mode by OLM design; operator needs its own namespace separately |
 | 3 | Add `permissions` entries for `non-admin-controller` and `velero` SAs | OLM requires these to create the ServiceAccounts in AllNamespaces mode |
 
-The operator binary, RBAC `clusterPermissions`, and all runtime behavior remain identical.
+The RBAC `clusterPermissions` and all runtime behavior remain identical.
 
-**How `WATCH_NAMESPACE` resolves in each mode:**
+**How the operator resolves its namespace in each mode:**
 
-| OperatorGroup | `olm.targetNamespaces` | `metadata.namespace` | Operator watches |
+| OperatorGroup | `WATCH_NAMESPACE` (`olm.targetNamespaces`) | `OPERATOR_NAMESPACE` (`metadata.namespace`) | Operator watches |
 |---|---|---|---|
-| Namespaced (OwnNamespace) | `openshift-adp` | `openshift-adp` | `openshift-adp` |
-| Global (AllNamespaces) | `""` (empty) | `openshift-adp` | `openshift-adp` |
+| Namespaced (OwnNamespace) | `openshift-adp` | `openshift-adp` | `openshift-adp` (from `WATCH_NAMESPACE`) |
+| Global (AllNamespaces) | `""` (empty — OLM's all-namespaces signal) | `openshift-adp` | `openshift-adp` (fallback to `OPERATOR_NAMESPACE`) |
 
 ## Detailed Design
 
@@ -115,25 +123,35 @@ installModes:
 
 Adding installMode support is a safe superset change in OLM — it never blocks upgrades. Existing customers with a namespaced OperatorGroup are unaffected; their install mode stays OwnNamespace.
 
-### Change 2: WATCH_NAMESPACE Source
+### Change 2: OPERATOR_NAMESPACE env var + Go fallback
+
+Add a new `OPERATOR_NAMESPACE` env var to the manager deployment, sourced from `metadata.namespace`:
 
 ```yaml
-# Before
-- name: WATCH_NAMESPACE
-  valueFrom:
-    fieldRef:
-      fieldPath: metadata.annotations['olm.targetNamespaces']
-
-# After
-- name: WATCH_NAMESPACE
+- name: OPERATOR_NAMESPACE
   valueFrom:
     fieldRef:
       fieldPath: metadata.namespace
+- name: WATCH_NAMESPACE
+  valueFrom:
+    fieldRef:
+      fieldPath: metadata.annotations['olm.targetNamespaces']  # unchanged; SDK manages this
 ```
 
-- `operator-sdk generate bundle` automatically rewrites `metadata.namespace` to `olm.targetNamespaces` during bundle generation. This substitution is hardcoded in the SDK and cannot be disabled via flags or configuration.
-- A post-generation patch step is required to restore `metadata.namespace`.
-- OLM still sets the `olm.targetNamespaces` annotation on the pod template regardless — it is simply unused by the operator's env var.
+`WATCH_NAMESPACE` is left sourcing from `olm.targetNamespaces` — the SDK's `setNamespacedFields` function rewrites any env var named `WATCH_NAMESPACE` to this unconditionally ([source](https://github.com/operator-framework/operator-sdk/blob/299157a814e674f8f40d1b91ee77d64a90e850de/internal/generate/clusterserviceversion/clusterserviceversion_updaters.go)), so fighting it with a post-gen patch is fragile. Instead, `OPERATOR_NAMESPACE` uses a different name and is not touched by the SDK.
+
+The Go code change reads both vars and falls back when `WATCH_NAMESPACE` is empty:
+
+```go
+watchNamespace := os.Getenv("WATCH_NAMESPACE")
+if watchNamespace == "" {
+    watchNamespace = os.Getenv("OPERATOR_NAMESPACE")
+}
+```
+
+This is the approach the [OLM OperatorGroup design](https://github.com/operator-framework/operator-lifecycle-manager/blob/master/doc/design/operatorgroups.md) expects: `""` is OLM's intentional all-namespaces signal, and *"the consuming operator must know to treat `""` as an all namespace configuration"* — or in OADP's case, fall back to its own namespace rather than watching everything.
+
+Under OwnNamespace mode, `WATCH_NAMESPACE` is `openshift-adp` and the fallback is never reached — fully backward-compatible.
 
 ### Change 3: Add Permissions for Missing ServiceAccounts
 
@@ -169,11 +187,13 @@ This follows the pattern used by the Loki Operator (`openshift-operators-redhat`
 | 3. AllNamespaces e2e tests | AllNamespaces-specific test scenarios | Medium | Phase 2 |
 | 4. Migration documentation | OperatorGroup swap procedure | Low | Phase 3 |
 
-### Phase 1: CSV Changes
+### Phase 1: CSV + Go Changes
 
-- Apply the three changes described in Detailed Design.
-- The `bundle` Makefile target needs a post-generation step to replace `olm.targetNamespaces` with `metadata.namespace`.
-- This must survive the `bundle-isupdated` CI check.
+- Add `OPERATOR_NAMESPACE` env var to `config/manager/manager.yaml`.
+- Add the `WATCH_NAMESPACE` empty-string fallback to the Go startup code.
+- Enable `AllNamespaces: true` in `installModes`.
+- Add `permissions` entries for `non-admin-controller` and `velero` SAs.
+- Run `make bundle` to regenerate — no post-gen patch needed.
 
 ### Phase 2: Deploy + CI for AllNamespaces
 
@@ -185,7 +205,7 @@ This follows the pattern used by the Loki Operator (`openshift-operators-redhat`
 
 Test scenarios specific to AllNamespaces behavior:
 
-- **AllNamespaces fresh install**: verify CSV Succeeded, `WATCH_NAMESPACE` = pod namespace, DPA reconciles, Velero deploys.
+- **AllNamespaces fresh install**: verify CSV Succeeded, `WATCH_NAMESPACE` = `""`, `OPERATOR_NAMESPACE` = pod namespace, DPA reconciles, Velero deploys.
 - **OwnNamespace to AllNamespaces migration**: install OwnNamespace, swap OperatorGroup to global, verify operator re-deploys and existing DPA continues functioning.
 - **AllNamespaces to OwnNamespace rollback**: reverse the migration, verify operator recovers.
 - **Upgrade to dual-mode CSV**: upgrade from a prior version (OwnNamespace-only) to the new version, verify the existing namespaced OperatorGroup continues to work.
@@ -226,11 +246,11 @@ Rejected:
 - Requires customers to uninstall and reinstall to migrate.
 - The single-CSV approach requires only an OperatorGroup swap.
 
-### Handle empty WATCH_NAMESPACE in Go code
+### Rewrite WATCH_NAMESPACE source in the CSV via post-gen patch
 
 Rejected:
-- Would require Go code changes and introduce a runtime behavior difference between install modes.
-- Sourcing from `metadata.namespace` achieves the same result at the CSV level.
+- `operator-sdk generate bundle` unconditionally rewrites any `WATCH_NAMESPACE` env var to source from `olm.targetNamespaces` ([source](https://github.com/operator-framework/operator-sdk/blob/299157a814e674f8f40d1b91ee77d64a90e850de/internal/generate/clusterserviceversion/clusterserviceversion_updaters.go)). A post-gen `sed` patch to restore `metadata.namespace` would be silently clobbered on every `make bundle` run unless the patch is also part of the target — and would need to survive `bundle-isupdated` CI checks.
+- The OLM OperatorGroup design explicitly defines `""` as the all-namespaces signal and places the handling responsibility on the operator. Fighting the SDK to avoid a three-line Go change is the wrong trade-off.
 
 ## Security Considerations
 
@@ -248,19 +268,19 @@ Rejected:
 
 ## Open Issues
 
-1. **`operator-sdk generate bundle` override**: The SDK hardcodes the `olm.targetNamespaces` substitution. A post-generation patch is required and must survive the `bundle-isupdated` CI check.
-2. **Target OADP release**: Which version will include this change?
+1. **Target OADP release**: Which version will include this change?
 
 ## Validation
 
 Tested on OpenShift 4.22.0-ec.3 (2026-08-13). Both install modes validated with the same bundle.
 See [full test log](https://hackmd.io/MVRrs4zTTHiwGcxfRUwhBA).
 
+> **Note:** This validation used a manually edited bundle CSV (pre-Go-code-change approach). The `OPERATOR_NAMESPACE` fallback has not yet been validated end-to-end and will be re-tested as part of Phase 1.
+
 | Test | Mode | Result |
 |---|---|---|
 | CSV install | AllNamespaces | PASS |
 | CSV install | OwnNamespace | PASS |
-| WATCH_NAMESPACE value | Both | `openshift-adp` |
 | DPA reconciliation + Velero deploy | Both | PASS |
 | All controllers started | Both | PASS |
 
