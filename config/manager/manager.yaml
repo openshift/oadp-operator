@@ -54,14 +54,10 @@ spec:
             - mountPath: /tmp
               name: tmp-dir
           env:
-            - name: OPERATOR_NAMESPACE
-              valueFrom:
-                fieldRef:
-                  fieldPath: metadata.namespace
             - name: WATCH_NAMESPACE
               valueFrom:
                 fieldRef:
-                  fieldPath: metadata.annotations['olm.targetNamespaces']
+                  fieldPath: metadata.namespace
             - name: FS_PV_HOSTPATH
               value: ""
             - name: PLUGINS_HOSTPATH
