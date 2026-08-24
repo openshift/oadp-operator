@@ -830,27 +830,20 @@ var _ = ginkgo.Describe("VM backup and restore tests", ginkgo.Ordered, func() {
 			setupVmForRestoreTest(restoreNamespace, restoreVMName, restoreTemplate)
 		})
 
-		ginkgo.PIt("restore run-state flip is not blocked by a stale sibling DataDownload from a different restore attempt — blocked on kubevirt-datamover-controller#73 phase 4 (restore-attempt-scoped sibling correlation, also resolves kubevirt-datamover-controller#169)", ginkgo.Label("virt", "kdm"), func() {
+		ginkgo.It("restore run-state flip is not blocked by a stale sibling DataDownload from a different restore attempt", ginkgo.Label("virt", "kdm"), func() {
 			// kubevirt-datamover-controller's VM run-state-restore flip
-			// (allSiblingDataDownloadsCompleted) currently correlates sibling
+			// (allSiblingDataDownloadsCompleted) used to correlate sibling
 			// DataDownloads purely by VM identity annotations
 			// (kubevirt-datamover.io/vm-name/vm-namespace), with no notion of which
 			// restore attempt a DataDownload belongs to. A stale, already-Failed
 			// DataDownload left over from an aborted prior restore attempt for a VM
-			// permanently blocks the flip for every future restore attempt of that VM,
+			// permanently blocked the flip for every future restore attempt of that VM,
 			// even a fully successful new one --
 			// https://github.com/migtools/kubevirt-datamover-controller/issues/169.
 			//
-			// The fix (correlating by the restore's own velero.io/restore-uid label in
-			// addition to VM identity) is already implemented in
-			// kubevirt-datamover-controller#73 phase 4, the same branch the other two
-			// PIt placeholders below are waiting on. Scaffolded as real, compiling
-			// pending code (not deleted, not just a comment) so it's ready to flip to
-			// ginkgo.It once phase 4 lands -- asserting only the fixed, final behavior
-			// (the VM resumes despite a foreign-attempt decoy sibling), not the
-			// currently-buggy intermediate state, since asserting the bug itself would
-			// start failing the moment the fix merges with nothing forcing anyone to
-			// notice and update it.
+			// Fixed in kubevirt-datamover-controller#73 phase 4 (merged via #124/#186):
+			// sibling correlation now also matches the restore's own
+			// velero.io/restore-uid label, not just VM identity.
 			backupName := "cirros-stale-sibling-backup"
 			runKubevirtDMBackup(v, restoreNamespace, backupName, nil)
 
@@ -933,7 +926,7 @@ var _ = ginkgo.Describe("VM backup and restore tests", ginkgo.Ordered, func() {
 				return status == "Running", nil
 			})
 			gomega.Expect(err).ToNot(gomega.HaveOccurred(),
-				"expected restored VM %s/%s to resume despite the foreign-attempt decoy sibling, once phase 4's restore-attempt-scoped correlation lands", restoreNamespace, restoreVMName)
+				"expected restored VM %s/%s to resume despite the foreign-attempt decoy sibling", restoreNamespace, restoreVMName)
 
 			err = v.RemoveVm(restoreNamespace, restoreVMName, 5*time.Minute)
 			gomega.Expect(err).To(gomega.BeNil(), "failed to remove VM %s/%s", restoreNamespace, restoreVMName)
@@ -941,14 +934,11 @@ var _ = ginkgo.Describe("VM backup and restore tests", ginkgo.Ordered, func() {
 			gomega.Expect(err).To(gomega.BeNil(), "failed to delete namespace %s", restoreNamespace)
 		})
 
-		ginkgo.PIt("restore a multi-PVC VM from a kubevirt-datamover CBT backup — blocked on kubevirt-datamover-controller#73 phase 4 (multi-disk restore hardening, not yet implemented)", ginkgo.Label("virt", "kdm"), func() {
+		ginkgo.It("restore a multi-PVC VM from a kubevirt-datamover CBT backup", ginkgo.Label("virt", "kdm"), func() {
 			// Phase 4 ("Multi-disk + PVC provisioning hardening") of
-			// https://github.com/migtools/kubevirt-datamover-controller/issues/73 has not
-			// landed yet — per its own exit criteria ("unit tests for multi-disk
-			// concurrency and sizing fallback behavior"), per-disk DataDownload isolation
-			// isn't hardened, so a real multi-disk restore can't be trusted to pass today.
-			// Scaffolded as real, compiling pending code (not deleted, not just a comment)
-			// so it's ready to flip to ginkgo.It once phase 4 lands.
+			// https://github.com/migtools/kubevirt-datamover-controller/issues/73 landed
+			// via #124/#186, hardening per-disk DataDownload isolation, so a real
+			// multi-disk restore can now be trusted to pass.
 			multiPvcNamespace := "cirros-multipvc-cbt-test"
 			multiPvcVMName := "cirros-multipvc-cbt-test"
 			multiPvcTemplate := "./sample-applications/virtual-machines/cirros-test/cirros-test-multipvc-cbt.yaml"
@@ -987,7 +977,7 @@ var _ = ginkgo.Describe("VM backup and restore tests", ginkgo.Ordered, func() {
 			gomega.Eventually(lib.IsRestoreDone(dpaCR.Client, namespace, restoreName), 45*time.Minute, time.Second*10).Should(gomega.BeTrue())
 			succeeded, err := lib.IsRestoreCompletedSuccessfully(kubernetesClientForSuiteRun, dpaCR.Client, namespace, restoreName)
 			gomega.Expect(err).ToNot(gomega.HaveOccurred())
-			gomega.Expect(succeeded).To(gomega.BeTrue(), "expected both disks' DataDownloads to complete once phase 4 lands")
+			gomega.Expect(succeeded).To(gomega.BeTrue(), "expected both disks' DataDownloads to complete")
 
 			err = v.RemoveVm(multiPvcNamespace, multiPvcVMName, 5*time.Minute)
 			gomega.Expect(err).To(gomega.BeNil())
