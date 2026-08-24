@@ -272,17 +272,17 @@ Rejected:
 
 ## Validation
 
-Tested on OpenShift 4.22.0-ec.3 (2026-08-13). Both install modes validated with the same bundle.
-See [full test log](https://hackmd.io/MVRrs4zTTHiwGcxfRUwhBA).
-
-> **Note:** This validation used a manually edited bundle CSV (pre-Go-code-change approach). The `OPERATOR_NAMESPACE` fallback has not yet been validated end-to-end and will be re-tested as part of Phase 1.
+Tested on OpenShift 4.22.0-ec.3 (2026-08-24) with the final implementation (`OPERATOR_NAMESPACE` + Go fallback, no post-gen patch).
 
 | Test | Mode | Result |
 |---|---|---|
 | CSV install | AllNamespaces | PASS |
 | CSV install | OwnNamespace | PASS |
-| DPA reconciliation + Velero deploy | Both | PASS |
-| All controllers started | Both | PASS |
+| `WATCH_NAMESPACE` value at runtime | AllNamespaces | `""` (correct — OLM's signal) |
+| `OPERATOR_NAMESPACE` value at runtime | AllNamespaces | `openshift-adp` (correct) |
+| PSA labeling (`patching operator namespace`) | AllNamespaces | PASS |
+| Manager started, leader election acquired | AllNamespaces | PASS |
+| `make bundle` idempotent (no post-gen patch) | — | PASS |
 
 ## Future Enhancements
 
