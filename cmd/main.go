@@ -306,16 +306,21 @@ func main() {
 	}
 }
 
-// getWatchNamespace returns the Namespace the operator should be watching for changes
+// getWatchNamespace returns the Namespace the operator should be watching for changes.
+// In OwnNamespace install mode, WATCH_NAMESPACE is set to the operator's namespace by OLM.
+// In AllNamespaces install mode, OLM sets WATCH_NAMESPACE to "" (its signal for cluster-wide
+// scope). OADP does not watch all namespaces, so we fall back to OPERATOR_NAMESPACE, which
+// is always the pod's own namespace via the Kubernetes downward API.
 func getWatchNamespace() (string, error) {
-	// WatchNamespaceEnvVar is the constant for env variable WATCH_NAMESPACE
-	// which specifies the Namespace to watch.
-	// An empty value means the operator is running with cluster scope.
-	var watchNamespaceEnvVar = "WATCH_NAMESPACE"
-
-	ns, found := os.LookupEnv(watchNamespaceEnvVar)
+	ns, found := os.LookupEnv("WATCH_NAMESPACE")
 	if !found {
-		return "", fmt.Errorf("%s must be set", watchNamespaceEnvVar)
+		return "", fmt.Errorf("WATCH_NAMESPACE must be set")
+	}
+	if ns == "" {
+		ns, found = os.LookupEnv("OPERATOR_NAMESPACE")
+		if !found || ns == "" {
+			return "", fmt.Errorf("WATCH_NAMESPACE is empty (AllNamespaces mode) and OPERATOR_NAMESPACE is not set")
+		}
 	}
 	return ns, nil
 }
