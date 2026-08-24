@@ -288,8 +288,7 @@ Tested on OpenShift 4.22.0-ec.3 (2026-08-24) with the final implementation (`OPE
 
 ### Cluster-Wide Watching
 
-If a future requirement is for the operator to watch all namespaces, `WATCH_NAMESPACE` would need to be empty. This requires:
+If a future requirement is for the operator to watch all namespaces, `WATCH_NAMESPACE` would remain empty (OLM's signal) and the Go fallback to `OPERATOR_NAMESPACE` would be removed. `OPERATOR_NAMESPACE` is already in place from this design, so the operator already knows its own namespace for PSA labeling, STS, and CLI/VMDP setup. What would still be required:
 
-- A separate `OPERATOR_NAMESPACE` env var so the operator knows its own namespace for PSA labeling, STS, CLI/VMDP setup.
-- Changes to the cache configuration.
+- Changes to the cache configuration (remove the `DefaultNamespaces` scope).
 - A design decision on DPA singleton scope (one globally or one per namespace).
