@@ -231,4 +231,4 @@ When E2E tests fail in Prow CI, an `openshift/release` step-registry post-step a
 
 **Local/manual use**: `tests/e2e/scripts/analyze_failures.sh` is kept in this repo for running the same analysis by hand against a local `make test-e2e` run; it is no longer invoked by CI or the `test-e2e` Makefile target.
 
-This replaces the earlier in-repo implementation (see the now-superseded [design document](docs/design/claude-prow-failure-analysis_design.md)), which baked the Claude CLI into `build/ci-Dockerfile` and wired credentials directly into the `Makefile`.
+For more details, see the [design document](docs/design/claude-prow-failure-analysis_design.md).
