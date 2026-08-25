@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"strings"
 	"time"
 
 	operatorsv1 "github.com/operator-framework/api/pkg/operators/v1"
@@ -15,7 +16,10 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/client-go/kubernetes"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+
+	"github.com/openshift/oadp-operator/tests/e2e/lib"
 )
 
 const (
@@ -130,6 +134,103 @@ func (op *HCHandler) DeployMCEManifest() error {
 	}
 
 	return nil
+}
+
+// diagnosticLogKeywords are matched case-insensitively against MCE operator pod log
+// lines. Deliberately narrow rather than dumping full logs: these are operator-authored
+// diagnostic lines, not free-text user/backup content, but still worth filtering down
+// to only the lines an investigator would act on.
+var diagnosticLogKeywords = []string{"error", "denied", "forbidden", "minimum version", "reconcil"}
+
+func filterLogLines(logs string, keywords []string) []string {
+	var matched []string
+	for _, line := range strings.Split(logs, "\n") {
+		lower := strings.ToLower(line)
+		for _, kw := range keywords {
+			if strings.Contains(lower, kw) {
+				matched = append(matched, line)
+				break
+			}
+		}
+	}
+	return matched
+}
+
+// DumpHypershiftDiagnostics logs best-effort diagnostics for the MultiClusterEngine
+// operand and the hypershift/multicluster-engine namespaces. Intended to be called
+// right before failing an Eventually that waits on MCE/HyperShift operator readiness,
+// since none of this state is otherwise captured by CI artifacts. Every step is
+// best-effort: a failure here must never panic or obscure the real test failure.
+// clientset may be nil, in which case pod log capture is skipped (conditions/components/
+// pods/events are still captured via c).
+func DumpHypershiftDiagnostics(ctx context.Context, c client.Client, clientset *kubernetes.Clientset) {
+	log.Printf("=== HyperShift/MCE diagnostics dump ===")
+
+	mce := &unstructured.Unstructured{}
+	mce.SetGroupVersionKind(mceGVR.GroupVersion().WithKind("MultiClusterEngine"))
+	if err := c.Get(ctx, types.NamespacedName{Name: MCEOperandName, Namespace: MCENamespace}, mce); err != nil {
+		log.Printf("diagnostics: failed to get MultiClusterEngine %s/%s: %v", MCENamespace, MCEOperandName, err)
+	} else {
+		conditions, _, _ := unstructured.NestedSlice(mce.Object, "status", "conditions")
+		for _, condRaw := range conditions {
+			cond, ok := condRaw.(map[string]interface{})
+			if !ok {
+				continue
+			}
+			log.Printf("diagnostics: MultiClusterEngine %s/%s condition type=%v status=%v reason=%v",
+				MCENamespace, MCEOperandName, cond["type"], cond["status"], cond["reason"])
+		}
+		components, _, _ := unstructured.NestedSlice(mce.Object, "status", "components")
+		for _, compRaw := range components {
+			comp, ok := compRaw.(map[string]interface{})
+			if !ok {
+				continue
+			}
+			log.Printf("diagnostics: MultiClusterEngine %s/%s component name=%v type=%v status=%v reason=%v",
+				MCENamespace, MCEOperandName, comp["name"], comp["type"], comp["status"], comp["reason"])
+		}
+	}
+
+	for _, ns := range []string{HONamespace, MCENamespace} {
+		pods := &corev1.PodList{}
+		if err := c.List(ctx, pods, client.InNamespace(ns)); err != nil {
+			log.Printf("diagnostics: failed to list pods in %s: %v", ns, err)
+		} else {
+			for _, pod := range pods.Items {
+				log.Printf("diagnostics: pod %s/%s phase=%s", ns, pod.Name, pod.Status.Phase)
+
+				// Capture logs from the MCE operator pod specifically -- its reconciler
+				// can reject the MultiClusterEngine CR outright (e.g. an OCP-version
+				// floor check) before any managed component, including the HyperShift
+				// operator Deployment, is ever created. That failure mode is otherwise
+				// invisible: MCE's own Deployment/CSV still report Ready/Succeeded.
+				if clientset == nil || ns != MCENamespace || !strings.HasPrefix(pod.Name, MCEOperatorName) {
+					continue
+				}
+				for _, container := range pod.Spec.Containers {
+					logs, err := lib.GetPodContainerLogs(clientset, ns, pod.Name, container.Name)
+					if err != nil {
+						log.Printf("diagnostics: failed to get logs for %s/%s container %s: %v", ns, pod.Name, container.Name, err)
+						continue
+					}
+					for _, line := range filterLogLines(logs, diagnosticLogKeywords) {
+						log.Printf("diagnostics: pod %s/%s container %s log: %s", ns, pod.Name, container.Name, line)
+					}
+				}
+			}
+		}
+
+		events := &corev1.EventList{}
+		if err := c.List(ctx, events, client.InNamespace(ns)); err != nil {
+			log.Printf("diagnostics: failed to list events in %s: %v", ns, err)
+		} else {
+			for _, event := range events.Items {
+				log.Printf("diagnostics: event %s/%s reason=%s type=%s count=%d", ns, event.InvolvedObject.Name, event.Reason, event.Type, event.Count)
+			}
+		}
+	}
+
+	log.Printf("=== end HyperShift/MCE diagnostics dump ===")
 }
 
 func (h *HCHandler) IsMCEDeployed() bool {
