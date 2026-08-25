@@ -215,6 +215,38 @@ func filterLogLines(logs string, keywords []string) []string {
 	return matched
 }
 
+// sanitizeErrorForLog reduces an error to its structured Kubernetes status reason
+// (e.g. "NotFound", "Forbidden") rather than logging the full error text, which for
+// a client-go/controller-runtime transport error can embed the API server's URL or
+// other internal-hostname-shaped detail. apierrors.ReasonForError returns
+// metav1.StatusReasonUnknown for a non-API error, so this is safe to call
+// unconditionally.
+func sanitizeErrorForLog(err error) string {
+	return string(apierrors.ReasonForError(err))
+}
+
+// maxDiagnosticLineLength bounds how much of a single log line diagnostics will
+// print -- an operator log line is free-form text and could otherwise carry an
+// arbitrarily long embedded value.
+const maxDiagnosticLineLength = 200
+
+var urlPattern = regexp.MustCompile(`https?://\S+`)
+
+// redactDiagnosticLine bounds and lightly redacts a pod log line before it's
+// written to CI artifacts: strips embedded URLs (which can carry internal
+// hostnames) and truncates to maxDiagnosticLineLength. This is on top of, not a
+// replacement for, filterLogLines' keyword narrowing above -- the two together
+// keep this to "the few lines worth acting on, with obvious hostnames stripped and
+// length bounded" rather than either a full log dump or a blanket suppression that
+// would defeat the purpose of capturing these lines at all.
+func redactDiagnosticLine(line string) string {
+	redacted := urlPattern.ReplaceAllString(line, "[redacted-url]")
+	if len(redacted) > maxDiagnosticLineLength {
+		redacted = redacted[:maxDiagnosticLineLength] + "...[truncated]"
+	}
+	return redacted
+}
+
 // DumpHypershiftDiagnostics logs best-effort diagnostics for the MultiClusterEngine
 // operand and the hypershift/multicluster-engine namespaces. Intended to be called
 // right before failing an Eventually that waits on MCE/HyperShift operator readiness,
@@ -222,15 +254,27 @@ func filterLogLines(logs string, keywords []string) []string {
 // best-effort: a failure here must never panic or obscure the real test failure.
 // clientset may be nil, in which case pod log capture is skipped (conditions/components/
 // pods/events are still captured via c).
+//
+// Runs against a short-lived timeout derived from ctx rather than ctx directly --
+// this is called from a Ginkgo failure-message callback, which must return
+// promptly; an unbounded API call (or an unbounded pod-log stream -- see
+// getPodLogsWithTimeout below) here would otherwise be able to hang that callback,
+// and with it the whole suite, past any outer CI timeout.
 func DumpHypershiftDiagnostics(ctx context.Context, c client.Client, clientset *kubernetes.Clientset) {
+	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
+	defer cancel()
+
 	log.Printf("=== HyperShift/MCE diagnostics dump ===")
 
 	mce := &unstructured.Unstructured{}
 	mce.SetGroupVersionKind(mceGVR.GroupVersion().WithKind("MultiClusterEngine"))
 	if err := c.Get(ctx, types.NamespacedName{Name: MCEOperandName, Namespace: MCENamespace}, mce); err != nil {
-		log.Printf("diagnostics: failed to get MultiClusterEngine %s/%s: %v", MCENamespace, MCEOperandName, err)
+		log.Printf("diagnostics: failed to get MultiClusterEngine %s/%s: %s", MCENamespace, MCEOperandName, sanitizeErrorForLog(err))
 	} else {
-		conditions, _, _ := unstructured.NestedSlice(mce.Object, "status", "conditions")
+		conditions, _, err := unstructured.NestedSlice(mce.Object, "status", "conditions")
+		if err != nil {
+			log.Printf("diagnostics: MultiClusterEngine %s/%s status.conditions is not a slice: %s", MCENamespace, MCEOperandName, sanitizeErrorForLog(err))
+		}
 		for _, condRaw := range conditions {
 			cond, ok := condRaw.(map[string]interface{})
 			if !ok {
@@ -239,7 +283,10 @@ func DumpHypershiftDiagnostics(ctx context.Context, c client.Client, clientset *
 			log.Printf("diagnostics: MultiClusterEngine %s/%s condition type=%v status=%v reason=%v",
 				MCENamespace, MCEOperandName, cond["type"], cond["status"], cond["reason"])
 		}
-		components, _, _ := unstructured.NestedSlice(mce.Object, "status", "components")
+		components, _, err := unstructured.NestedSlice(mce.Object, "status", "components")
+		if err != nil {
+			log.Printf("diagnostics: MultiClusterEngine %s/%s status.components is not a slice: %s", MCENamespace, MCEOperandName, sanitizeErrorForLog(err))
+		}
 		for _, compRaw := range components {
 			comp, ok := compRaw.(map[string]interface{})
 			if !ok {
@@ -253,7 +300,7 @@ func DumpHypershiftDiagnostics(ctx context.Context, c client.Client, clientset *
 	for _, ns := range []string{HONamespace, MCENamespace} {
 		pods := &corev1.PodList{}
 		if err := c.List(ctx, pods, client.InNamespace(ns)); err != nil {
-			log.Printf("diagnostics: failed to list pods in %s: %v", ns, err)
+			log.Printf("diagnostics: failed to list pods in %s: %s", ns, sanitizeErrorForLog(err))
 		} else {
 			for _, pod := range pods.Items {
 				log.Printf("diagnostics: pod %s/%s phase=%s", ns, pod.Name, pod.Status.Phase)
@@ -267,13 +314,13 @@ func DumpHypershiftDiagnostics(ctx context.Context, c client.Client, clientset *
 					continue
 				}
 				for _, container := range pod.Spec.Containers {
-					logs, err := lib.GetPodContainerLogs(clientset, ns, pod.Name, container.Name)
+					logs, err := getPodLogsWithTimeout(ctx, clientset, ns, pod.Name, container.Name)
 					if err != nil {
-						log.Printf("diagnostics: failed to get logs for %s/%s container %s: %v", ns, pod.Name, container.Name, err)
+						log.Printf("diagnostics: failed to get logs for %s/%s container %s: %s", ns, pod.Name, container.Name, sanitizeErrorForLog(err))
 						continue
 					}
 					for _, line := range filterLogLines(logs, diagnosticLogKeywords) {
-						log.Printf("diagnostics: pod %s/%s container %s log: %s", ns, pod.Name, container.Name, line)
+						log.Printf("diagnostics: pod %s/%s container %s log: %s", ns, pod.Name, container.Name, redactDiagnosticLine(line))
 					}
 				}
 			}
@@ -281,7 +328,7 @@ func DumpHypershiftDiagnostics(ctx context.Context, c client.Client, clientset *
 
 		events := &corev1.EventList{}
 		if err := c.List(ctx, events, client.InNamespace(ns)); err != nil {
-			log.Printf("diagnostics: failed to list events in %s: %v", ns, err)
+			log.Printf("diagnostics: failed to list events in %s: %s", ns, sanitizeErrorForLog(err))
 		} else {
 			for _, event := range events.Items {
 				log.Printf("diagnostics: event %s/%s reason=%s type=%s count=%d", ns, event.InvolvedObject.Name, event.Reason, event.Type, event.Count)
@@ -290,6 +337,31 @@ func DumpHypershiftDiagnostics(ctx context.Context, c client.Client, clientset *
 	}
 
 	log.Printf("=== end HyperShift/MCE diagnostics dump ===")
+}
+
+// getPodLogsWithTimeout wraps lib.GetPodContainerLogs, which ignores any context
+// and streams via its own internal context.Background() with no deadline, in a
+// goroutine bounded by ctx -- so a stalled log stream can't hang the caller past
+// ctx's own deadline. Returns ctx.Err() if that deadline is reached first; the
+// underlying GetPodContainerLogs call is abandoned (not cancelled -- it has no
+// context to cancel), which is an acceptable one-shot best-effort leak in a
+// diagnostics-only path that runs at most a handful of times per suite.
+func getPodLogsWithTimeout(ctx context.Context, clientset *kubernetes.Clientset, namespace, podName, container string) (string, error) {
+	type result struct {
+		logs string
+		err  error
+	}
+	done := make(chan result, 1)
+	go func() {
+		logs, err := lib.GetPodContainerLogs(clientset, namespace, podName, container)
+		done <- result{logs, err}
+	}()
+	select {
+	case r := <-done:
+		return r.logs, r.err
+	case <-ctx.Done():
+		return "", ctx.Err()
+	}
 }
 
 func (h *HCHandler) IsMCEDeployed() bool {
