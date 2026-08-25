@@ -5,9 +5,6 @@ WORKDIR /go/src/github.com/openshift/oadp-operator
 
 COPY ./ .
 
-# Make analysis script executable for CI execution
-RUN chmod +x tests/e2e/scripts/analyze_failures.sh
-
 # Install kubectl (multi-arch)
 ARG TARGETARCH
 # --retry: curl's default retry set already covers exit 6 (could not resolve
@@ -27,30 +24,6 @@ RUN export KV_VERSION=$(curl --retry 5 --retry-delay 5 -s https://storage.google
     curl --retry 5 --retry-delay 5 -L -o virtctl "https://github.com/kubevirt/kubevirt/releases/download/${KV_VERSION}/virtctl-${KV_VERSION}-linux-${TARGETARCH}" && \
     chmod +x virtctl && \
     mv virtctl /usr/local/bin/
-
-# Install Claude CLI (native binary, no Node.js dependency)
-RUN curl --retry 5 --retry-delay 5 -fsSL https://claude.ai/install.sh | bash && \
-    ln -sf ~/.local/bin/claude /usr/local/bin/claude && \
-    claude --version
-
-# Clone openshift/velero source code for failure analysis
-# Uses oadp-dev branch to match OADP operator development
-# Retried like the curl fetches above -- same category of transient
-# network/DNS blip, just via git instead of curl (no built-in --retry flag).
-# rm -rf before each attempt: a clone that fails partway through can leave a
-# non-empty target directory behind, which would make the next attempt fail
-# with "destination path already exists" instead of actually retrying.
-# The trailing `test -d .../.git` is load-bearing, not decoration: without it,
-# `&& break || sleep 5` makes the loop's own exit status the last `sleep`'s
-# (always 0), so RUN succeeds even after all 3 clone attempts fail -- silently
-# shipping an image with no velero checkout instead of failing the build here.
-RUN for i in 1 2 3; do \
-      rm -rf /go/src/github.com/openshift/velero && \
-      git clone --depth 1 --branch oadp-dev \
-        https://github.com/openshift/velero.git \
-        /go/src/github.com/openshift/velero && break || sleep 5; \
-    done; \
-    test -d /go/src/github.com/openshift/velero/.git
 
 RUN go mod download && \
     mkdir -p $(go env GOCACHE) && \
