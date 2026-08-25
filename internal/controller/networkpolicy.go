@@ -18,6 +18,7 @@ import (
 
 const (
 	defaultDenyNetworkPolicyName       = "default-deny"
+	operatorNetworkPolicyName          = "oadp-operator-network-policy"
 	veleroNetworkPolicyName            = "velero-network-policy"
 	nonAdminNetworkPolicyName          = "non-admin-controller-network-policy"
 	vmFileRestoreNetworkPolicyName     = "vm-file-restore-controller-network-policy"
@@ -31,6 +32,11 @@ const (
 func (r *DataProtectionApplicationReconciler) ReconcileNetworkPolicies(log logr.Logger) (bool, error) {
 	// Reconcile default-deny policy first (baseline security)
 	if err := r.reconcileDefaultDenyNetworkPolicy(log); err != nil {
+		return false, err
+	}
+
+	// Reconcile OADP operator NetworkPolicy
+	if err := r.reconcileOperatorNetworkPolicy(log); err != nil {
 		return false, err
 	}
 
@@ -96,6 +102,61 @@ func (r *DataProtectionApplicationReconciler) reconcileDefaultDenyNetworkPolicy(
 	}
 
 	log.Info(fmt.Sprintf("Default-deny NetworkPolicy %s: %s", np.Name, op))
+	return nil
+}
+
+// reconcileOperatorNetworkPolicy creates a NetworkPolicy for the OADP operator pod itself.
+// Allows metrics and health endpoints.
+func (r *DataProtectionApplicationReconciler) reconcileOperatorNetworkPolicy(log logr.Logger) error {
+	np := &networkingv1.NetworkPolicy{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      operatorNetworkPolicyName,
+			Namespace: r.NamespacedName.Namespace,
+		},
+	}
+
+	op, err := controllerutil.CreateOrUpdate(r.Context, r.Client, np, func() error {
+		// Set controller reference
+		if err := controllerutil.SetControllerReference(r.dpa, np, r.Scheme); err != nil {
+			return err
+		}
+
+		// Apply labels
+		np.Labels = getDpaAppLabels(r.dpa)
+		np.Labels, np.Annotations = applyResourceLabels(r.dpa, np.Labels, np.Annotations)
+
+		// Pod selector: control-plane=controller-manager (matches operator pod)
+		np.Spec = networkingv1.NetworkPolicySpec{
+			PodSelector: metav1.LabelSelector{
+				MatchLabels: map[string]string{
+					"control-plane": "controller-manager",
+				},
+			},
+			PolicyTypes: []networkingv1.PolicyType{
+				networkingv1.PolicyTypeIngress,
+				// Egress intentionally omitted to leave egress unrestricted
+			},
+			Ingress: []networkingv1.NetworkPolicyIngressRule{
+				{
+					// Allow metrics from anywhere (standard pattern per OpenShift NP guide)
+					Ports: []networkingv1.NetworkPolicyPort{
+						{
+							Protocol: func() *corev1.Protocol { p := corev1.ProtocolTCP; return &p }(),
+							Port:     &intstr.IntOrString{Type: intstr.Int, IntVal: 8443},
+						},
+					},
+				},
+			},
+		}
+
+		return nil
+	})
+
+	if err != nil {
+		return fmt.Errorf("failed to reconcile OADP operator NetworkPolicy: %w", err)
+	}
+
+	log.Info(fmt.Sprintf("OADP operator NetworkPolicy %s: %s", np.Name, op))
 	return nil
 }
 
