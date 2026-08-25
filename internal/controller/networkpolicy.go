@@ -20,6 +20,8 @@ const (
 	defaultDenyNetworkPolicyName       = "default-deny"
 	operatorNetworkPolicyName          = "oadp-operator-network-policy"
 	veleroNetworkPolicyName            = "velero-network-policy"
+	cliServerNetworkPolicyName         = "oadp-cli-server-network-policy"
+	vmdpServerNetworkPolicyName        = "oadp-vmdp-server-network-policy"
 	nonAdminNetworkPolicyName          = "non-admin-controller-network-policy"
 	vmFileRestoreNetworkPolicyName     = "vm-file-restore-controller-network-policy"
 	kubevirtDatamoverNetworkPolicyName = "kubevirt-datamover-controller-network-policy"
@@ -42,6 +44,16 @@ func (r *DataProtectionApplicationReconciler) ReconcileNetworkPolicies(log logr.
 
 	// Reconcile Velero/node-agent NetworkPolicy
 	if err := r.reconcileVeleroNetworkPolicy(log); err != nil {
+		return false, err
+	}
+
+	// Reconcile CLI server NetworkPolicy
+	if err := r.reconcileCLIServerNetworkPolicy(log); err != nil {
+		return false, err
+	}
+
+	// Reconcile VMDP server NetworkPolicy
+	if err := r.reconcileVMDPServerNetworkPolicy(log); err != nil {
 		return false, err
 	}
 
@@ -212,6 +224,114 @@ func (r *DataProtectionApplicationReconciler) reconcileVeleroNetworkPolicy(log l
 	}
 
 	log.Info(fmt.Sprintf("Velero NetworkPolicy %s: %s", np.Name, op))
+	return nil
+}
+
+// reconcileCLIServerNetworkPolicy creates a NetworkPolicy for the OADP CLI server.
+// This server provides ConsoleCLIDownload endpoints for users to download the OADP CLI.
+func (r *DataProtectionApplicationReconciler) reconcileCLIServerNetworkPolicy(log logr.Logger) error {
+	np := &networkingv1.NetworkPolicy{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      cliServerNetworkPolicyName,
+			Namespace: r.NamespacedName.Namespace,
+		},
+	}
+
+	op, err := controllerutil.CreateOrUpdate(r.Context, r.Client, np, func() error {
+		// Set controller reference
+		if err := controllerutil.SetControllerReference(r.dpa, np, r.Scheme); err != nil {
+			return err
+		}
+
+		// Apply labels
+		np.Labels = getDpaAppLabels(r.dpa)
+		np.Labels, np.Annotations = applyResourceLabels(r.dpa, np.Labels, np.Annotations)
+
+		// Pod selector: app=oadp-cli
+		np.Spec = networkingv1.NetworkPolicySpec{
+			PodSelector: metav1.LabelSelector{
+				MatchLabels: map[string]string{
+					"app": "oadp-cli",
+				},
+			},
+			PolicyTypes: []networkingv1.PolicyType{
+				networkingv1.PolicyTypeIngress,
+			},
+			Ingress: []networkingv1.NetworkPolicyIngressRule{
+				{
+					// Allow HTTP access from anywhere (CLI downloads)
+					Ports: []networkingv1.NetworkPolicyPort{
+						{
+							Protocol: func() *corev1.Protocol { p := corev1.ProtocolTCP; return &p }(),
+							Port:     &intstr.IntOrString{Type: intstr.Int, IntVal: 8080},
+						},
+					},
+				},
+			},
+		}
+
+		return nil
+	})
+
+	if err != nil {
+		return fmt.Errorf("failed to reconcile CLI server NetworkPolicy: %w", err)
+	}
+
+	log.Info(fmt.Sprintf("CLI server NetworkPolicy %s: %s", np.Name, op))
+	return nil
+}
+
+// reconcileVMDPServerNetworkPolicy creates a NetworkPolicy for the OADP VMDP (VM Data Protection) server.
+// This server provides ConsoleCLIDownload endpoints for users to download the VMDP CLI.
+func (r *DataProtectionApplicationReconciler) reconcileVMDPServerNetworkPolicy(log logr.Logger) error {
+	np := &networkingv1.NetworkPolicy{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      vmdpServerNetworkPolicyName,
+			Namespace: r.NamespacedName.Namespace,
+		},
+	}
+
+	op, err := controllerutil.CreateOrUpdate(r.Context, r.Client, np, func() error {
+		// Set controller reference
+		if err := controllerutil.SetControllerReference(r.dpa, np, r.Scheme); err != nil {
+			return err
+		}
+
+		// Apply labels
+		np.Labels = getDpaAppLabels(r.dpa)
+		np.Labels, np.Annotations = applyResourceLabels(r.dpa, np.Labels, np.Annotations)
+
+		// Pod selector: app=oadp-vmdp
+		np.Spec = networkingv1.NetworkPolicySpec{
+			PodSelector: metav1.LabelSelector{
+				MatchLabels: map[string]string{
+					"app": "oadp-vmdp",
+				},
+			},
+			PolicyTypes: []networkingv1.PolicyType{
+				networkingv1.PolicyTypeIngress,
+			},
+			Ingress: []networkingv1.NetworkPolicyIngressRule{
+				{
+					// Allow HTTP access from anywhere (CLI downloads)
+					Ports: []networkingv1.NetworkPolicyPort{
+						{
+							Protocol: func() *corev1.Protocol { p := corev1.ProtocolTCP; return &p }(),
+							Port:     &intstr.IntOrString{Type: intstr.Int, IntVal: 8080},
+						},
+					},
+				},
+			},
+		}
+
+		return nil
+	})
+
+	if err != nil {
+		return fmt.Errorf("failed to reconcile VMDP server NetworkPolicy: %w", err)
+	}
+
+	log.Info(fmt.Sprintf("VMDP server NetworkPolicy %s: %s", np.Name, op))
 	return nil
 }
 
