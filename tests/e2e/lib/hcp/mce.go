@@ -4,9 +4,12 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"regexp"
+	"strconv"
 	"strings"
 	"time"
 
+	configv1 "github.com/openshift/api/config/v1"
 	operatorsv1 "github.com/operator-framework/api/pkg/operators/v1"
 	operatorsv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
@@ -27,7 +30,63 @@ const (
 	MCEOperatorNamespace = "multicluster-engine"
 	MCEOperatorGroupName = "multicluster-engine"
 	MCESubscriptionName  = "multicluster-engine"
+
+	// mceStableChannelOCPVersionThresholdMajor/Minor: below this OCP version, MCE's
+	// current default channel (stable-2.11 as of this writing) can't be used --
+	// MCE 2.11's backplane-operator refuses to reconcile on OCP < 4.19 (a floor
+	// enforced in code, not visible via OLM/catalog metadata; see OADP-8716). Below
+	// the threshold, pin to stable-2.8 instead, matching the ACM 2.13/MCE 2.8 pairing
+	// the real GovCloud HCP target environment runs on OCP 4.18 (OADP-7564).
+	mceStableChannelOCPVersionThresholdMajor = 4
+	mceStableChannelOCPVersionThresholdMinor = 19
+
+	// mceLegacyChannel is used on clusters below the threshold above.
+	mceLegacyChannel = "stable-2.8"
 )
+
+// SelectMCEChannel picks the MCE subscription channel appropriate for the cluster's
+// OCP version. Returns "" for OCP versions at or above
+// mceStableChannelOCPVersionThresholdMajor.Minor, signaling the caller to float on
+// MCE's default channel as usual; returns mceLegacyChannel below that threshold.
+func SelectMCEChannel(ctx context.Context, c client.Client) (string, error) {
+	clusterVersion := &configv1.ClusterVersion{}
+	if err := c.Get(ctx, types.NamespacedName{Name: "version"}, clusterVersion); err != nil {
+		return "", fmt.Errorf("failed to get cluster version: %v", err)
+	}
+
+	version := clusterVersion.Status.Desired.Version
+	if version == "" && len(clusterVersion.Status.History) > 0 {
+		version = clusterVersion.Status.History[0].Version
+	}
+	if version == "" {
+		return "", fmt.Errorf("cluster version status has no desired or history version")
+	}
+
+	re := regexp.MustCompile(`^(\d+)\.(\d+)`)
+	m := re.FindStringSubmatch(version)
+	if m == nil {
+		return "", fmt.Errorf("could not parse major.minor from cluster version %q", version)
+	}
+	major, err := strconv.Atoi(m[1])
+	if err != nil {
+		return "", fmt.Errorf("failed to parse major version from %q: %v", version, err)
+	}
+	minor, err := strconv.Atoi(m[2])
+	if err != nil {
+		return "", fmt.Errorf("failed to parse minor version from %q: %v", version, err)
+	}
+
+	if major < mceStableChannelOCPVersionThresholdMajor ||
+		(major == mceStableChannelOCPVersionThresholdMajor && minor < mceStableChannelOCPVersionThresholdMinor) {
+		log.Printf("Cluster OCP version %s is below %d.%d; pinning MCE to channel %s", version,
+			mceStableChannelOCPVersionThresholdMajor, mceStableChannelOCPVersionThresholdMinor, mceLegacyChannel)
+		return mceLegacyChannel, nil
+	}
+
+	log.Printf("Cluster OCP version %s is at or above %d.%d; using MCE's default channel", version,
+		mceStableChannelOCPVersionThresholdMajor, mceStableChannelOCPVersionThresholdMinor)
+	return "", nil
+}
 
 // DeleteMCEOperand deletes the MCE operand
 func (h *HCHandler) DeleteMCEOperand() error {

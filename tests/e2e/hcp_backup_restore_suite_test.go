@@ -201,32 +201,38 @@ var _ = ginkgo.Describe("HCP Backup and Restore tests", ginkgo.Ordered, func() {
 			return
 		}
 
+		// Below OCP 4.19, MCE's current default channel (stable-2.11) can't be used --
+		// MCE 2.11's backplane-operator refuses to reconcile there (a floor enforced in
+		// code, not visible via OLM/catalog metadata; see OADP-8716). SelectMCEChannel
+		// pins to stable-2.8 in that case, matching the ACM 2.13 / MCE 2.8 pairing the
+		// real GovCloud HCP target environment runs on OCP 4.18 (OADP-7564) -- and
+		// leaves the channel unset (floating on MCE's default) on OCP 4.19+, where HCP
+		// e2e also runs (4.22/4.23/5.0 periodics) and MCE 2.11 installs fine. Check with
+		// the OADP/HCP team from time to time (Brae Troutman, as of this writing) for
+		// updated ACM/MCE version requirements.
+		//
+		// Production also pins the HyperShift operator image itself to a specific SHA
+		// (passed to the MCE hypershift addon), rather than relying on whatever image
+		// ships bundled with this MCE version. That's done via an admin-controlled
+		// ConfigMap named "hypershift-override-images" in the multicluster-engine
+		// namespace (keyed by image-stream name -- see stolostron/hypershift-addon-operator's
+		// pkg/util/constant.go, HypershiftOverrideImagesCM/ImageStreamHypershiftOperator),
+		// separate from the tenant-writable hypershift-operator-install-flags ConfigMap
+		// the CVE-2026-66808 fix locked down. Not replicated here yet -- if a SHA pin
+		// becomes necessary for this test too, source the value from an env var at
+		// runtime rather than hardcoding it (the real pinned image used in production
+		// isn't something to commit to a public repo).
+		mceChannel, err := libhcp.SelectMCEChannel(ctx, runTimeClientForSuiteRun)
+		if err != nil {
+			ginkgo.Fail(fmt.Sprintf("HCP tests failed: could not determine MCE channel for this cluster's OCP version: %v", err))
+			return
+		}
+
 		reqOperators := []libhcp.RequiredOperator{
 			{
-				Name:      libhcp.MCEName,
-				Namespace: libhcp.MCENamespace,
-				// Pinned to the ACM 2.13 / MCE 2.8 pairing our GovCloud HCP target
-				// environment actually runs on OCP 4.18 (ACM 2.13 -> ~2.15 planned, see
-				// ROSAENG-58373) -- not the 4.18 index's default channel (stable-2.11 as
-				// of this writing), which is a support-exception-only version for OCP
-				// 4.18 and can (and did) start enforcing an OCP floor the 4.18 cluster
-				// doesn't meet. Check with the OADP/HCP team from time to time
-				// (Brae Troutman, as of this writing) for updated ACM/MCE version
-				// requirements before bumping this -- see OADP-7564.
-				//
-				// Production also pins the HyperShift operator image itself to a
-				// specific SHA (passed to the MCE hypershift addon), rather than relying
-				// on whatever image ships bundled with this MCE version. That's done via
-				// an admin-controlled ConfigMap named "hypershift-override-images" in
-				// this namespace (keyed by image-stream name -- see
-				// stolostron/hypershift-addon-operator's pkg/util/constant.go,
-				// HypershiftOverrideImagesCM/ImageStreamHypershiftOperator), separate
-				// from the tenant-writable hypershift-operator-install-flags ConfigMap
-				// the CVE-2026-66808 fix locked down. Not replicated here yet -- if a
-				// SHA pin becomes necessary for this test too, source the value from an
-				// env var at runtime rather than hardcoding it (the real pinned image
-				// used in production isn't something to commit to a public repo).
-				Channel:       "stable-2.8",
+				Name:          libhcp.MCEName,
+				Namespace:     libhcp.MCENamespace,
+				Channel:       mceChannel,
 				OperatorGroup: libhcp.MCEOperatorGroup,
 			},
 		}
