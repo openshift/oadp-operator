@@ -1036,17 +1036,6 @@ test-e2e: test-e2e-setup install-ginkgo $(if $(MUST_GATHER_REPO),build-must-gath
 	-skipMustGather=$(SKIP_MUST_GATHER) \
 	$(HCP_EXTERNAL_ARGS) \
 	|| EXIT_CODE=$$?; \
-	if [ "$(OPENSHIFT_CI)" = "true" ]; then \
-		if [ -f /var/run/oadp-credentials/gcp-claude-code-credentials ]; then \
-			export GOOGLE_APPLICATION_CREDENTIALS=/var/run/oadp-credentials/gcp-claude-code-credentials; \
-			export CLAUDE_CODE_USE_VERTEX=1; \
-			export CLOUD_ML_REGION=global; \
-			if [ -f /var/run/oadp-credentials/gcp-claude-code-project-id ]; then \
-				export ANTHROPIC_VERTEX_PROJECT_ID=$$(cat /var/run/oadp-credentials/gcp-claude-code-project-id); \
-			fi; \
-		fi; \
-		./tests/e2e/scripts/analyze_failures.sh $${EXIT_CODE:-0}; \
-	fi; \
 	exit $${EXIT_CODE:-0}
 
 .PHONY: test-e2e-cleanup
