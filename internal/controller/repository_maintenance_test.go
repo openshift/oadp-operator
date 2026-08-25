@@ -300,3 +300,71 @@ func TestDataProtectionApplicationReconciler_updateRepositoryMaintenanceCM(t *te
 		})
 	}
 }
+
+func Test_isRepositoryMaintenanceCmRequired(t *testing.T) {
+	tests := []struct {
+		name string
+		dpa  *oadpv1alpha1.DataProtectionApplication
+		want bool
+	}{
+		{
+			name: "node-agent disabled, no config set - not required",
+			dpa: &oadpv1alpha1.DataProtectionApplication{
+				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
+					Configuration: &oadpv1alpha1.ApplicationConfig{},
+				},
+			},
+			want: false,
+		},
+		{
+			name: "node-agent disabled, RepositoryMaintenance config set - still not required",
+			dpa: &oadpv1alpha1.DataProtectionApplication{
+				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
+					Configuration: &oadpv1alpha1.ApplicationConfig{
+						RepositoryMaintenance: map[string]oadpv1alpha1.RepositoryMaintenanceConfig{
+							"global": {},
+						},
+					},
+				},
+			},
+			want: false,
+		},
+		{
+			name: "node-agent enabled - required",
+			dpa: &oadpv1alpha1.DataProtectionApplication{
+				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
+					Configuration: &oadpv1alpha1.ApplicationConfig{
+						NodeAgent: &oadpv1alpha1.NodeAgentConfig{
+							NodeAgentCommonFields: oadpv1alpha1.NodeAgentCommonFields{
+								Enable: ptr.To(true),
+							},
+						},
+					},
+				},
+			},
+			want: true,
+		},
+		{
+			name: "node-agent explicitly disabled - not required",
+			dpa: &oadpv1alpha1.DataProtectionApplication{
+				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
+					Configuration: &oadpv1alpha1.ApplicationConfig{
+						NodeAgent: &oadpv1alpha1.NodeAgentConfig{
+							NodeAgentCommonFields: oadpv1alpha1.NodeAgentCommonFields{
+								Enable: ptr.To(false),
+							},
+						},
+					},
+				},
+			},
+			want: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := isRepositoryMaintenanceCmRequired(tt.dpa)
+			require.Equal(t, tt.want, got)
+		})
+	}
+}
