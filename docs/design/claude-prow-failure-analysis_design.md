@@ -1,5 +1,12 @@
 # Design proposal: Claude-Powered Failure Analysis in Prow CI
 
+> [!IMPORTANT]
+> **Superseded**: This in-repo design (Claude CLI baked into `build/ci-Dockerfile`, credentials wired through the `Makefile`'s `test-e2e` target) was never fully activated in CI — the `gcp-claude-code-*` credential files it depends on were never added to the `oadp-credentials` vault collection, so `analyze_failures.sh` always hit its "Vertex AI not configured" no-op path in CI.
+>
+> It has been replaced by the shared `claude-ai-helpers` step-registry pattern used by other CI teams (`medik8s`, `hypershift`, etc.): an `oadp-analyze-e2e-failure` post-step in `openshift/release`, using the already-provisioned `test-credentials/sa-claude-openshift-ci` credential, with no changes required inside this repo's test image. See [issue #2407](https://github.com/openshift/oadp-operator/issues/2407).
+>
+> `tests/e2e/scripts/analyze_failures.sh` remains in this repo for local/manual use only; the rest of this document describes the retired in-repo architecture for historical context.
+
 ## Abstract
 
 Automatically analyze OADP E2E test failures in Prow CI using Claude Code via Google Vertex AI.

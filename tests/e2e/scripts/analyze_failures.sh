@@ -2,6 +2,14 @@
 # Analyze test failures with Claude via Vertex AI after Ginkgo suite completes
 # Only runs if tests failed and Claude analysis is not skipped
 #
+# NOTE: This script is no longer invoked by CI. Presubmit E2E failure analysis
+# now runs as an openshift/release step-registry post-step (oadp-analyze-e2e-failure)
+# using the shared claude-ai-helpers image and sa-claude-openshift-ci credential,
+# outside this repo's test container. This script is kept for local/manual use only
+# -- run it by hand after `make test-e2e` with GOOGLE_APPLICATION_CREDENTIALS and
+# ANTHROPIC_VERTEX_PROJECT_ID set, or a plain ANTHROPIC_API_KEY. See
+# docs/design/claude-prow-failure-analysis_design.md for the superseded design.
+#
 # Features:
 # - Claude CLI availability check before invoking
 # - Proper exit code capture (avoids pipefail issues)
