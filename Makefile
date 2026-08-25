@@ -676,6 +676,7 @@ test-e2e: test-e2e-setup install-ginkgo $(if $(MUST_GATHER_REPO),build-must-gath
 	--ginkgo.vv \
 	--ginkgo.no-color=$(OPENSHIFT_CI) \
 	--ginkgo.label-filter="$(TEST_FILTER)" \
+	--ginkgo.junit-report="$(ARTIFACT_DIR)/junit_report.xml" \
 	--ginkgo.timeout=2h
 
 .PHONY: test-e2e-cleanup
