@@ -203,8 +203,30 @@ var _ = ginkgo.Describe("HCP Backup and Restore tests", ginkgo.Ordered, func() {
 
 		reqOperators := []libhcp.RequiredOperator{
 			{
-				Name:          libhcp.MCEName,
-				Namespace:     libhcp.MCENamespace,
+				Name:      libhcp.MCEName,
+				Namespace: libhcp.MCENamespace,
+				// Pinned to the ACM 2.13 / MCE 2.8 pairing our GovCloud HCP target
+				// environment actually runs on OCP 4.18 (ACM 2.13 -> ~2.15 planned, see
+				// ROSAENG-58373) -- not the 4.18 index's default channel (stable-2.11 as
+				// of this writing), which is a support-exception-only version for OCP
+				// 4.18 and can (and did) start enforcing an OCP floor the 4.18 cluster
+				// doesn't meet. Check with the OADP/HCP team from time to time
+				// (Brae Troutman, as of this writing) for updated ACM/MCE version
+				// requirements before bumping this -- see OADP-7564.
+				//
+				// Production also pins the HyperShift operator image itself to a
+				// specific SHA (passed to the MCE hypershift addon), rather than relying
+				// on whatever image ships bundled with this MCE version. That's done via
+				// an admin-controlled ConfigMap named "hypershift-override-images" in
+				// this namespace (keyed by image-stream name -- see
+				// stolostron/hypershift-addon-operator's pkg/util/constant.go,
+				// HypershiftOverrideImagesCM/ImageStreamHypershiftOperator), separate
+				// from the tenant-writable hypershift-operator-install-flags ConfigMap
+				// the CVE-2026-66808 fix locked down. Not replicated here yet -- if a
+				// SHA pin becomes necessary for this test too, source the value from an
+				// env var at runtime rather than hardcoding it (the real pinned image
+				// used in production isn't something to commit to a public repo).
+				Channel:       "stable-2.8",
 				OperatorGroup: libhcp.MCEOperatorGroup,
 			},
 		}
@@ -213,19 +235,27 @@ var _ = ginkgo.Describe("HCP Backup and Restore tests", ginkgo.Ordered, func() {
 		h, err = libhcp.InstallRequiredOperators(ctx, runTimeClientForSuiteRun, reqOperators)
 		gomega.Expect(err).ToNot(gomega.HaveOccurred())
 		gomega.Expect(h).ToNot(gomega.BeNil())
-		gomega.Eventually(lib.IsDeploymentReady(h.Client, libhcp.MCENamespace, libhcp.MCEOperatorName), libhcp.Wait10Min, time.Second*5).Should(gomega.BeTrue())
+		gomega.Eventually(lib.IsDeploymentReady(h.Client, libhcp.MCENamespace, libhcp.MCEOperatorName), libhcp.Wait10Min, time.Second*5).Should(gomega.BeTrue(), func() string {
+			libhcp.DumpHypershiftDiagnostics(ctx, h.Client, kubernetesClientForSuiteRun)
+			return "MCE operator deployment never became ready"
+		})
 
 		// Deploy the MCE manifest
 		err = h.DeployMCEManifest()
 		gomega.Expect(err).ToNot(gomega.HaveOccurred())
 
 		// Deploy the MCE and wait for it to be ready
-		gomega.Eventually(lib.IsDeploymentReady(h.Client, libhcp.MCENamespace, libhcp.MCEOperatorName), libhcp.Wait10Min, time.Second*5).Should(gomega.BeTrue())
+		gomega.Eventually(lib.IsDeploymentReady(h.Client, libhcp.MCENamespace, libhcp.MCEOperatorName), libhcp.Wait10Min, time.Second*5).Should(gomega.BeTrue(), func() string {
+			libhcp.DumpHypershiftDiagnostics(ctx, h.Client, kubernetesClientForSuiteRun)
+			return "MCE operator deployment never became ready after applying MCE manifest"
+		})
 		gomega.Expect(err).ToNot(gomega.HaveOccurred())
 
-		// Validate the Hypershift operator
-		gomega.Eventually(lib.IsDeploymentReady(h.Client, libhcp.HONamespace, libhcp.HypershiftOperatorName), libhcp.Wait10Min, time.Second*5).Should(gomega.BeTrue())
-		gomega.Expect(err).ToNot(gomega.HaveOccurred())
+		// Validate the Hypershift operator.
+		gomega.Eventually(lib.IsDeploymentReady(h.Client, libhcp.HONamespace, libhcp.HypershiftOperatorName), libhcp.Wait10Min, time.Second*5).Should(gomega.BeTrue(), func() string {
+			libhcp.DumpHypershiftDiagnostics(ctx, h.Client, kubernetesClientForSuiteRun)
+			return "Hypershift operator deployment never became ready"
+		})
 	})
 
 	// After All
