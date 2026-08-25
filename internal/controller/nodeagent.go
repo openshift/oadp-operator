@@ -121,7 +121,7 @@ func isNodeAgentEnabled(dpa *oadpv1alpha1.DataProtectionApplication) bool {
 // DataUpload/DataDownload, PodVolumeBackup/Restore) for NetworkPolicy coverage - see
 // networkPolicyMoverLabel in networkpolicy.go. The config/disableFsBackup parameters are
 // unused now but kept for API stability/clarity at call sites.
-func isNodeAgentCMRequired(config oadpv1alpha1.NodeAgentConfigMapSettings, disableFsBackup *bool) bool { //nolint:revive,unparam
+func isNodeAgentCMRequired(config oadpv1alpha1.NodeAgentConfigMapSettings, disableFsBackup *bool) bool {
 	return true
 }
 
