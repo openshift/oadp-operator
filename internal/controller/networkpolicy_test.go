@@ -76,8 +76,9 @@ var _ = ginkgo.Describe("ReconcileNetworkPolicies", func() {
 		}, np)
 		gomega.Expect(err).NotTo(gomega.HaveOccurred())
 		gomega.Expect(np.Spec.PodSelector).To(gomega.Equal(metav1.LabelSelector{}))
-		gomega.Expect(np.Spec.PolicyTypes).To(gomega.ConsistOf(networkingv1.PolicyTypeIngress))
+		gomega.Expect(np.Spec.PolicyTypes).To(gomega.ConsistOf(networkingv1.PolicyTypeIngress, networkingv1.PolicyTypeEgress))
 		gomega.Expect(np.Spec.Ingress).To(gomega.BeEmpty())
+		gomega.Expect(np.Spec.Egress).To(gomega.BeEmpty())
 	})
 
 	ginkgo.It("should create velero NetworkPolicy with correct port", func() {
@@ -106,6 +107,31 @@ var _ = ginkgo.Describe("ReconcileNetworkPolicies", func() {
 		gomega.Expect(ingress.Ports).To(gomega.HaveLen(1))
 		gomega.Expect(*ingress.Ports[0].Port).To(gomega.Equal(intstr.FromInt32(8085)))
 		gomega.Expect(*ingress.Ports[0].Protocol).To(gomega.Equal(corev1.ProtocolTCP))
+
+		// Verify unrestricted egress (Velero needs to reach arbitrary cloud/object-storage endpoints)
+		gomega.Expect(np.Spec.PolicyTypes).To(gomega.ContainElement(networkingv1.PolicyTypeEgress))
+		gomega.Expect(np.Spec.Egress).To(gomega.Equal(unrestrictedEgressRule()))
+	})
+
+	ginkgo.It("should create velero-mover NetworkPolicy with unrestricted egress and no ingress", func() {
+		success, err := r.ReconcileNetworkPolicies(r.Log)
+		gomega.Expect(err).NotTo(gomega.HaveOccurred())
+		gomega.Expect(success).To(gomega.BeTrue())
+
+		np := &networkingv1.NetworkPolicy{}
+		err = k8sClient.Get(ctx, types.NamespacedName{
+			Name:      veleroMoverNetworkPolicyName,
+			Namespace: namespace.Name,
+		}, np)
+		gomega.Expect(err).NotTo(gomega.HaveOccurred())
+
+		// Verify pod selector matches the dedicated mover label
+		gomega.Expect(np.Spec.PodSelector.MatchLabels).To(gomega.HaveKeyWithValue(networkPolicyMoverLabel, networkPolicyMoverLabelValue))
+
+		// Egress-only policy: no ingress rules/type, unrestricted egress
+		gomega.Expect(np.Spec.PolicyTypes).To(gomega.ConsistOf(networkingv1.PolicyTypeEgress))
+		gomega.Expect(np.Spec.Ingress).To(gomega.BeEmpty())
+		gomega.Expect(np.Spec.Egress).To(gomega.Equal(unrestrictedEgressRule()))
 	})
 
 	ginkgo.It("should create non-admin NetworkPolicy when enabled", func() {
@@ -146,6 +172,10 @@ var _ = ginkgo.Describe("ReconcileNetworkPolicies", func() {
 			gomega.Expect(*port.Port).To(gomega.Equal(intstr.FromInt32(ports[i])))
 			gomega.Expect(*port.Protocol).To(gomega.Equal(corev1.ProtocolTCP))
 		}
+
+		// Verify scoped egress (DNS + API-server only)
+		gomega.Expect(np.Spec.PolicyTypes).To(gomega.ContainElement(networkingv1.PolicyTypeEgress))
+		gomega.Expect(np.Spec.Egress).To(gomega.Equal(scopedEgressRules()))
 	})
 
 	ginkgo.It("should NOT create non-admin NetworkPolicy when disabled", func() {
@@ -240,6 +270,10 @@ var _ = ginkgo.Describe("ReconcileNetworkPolicies", func() {
 			gomega.Expect(*port.Port).To(gomega.Equal(intstr.FromInt32(ports[i])))
 			gomega.Expect(*port.Protocol).To(gomega.Equal(corev1.ProtocolTCP))
 		}
+
+		// Verify scoped egress (DNS + API-server only)
+		gomega.Expect(np.Spec.PolicyTypes).To(gomega.ContainElement(networkingv1.PolicyTypeEgress))
+		gomega.Expect(np.Spec.Egress).To(gomega.Equal(scopedEgressRules()))
 	})
 
 	ginkgo.It("should create KubeVirt datamover NetworkPolicy when enabled", func() {
@@ -277,6 +311,10 @@ var _ = ginkgo.Describe("ReconcileNetworkPolicies", func() {
 			gomega.Expect(*port.Port).To(gomega.Equal(intstr.FromInt32(ports[i])))
 			gomega.Expect(*port.Protocol).To(gomega.Equal(corev1.ProtocolTCP))
 		}
+
+		// Verify unrestricted egress (KubeVirt datamover reaches arbitrary cluster/registry endpoints)
+		gomega.Expect(np.Spec.PolicyTypes).To(gomega.ContainElement(networkingv1.PolicyTypeEgress))
+		gomega.Expect(np.Spec.Egress).To(gomega.Equal(unrestrictedEgressRule()))
 	})
 
 	ginkgo.It("should set controller reference on NetworkPolicies", func() {

@@ -116,17 +116,13 @@ func isNodeAgentEnabled(dpa *oadpv1alpha1.DataProtectionApplication) bool {
 }
 
 // isNodeAgentCMRequired checks if at least one required field is present in NodeAgentConfigMapSettings or PodConfig.
-func isNodeAgentCMRequired(config oadpv1alpha1.NodeAgentConfigMapSettings, disableFsBackup *bool) bool {
-	return config.LoadConcurrency != nil ||
-		len(config.BackupPVCConfig) > 0 ||
-		config.RestorePVCConfig != nil ||
-		config.PodResources != nil ||
-		config.LoadAffinityConfig != nil ||
-		config.CachePVCConfig != nil ||
-		len(config.PodAnnotations) > 0 ||
-		len(config.PodLabels) > 0 ||
-		disableFsBackup == nil ||
-		!*disableFsBackup
+// The NodeAgent ConfigMap is now always required whenever node-agent is enabled, so that
+// OADP can consistently label Velero's dynamically-spawned data-mover pods (CSI
+// DataUpload/DataDownload, PodVolumeBackup/Restore) for NetworkPolicy coverage - see
+// networkPolicyMoverLabel in networkpolicy.go. The config/disableFsBackup parameters are
+// unused now but kept for API stability/clarity at call sites.
+func isNodeAgentCMRequired(config oadpv1alpha1.NodeAgentConfigMapSettings, disableFsBackup *bool) bool { //nolint:revive,unparam
+	return true
 }
 
 // getDefaultStorageClass returns the name of the cluster's default StorageClass, if one exists.
@@ -161,6 +157,18 @@ func (r *DataProtectionApplicationReconciler) updateNodeAgentCM(cm *corev1.Confi
 		NodeAgentConfigMapSettings: r.dpa.Spec.Configuration.NodeAgent.NodeAgentConfigMapSettings,
 		PrivilegedFsBackup:         privilegedFsBackup,
 	}
+
+	// Always ensure Velero's dynamically-spawned data-mover pods (CSI DataUpload/DataDownload,
+	// PodVolumeBackup/Restore) carry networkPolicyMoverLabel, so reconcileVeleroMoverNetworkPolicy
+	// can select them. Copy the map first to avoid mutating the DPA spec, and merge on top of
+	// (rather than overwrite) any user-supplied PodLabels; our label always wins on key conflict
+	// so NetworkPolicy coverage cannot be silently disabled via user config.
+	mergedPodLabels := make(map[string]string, len(configWithPrivileged.PodLabels)+1)
+	for k, v := range configWithPrivileged.PodLabels {
+		mergedPodLabels[k] = v
+	}
+	mergedPodLabels[networkPolicyMoverLabel] = networkPolicyMoverLabelValue
+	configWithPrivileged.PodLabels = mergedPodLabels
 
 	// If CachePVCConfig is set but StorageClass is empty, resolve the cluster's default StorageClass.
 	// This prevents restore failures when local storage is limited by ensuring a StorageClass is available
