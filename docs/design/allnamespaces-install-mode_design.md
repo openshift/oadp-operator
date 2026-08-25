@@ -83,7 +83,7 @@ AllNamespaces is the strategically correct direction:
 
 ## Non Goals
 
-- Actually watching all namespaces or supporting multi-tenant Velero (one DPA per namespace).
+- Actually watching all namespaces.
 - `SingleNamespace` or `MultiNamespace` install mode support.
 
 ## High-Level Design
@@ -292,3 +292,9 @@ If a future requirement is for the operator to watch all namespaces, `WATCH_NAME
 
 - Changes to the cache configuration (remove the `DefaultNamespaces` scope).
 - A design decision on DPA singleton scope (one globally or one per namespace).
+
+### Multi-Tenant Velero (One DPA Per Namespace)
+
+Supporting independent DPA instances per namespace — with each controlling its own Velero deployment — is a meaningful future direction that requires AllNamespaces install mode as a prerequisite.
+
+This is deferred to avoid breaking existing installations. OLMv0's multi-tenancy model (multiple operator instances in different namespaces) is the mechanism that would enable this, but OLMv0's `OwnNamespace` mode is already Tech Preview in OCP 4.19 with no GA promotion planned. Revisiting this becomes relevant when OLMv0 is no longer available (expected around OCP 6.0), at which point the right multi-tenancy model can be designed without the constraint of backward compatibility with existing `OwnNamespace` installations.
