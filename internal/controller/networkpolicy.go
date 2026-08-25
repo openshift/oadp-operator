@@ -113,7 +113,14 @@ func (r *DataProtectionApplicationReconciler) reconcileDefaultDenyNetworkPolicy(
 		return fmt.Errorf("failed to reconcile default-deny NetworkPolicy: %w", err)
 	}
 
-	log.Info(fmt.Sprintf("Default-deny NetworkPolicy %s: %s", np.Name, op))
+	if op == controllerutil.OperationResultCreated || op == controllerutil.OperationResultUpdated {
+		log.Info(fmt.Sprintf("Default-deny NetworkPolicy %s: %s", np.Name, op))
+		r.EventRecorder.Event(np,
+			corev1.EventTypeNormal,
+			"DefaultDenyNetworkPolicyReconciled",
+			fmt.Sprintf("performed %s on default-deny NetworkPolicy %s/%s", op, np.Namespace, np.Name),
+		)
+	}
 	return nil
 }
 
@@ -168,7 +175,14 @@ func (r *DataProtectionApplicationReconciler) reconcileOperatorNetworkPolicy(log
 		return fmt.Errorf("failed to reconcile OADP operator NetworkPolicy: %w", err)
 	}
 
-	log.Info(fmt.Sprintf("OADP operator NetworkPolicy %s: %s", np.Name, op))
+	if op == controllerutil.OperationResultCreated || op == controllerutil.OperationResultUpdated {
+		log.Info(fmt.Sprintf("OADP operator NetworkPolicy %s: %s", np.Name, op))
+		r.EventRecorder.Event(np,
+			corev1.EventTypeNormal,
+			"OperatorNetworkPolicyReconciled",
+			fmt.Sprintf("performed %s on OADP operator NetworkPolicy %s/%s", op, np.Namespace, np.Name),
+		)
+	}
 	return nil
 }
 
@@ -223,7 +237,14 @@ func (r *DataProtectionApplicationReconciler) reconcileVeleroNetworkPolicy(log l
 		return fmt.Errorf("failed to reconcile Velero NetworkPolicy: %w", err)
 	}
 
-	log.Info(fmt.Sprintf("Velero NetworkPolicy %s: %s", np.Name, op))
+	if op == controllerutil.OperationResultCreated || op == controllerutil.OperationResultUpdated {
+		log.Info(fmt.Sprintf("Velero NetworkPolicy %s: %s", np.Name, op))
+		r.EventRecorder.Event(np,
+			corev1.EventTypeNormal,
+			"VeleroNetworkPolicyReconciled",
+			fmt.Sprintf("performed %s on Velero NetworkPolicy %s/%s", op, np.Namespace, np.Name),
+		)
+	}
 	return nil
 }
 
@@ -277,7 +298,14 @@ func (r *DataProtectionApplicationReconciler) reconcileCLIServerNetworkPolicy(lo
 		return fmt.Errorf("failed to reconcile CLI server NetworkPolicy: %w", err)
 	}
 
-	log.Info(fmt.Sprintf("CLI server NetworkPolicy %s: %s", np.Name, op))
+	if op == controllerutil.OperationResultCreated || op == controllerutil.OperationResultUpdated {
+		log.Info(fmt.Sprintf("CLI server NetworkPolicy %s: %s", np.Name, op))
+		r.EventRecorder.Event(np,
+			corev1.EventTypeNormal,
+			"CLIServerNetworkPolicyReconciled",
+			fmt.Sprintf("performed %s on CLI server NetworkPolicy %s/%s", op, np.Namespace, np.Name),
+		)
+	}
 	return nil
 }
 
@@ -331,7 +359,14 @@ func (r *DataProtectionApplicationReconciler) reconcileVMDPServerNetworkPolicy(l
 		return fmt.Errorf("failed to reconcile VMDP server NetworkPolicy: %w", err)
 	}
 
-	log.Info(fmt.Sprintf("VMDP server NetworkPolicy %s: %s", np.Name, op))
+	if op == controllerutil.OperationResultCreated || op == controllerutil.OperationResultUpdated {
+		log.Info(fmt.Sprintf("VMDP server NetworkPolicy %s: %s", np.Name, op))
+		r.EventRecorder.Event(np,
+			corev1.EventTypeNormal,
+			"VMDPServerNetworkPolicyReconciled",
+			fmt.Sprintf("performed %s on VMDP server NetworkPolicy %s/%s", op, np.Namespace, np.Name),
+		)
+	}
 	return nil
 }
 
@@ -422,7 +457,14 @@ func (r *DataProtectionApplicationReconciler) reconcileNonAdminNetworkPolicy(log
 		return fmt.Errorf("failed to reconcile Non-Admin NetworkPolicy: %w", err)
 	}
 
-	log.Info(fmt.Sprintf("Non-Admin NetworkPolicy %s: %s", np.Name, op))
+	if op == controllerutil.OperationResultCreated || op == controllerutil.OperationResultUpdated {
+		log.Info(fmt.Sprintf("Non-Admin NetworkPolicy %s: %s", np.Name, op))
+		r.EventRecorder.Event(np,
+			corev1.EventTypeNormal,
+			"NonAdminNetworkPolicyReconciled",
+			fmt.Sprintf("performed %s on Non-Admin NetworkPolicy %s/%s", op, np.Namespace, np.Name),
+		)
+	}
 	return nil
 }
 
@@ -512,7 +554,14 @@ func (r *DataProtectionApplicationReconciler) reconcileVMFileRestoreNetworkPolic
 		return fmt.Errorf("failed to reconcile VM File Restore NetworkPolicy: %w", err)
 	}
 
-	log.Info(fmt.Sprintf("VM File Restore NetworkPolicy %s: %s", np.Name, op))
+	if op == controllerutil.OperationResultCreated || op == controllerutil.OperationResultUpdated {
+		log.Info(fmt.Sprintf("VM File Restore NetworkPolicy %s: %s", np.Name, op))
+		r.EventRecorder.Event(np,
+			corev1.EventTypeNormal,
+			"VMFileRestoreNetworkPolicyReconciled",
+			fmt.Sprintf("performed %s on VM File Restore NetworkPolicy %s/%s", op, np.Namespace, np.Name),
+		)
+	}
 	return nil
 }
 
@@ -602,6 +651,13 @@ func (r *DataProtectionApplicationReconciler) reconcileKubevirtDatamoverNetworkP
 		return fmt.Errorf("failed to reconcile KubeVirt DataMover NetworkPolicy: %w", err)
 	}
 
-	log.Info(fmt.Sprintf("KubeVirt DataMover NetworkPolicy %s: %s", np.Name, op))
+	if op == controllerutil.OperationResultCreated || op == controllerutil.OperationResultUpdated {
+		log.Info(fmt.Sprintf("KubeVirt DataMover NetworkPolicy %s: %s", np.Name, op))
+		r.EventRecorder.Event(np,
+			corev1.EventTypeNormal,
+			"KubevirtDatamoverNetworkPolicyReconciled",
+			fmt.Sprintf("performed %s on KubeVirt DataMover NetworkPolicy %s/%s", op, np.Namespace, np.Name),
+		)
+	}
 	return nil
 }
