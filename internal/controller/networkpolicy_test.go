@@ -113,6 +113,39 @@ var _ = ginkgo.Describe("ReconcileNetworkPolicies", func() {
 		gomega.Expect(np.Spec.Egress).To(gomega.Equal(unrestrictedEgressRule()))
 	})
 
+	ginkgo.It("should create operator NetworkPolicy allowing metrics and health-probe ports", func() {
+		success, err := r.ReconcileNetworkPolicies(r.Log)
+		gomega.Expect(err).NotTo(gomega.HaveOccurred())
+		gomega.Expect(success).To(gomega.BeTrue())
+
+		np := &networkingv1.NetworkPolicy{}
+		err = k8sClient.Get(ctx, types.NamespacedName{
+			Name:      operatorNetworkPolicyName,
+			Namespace: namespace.Name,
+		}, np)
+		gomega.Expect(err).NotTo(gomega.HaveOccurred())
+
+		// Verify pod selector
+		gomega.Expect(np.Spec.PodSelector.MatchLabels).To(gomega.HaveKeyWithValue("control-plane", "controller-manager"))
+
+		// Verify ingress rules: metrics (8443) and kubelet health-probe (8081) must both be
+		// allowed, otherwise the kubelet's liveness/readiness/startup probes get blocked and
+		// the operator pod is marked unhealthy and restarted.
+		gomega.Expect(np.Spec.Ingress).To(gomega.HaveLen(1))
+		ingress := np.Spec.Ingress[0]
+		gomega.Expect(ingress.Ports).To(gomega.HaveLen(2))
+
+		ports := []int32{8443, 8081}
+		for i, port := range ingress.Ports {
+			gomega.Expect(*port.Port).To(gomega.Equal(intstr.FromInt32(ports[i])))
+			gomega.Expect(*port.Protocol).To(gomega.Equal(corev1.ProtocolTCP))
+		}
+
+		// Verify scoped egress (operator only talks to the k8s API server + DNS)
+		gomega.Expect(np.Spec.PolicyTypes).To(gomega.ContainElement(networkingv1.PolicyTypeEgress))
+		gomega.Expect(np.Spec.Egress).To(gomega.Equal(scopedEgressRules()))
+	})
+
 	ginkgo.It("should create velero-mover NetworkPolicy with unrestricted egress and no ingress", func() {
 		success, err := r.ReconcileNetworkPolicies(r.Log)
 		gomega.Expect(err).NotTo(gomega.HaveOccurred())

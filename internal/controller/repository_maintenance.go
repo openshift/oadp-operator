@@ -17,11 +17,14 @@ import (
 	"github.com/openshift/oadp-operator/pkg/common"
 )
 
-func isRepositoryMaintenanceCmRequired(config *oadpv1alpha1.ApplicationConfig) bool {
-	// Always required: OADP must always be able to inject networkPolicyMoverLabel into the
-	// "global" repository-maintenance config so repo-maintenance job pods (which otherwise
-	// get no default labels at all) can be selected by reconcileVeleroMoverNetworkPolicy.
-	return true
+func isRepositoryMaintenanceCmRequired(dpa *oadpv1alpha1.DataProtectionApplication) bool {
+	// Required whenever node-agent is enabled: OADP must be able to inject
+	// networkPolicyMoverLabel into the "global" repository-maintenance config so
+	// repo-maintenance job pods (which otherwise get no default labels at all) can be
+	// selected by reconcileVeleroMoverNetworkPolicy. Repository maintenance is only
+	// relevant to node-agent/kopia-based backups, so gate on isNodeAgentEnabled to avoid
+	// always creating this ConfigMap for DPAs that don't use node-agent at all.
+	return isNodeAgentEnabled(dpa)
 }
 
 // updateRepositoryMaintenanceCM handles the creation or update of the RepositoryMaintenance ConfigMap with all required data.
@@ -102,7 +105,7 @@ func (r *DataProtectionApplicationReconciler) ReconcileRepositoryMaintenanceConf
 	}
 
 	// Delete CM if it is not required
-	if !isRepositoryMaintenanceCmRequired(dpa.Spec.Configuration) {
+	if !isRepositoryMaintenanceCmRequired(dpa) {
 		err := r.Get(r.Context, cmName, &configMap)
 		if err != nil && !errors.IsNotFound(err) {
 			return false, err
