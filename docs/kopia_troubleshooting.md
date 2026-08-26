@@ -4,6 +4,7 @@
 * kopia client: https://kopia.io/docs/reference/command-line/
 * kopia common commands: https://kopia.io/docs/reference/command-line/common/
 * kopia advanced commands: https://kopia.io/docs/reference/command-line/advanced/
+* [How Kopia Incremental Backups Work](kopia-incremental.md)
 
 ## Use the kopia client from OpenShift
 
