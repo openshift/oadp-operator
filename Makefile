@@ -304,18 +304,12 @@ ENVTESTPATH = $(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) -p path)
 ifeq ($(shell $(ENVTEST) list | grep $(ENVTEST_K8S_VERSION)),)
 	ENVTESTPATH = $(shell $(ENVTEST) --arch=amd64 use $(ENVTEST_K8S_VERSION) -p path)
 endif
-.PHONY: check-envtest-arch
-check-envtest-arch:
-	@if [ -f $(ENVTEST) ] && ! $(ENVTEST) --help >/dev/null 2>&1; then \
-		echo "$(ENVTEST) is not executable on this platform, removing and re-downloading"; \
-		rm -f $(ENVTEST); \
-	fi
-
-$(ENVTEST): check-envtest-arch ## Download envtest-setup locally if necessary.
-	$(call go-install-tool,$(ENVTEST),sigs.k8s.io/controller-runtime/tools/setup-envtest@v0.0.0-20250308055145-5fe7bb3edc86)
-
-.PHONY: envtest
-envtest: $(ENVTEST)
+# Uses go-install-tool-versioned (see its doc comment above) for both the version and
+# architecture check, rather than a bespoke arch-only check here.
+.PHONY: envtest $(ENVTEST)
+envtest: $(ENVTEST) ## Download envtest-setup locally if necessary.
+$(ENVTEST): $(LOCALBIN)
+	$(call go-install-tool-versioned,$(ENVTEST),sigs.k8s.io/controller-runtime/tools/setup-envtest@v0.0.0-20250308055145-5fe7bb3edc86,v0.0.0-20250308055145-5fe7bb3edc86)
 
 # If test results in prow are different, it is because the environment used.
 # You can simulate their env by running
@@ -707,28 +701,66 @@ rm -rf $$TMP_DIR ;\
 }
 endef
 
-.PHONY: golangci-lint
+# go-install-tool-versioned installs $2 to branch-specific path $1, but only if $1 is missing,
+# doesn't have the pinned module version $3 embedded in it, or was built for a different
+# GOOS/GOARCH than this host. Uses `go version -m` to read a binary's embedded build info
+# (module version, GOOS, GOARCH) instead of executing it or trusting a sidecar marker file:
+#   - A binary's own --version/--help output is not a reliable version or health signal. It
+#     can depend on ldflags a tool's own release process sets, which `go install` doesn't set
+#     (e.g. kustomize can report "(devel)" or an unexpanded `$$Format:%H$$` placeholder instead
+#     of its real version), and some tools exit nonzero on --version even when perfectly
+#     healthy (kustomize exits 1, setup-envtest's --help exits 2) — so "nonzero exit means
+#     broken" is the wrong signal. It's also dangerous under this Makefile's
+#     `.SHELLFLAGS = -ec` (enables `set -e`, honored by GNU Make 3.82+ but silently ignored by
+#     the Make 3.81 macOS ships): a bare probe command that exits nonzero aborts the whole
+#     recipe unless it's wrapped in an `if`/`||` guard.
+#   - Executing the binary to test compatibility can't detect a wrong-arch binary at all
+#     inside a container with qemu-user-static/binfmt_misc registered (common in multi-arch
+#     CI/build images): the foreign-arch binary runs under emulation and returns its own exit
+#     code rather than an exec-format-error.
+# Reading embedded build info sidesteps both: no execution means no exit-code heuristic to
+# get wrong and no qemu blind spot.
+define go-install-tool-versioned
+@BUILDINFO="$$(go version -m $(1) 2>/dev/null)" || BUILDINFO="" ;\
+MOD_VERSION="$$(printf '%s\n' "$$BUILDINFO" | awk '$$1=="mod"{print $$3; exit}')" ;\
+if [ -n "$$BUILDINFO" ] && [ "$$MOD_VERSION" = "$(3)" ] && printf '%s\n' "$$BUILDINFO" | grep -qF "GOOS=$$(go env GOOS)" && printf '%s\n' "$$BUILDINFO" | grep -qF "GOARCH=$$(go env GOARCH)"; then \
+	echo "$(notdir $(1)) $(3) is already installed" ;\
+else \
+	set -e ;\
+	mkdir -p $(dir $(1)) ;\
+	rm -f $(1) ;\
+	TMP_DIR=$$(mktemp -d) ;\
+	cd $$TMP_DIR ;\
+	go mod init tmp ;\
+	echo "Installing $(notdir $(1)) $(3)" ;\
+	GOBIN=$(dir $(1)) go install -mod=mod $(2) ;\
+	cd - >/dev/null ;\
+	rm -rf $$TMP_DIR ;\
+fi
+endef
+
+.PHONY: golangci-lint $(GOLANGCI_LINT)
 golangci-lint: $(GOLANGCI_LINT) ## Download golangci-lint locally if necessary.
 $(GOLANGCI_LINT): $(LOCALBIN)
-	$(call go-install-tool-branch,$(GOLANGCI_LINT),github.com/golangci/golangci-lint/cmd/golangci-lint@$(GOLANGCI_LINT_VERSION))
+	$(call go-install-tool-versioned,$(GOLANGCI_LINT),github.com/golangci/golangci-lint/cmd/golangci-lint@$(GOLANGCI_LINT_VERSION),$(GOLANGCI_LINT_VERSION))
 	@if [ -L "$(LOCALBIN)/golangci-lint" ]; then \
 		unlink "$(LOCALBIN)/golangci-lint"; \
 	fi
 	@ln -sf "$(LOCALBIN)/$(BRANCH_VERSION)/golangci-lint" "$(LOCALBIN)/golangci-lint"
 
-.PHONY: kustomize
+.PHONY: kustomize $(KUSTOMIZE)
 kustomize: $(KUSTOMIZE) ## Download kustomize locally if necessary. If wrong version is installed, it will be removed before downloading.
 $(KUSTOMIZE): $(LOCALBIN)
-	$(call go-install-tool-branch,$(KUSTOMIZE),sigs.k8s.io/kustomize/kustomize/v4@$(KUSTOMIZE_VERSION))
+	$(call go-install-tool-versioned,$(KUSTOMIZE),sigs.k8s.io/kustomize/kustomize/v4@$(KUSTOMIZE_VERSION),$(KUSTOMIZE_VERSION))
 	@if [ -L "$(LOCALBIN)/kustomize" ]; then \
 		unlink "$(LOCALBIN)/kustomize"; \
 	fi
 	@ln -sf "$(LOCALBIN)/$(BRANCH_VERSION)/kustomize" "$(LOCALBIN)/kustomize"
 
-.PHONY: controller-gen
+.PHONY: controller-gen $(CONTROLLER_GEN)
 controller-gen: $(CONTROLLER_GEN) ## Download controller-gen locally if necessary. If wrong version is installed, it will be overwritten.
 $(CONTROLLER_GEN): $(LOCALBIN)
-	$(call go-install-tool-branch,$(CONTROLLER_GEN),sigs.k8s.io/controller-tools/cmd/controller-gen@$(CONTROLLER_TOOLS_VERSION))
+	$(call go-install-tool-versioned,$(CONTROLLER_GEN),sigs.k8s.io/controller-tools/cmd/controller-gen@$(CONTROLLER_TOOLS_VERSION),$(CONTROLLER_TOOLS_VERSION))
 	@if [ -L "$(LOCALBIN)/controller-gen" ]; then \
 		unlink "$(LOCALBIN)/controller-gen"; \
 	fi
