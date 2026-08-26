@@ -213,28 +213,22 @@ E2E tests in presubmit CI are automatically triggered via OpenShift's Prow infra
 
 ### Automated Failure Analysis with Claude
 
-When E2E tests fail in Prow CI, Claude Code automatically analyzes the failures and generates a comprehensive report.
+When E2E tests fail in Prow CI, an `openshift/release` step-registry post-step analyzes the failures and generates a comprehensive report — following the shared `claude-ai-helpers` pattern also used by `medik8s`, `hypershift`, and other CI teams.
 
 **How it works**:
 
-1. After test execution completes with failures, the analysis script (`tests/e2e/scripts/analyze_failures.sh`) is invoked
-2. Claude runs in headless mode (`--print` flag) for non-interactive CI automation via Vertex AI
-3. Claude analyzes artifacts written by the E2E test code: JUnit reports, must-gather diagnostics, and per-test pod logs
-4. A detailed markdown report is generated at `${ARTIFACT_DIR}/claude-failure-analysis.md`
-5. The report includes root cause analysis, known flake detection, and actionable recommendations
+1. The `oadp-analyze-e2e-failure` post-step (defined in `openshift/release`, not this repo) runs after the E2E test step, using the shared `claude-ai-helpers` base image (built from `openshift-eng/ai-helpers`) with Claude Code preinstalled.
+2. It authenticates via the shared, already-provisioned `test-credentials/sa-claude-openshift-ci` credential — no per-repo vault/credential setup needed.
+3. Claude analyzes artifacts written by the E2E test code: JUnit reports, must-gather diagnostics, and per-test pod logs.
+4. A detailed markdown report is generated in the job's artifact directory.
+5. The report includes root cause analysis, known flake detection, and actionable recommendations.
 
 **Important**: Claude analyzes only artifacts generated during test execution (JUnit, must-gather, per-test logs). Prow's build-log.txt is written by CI infrastructure after tests complete and is not available during analysis.
 
 **Accessing the analysis**:
 
-- Find `claude-failure-analysis.md` in the Prow artifacts directory alongside other test outputs
-- URL pattern: `https://prow.ci.openshift.org/view/gs/origin-ci-test/pr-logs/pull/openshift_oadp-operator/<PR>/<job-name>/<build-id>/artifacts/claude-failure-analysis.md`
+- Find the generated report in the Prow artifacts directory alongside other test outputs.
 
-**Configuration**:
-
-- Analysis requires Vertex AI credentials configured in the CI environment
-- Gracefully skips if credentials are not available (no impact on test execution)
-- Can be disabled by setting `SKIP_CLAUDE_ANALYSIS=true`
-- **Automatic secret redaction**: API keys, tokens, passwords, and credentials are automatically redacted from output
+**Local/manual use**: `tests/e2e/scripts/analyze_failures.sh` is kept in this repo for running the same analysis by hand against a local `make test-e2e` run; it is no longer invoked by CI or the `test-e2e` Makefile target.
 
 For more details, see the [design document](docs/design/claude-prow-failure-analysis_design.md).
