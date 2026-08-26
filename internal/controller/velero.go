@@ -715,6 +715,14 @@ func (r *DataProtectionApplicationReconciler) customizeVeleroContainer(veleroCon
 		if err != nil {
 			return err
 		}
+		// Re-add uploader-type since GetArgs() doesn't include it
+		// but it comes from NodeAgent configuration, not Velero.Args
+		if dpa.Spec.Configuration.NodeAgent != nil &&
+			len(dpa.Spec.Configuration.NodeAgent.UploaderType) > 0 {
+			uploaderType := dpa.Spec.Configuration.NodeAgent.UploaderType
+			veleroContainer.Args = append(veleroContainer.Args,
+				fmt.Sprintf("--uploader-type=%s", uploaderType))
+		}
 	}
 	return nil
 }
