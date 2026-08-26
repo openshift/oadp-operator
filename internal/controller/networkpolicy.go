@@ -257,9 +257,11 @@ func (r *DataProtectionApplicationReconciler) reconcileOperatorNetworkPolicy(log
 					},
 				},
 			},
-			// Egress: the operator only reconciles CRs via the Kubernetes API and needs
-			// no direct cloud/object-storage access.
-			Egress: scopedEgressRules(),
+			// Egress: unrestricted. Although the operator mainly reconciles CRs via the
+			// Kubernetes API, the DataProtectionTest controller runs directly inside this
+			// pod and connects to admin-configured BSL endpoints (S3, GCS, etc.) to measure
+			// upload speed, so DNS+API-server-only egress is insufficient.
+			Egress: unrestrictedEgressRule(),
 		}
 
 		return nil

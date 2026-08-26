@@ -149,9 +149,11 @@ var _ = ginkgo.Describe("ReconcileNetworkPolicies", func() {
 		gomega.Expect(*healthProbeIngress.Ports[0].Port).To(gomega.Equal(intstr.FromInt32(8081)))
 		gomega.Expect(*healthProbeIngress.Ports[0].Protocol).To(gomega.Equal(corev1.ProtocolTCP))
 
-		// Verify scoped egress (operator only talks to the k8s API server + DNS)
+		// Verify unrestricted egress: the DataProtectionTest controller runs inside this
+		// pod and connects directly to admin-configured BSL endpoints (S3, GCS, etc.) to
+		// measure upload speed, so DNS+API-server-only egress is insufficient.
 		gomega.Expect(np.Spec.PolicyTypes).To(gomega.ContainElement(networkingv1.PolicyTypeEgress))
-		gomega.Expect(np.Spec.Egress).To(gomega.Equal(scopedEgressRules()))
+		gomega.Expect(np.Spec.Egress).To(gomega.Equal(unrestrictedEgressRule()))
 	})
 
 	ginkgo.It("should create velero-mover NetworkPolicy with unrestricted egress and no ingress", func() {
