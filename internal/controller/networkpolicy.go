@@ -226,15 +226,30 @@ func (r *DataProtectionApplicationReconciler) reconcileOperatorNetworkPolicy(log
 			},
 			Ingress: []networkingv1.NetworkPolicyIngressRule{
 				{
-					// Allow metrics from anywhere (standard pattern per OpenShift NP guide), and
-					// allow the kubelet to reach the manager's health-probe port (liveness/readiness/
-					// startup probes hit :8081/healthz from the node, not from a pod, so this must
-					// stay open or the operator pod gets marked unhealthy and restarts).
+					// Allow metrics scrape from the monitoring namespace only (matches the
+					// scoping used by the non-admin/vm-file-restore/kubevirt-datamover policies).
+					From: []networkingv1.NetworkPolicyPeer{
+						{
+							NamespaceSelector: &metav1.LabelSelector{
+								MatchLabels: map[string]string{
+									"network.openshift.io/policy-group": "monitoring",
+								},
+							},
+						},
+					},
 					Ports: []networkingv1.NetworkPolicyPort{
 						{
 							Protocol: func() *corev1.Protocol { p := corev1.ProtocolTCP; return &p }(),
 							Port:     &intstr.IntOrString{Type: intstr.Int, IntVal: 8443},
 						},
+					},
+				},
+				{
+					// Allow the kubelet to reach the manager's health-probe port. Liveness/
+					// readiness/startup probes hit :8081/healthz from the node's kubelet (not
+					// from a pod), so this cannot be scoped to a namespaceSelector and must stay
+					// open, or the operator pod gets marked unhealthy and restarts.
+					Ports: []networkingv1.NetworkPolicyPort{
 						{
 							Protocol: func() *corev1.Protocol { p := corev1.ProtocolTCP; return &p }(),
 							Port:     &intstr.IntOrString{Type: intstr.Int, IntVal: 8081},
@@ -300,7 +315,17 @@ func (r *DataProtectionApplicationReconciler) reconcileVeleroNetworkPolicy(log l
 			},
 			Ingress: []networkingv1.NetworkPolicyIngressRule{
 				{
-					// Allow metrics scrape from anywhere (standard pattern per OpenShift NP guide)
+					// Allow metrics scrape from the monitoring namespace only (matches the
+					// scoping used by the non-admin/vm-file-restore/kubevirt-datamover policies).
+					From: []networkingv1.NetworkPolicyPeer{
+						{
+							NamespaceSelector: &metav1.LabelSelector{
+								MatchLabels: map[string]string{
+									"network.openshift.io/policy-group": "monitoring",
+								},
+							},
+						},
+					},
 					Ports: []networkingv1.NetworkPolicyPort{
 						{
 							Protocol: func() *corev1.Protocol { p := corev1.ProtocolTCP; return &p }(),

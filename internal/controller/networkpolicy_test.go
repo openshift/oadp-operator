@@ -8,6 +8,7 @@ import (
 	"github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
 	networkingv1 "k8s.io/api/networking/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
@@ -100,8 +101,9 @@ var _ = ginkgo.Describe("ReconcileNetworkPolicies", func() {
 		gomega.Expect(np.Spec.Ingress).To(gomega.HaveLen(1))
 		ingress := np.Spec.Ingress[0]
 
-		// Verify no 'from' restriction (metrics from anywhere)
-		gomega.Expect(ingress.From).To(gomega.BeNil())
+		// Verify metrics scrape is scoped to the monitoring namespace
+		gomega.Expect(ingress.From).To(gomega.HaveLen(1))
+		gomega.Expect(ingress.From[0].NamespaceSelector.MatchLabels).To(gomega.HaveKeyWithValue("network.openshift.io/policy-group", "monitoring"))
 
 		// Verify port 8085
 		gomega.Expect(ingress.Ports).To(gomega.HaveLen(1))
@@ -128,18 +130,24 @@ var _ = ginkgo.Describe("ReconcileNetworkPolicies", func() {
 		// Verify pod selector
 		gomega.Expect(np.Spec.PodSelector.MatchLabels).To(gomega.HaveKeyWithValue("control-plane", "controller-manager"))
 
-		// Verify ingress rules: metrics (8443) and kubelet health-probe (8081) must both be
+		// Verify ingress rules: metrics (8443, scoped to the monitoring namespace) and kubelet
+		// health-probe (8081, open cluster-wide since the kubelet is not a pod) must both be
 		// allowed, otherwise the kubelet's liveness/readiness/startup probes get blocked and
 		// the operator pod is marked unhealthy and restarted.
-		gomega.Expect(np.Spec.Ingress).To(gomega.HaveLen(1))
-		ingress := np.Spec.Ingress[0]
-		gomega.Expect(ingress.Ports).To(gomega.HaveLen(2))
+		gomega.Expect(np.Spec.Ingress).To(gomega.HaveLen(2))
 
-		ports := []int32{8443, 8081}
-		for i, port := range ingress.Ports {
-			gomega.Expect(*port.Port).To(gomega.Equal(intstr.FromInt32(ports[i])))
-			gomega.Expect(*port.Protocol).To(gomega.Equal(corev1.ProtocolTCP))
-		}
+		metricsIngress := np.Spec.Ingress[0]
+		gomega.Expect(metricsIngress.From).To(gomega.HaveLen(1))
+		gomega.Expect(metricsIngress.From[0].NamespaceSelector.MatchLabels).To(gomega.HaveKeyWithValue("network.openshift.io/policy-group", "monitoring"))
+		gomega.Expect(metricsIngress.Ports).To(gomega.HaveLen(1))
+		gomega.Expect(*metricsIngress.Ports[0].Port).To(gomega.Equal(intstr.FromInt32(8443)))
+		gomega.Expect(*metricsIngress.Ports[0].Protocol).To(gomega.Equal(corev1.ProtocolTCP))
+
+		healthProbeIngress := np.Spec.Ingress[1]
+		gomega.Expect(healthProbeIngress.From).To(gomega.BeNil())
+		gomega.Expect(healthProbeIngress.Ports).To(gomega.HaveLen(1))
+		gomega.Expect(*healthProbeIngress.Ports[0].Port).To(gomega.Equal(intstr.FromInt32(8081)))
+		gomega.Expect(*healthProbeIngress.Ports[0].Protocol).To(gomega.Equal(corev1.ProtocolTCP))
 
 		// Verify scoped egress (operator only talks to the k8s API server + DNS)
 		gomega.Expect(np.Spec.PolicyTypes).To(gomega.ContainElement(networkingv1.PolicyTypeEgress))
@@ -223,6 +231,7 @@ var _ = ginkgo.Describe("ReconcileNetworkPolicies", func() {
 			Namespace: namespace.Name,
 		}, np)
 		gomega.Expect(err).To(gomega.HaveOccurred())
+		gomega.Expect(apierrors.IsNotFound(err)).To(gomega.BeTrue(), "expected NotFound, got: %v", err)
 	})
 
 	ginkgo.It("should delete non-admin NetworkPolicy when disabled after being enabled", func() {
@@ -266,6 +275,7 @@ var _ = ginkgo.Describe("ReconcileNetworkPolicies", func() {
 			Namespace: namespace.Name,
 		}, np)
 		gomega.Expect(err).To(gomega.HaveOccurred())
+		gomega.Expect(apierrors.IsNotFound(err)).To(gomega.BeTrue(), "expected NotFound, got: %v", err)
 	})
 
 	ginkgo.It("should create VM file restore NetworkPolicy when enabled", func() {
