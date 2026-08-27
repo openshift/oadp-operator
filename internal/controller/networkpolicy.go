@@ -115,12 +115,18 @@ func createOrUpdateNetworkPolicy(ctx context.Context, c client.Client, np *netwo
 // the specific ingress (metrics/health) and egress (DNS/API-server, or unrestricted
 // for operands that talk directly to admin-configured, arbitrary S3-compatible
 // endpoints) each operand actually needs.
+//
+// Ordering: all per-operand "allow" NetworkPolicies are reconciled BEFORE the
+// default-deny policy (which is reconciled last). This is intentional: if a
+// transient error (e.g. an "already exists" race during rapid DPA
+// delete/recreate cycles, as happens in e2e tests) aborts this batch partway
+// through, we want the failure mode to be "some allow-NPs may be missing and
+// default-deny hasn't been applied yet" (briefly more permissive, self-heals
+// on the next reconcile) rather than "default-deny is already active but an
+// operand's allow-NP was never created" (a hard outage for that operand,
+// since it would be fully blocked with no egress/ingress until the next
+// successful reconcile).
 func (r *DataProtectionApplicationReconciler) ReconcileNetworkPolicies(log logr.Logger) (bool, error) {
-	// Reconcile default-deny policy first (baseline security)
-	if err := r.reconcileDefaultDenyNetworkPolicy(log); err != nil {
-		return false, err
-	}
-
 	// Reconcile OADP operator NetworkPolicy
 	if err := r.reconcileOperatorNetworkPolicy(log); err != nil {
 		return false, err
@@ -159,6 +165,12 @@ func (r *DataProtectionApplicationReconciler) ReconcileNetworkPolicies(log logr.
 
 	// Reconcile KubeVirt DataMover Controller NetworkPolicy (conditional)
 	if err := r.reconcileKubevirtDatamoverNetworkPolicy(log); err != nil {
+		return false, err
+	}
+
+	// Reconcile default-deny policy last (baseline security), only after all
+	// allow-NPs above have been successfully created/updated.
+	if err := r.reconcileDefaultDenyNetworkPolicy(log); err != nil {
 		return false, err
 	}
 
