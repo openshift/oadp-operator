@@ -286,16 +286,35 @@ func GetAllPodsWithLabel(c *kubernetes.Clientset, namespace string, LabelSelecto
 	return podList, nil
 }
 
+// GetPodWithLabel returns the single pod matching LabelSelector, ignoring any
+// pod already marked for deletion (non-nil DeletionTimestamp). A Deployment
+// rollout briefly has the old ReplicaSet's pod Terminating alongside the new
+// pod starting -- both match the same selector, and without this filter that
+// window was misreported as an error ("more than one Pod found") instead of
+// resolving to the one pod that actually matters. Confirmed live in CI: a DPA
+// spec change mid-table-test (dpa_deployment_suite_test.go) rolled the velero
+// Deployment, and Consistently(VeleroPodIsRunning) failed on the single
+// terminating-old-pod-still-present sample.
 func GetPodWithLabel(c *kubernetes.Clientset, namespace string, LabelSelector string) (*corev1.Pod, error) {
 	podList, err := GetAllPodsWithLabel(c, namespace, LabelSelector)
 	if err != nil {
 		return nil, err
 	}
-	if len(podList.Items) > 1 {
+	var live []corev1.Pod
+	for _, pod := range podList.Items {
+		if pod.DeletionTimestamp == nil {
+			live = append(live, pod)
+		}
+	}
+	if len(live) == 0 {
+		log.Println("no Pod found")
+		return nil, fmt.Errorf("no Pod found")
+	}
+	if len(live) > 1 {
 		log.Println("more than one Pod found")
 		return nil, fmt.Errorf("more than one Pod found")
 	}
-	return &podList.Items[0], nil
+	return &live[0], nil
 }
 
 // DeleteAllPVCsInNamespace deletes all PersistentVolumeClaims in a namespace

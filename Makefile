@@ -943,7 +943,15 @@ TEST_VIRT ?= false
 # https://github.com/openshift/oadp-operator/issues/2413 option B.
 TEST_VIRT_KDM_ORIGIN := $(origin TEST_VIRT_KDM)
 TEST_VIRT_KDM ?= false
-HCO_INDEX_TAG ?= 1.18.0
+# Defaults to the upstream kubevirt/hyperconverged-cluster-index "nightly"
+# moving tag rather than a pinned release, so every virt/kdm e2e run picks up
+# kubevirt/kubevirt fixes (e.g. kubevirt/kubevirt#18949) automatically as soon
+# as they land in a nightly build, with no version bump needed on our side.
+# The OLM channel nightly publishes (e.g. "candidate-v1.20") is discovered
+# live from the catalog's PackageManifest, not guessed from this tag's shape,
+# so unpinned tags like "nightly" work correctly here. Override to a pinned
+# release (e.g. "1.18.0") for a reproducible/stable run instead.
+HCO_INDEX_TAG ?= nightly
 # hcp
 TEST_HCP ?= false
 TEST_HCP_EXTERNAL ?= false
