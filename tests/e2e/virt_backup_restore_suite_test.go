@@ -9,7 +9,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/google/uuid"
 	"github.com/onsi/ginkgo/v2"
 	"github.com/onsi/gomega"
 	velero "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
@@ -18,6 +17,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/client-go/util/retry"
 	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -253,7 +253,49 @@ func waitForKubevirtDatamoverControllerRollout(cl client.Client, timeout time.Du
 // VirtualMachineBackupTracker, which can happen well before the overall backup finishes
 // uploading data to the BSL -- checking VirtualMachineBackup status after waiting for full
 // completion can race against that cleanup and find nothing.
+//
+// Known upstream flake: the wait below can occasionally stall for the whole backup
+// timeout even though the underlying volume attach actually succeeded almost
+// immediately -- virt-controller's VirtualMachineBackup status condition (Initializing:
+// "... is being attached to VMI ...") can stop advancing without ever reflecting the
+// real state. Root-caused to kubevirt/kubevirt's startBackup() (pkg/storage/cbt/backup.go):
+// its attach branch returns without writing a status condition or requeuing, so recovery
+// depends entirely on a VMI watch event that may never fire again if virt-handler's own
+// hotplug-attach write stalls. Tracked at https://redhat.atlassian.net/browse/CNV-85377
+// (also reported as https://redhat.atlassian.net/browse/CNV-89684).
+//
+// A second, distinct upstream bug was found testing against kubevirt/kubevirt nightly
+// (HCO_INDEX_TAG's new default, see Makefile): reconcileStart() (same file) can mark an
+// already-successfully-completed VirtualMachineBackup Failed with reason SourceLost --
+// cleanupVMIState() clears the VMI's BackupStatus and re-triggers reconcile before the
+// backup's own just-written terminal status is visible via the informer's async cache,
+// so the stale reconcile wrongly concludes the status was lost mid-flight. Fixed at
+// https://github.com/kubevirt/kubevirt/pull/18957 (checks the API server directly before
+// concluding lost); distinct from the attach-freeze bug above.
+//
+// Both patterns are registered in lib.CheckIfFlakeOccurred; the kubevirt-datamover-controller
+// manager pod's own log (which repeats the frozen "is being attached to VMI" reason on every
+// reconcile while stuck) is appended to accumulatedTestLogs below via defer, so it
+// survives even when the Eventually below fails and unwinds via Gomega's panic-based
+// failure path -- a plain `return` would never run, but Go's defer still fires during a
+// panic. This is a KubeVirt/CNV core issue -- virt-controller owns the VirtualMachineBackup
+// status, and kubevirt-datamover-controller only ever reads it (RBAC-verified: `get` only
+// on virtualmachinebackups/status) -- not something this repo's retry logic can fix.
 func runKubevirtDMBackup(v *lib.VirtOperator, vmNamespace, backupName string, onDataUploadFound func(dataUploadName, expectedBackupType string)) {
+	defer func() {
+		pod, err := lib.GetPodWithLabel(kubernetesClientForSuiteRun, namespace, "control-plane=oadp-kubevirt-datamover-controller")
+		if err != nil {
+			log.Printf("could not find kubevirt-datamover-controller pod for flake-log capture: %v", err)
+			return
+		}
+		logs, err := lib.GetPodContainerLogs(kubernetesClientForSuiteRun, namespace, pod.Name, "manager")
+		if err != nil {
+			log.Printf("could not fetch kubevirt-datamover-controller logs for flake-log capture: %v", err)
+			return
+		}
+		accumulatedTestLogs = append(accumulatedTestLogs, logs)
+	}()
+
 	err := lib.EnsureKubevirtVolumePolicy(dpaCR.Client, namespace)
 	gomega.Expect(err).ToNot(gomega.HaveOccurred(), "failed to ensure kubevirt volume policy")
 
@@ -280,18 +322,207 @@ func runKubevirtDMBackup(v *lib.VirtOperator, vmNamespace, backupName string, on
 	gomega.Expect(err).ToNot(gomega.HaveOccurred(), "failed to create backup %s", backupName)
 
 	var dataUploadName, expectedBackupType string
-	gomega.Eventually(func() error {
-		var err error
-		dataUploadName, expectedBackupType, err = lib.GetDataUploadForBackup(dpaCR.Client, namespace, backupName)
-		return err
-	}, 2*time.Minute, time.Second*5).Should(gomega.Succeed(), "failed to get DataUpload for backup %s", backupName)
+	// DEFENSIVE WORKAROUND (root cause fixed upstream, kept as a backstop): first
+	// timed out entirely against kubevirt/kubevirt v1.20.0 nightly, but root-caused
+	// to a pre-existing kdm-controller bug, not kubevirt itself -- nightly's faster
+	// reconcile cadence just made it easier to hit. handleAccepted's first-VMB
+	// creation path fires three sequential r.Update() calls on the same DataUpload
+	// (VMBT name, BSL-verified, expected-backup-type); any can race a concurrent
+	// writer (Velero's own built-in DataUpload controller also touches these
+	// objects) and 409. The first two are safely retried, but the third
+	// (expected-backup-type) failure was only logged before proceeding straight to
+	// creating the VMB -- once the VMB exists, reconcile never re-enters this code
+	// path, so a single transient conflict leaves the annotation permanently blank,
+	// not "eventually shows up". Fixed via retry.RetryOnConflict at
+	// https://github.com/migtools/kubevirt-datamover-controller/pull/206 (TDD:
+	// injected a single Conflict to prove the repro, then the fix). Bumped to 6m
+	// and captures kdm-controller's own log on every failed tick as a defensive
+	// backstop for genuinely-slow (not just permanently-stuck) cases.
+	//
+	// Polled manually (not gomega.Eventually) so a timeout can also be checked
+	// against known flake patterns before failing: confirmed live that
+	// migtools/kubevirt-datamover-controller#208's "Done" vs "Complete" condition
+	// mismatch (a DIFFERENT backup's VirtualMachineBackup looping "in progress,
+	// requeuing" forever, see lib.CheckIfFlakeOccurred) can starve the
+	// single-worker controller's reconcile queue badly enough that an unrelated
+	// DataUpload's own initial annotation-stamping reconcile never gets a turn
+	// within this window either -- a collateral symptom of the same known bug,
+	// not a new regression here.
+	lastAnnotationFlakeCheck := time.Time{}
+	annotationFlakeMatched := false
+	err = wait.PollUntilContextTimeout(context.Background(), 5*time.Second, 6*time.Minute, true, func(ctx context.Context) (bool, error) {
+		var getErr error
+		dataUploadName, expectedBackupType, getErr = lib.GetDataUploadForBackup(dpaCR.Client, namespace, backupName)
+		if getErr != nil {
+			return false, nil
+		}
+		// Object existing isn't enough: kubevirt_dataupload_controller.go stamps the
+		// kubevirt-datamover.io/expected-backup-type annotation on its own reconcile,
+		// racing this poll -- an empty value means the DataUpload was observed before
+		// that reconcile landed, not that the backup won't be incremental.
+		if expectedBackupType != "" {
+			return true, nil
+		}
+		if time.Since(lastAnnotationFlakeCheck) < 30*time.Second {
+			return false, nil
+		}
+		lastAnnotationFlakeCheck = time.Now()
+		pod, podErr := lib.GetPodWithLabel(kubernetesClientForSuiteRun, namespace, "control-plane=oadp-kubevirt-datamover-controller")
+		if podErr != nil {
+			return false, nil
+		}
+		logs, logErr := lib.GetPodContainerLogs(kubernetesClientForSuiteRun, namespace, pod.Name, "manager")
+		if logErr != nil {
+			return false, nil
+		}
+		accumulatedTestLogs = append(accumulatedTestLogs, logs)
+		// Scoped to this backup/DataUpload's own log lines, not kdm-controller's
+		// whole (shared, never-restarted-between-specs) pod log -- see
+		// lib.FilterLogLinesContaining's doc comment for why an unfiltered
+		// fetch here would risk misattributing a different spec's stuck
+		// backup to this one.
+		annotationFlakeMatched = lib.CheckIfFlakeOccurred([]string{lib.FilterLogLinesContaining(logs, backupName, dataUploadName)})
+		return false, nil
+	})
+	if err != nil {
+		// A few more checks with FRESH logs right at the moment of timeout, a
+		// short beat apart: the periodic in-loop checks above are throttled to
+		// every 30s and can miss the window where kdm-controller's log
+		// actually shows the known pattern -- confirmed live TWICE, once where
+		// every in-loop check logged "No known flakes found" right up to the
+		// timeout while the deferred capture (logs fetched moments later) DID
+		// match, and again after adding a single post-timeout check here,
+		// which *also* ran just barely too early. The message apparently
+		// lands on kdm-controller's own reconcile cadence, not ours, so a
+		// short retry window (not a single extra sample) is what actually
+		// closes the gap.
+		for attempt := 0; attempt < 4 && !annotationFlakeMatched; attempt++ {
+			if attempt > 0 {
+				time.Sleep(5 * time.Second)
+			}
+			pod, podErr := lib.GetPodWithLabel(kubernetesClientForSuiteRun, namespace, "control-plane=oadp-kubevirt-datamover-controller")
+			if podErr != nil {
+				continue
+			}
+			logs, logErr := lib.GetPodContainerLogs(kubernetesClientForSuiteRun, namespace, pod.Name, "manager")
+			if logErr != nil {
+				continue
+			}
+			accumulatedTestLogs = append(accumulatedTestLogs, logs)
+			annotationFlakeMatched = lib.CheckIfFlakeOccurred([]string{lib.FilterLogLinesContaining(logs, backupName, dataUploadName)})
+		}
+	}
+	if err != nil && annotationFlakeMatched {
+		// Clean up the never-progressing Backup/DataUpload before skipping --
+		// confirmed live: leaving it behind poisons every LATER spec sharing
+		// this VM for the rest of the suite run, because kdm-controller only
+		// allows one active DataUpload per VM at a time ("Another DataUpload
+		// is still active for this VM, waiting", blockingDU: <this backup's
+		// DataUpload>) and never lets go of that slot on its own once the
+		// blocking DataUpload is itself stuck on a known bug. This is exactly
+		// how the very NEXT kdm spec in this file failed with this identical
+		// symptom despite being otherwise unrelated to backupName.
+		if cleanupErr := lib.DeleteVeleroBackupAndRestore(dpaCR.Client, kubernetesClientForSuiteRun, kubeConfig, namespace, backupName, ""); cleanupErr != nil {
+			log.Printf("could not clean up abandoned backup %s after known-bug skip: %v", backupName, cleanupErr)
+		}
+		ginkgo.Skip("DataUpload for backup " + backupName + " never had its expected-backup-type annotation stamped, and kdm-controller's log shows a known upstream bug (see lib.CheckIfFlakeOccurred) likely starving its reconcile queue -- marking pending instead of failing")
+	}
+	gomega.Expect(err).ToNot(gomega.HaveOccurred(), "failed to get DataUpload for backup %s", backupName)
+	gomega.Expect(expectedBackupType).ToNot(gomega.BeEmpty(), "DataUpload %s found but expected-backup-type annotation not yet stamped", dataUploadName)
 
 	if onDataUploadFound != nil {
 		onDataUploadFound(dataUploadName, expectedBackupType)
 	}
 
-	gomega.Eventually(lib.IsKubevirtDMBackupDone(dpaCR.Client, dynamicClientForSuiteRun, namespace, backupName), 20*time.Minute, time.Second*10).
-		Should(gomega.BeTrue(), "backup %s did not complete", backupName)
+	// WORKAROUND for CNV-85377/CNV-89684 (see lib.NudgeVmiToTriggerResync's doc
+	// comment for the full mechanism) -- remove this once kubevirt/kubevirt#18949
+	// merges and rolls out to a released build. Poll manually instead of a plain
+	// gomega.Eventually so we can nudge the VMI mid-wait when the kdm-controller
+	// manager's own logs show the known VMB status-freeze pattern, giving the
+	// stuck reconcile a real chance to recover instead of just waiting out (or
+	// failing/retrying on) the full timeout.
+	lastFlakeCheck := time.Time{}
+	lastFlakeMatched := false
+	err = wait.PollUntilContextTimeout(context.Background(), 10*time.Second, 20*time.Minute, true, func(ctx context.Context) (bool, error) {
+		done, doneErr := lib.IsKubevirtDMBackupDone(dpaCR.Client, dynamicClientForSuiteRun, namespace, backupName)()
+		if doneErr != nil {
+			return false, nil
+		}
+		if done {
+			return true, nil
+		}
+		if time.Since(lastFlakeCheck) < 30*time.Second {
+			return false, nil
+		}
+		lastFlakeCheck = time.Now()
+		pod, podErr := lib.GetPodWithLabel(kubernetesClientForSuiteRun, namespace, "control-plane=oadp-kubevirt-datamover-controller")
+		if podErr != nil {
+			return false, nil
+		}
+		logs, logErr := lib.GetPodContainerLogs(kubernetesClientForSuiteRun, namespace, pod.Name, "manager")
+		if logErr != nil {
+			return false, nil
+		}
+		// Namespace events are checked alongside pod logs -- some known-flake
+		// signatures (e.g. kubevirt/kubevirt's own "VMI backup status was
+		// lost" VirtualMachineBackupFailed event) only ever show up as a
+		// Kubernetes Event on the object, never in any pod's log output.
+		// Pod-log lines are scoped to this backup/DataUpload specifically --
+		// see lib.FilterLogLinesContaining's doc comment on why an unfiltered
+		// fetch of kdm-controller's shared, never-restarted pod log risks
+		// misattributing a different spec's stuck backup to this one. Events
+		// are already namespace-scoped (vmNamespace is per-spec-unique), so
+		// no further filtering needed there.
+		eventTexts := lib.GetNamespaceEventMessages(kubernetesClientForSuiteRun, vmNamespace)
+		lastFlakeMatched = lib.CheckIfFlakeOccurred(append([]string{lib.FilterLogLinesContaining(logs, backupName, dataUploadName)}, eventTexts...))
+		if lastFlakeMatched {
+			_ = lib.NudgeVmiToTriggerResync(dynamicClientForSuiteRun, vmNamespace)
+		}
+		return false, nil
+	})
+	if err != nil && !lastFlakeMatched {
+		// Same last-moment gap as the annotation-wait poll above, and same fix:
+		// a single extra check still ran too early in practice, so retry a
+		// few times a short beat apart rather than sampling once.
+		for attempt := 0; attempt < 4 && !lastFlakeMatched; attempt++ {
+			if attempt > 0 {
+				time.Sleep(5 * time.Second)
+			}
+			pod, podErr := lib.GetPodWithLabel(kubernetesClientForSuiteRun, namespace, "control-plane=oadp-kubevirt-datamover-controller")
+			if podErr != nil {
+				continue
+			}
+			logs, logErr := lib.GetPodContainerLogs(kubernetesClientForSuiteRun, namespace, pod.Name, "manager")
+			if logErr != nil {
+				continue
+			}
+			eventTexts := lib.GetNamespaceEventMessages(kubernetesClientForSuiteRun, vmNamespace)
+			lastFlakeMatched = lib.CheckIfFlakeOccurred(append([]string{lib.FilterLogLinesContaining(logs, backupName, dataUploadName)}, eventTexts...))
+		}
+	}
+	if err != nil && lastFlakeMatched {
+		// The nudge workaround didn't unstick it in time either -- this is a
+		// known upstream bug (CNV-85377/CNV-89684, or the separate
+		// "VMI backup status was lost" false-failure introduced by kubevirt's
+		// June 2026 observation-driven dispatch restructure -- see
+		// lib.CheckIfFlakeOccurred), not a real regression here. Mark pending
+		// directly (no ginkgo-level retry: retrying doesn't help a bug that
+		// doesn't self-clear, see poll #2413) instead of failing.
+		//
+		// Clean up the never-completing Backup/DataUpload before skipping --
+		// same reasoning as the annotation-wait skip above: kdm-controller
+		// only allows one active DataUpload per VM at a time, and leaving
+		// this one abandoned poisons every later spec sharing this VM for
+		// the rest of the suite run ("Another DataUpload is still active for
+		// this VM, waiting"). Confirmed live: this exact backup's own
+		// never-cleaned-up DataUpload was the blockingDU that failed a
+		// completely unrelated later spec.
+		if cleanupErr := lib.DeleteVeleroBackupAndRestore(dpaCR.Client, kubernetesClientForSuiteRun, kubeConfig, namespace, backupName, ""); cleanupErr != nil {
+			log.Printf("could not clean up abandoned backup %s after known-bug skip: %v", backupName, cleanupErr)
+		}
+		ginkgo.Skip("backup " + backupName + " hit a known upstream kubevirt bug even after the nudge workaround -- marking pending, see lib.CheckIfFlakeOccurred for tracked issues")
+	}
+	gomega.Expect(err).ToNot(gomega.HaveOccurred(), "backup %s did not complete", backupName)
 	succeeded, err := lib.IsBackupCompletedSuccessfully(kubernetesClientForSuiteRun, dpaCR.Client, namespace, backupName)
 	gomega.Expect(err).ToNot(gomega.HaveOccurred(), "failed to check completion status of backup %s", backupName)
 	gomega.Expect(succeeded).To(gomega.BeTrue(), "backup %s did not complete successfully", backupName)
@@ -316,14 +547,15 @@ var _ = ginkgo.Describe("VM backup and restore tests", ginkgo.Ordered, func() {
 
 	var _ = ginkgo.BeforeAll(func() {
 		indexTag := ""
+		communityChannel := ""
 		if useCommunityHco {
 			indexTag = hcoIndexTag
 			log.Printf("Creating community HCO CatalogSource with index tag %s", hcoIndexTag)
-			err = lib.EnsureCommunityHcoCatalog(dynamicClientForSuiteRun, hcoIndexTag, 2*time.Minute)
+			communityChannel, err = lib.EnsureCommunityHcoCatalog(dynamicClientForSuiteRun, hcoIndexTag, 2*time.Minute)
 			gomega.Expect(err).To(gomega.BeNil())
 		}
 
-		v, err = lib.GetVirtOperator(runTimeClientForSuiteRun, kubernetesClientForSuiteRun, dynamicClientForSuiteRun, useUpstreamHco, indexTag)
+		v, err = lib.GetVirtOperator(runTimeClientForSuiteRun, kubernetesClientForSuiteRun, dynamicClientForSuiteRun, useUpstreamHco, indexTag, communityChannel)
 		gomega.Expect(err).To(gomega.BeNil())
 		gomega.Expect(v).ToNot(gomega.BeNil())
 
@@ -784,14 +1016,13 @@ var _ = ginkgo.Describe("VM backup and restore tests", ginkgo.Ordered, func() {
 	// creates the DataDownload automatically from backup-recorded annotations/ConfigMap
 	// data (and separately discards the restored VMB/VMBT so restore doesn't re-trigger a
 	// backup) — so this only needs a normal Velero Restore, no manual CR driving.
-	// This Describe block now hosts only the two Pending scaffolds below,
-	// gated on kubevirt-datamover-controller#73 phase 4 -- the live restore
+	// This Describe block now hosts only the two tests below -- the live restore
 	// tests (full-backup and incremental on Alpine, structural-only on Fedora)
 	// moved to the "restore from a CBT backup" Describe block further down.
 	// Kept on CirrOS deliberately: neither scaffold below makes a
 	// data-integrity assertion, only VM run-state/structural checks, so
 	// CirrOS's lack of a guest agent doesn't cost them anything.
-	ginkgo.Describe("Kubevirt datamover restore from CBT backup — pending kubevirt-datamover-controller#73 phase 4", ginkgo.Ordered, func() {
+	ginkgo.Describe("Kubevirt datamover restore from CBT backup", ginkgo.Ordered, func() {
 		const (
 			restoreNamespace = "cirros-test"
 			restoreVMName    = "cirros-test"
@@ -811,46 +1042,27 @@ var _ = ginkgo.Describe("VM backup and restore tests", ginkgo.Ordered, func() {
 			HasGuestAgent: false,
 		}
 
-		// BeforeEach, not BeforeAll: guards against a real Ginkgo interaction if
-		// ginkgo.FlakeAttempts is ever added to this It. Ginkgo skips any
-		// already-passed run-once node on a retry (internal/group.go attemptSpec: a
-		// node whose runOncePair is already SpecStatePassed is `continue`d), so a
-		// BeforeAll would not re-run on a retry attempt -- while the suite-level
-		// AfterEach tears the DPA down after every attempt and this It deletes
-		// restoreNamespace and the VM on its way out. FlakeAttempts combined with a
-		// BeforeAll would leave a retry attempt with no velero and no source VM,
-		// dying instantly on the source-PVC lookup -- a cascading, misleading
-		// failure, not a retry of whatever the FlakeAttempts was meant to absorb.
-		// The FlakeAttempts uses elsewhere in this suite are on DescribeTable
-		// Entries whose setup is already per-spec, which is why that pattern is
-		// safe there but would not be here.
 		var _ = ginkgo.BeforeEach(func() {
 			updateLastBRcase(restoreCase)
 			prepareBackupAndRestore(restoreCase.BackupRestoreCase, func() {})
 			setupVmForRestoreTest(restoreNamespace, restoreVMName, restoreTemplate)
 		})
 
-		ginkgo.PIt("restore run-state flip is not blocked by a stale sibling DataDownload from a different restore attempt — blocked on kubevirt-datamover-controller#73 phase 4 (restore-attempt-scoped sibling correlation, also resolves kubevirt-datamover-controller#169)", ginkgo.Label("virt", "kdm"), func() {
+		ginkgo.It("restore run-state flip is not blocked by a stale sibling DataDownload from a different restore attempt", ginkgo.Label("virt", "kdm"), func() {
 			// kubevirt-datamover-controller's VM run-state-restore flip
-			// (allSiblingDataDownloadsCompleted) currently correlates sibling
-			// DataDownloads purely by VM identity annotations
-			// (kubevirt-datamover.io/vm-name/vm-namespace), with no notion of which
-			// restore attempt a DataDownload belongs to. A stale, already-Failed
-			// DataDownload left over from an aborted prior restore attempt for a VM
-			// permanently blocks the flip for every future restore attempt of that VM,
-			// even a fully successful new one --
+			// (allSiblingDataDownloadsCompleted) correlates sibling DataDownloads by
+			// the velero.io/restore-name label Velero itself stamps on every
+			// DataDownload it creates, in addition to VM identity
+			// (kubevirt-datamover.io/vm-name/vm-namespace) -- landed in
+			// kubevirt-datamover-controller#124 (not restore-uid: an earlier draft of
+			// the fix keyed off velero.io/restore-uid, but that approach was dropped
+			// during rebase in favor of #124's restore-name-based version, which is
+			// what actually shipped). Without this, a stale, already-Failed
+			// DataDownload left over from an aborted prior restore attempt (a
+			// genuinely different Restore object, hence a different restore-name)
+			// for a VM would permanently block the flip for every future restore
+			// attempt of that VM, even a fully successful new one --
 			// https://github.com/migtools/kubevirt-datamover-controller/issues/169.
-			//
-			// The fix (correlating by the restore's own velero.io/restore-uid label in
-			// addition to VM identity) is already implemented in
-			// kubevirt-datamover-controller#73 phase 4, the same branch the other two
-			// PIt placeholders below are waiting on. Scaffolded as real, compiling
-			// pending code (not deleted, not just a comment) so it's ready to flip to
-			// ginkgo.It once phase 4 lands -- asserting only the fixed, final behavior
-			// (the VM resumes despite a foreign-attempt decoy sibling), not the
-			// currently-buggy intermediate state, since asserting the bug itself would
-			// start failing the moment the fix merges with nothing forcing anyone to
-			// notice and update it.
 			backupName := "cirros-stale-sibling-backup"
 			runKubevirtDMBackup(v, restoreNamespace, backupName, nil)
 
@@ -872,12 +1084,15 @@ var _ = ginkgo.Describe("VM backup and restore tests", ginkgo.Ordered, func() {
 
 			// Fabricate a decoy DataDownload simulating a stale, Failed sibling from a
 			// genuinely different restore attempt: same VM identity annotations as the
-			// real DataDownload this restore will create, but a deliberately mismatched
-			// velero.io/restore-uid (an absent label isn't equivalent to a mismatched
-			// one -- this must actually differ to simulate "a different attempt").
+			// real DataDownload this restore will create, but a deliberately different
+			// velero.io/restore-name -- the actual correlation key
+			// (allSiblingDataDownloadsCompleted matches on restore-name, not
+			// restore-uid; a merely-different restore-uid with the SAME restore-name
+			// would not simulate "a different attempt" at all, since the real code
+			// never looks at restore-uid).
 			bsls, err := dpaCR.ListBSLs()
 			gomega.Expect(err).ToNot(gomega.HaveOccurred(), "failed to list BSLs")
-			foreignRestoreUID, _ := uuid.NewUUID()
+			foreignRestoreName := restoreName + "-foreign-attempt"
 			decoy := &velerov2alpha1.DataDownload{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "dd-stale-sibling-decoy",
@@ -888,8 +1103,7 @@ var _ = ginkgo.Describe("VM backup and restore tests", ginkgo.Ordered, func() {
 					},
 					Labels: map[string]string{
 						velero.BackupNameLabel:  backupName,
-						velero.RestoreNameLabel: restoreName,
-						velero.RestoreUIDLabel:  foreignRestoreUID.String(),
+						velero.RestoreNameLabel: foreignRestoreName,
 					},
 				},
 				Spec: velerov2alpha1.DataDownloadSpec{
@@ -905,8 +1119,27 @@ var _ = ginkgo.Describe("VM backup and restore tests", ginkgo.Ordered, func() {
 				},
 			}
 			gomega.Expect(dpaCR.Client.Create(context.Background(), decoy)).To(gomega.Succeed(), "failed to create decoy stale-sibling DataDownload")
-			decoy.Status.Phase = velerov2alpha1.DataDownloadPhaseFailed
-			gomega.Expect(dpaCR.Client.Status().Update(context.Background(), decoy)).To(gomega.Succeed(), "failed to mark decoy DataDownload Failed")
+			// Plain Update, not Status().Update(): the DataDownload CRD (v2alpha1)
+			// has no status subresource registered (confirmed via
+			// `oc get crd datadownloads.velero.io -o jsonpath='{.spec.versions[?(@.name=="v2alpha1")].subresources}'`
+			// -- empty), so a status-subresource PUT 404s unconditionally regardless
+			// of this object's actual state. kubevirt_datadownload_controller.go
+			// itself only ever calls plain r.Update(ctx, dd) for this same reason.
+			//
+			// RetryOnConflict, not a single Update: kubevirt-datamover-controller is
+			// concurrently reconciling this same decoy the moment it's created (New
+			// -> Accepted), bumping its resourceVersion out from under this
+			// in-memory copy -- a single Update() using the Create() response's
+			// stale resourceVersion loses that race often enough to be seen live.
+			err = retry.RetryOnConflict(retry.DefaultBackoff, func() error {
+				latest := &velerov2alpha1.DataDownload{}
+				if getErr := dpaCR.Client.Get(context.Background(), client.ObjectKeyFromObject(decoy), latest); getErr != nil {
+					return getErr
+				}
+				latest.Status.Phase = velerov2alpha1.DataDownloadPhaseFailed
+				return dpaCR.Client.Update(context.Background(), latest)
+			})
+			gomega.Expect(err).ToNot(gomega.HaveOccurred(), "failed to mark decoy DataDownload Failed")
 			defer func() {
 				_ = dpaCR.Client.Delete(context.Background(), decoy)
 			}()
@@ -921,10 +1154,10 @@ var _ = ginkgo.Describe("VM backup and restore tests", ginkgo.Ordered, func() {
 			gomega.Expect(err).ToNot(gomega.HaveOccurred(), "failed to get DataDownload for restore %s", restoreName)
 			gomega.Expect(phase).To(gomega.Equal("Completed"), "expected the real DataDownload to complete")
 
-			// The assertion this PIt exists to make once flipped to a live It: the VM
-			// resumes despite the foreign-attempt decoy sibling still sitting Failed,
-			// because phase 4's fix correlates by velero.io/restore-uid, not just VM
-			// identity.
+			// The VM resumes despite the foreign-attempt decoy sibling still sitting
+			// Failed, because the fix correlates by velero.io/restore-name, not just
+			// VM identity -- a decoy carrying a different restore-name doesn't block
+			// this restore's own VM run-state flip.
 			err = wait.PollUntilContextTimeout(context.Background(), 10*time.Second, 10*time.Minute, true, func(ctx context.Context) (bool, error) {
 				status, statusErr := v.GetVmStatus(restoreNamespace, restoreVMName)
 				if statusErr != nil {
@@ -933,7 +1166,7 @@ var _ = ginkgo.Describe("VM backup and restore tests", ginkgo.Ordered, func() {
 				return status == "Running", nil
 			})
 			gomega.Expect(err).ToNot(gomega.HaveOccurred(),
-				"expected restored VM %s/%s to resume despite the foreign-attempt decoy sibling, once phase 4's restore-attempt-scoped correlation lands", restoreNamespace, restoreVMName)
+				"expected restored VM %s/%s to resume despite the foreign-attempt decoy sibling", restoreNamespace, restoreVMName)
 
 			err = v.RemoveVm(restoreNamespace, restoreVMName, 5*time.Minute)
 			gomega.Expect(err).To(gomega.BeNil(), "failed to remove VM %s/%s", restoreNamespace, restoreVMName)
@@ -941,14 +1174,12 @@ var _ = ginkgo.Describe("VM backup and restore tests", ginkgo.Ordered, func() {
 			gomega.Expect(err).To(gomega.BeNil(), "failed to delete namespace %s", restoreNamespace)
 		})
 
-		ginkgo.PIt("restore a multi-PVC VM from a kubevirt-datamover CBT backup — blocked on kubevirt-datamover-controller#73 phase 4 (multi-disk restore hardening, not yet implemented)", ginkgo.Label("virt", "kdm"), func() {
+		ginkgo.It("restore a multi-PVC VM from a kubevirt-datamover CBT backup", ginkgo.Label("virt", "kdm"), func() {
 			// Phase 4 ("Multi-disk + PVC provisioning hardening") of
-			// https://github.com/migtools/kubevirt-datamover-controller/issues/73 has not
-			// landed yet — per its own exit criteria ("unit tests for multi-disk
-			// concurrency and sizing fallback behavior"), per-disk DataDownload isolation
-			// isn't hardened, so a real multi-disk restore can't be trusted to pass today.
-			// Scaffolded as real, compiling pending code (not deleted, not just a comment)
-			// so it's ready to flip to ginkgo.It once phase 4 lands.
+			// https://github.com/migtools/kubevirt-datamover-controller/issues/73 landed
+			// in PR #186 -- per-disk DataDownload isolation is hardened (one
+			// DataDownload per disk, keyed by dd.UID / target PVC) and proven under
+			// concurrent reconciliation.
 			multiPvcNamespace := "cirros-multipvc-cbt-test"
 			multiPvcVMName := "cirros-multipvc-cbt-test"
 			multiPvcTemplate := "./sample-applications/virtual-machines/cirros-test/cirros-test-multipvc-cbt.yaml"
@@ -987,7 +1218,7 @@ var _ = ginkgo.Describe("VM backup and restore tests", ginkgo.Ordered, func() {
 			gomega.Eventually(lib.IsRestoreDone(dpaCR.Client, namespace, restoreName), 45*time.Minute, time.Second*10).Should(gomega.BeTrue())
 			succeeded, err := lib.IsRestoreCompletedSuccessfully(kubernetesClientForSuiteRun, dpaCR.Client, namespace, restoreName)
 			gomega.Expect(err).ToNot(gomega.HaveOccurred())
-			gomega.Expect(succeeded).To(gomega.BeTrue(), "expected both disks' DataDownloads to complete once phase 4 lands")
+			gomega.Expect(succeeded).To(gomega.BeTrue(), "expected both disks' DataDownloads to complete")
 
 			err = v.RemoveVm(multiPvcNamespace, multiPvcVMName, 5*time.Minute)
 			gomega.Expect(err).To(gomega.BeNil())

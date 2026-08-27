@@ -377,6 +377,24 @@ func PrintNamespaceEventsAfterTime(c *kubernetes.Clientset, namespace string, st
 	}
 }
 
+// GetNamespaceEventMessages returns "Reason: Message" for every event
+// currently in namespace, for feeding into CheckIfFlakeOccurred alongside
+// pod logs -- some known-flake signatures (e.g. a controller's own emitted
+// Kubernetes Event on an object it owns) only ever show up as an Event, not
+// in any pod's log output.
+func GetNamespaceEventMessages(c *kubernetes.Clientset, namespace string) []string {
+	events, err := c.CoreV1().Events(namespace).List(context.Background(), metav1.ListOptions{})
+	if err != nil {
+		log.Printf("could not list events in namespace %s for flake-detection: %v", namespace, err)
+		return nil
+	}
+	messages := make([]string, 0, len(events.Items))
+	for _, event := range events.Items {
+		messages = append(messages, fmt.Sprintf("%s: %s", event.Reason, event.Message))
+	}
+	return messages
+}
+
 func RunMustGather(artifact_dir string, clusterClient client.Client) error {
 	mustGatherImage := os.Getenv("MUST_GATHER_IMAGE")
 	if mustGatherImage == "" {
