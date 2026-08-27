@@ -26,14 +26,11 @@ Before enabling KubeVirt DataMover, make sure your cluster meets these requireme
 
 CBT enablement is a two-part configuration on the `HyperConverged` (HCO) custom resource: enabling the feature gate, and telling KubeVirt which VM label to treat as opting a VM into CBT.
 
-First, enable the `incrementalBackup` feature gate. This is a first-class field on the HCO CR and automatically turns on the underlying `IncrementalBackup` and `UtilityVolumes` feature gates on the KubeVirt CR:
+First, enable the `incrementalBackup` feature gate. This automatically turns on the underlying `IncrementalBackup` and `UtilityVolumes` feature gates on the KubeVirt CR. `spec.featureGates` on the HCO CR is a list of gate objects, not a map keyed by name, so it must be patched as an array entry:
 
 ```bash
-oc patch hyperconverged kubevirt-hyperconverged -n openshift-cnv --type merge -p '
-spec:
-  featureGates:
-    incrementalBackup: true
-'
+oc patch hyperconverged kubevirt-hyperconverged -n openshift-cnv --type merge -p \
+  '{"spec":{"featureGates":[{"name":"incrementalBackup"}]}}'
 ```
 
 Second, configure the label selector KubeVirt uses to decide which VMs have CBT enabled. This field, `changedBlockTrackingLabelSelectors`, lives on the underlying KubeVirt CR that HCO manages, so it has to be injected through a `kubevirt.kubevirt.io/jsonpatch` annotation on the HCO CR rather than set directly:
@@ -48,7 +45,7 @@ This example selector matches any VM labeled `changedBlockTracking: "true"`, whi
 Verify the configuration took effect:
 
 ```bash
-oc get kubevirt kubevirt-kubevirt-hyperconverged -n openshift-cnv \
+oc get kubevirt kubevirt-hyperconverged -n openshift-cnv \
   -o jsonpath='{.spec.configuration.changedBlockTrackingLabelSelectors}'
 ```
 
