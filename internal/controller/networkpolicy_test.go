@@ -362,6 +362,43 @@ var _ = ginkgo.Describe("ReconcileNetworkPolicies", func() {
 		gomega.Expect(np.Spec.Egress).To(gomega.Equal(unrestrictedEgressRule()))
 	})
 
+	ginkgo.It("should create KubeVirt datamover pods NetworkPolicy when enabled", func() {
+		// Enable KubeVirt datamover via default plugin
+		dpa.Spec.Configuration.Velero.DefaultPlugins = []oadpv1alpha1.DefaultPlugin{
+			oadpv1alpha1.DefaultPluginKubeVirtDataMover,
+		}
+		gomega.Expect(k8sClient.Update(ctx, dpa)).To(gomega.Succeed())
+		gomega.Expect(k8sClient.Get(ctx, types.NamespacedName{
+			Name:      dpa.Name,
+			Namespace: dpa.Namespace,
+		}, r.dpa)).To(gomega.Succeed())
+
+		success, err := r.ReconcileNetworkPolicies(r.Log)
+		gomega.Expect(err).NotTo(gomega.HaveOccurred())
+		gomega.Expect(success).To(gomega.BeTrue())
+
+		np := &networkingv1.NetworkPolicy{}
+		err = k8sClient.Get(ctx, types.NamespacedName{
+			Name:      kubevirtDatamoverPodsNetworkPolicyName,
+			Namespace: namespace.Name,
+		}, np)
+		gomega.Expect(err).NotTo(gomega.HaveOccurred())
+
+		// Verify pod selector matches on the dynamically-spawned datamover pod label
+		gomega.Expect(np.Spec.PodSelector.MatchExpressions).To(gomega.ContainElement(metav1.LabelSelectorRequirement{
+			Key:      kubevirtDatamoverPodTypeLabel,
+			Operator: metav1.LabelSelectorOpExists,
+		}))
+
+		// Verify no ingress rule (ephemeral data-transfer pods, not servers)
+		gomega.Expect(np.Spec.PolicyTypes).NotTo(gomega.ContainElement(networkingv1.PolicyTypeIngress))
+
+		// Verify unrestricted egress (these pods move VM disk data directly to/from
+		// admin-configured, arbitrary S3-compatible endpoints)
+		gomega.Expect(np.Spec.PolicyTypes).To(gomega.ContainElement(networkingv1.PolicyTypeEgress))
+		gomega.Expect(np.Spec.Egress).To(gomega.Equal(unrestrictedEgressRule()))
+	})
+
 	ginkgo.It("should set controller reference on NetworkPolicies", func() {
 		success, err := r.ReconcileNetworkPolicies(r.Log)
 		gomega.Expect(err).NotTo(gomega.HaveOccurred())
