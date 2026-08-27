@@ -97,6 +97,14 @@ If you see a warning that VM restore requires the `kubevirt` plugin, add `kubevi
 
 If the VirtualMachineBackup status includes a warning like `Failed freezing guest filesystem: ... QEMU guest agent is not connected`, and your VM does not have the QEMU guest agent installed and running, this is expected and not a failure. KubeVirt attempts to quiesce (freeze) the guest filesystem for a cleaner backup, but without a guest agent it can't, so it falls back to a crash-consistent backup instead, the same way a hard power-cycle would leave the disk. The backup still completes successfully. If you want quiesced, application-consistent backups, install `qemu-guest-agent` in the guest OS. There is currently no way to require quiescing and fail the backup instead of falling back, that behavior is still under development upstream.
 
+### Velero's `virt-freezer` pre/post backup hooks are a no-op with KubeVirt DataMover
+
+You may see backup logs showing `pre.hook.backup.velero.io`/`post.hook.backup.velero.io` exec hooks running `virt-freezer --freeze`/`--unfreeze` against the virt-launcher pod, completing before the DataUpload for the VM is even created. This is expected, not a bug. These hook annotations are not something you or the Backup spec add: KubeVirt automatically injects them onto every virt-launcher pod (you can see them with `oc get pod <virt-launcher-pod> -o yaml`). Velero's generic hook executor runs any `pre.hook.backup.velero.io`/`post.hook.backup.velero.io` annotation it finds on a pod, no matter which controller put it there, so this freeze/unfreeze cycle happens for every VM backup with a guest agent, regardless of which snapshot/datamover path is in use.
+
+With KubeVirt DataMover specifically, the actual data movement is orchestrated later: the plugin creates a DataUpload, and the datamover controller later creates a `VirtualMachineBackup` from it. Quiescing for that backup is handled internally by `VirtualMachineBackup`, through the guest agent, independently of Velero's exec hooks. By the time Velero's `virt-freezer` hooks run and complete, no snapshot or data movement has started yet, so that freeze/unfreeze cycle has no effect on the consistency of the resulting backup.
+
+There is currently no way to disable these hooks or to make their timing overlap with the quiesce KubeVirt DataMover performs internally. Upstream work is in progress to expose freeze success/failure from the `VirtualMachineBackup` process earlier (see [CNV-84886](https://issues.redhat.com/browse/CNV-84886)), which should improve visibility into this step, though it does not change how the two freeze mechanisms relate to each other.
+
 ## Known limitations
 
 - **VM must be running**: KubeVirt DataMover backs up VMs through CBT, which requires the VM to be running (`spec.running: true`, `status.printableStatus: Running`) at backup time. Offline (stopped) VM backup through this path is not supported.
