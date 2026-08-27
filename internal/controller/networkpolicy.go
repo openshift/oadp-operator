@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/go-logr/logr"
@@ -10,6 +11,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	"k8s.io/client-go/util/retry"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
@@ -87,6 +89,26 @@ func unrestrictedEgressRule() []networkingv1.NetworkPolicyEgressRule {
 	return []networkingv1.NetworkPolicyEgressRule{{}}
 }
 
+// createOrUpdateNetworkPolicy wraps controllerutil.CreateOrUpdate with a short retry on
+// AlreadyExists errors. Each reconcile below reads via the manager's cached client, which
+// can briefly lag behind the API server (e.g. right after a previous DPA's NetworkPolicy
+// of the same fixed name was deleted but not yet reflected in the informer cache). That
+// causes CreateOrUpdate's Get to see NotFound and attempt a Create that the API server
+// rejects as AlreadyExists. Left alone, this self-heals on the next 5s reconcile, but
+// during rapid DPA delete/recreate cycles (as in e2e tests) it can take several cycles,
+// stalling DPA reconciliation long enough to cascade into unrelated test timeouts. Retrying
+// immediately, within the same call, gives the cache a brief chance to catch up so the
+// retry's Get correctly reflects the deletion and Create succeeds right away.
+func createOrUpdateNetworkPolicy(ctx context.Context, c client.Client, np *networkingv1.NetworkPolicy, mutateFn controllerutil.MutateFn) (controllerutil.OperationResult, error) {
+	var op controllerutil.OperationResult
+	err := retry.OnError(retry.DefaultBackoff, k8serrors.IsAlreadyExists, func() error {
+		var err error
+		op, err = controllerutil.CreateOrUpdate(ctx, c, np, mutateFn)
+		return err
+	})
+	return op, err
+}
+
 // ReconcileNetworkPolicies creates NetworkPolicies for OADP operands.
 // OCPSTRAT-819: Operator creates NPs at runtime for its workloads (operands).
 // Design: Default-deny all ingress/egress traffic in the namespace, then allow only
@@ -154,7 +176,7 @@ func (r *DataProtectionApplicationReconciler) reconcileDefaultDenyNetworkPolicy(
 		},
 	}
 
-	op, err := controllerutil.CreateOrUpdate(r.Context, r.Client, np, func() error {
+	op, err := createOrUpdateNetworkPolicy(r.Context, r.Client, np, func() error {
 		// Set controller reference
 		if err := controllerutil.SetControllerReference(r.dpa, np, r.Scheme); err != nil {
 			return err
@@ -203,7 +225,7 @@ func (r *DataProtectionApplicationReconciler) reconcileOperatorNetworkPolicy(log
 		},
 	}
 
-	op, err := controllerutil.CreateOrUpdate(r.Context, r.Client, np, func() error {
+	op, err := createOrUpdateNetworkPolicy(r.Context, r.Client, np, func() error {
 		// Set controller reference
 		if err := controllerutil.SetControllerReference(r.dpa, np, r.Scheme); err != nil {
 			return err
@@ -294,7 +316,7 @@ func (r *DataProtectionApplicationReconciler) reconcileVeleroNetworkPolicy(log l
 		},
 	}
 
-	op, err := controllerutil.CreateOrUpdate(r.Context, r.Client, np, func() error {
+	op, err := createOrUpdateNetworkPolicy(r.Context, r.Client, np, func() error {
 		// Set controller reference
 		if err := controllerutil.SetControllerReference(r.dpa, np, r.Scheme); err != nil {
 			return err
@@ -376,7 +398,7 @@ func (r *DataProtectionApplicationReconciler) reconcileVeleroMoverNetworkPolicy(
 		},
 	}
 
-	op, err := controllerutil.CreateOrUpdate(r.Context, r.Client, np, func() error {
+	op, err := createOrUpdateNetworkPolicy(r.Context, r.Client, np, func() error {
 		// Set controller reference
 		if err := controllerutil.SetControllerReference(r.dpa, np, r.Scheme); err != nil {
 			return err
@@ -431,7 +453,7 @@ func (r *DataProtectionApplicationReconciler) reconcileCLIServerNetworkPolicy(lo
 		},
 	}
 
-	op, err := controllerutil.CreateOrUpdate(r.Context, r.Client, np, func() error {
+	op, err := createOrUpdateNetworkPolicy(r.Context, r.Client, np, func() error {
 		// Set controller reference
 		if err := controllerutil.SetControllerReference(r.dpa, np, r.Scheme); err != nil {
 			return err
@@ -495,7 +517,7 @@ func (r *DataProtectionApplicationReconciler) reconcileVMDPServerNetworkPolicy(l
 		},
 	}
 
-	op, err := controllerutil.CreateOrUpdate(r.Context, r.Client, np, func() error {
+	op, err := createOrUpdateNetworkPolicy(r.Context, r.Client, np, func() error {
 		// Set controller reference
 		if err := controllerutil.SetControllerReference(r.dpa, np, r.Scheme); err != nil {
 			return err
@@ -580,7 +602,7 @@ func (r *DataProtectionApplicationReconciler) reconcileNonAdminNetworkPolicy(log
 	}
 
 	// Create/update NetworkPolicy if non-admin is enabled
-	op, err := controllerutil.CreateOrUpdate(r.Context, r.Client, np, func() error {
+	op, err := createOrUpdateNetworkPolicy(r.Context, r.Client, np, func() error {
 		// Set controller reference
 		if err := controllerutil.SetControllerReference(r.dpa, np, r.Scheme); err != nil {
 			return err
@@ -681,7 +703,7 @@ func (r *DataProtectionApplicationReconciler) reconcileVMFileRestoreNetworkPolic
 	}
 
 	// Create/update NetworkPolicy if VM file restore is enabled
-	op, err := controllerutil.CreateOrUpdate(r.Context, r.Client, np, func() error {
+	op, err := createOrUpdateNetworkPolicy(r.Context, r.Client, np, func() error {
 		// Set controller reference
 		if err := controllerutil.SetControllerReference(r.dpa, np, r.Scheme); err != nil {
 			return err
@@ -782,7 +804,7 @@ func (r *DataProtectionApplicationReconciler) reconcileKubevirtDatamoverNetworkP
 	}
 
 	// Create/update NetworkPolicy if KubeVirt datamover is enabled
-	op, err := controllerutil.CreateOrUpdate(r.Context, r.Client, np, func() error {
+	op, err := createOrUpdateNetworkPolicy(r.Context, r.Client, np, func() error {
 		// Set controller reference
 		if err := controllerutil.SetControllerReference(r.dpa, np, r.Scheme); err != nil {
 			return err
