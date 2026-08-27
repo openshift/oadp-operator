@@ -19,15 +19,16 @@ import (
 )
 
 const (
-	defaultDenyNetworkPolicyName       = "default-deny"
-	operatorNetworkPolicyName          = "oadp-operator-network-policy"
-	veleroNetworkPolicyName            = "velero-network-policy"
-	veleroMoverNetworkPolicyName       = "velero-mover-network-policy"
-	cliServerNetworkPolicyName         = "oadp-cli-server-network-policy"
-	vmdpServerNetworkPolicyName        = "oadp-vmdp-server-network-policy"
-	nonAdminNetworkPolicyName          = "non-admin-controller-network-policy"
-	vmFileRestoreNetworkPolicyName     = "vm-file-restore-controller-network-policy"
-	kubevirtDatamoverNetworkPolicyName = "kubevirt-datamover-controller-network-policy"
+	defaultDenyNetworkPolicyName           = "default-deny"
+	operatorNetworkPolicyName              = "oadp-operator-network-policy"
+	veleroNetworkPolicyName                = "velero-network-policy"
+	veleroMoverNetworkPolicyName           = "velero-mover-network-policy"
+	cliServerNetworkPolicyName             = "oadp-cli-server-network-policy"
+	vmdpServerNetworkPolicyName            = "oadp-vmdp-server-network-policy"
+	nonAdminNetworkPolicyName              = "non-admin-controller-network-policy"
+	vmFileRestoreNetworkPolicyName         = "vm-file-restore-controller-network-policy"
+	kubevirtDatamoverNetworkPolicyName     = "kubevirt-datamover-controller-network-policy"
+	kubevirtDatamoverPodsNetworkPolicyName = "kubevirt-datamover-pods-network-policy"
 
 	// dnsPort is the standard port used for DNS resolution (TCP and UDP).
 	dnsPort = 53
@@ -44,6 +45,14 @@ const (
 // already keys off "component=velero" today.
 const networkPolicyMoverLabel = "oadp.openshift.io/network-policy"
 const networkPolicyMoverLabelValue = "velero"
+
+// kubevirtDatamoverPodTypeLabel is set by the kubevirt-datamover-controller (a
+// separate repo/image) on the upload/download pods it dynamically spawns (e.g.
+// "kubevirt-dm-du-*") to perform CSI DataUpload/DataDownload transfers for VM disks.
+// These pods do not carry "control-plane" (used by the controller Deployment) or
+// "component=velero"/networkPolicyMoverLabel (used by Velero's own mover pods), so
+// they need their own allow-policy; see reconcileKubevirtDatamoverPodsNetworkPolicy.
+const kubevirtDatamoverPodTypeLabel = "kubevirt-datamover.io/pod-type"
 
 // scopedEgressRules returns the standard "least privilege" egress rules shared by
 // operands that only need to reach DNS and the Kubernetes API server (no direct
@@ -165,6 +174,12 @@ func (r *DataProtectionApplicationReconciler) ReconcileNetworkPolicies(log logr.
 
 	// Reconcile KubeVirt DataMover Controller NetworkPolicy (conditional)
 	if err := r.reconcileKubevirtDatamoverNetworkPolicy(log); err != nil {
+		return false, err
+	}
+
+	// Reconcile KubeVirt DataMover dynamically-spawned upload/download pods
+	// NetworkPolicy (conditional)
+	if err := r.reconcileKubevirtDatamoverPodsNetworkPolicy(log); err != nil {
 		return false, err
 	}
 
@@ -882,6 +897,91 @@ func (r *DataProtectionApplicationReconciler) reconcileKubevirtDatamoverNetworkP
 			corev1.EventTypeNormal,
 			"KubevirtDatamoverNetworkPolicyReconciled",
 			fmt.Sprintf("performed %s on KubeVirt DataMover NetworkPolicy %s/%s", op, np.Namespace, np.Name),
+		)
+	}
+	return nil
+}
+
+// reconcileKubevirtDatamoverPodsNetworkPolicy creates a NetworkPolicy for the
+// upload/download pods dynamically spawned by the KubeVirt datamover controller
+// (e.g. "kubevirt-dm-du-*") to perform CSI DataUpload/DataDownload transfers.
+// These pods are distinct from the controller Deployment covered by
+// reconcileKubevirtDatamoverNetworkPolicy: they carry kubevirtDatamoverPodTypeLabel
+// instead of "control-plane", so a separate PodSelector/policy is required (mirrors
+// how reconcileVeleroMoverNetworkPolicy covers Velero's own dynamically-spawned
+// mover pods separately from reconcileVeleroNetworkPolicy).
+// Only created when KubeVirt datamover feature is enabled.
+func (r *DataProtectionApplicationReconciler) reconcileKubevirtDatamoverPodsNetworkPolicy(log logr.Logger) error {
+	np := &networkingv1.NetworkPolicy{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      kubevirtDatamoverPodsNetworkPolicyName,
+			Namespace: r.NamespacedName.Namespace,
+		},
+	}
+
+	// Delete NetworkPolicy if KubeVirt datamover is not enabled
+	if !r.checkKubevirtDatamoverEnabled() {
+		if err := r.Get(r.Context, types.NamespacedName{
+			Name:      np.Name,
+			Namespace: np.Namespace,
+		}, np); err != nil {
+			if k8serrors.IsNotFound(err) {
+				return nil // Already deleted
+			}
+			return fmt.Errorf("failed to check KubeVirt DataMover pods NetworkPolicy: %w", err)
+		}
+
+		if err := r.Delete(r.Context, np, &client.DeleteOptions{}); err != nil {
+			return fmt.Errorf("failed to delete KubeVirt DataMover pods NetworkPolicy: %w", err)
+		}
+
+		log.Info(fmt.Sprintf("KubeVirt DataMover pods NetworkPolicy %s deleted (feature disabled)", np.Name))
+		return nil
+	}
+
+	op, err := createOrUpdateNetworkPolicy(r.Context, r.Client, np, func() error {
+		// Set controller reference
+		if err := controllerutil.SetControllerReference(r.dpa, np, r.Scheme); err != nil {
+			return err
+		}
+
+		// Apply labels
+		np.Labels = getDpaAppLabels(r.dpa)
+		np.Labels, np.Annotations = applyResourceLabels(r.dpa, np.Labels, np.Annotations)
+
+		np.Spec = networkingv1.NetworkPolicySpec{
+			PodSelector: metav1.LabelSelector{
+				MatchExpressions: []metav1.LabelSelectorRequirement{
+					{
+						Key:      kubevirtDatamoverPodTypeLabel,
+						Operator: metav1.LabelSelectorOpExists,
+					},
+				},
+			},
+			PolicyTypes: []networkingv1.PolicyType{
+				networkingv1.PolicyTypeEgress,
+				// No ingress rule: these are ephemeral data-transfer pods, not
+				// servers, so no inbound traffic is expected.
+			},
+			// Egress: unrestricted. These pods move VM disk data directly
+			// to/from admin-configured, arbitrary S3-compatible endpoints,
+			// same justification as the Velero mover NetworkPolicy.
+			Egress: unrestrictedEgressRule(),
+		}
+
+		return nil
+	})
+
+	if err != nil {
+		return fmt.Errorf("failed to reconcile KubeVirt DataMover pods NetworkPolicy: %w", err)
+	}
+
+	if op == controllerutil.OperationResultCreated || op == controllerutil.OperationResultUpdated {
+		log.Info(fmt.Sprintf("KubeVirt DataMover pods NetworkPolicy %s: %s", np.Name, op))
+		r.EventRecorder.Event(np,
+			corev1.EventTypeNormal,
+			"KubevirtDatamoverPodsNetworkPolicyReconciled",
+			fmt.Sprintf("performed %s on KubeVirt DataMover pods NetworkPolicy %s/%s", op, np.Namespace, np.Name),
 		)
 	}
 	return nil
