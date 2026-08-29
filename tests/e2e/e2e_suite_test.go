@@ -20,6 +20,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
+	oadpv1alpha1 "github.com/openshift/oadp-operator/api/v1alpha1"
 	"github.com/openshift/oadp-operator/tests/e2e/lib"
 	libhcp "github.com/openshift/oadp-operator/tests/e2e/lib/hcp"
 )
@@ -225,6 +226,18 @@ func TestOADPE2E(t *testing.T) {
 		SnapshotLocations:    dpa.DeepCopy().Spec.SnapshotLocations,
 		UnsupportedOverrides: dpa.DeepCopy().Spec.UnsupportedOverrides,
 	}
+
+	// TEMPORARY: overrides kdm-controller with a build carrying
+	// migtools/kubevirt-datamover-controller#208 and #212 (neither merged
+	// upstream yet), so the incremental-sequence spec can actually validate
+	// those fixes instead of self-skipping on the known flake pattern every
+	// run (see lib.CheckIfFlakeOccurred). Remove this override once #208/#212
+	// merge and a release picks them up -- the settings.json-driven
+	// UnsupportedOverrides above is the normal, permanent path for this.
+	if dpaCR.UnsupportedOverrides == nil {
+		dpaCR.UnsupportedOverrides = map[oadpv1alpha1.UnsupportedImageKey]string{}
+	}
+	dpaCR.UnsupportedOverrides[oadpv1alpha1.KubeVirtDatamoverControllerImageKey] = "quay.io/tkaovila/kubevirt-datamover-controller:combined-208-212-test"
 
 	ginkgo.RunSpecs(t, "OADP E2E using velero prefix: "+veleroPrefix)
 }
