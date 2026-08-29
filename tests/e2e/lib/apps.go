@@ -10,6 +10,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"reflect"
+	"regexp"
 	"sort"
 	"strings"
 	"time"
@@ -447,10 +448,67 @@ func RunMustGather(artifact_dir string, clusterClient client.Client) error {
 	mustGatherSummaryText := string(mustGatherSummaryContent)
 
 	if !strings.Contains(mustGatherSummaryText, "No errors happened or were found while running OADP must-gather") {
-		return errors.New("expected no errors in must-gather Errors section")
+		if !mustGatherErrorsAreOnlyKnownBenignWarnings(mustGatherSummaryText) {
+			return errors.New("expected no errors in must-gather Errors section")
+		}
 	}
 
 	return nil
+}
+
+// mustGatherKnownBenignErrorPatterns are must-gather "Errors" section lines
+// that are purely informational -- the summary generator flags any DPA using
+// spec.unsupportedOverrides at all, regardless of which key or why, since
+// that field is inherently "unsupported" by design. A test intentionally
+// using it (e.g. to override kdm-controller's image with a candidate fix
+// build before it merges upstream) is not itself an error condition, and
+// treating it as one broke every e2e job's must-gather check the moment any
+// suite's DPA carried an UnsupportedOverrides entry -- confirmed live on
+// oadp-operator PR#2404, where a single test-time override in
+// e2e_suite_test.go's shared dpaCR broke unrelated CLI e2e jobs across
+// multiple OCP versions. Any OTHER line in the Errors section still fails
+// the check below -- only this specific, expected caveat is tolerated.
+var mustGatherKnownBenignErrorPatterns = []*regexp.Regexp{
+	regexp.MustCompile(`is using \*\*unsupportedOverrides\*\*`),
+}
+
+// mustGatherErrorsAreOnlyKnownBenignWarnings extracts the "## Errors" section
+// of the must-gather summary and reports whether every non-blank line in it
+// matches a known-benign pattern above. Returns false (i.e. a real error is
+// present) if the section can't be found at all, to fail safe.
+func mustGatherErrorsAreOnlyKnownBenignWarnings(summary string) bool {
+	lines := strings.Split(summary, "\n")
+	start := -1
+	for i, line := range lines {
+		if strings.TrimSpace(line) == "## Errors" {
+			start = i + 1
+			break
+		}
+	}
+	if start == -1 {
+		return false
+	}
+
+	for _, line := range lines[start:] {
+		trimmed := strings.TrimSpace(line)
+		if trimmed == "" {
+			continue
+		}
+		if strings.HasPrefix(trimmed, "## ") {
+			break
+		}
+		matched := false
+		for _, p := range mustGatherKnownBenignErrorPatterns {
+			if p.MatchString(trimmed) {
+				matched = true
+				break
+			}
+		}
+		if !matched {
+			return false
+		}
+	}
+	return true
 }
 
 // VerifyBackupRestoreData verifies if app ready before backup and after restore to compare data.
