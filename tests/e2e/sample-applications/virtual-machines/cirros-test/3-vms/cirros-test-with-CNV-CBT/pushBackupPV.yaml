@@ -1,0 +1,29 @@
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: pushbackup-pv
+  namespace: cirros-test-cont # Note: PVs are cluster-scoped, namespace here is often ignored by K8s but kept for user context
+spec:
+  capacity:
+    storage: 500Mi
+  accessModes:
+    - ReadWriteOnce
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: ""
+  hostPath:
+    path: "/mnt/data"
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: pushbackup-pv
+  namespace: cirros-test-cont
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: ""
+  volumeName: pushbackup-pv
+  resources:
+    requests:
+      storage: 500Mi

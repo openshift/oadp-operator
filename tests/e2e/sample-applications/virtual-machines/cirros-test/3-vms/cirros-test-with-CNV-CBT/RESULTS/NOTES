@@ -1,0 +1,9 @@
+# Notes
+
+After downloading the qcow2 files to my laptop.. check the size of files
+
+```
+-rw-r--r--. 1 whayutin whayutin 896K Jan 14 09:28  vmbackup-cirros-test-cont-1-inc-1-volume0.qcow2
+-rw-r--r--. 1 whayutin whayutin 151M Jan 14 09:29  vmbackup-cirros-test-cont-1-volume0.qcow2
+```
+
