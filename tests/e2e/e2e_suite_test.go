@@ -231,13 +231,19 @@ func TestOADPE2E(t *testing.T) {
 	// migtools/kubevirt-datamover-controller#208 and #212 (neither merged
 	// upstream yet), so the incremental-sequence spec can actually validate
 	// those fixes instead of self-skipping on the known flake pattern every
-	// run (see lib.CheckIfFlakeOccurred). Remove this override once #208/#212
-	// merge and a release picks them up -- the settings.json-driven
-	// UnsupportedOverrides above is the normal, permanent path for this.
+	// run (see lib.CheckIfFlakeOccurred). #212 also now includes a second,
+	// intermittent fix: handleAccepted was trusting the informer cache's
+	// (possibly stale) VirtualMachineBackup.Status instead of re-reading it
+	// via APIReader before concluding terminal state -- found live via a
+	// Prow failure (ci/prow/5.0-e2e-test-kubevirt-aws) where virt-controller
+	// had already written Done=True but kdm-controller's reconcile loop
+	// never observed it. Remove this override once #208/#212 merge and a
+	// release picks them up -- the settings.json-driven UnsupportedOverrides
+	// above is the normal, permanent path for this.
 	if dpaCR.UnsupportedOverrides == nil {
 		dpaCR.UnsupportedOverrides = map[oadpv1alpha1.UnsupportedImageKey]string{}
 	}
-	dpaCR.UnsupportedOverrides[oadpv1alpha1.KubeVirtDatamoverControllerImageKey] = "quay.io/tkaovila/kubevirt-datamover-controller:combined-208-212-test"
+	dpaCR.UnsupportedOverrides[oadpv1alpha1.KubeVirtDatamoverControllerImageKey] = "quay.io/tkaovila/kubevirt-datamover-controller:combined-208-212v2-test"
 
 	ginkgo.RunSpecs(t, "OADP E2E using velero prefix: "+veleroPrefix)
 }
