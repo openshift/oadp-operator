@@ -67,6 +67,29 @@ func FilterLogLinesContaining(logs string, substrs ...string) string {
 // Parameters:
 //
 //	logs ([]string):    Logs to be examined for known flake patterns.
+//
+// Name-bearing status of each pattern below, for callers pre-filtering with
+// FilterLogLinesContaining (verified against kdm-controller source
+// migtools/kubevirt-datamover-controller@internal/controller/kubevirt_dataupload_controller.go,
+// 2026-08-29 -- re-check this if that file's logger plumbing changes):
+//   - kdm-controller#208/#212: both log via a logger parameter threaded down
+//     unmodified from Reconcile's log.FromContext(ctx), so even a bare
+//     logger.Info() call (no inline args, e.g. #208's call site) still
+//     carries the DataUpload name/namespace via controller-runtime's
+//     per-request context injection. Safe to scope by backup/DataUpload name.
+//   - CNV-85377 ("is being attached to VMI"): not found verbatim in
+//     kdm-controller source; if it ever surfaces there it would be via a VMB
+//     condition Reason/Message logged inline (e.g. "reason", cond.Reason) on
+//     the same shared logger above -- also safe. Otherwise it's virt-controller's
+//     own condition text, which reaches us only via Kubernetes Events, same
+//     as the #18957 pattern below.
+//   - kubevirt#18957 ("VMI backup status was lost"): virt-controller's own
+//     event text, never appears in any pod log -- callers must check this
+//     against Namespace Events (already namespace-scoped), never filtered
+//     pod logs, or it will never match.
+//   - external-snapshotter#876, velero#5856, OADP-5086: velero/snapshot-controller
+//     strings that never appear in kdm-controller's own log; irrelevant to
+//     scoping decisions made against kdm-controller pod logs specifically.
 func CheckIfFlakeOccurred(logs []string) bool {
 	flakePatterns := []FlakePattern{
 		{
