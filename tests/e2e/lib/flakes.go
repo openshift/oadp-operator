@@ -72,17 +72,13 @@ func FilterLogLinesContaining(logs string, substrs ...string) string {
 // FilterLogLinesContaining (verified against kdm-controller source
 // migtools/kubevirt-datamover-controller@internal/controller/kubevirt_dataupload_controller.go,
 // 2026-08-29 -- re-check this if that file's logger plumbing changes):
-//   - kdm-controller#208/#212: both log via a logger parameter threaded down
-//     unmodified from Reconcile's log.FromContext(ctx), so even a bare
-//     logger.Info() call (no inline args, e.g. #208's call site) still
-//     carries the DataUpload name/namespace via controller-runtime's
-//     per-request context injection. Safe to scope by backup/DataUpload name.
 //   - CNV-85377 ("is being attached to VMI"): not found verbatim in
 //     kdm-controller source; if it ever surfaces there it would be via a VMB
 //     condition Reason/Message logged inline (e.g. "reason", cond.Reason) on
-//     the same shared logger above -- also safe. Otherwise it's virt-controller's
-//     own condition text, which reaches us only via Kubernetes Events, same
-//     as the #18957 pattern below.
+//     kdm-controller's shared, context-injected logger -- also safe to scope
+//     by backup/DataUpload name. Otherwise it's virt-controller's own
+//     condition text, which reaches us only via Kubernetes Events, same as
+//     the #18957 pattern below.
 //   - kubevirt#18957 ("VMI backup status was lost"): virt-controller's own
 //     event text, never appears in any pod log -- callers must check this
 //     against Namespace Events (already namespace-scoped), never filtered
@@ -116,16 +112,6 @@ func CheckIfFlakeOccurred(logs []string) bool {
 			Issue:               "https://github.com/kubevirt/kubevirt/pull/18957",
 			Description:         "virt-controller's reconcileStart() (pkg/storage/cbt/backup.go) can mark an already-successfully-completed VirtualMachineBackup Failed with reason SourceLost: cleanupVMIState() clears the VMI's BackupStatus and re-triggers reconcile before the backup's own just-written terminal status is visible via the informer's async cache, so the stale reconcile wrongly concludes the status was lost mid-flight -- observed live immediately after a real 'Completed VirtualMachineBackup, warning: ...' event, first seen testing kubevirt/kubevirt nightly (v1.20.0). Fixed at kubevirt/kubevirt#18957 (checks the API server directly before concluding lost); distinct from CNV-85377/kubevirt/kubevirt#18949.",
 			StringSearchPattern: "VMI backup status was lost",
-		},
-		{
-			Issue:               "https://github.com/migtools/kubevirt-datamover-controller/pull/208",
-			Description:         "kubevirt-datamover-controller's evaluateVMBackupStatus/isVMBTerminal looked only for a VirtualMachineBackup condition of type \"Done\" (kubevirtbackupv1alpha1.ConditionDone, from its vendored kubevirt.io/api v1.8.0-alpha.0), but kubevirt nightly (v1.20.0+) renamed that condition to \"Complete\" -- the VMB itself completes fine (conditions show Complete=True, reason=CompletedWithWarning), but the controller never recognized it and just logged \"VirtualMachineBackup in progress, requeuing\" forever, confirmed live: 243 occurrences over a 20-minute test timeout. Fixed at migtools/kubevirt-datamover-controller#208 (declares a local conditionComplete=\"Complete\" literal and accepts both the old and new condition names, rather than bumping the vendored kubevirt.io/api -- TDD via TestHandleAccepted_VMBStatusDetection/TestIsVMBTerminal). A dependency-version-skew bug in kdm-controller, not this repo or kubevirt itself, surfaced only because HCO_INDEX_TAG now defaults to nightly.",
-			StringSearchPattern: "VirtualMachineBackup in progress, requeuing",
-		},
-		{
-			Issue:               "https://github.com/migtools/kubevirt-datamover-controller/pull/212",
-			Description:         "kubevirt-datamover-controller's DataUpload reconcile logs \"VMBT already prepared but VMB not yet visible in cache, requeuing\" every ~5s forever. Root cause (migtools/kubevirt-datamover-controller#211): a guard checking findVMBForDataUpload's result via the informer cache was written when that lookup had no APIReader direct-read fallback and prepareVMBackupTracker used to delete-and-recreate the VMBT -- neither is true anymore (the lookup already falls back to a direct API read, and the VMBT is now reused via a VM-name-hash label instead of being deleted), so vmb==nil at the guard is never just \"not yet cached\", it's a real absence. The actual delay is Step 4's VMB creation being rejected by KubeVirt's admission webhook (one active VMB per VM) *after* Step 2 already persisted the VMBTName annotation -- every subsequent reconcile then short-circuits on the now-stale guard and Step 4 is never retried, so the VMB is never created and the DataUpload spins until OperationTimeout. Fixed at migtools/kubevirt-datamover-controller#212 (fixes #211): removes the guard entirely, falling through to the existing idempotent Steps 2-4, so a cleared admission conflict lets VMB creation actually retry and succeed. Our backup-delete-before-skip workaround (see the two ginkgo.Skip sites in this file) remains a useful defensive backstop even after this lands.",
-			StringSearchPattern: "VMBT already prepared but VMB not yet visible in cache, requeuing",
 		},
 	}
 	logString := strings.Join(logs, "\n")
