@@ -281,6 +281,16 @@ func waitForKubevirtDatamoverControllerRollout(cl client.Client, timeout time.Du
 // panic. This is a KubeVirt/CNV core issue -- virt-controller owns the VirtualMachineBackup
 // status, and kubevirt-datamover-controller only ever reads it (RBAC-verified: `get` only
 // on virtualmachinebackups/status) -- not something this repo's retry logic can fix.
+//
+// A third manifestation of the SAME attach-freeze bug (confirmed by kubevirt-fixer to
+// trace to the identical root cause as kubevirt/kubevirt#18949, not a separate issue):
+// the VirtualMachineBackup can sit with ZERO status.conditions for the entire backup
+// timeout -- not even the Initializing "is being attached to VMI" condition ever gets
+// written. Confirmed live (2026-08-29, direct APIReader access on a real cluster) via
+// 244 consecutive uncached reads across 20 minutes, all nil. This has no distinguishing
+// log text for CheckIfFlakeOccurred to match (kdm-controller's generic "in progress,
+// requeuing" message is identical to a perfectly healthy backup's normal early-lifecycle
+// state), so lib.VirtOperator.VMBHasNoConditions checks the VMB object directly instead.
 func runKubevirtDMBackup(v *lib.VirtOperator, vmNamespace, backupName string, onDataUploadFound func(dataUploadName, expectedBackupType string)) {
 	defer func() {
 		pod, err := lib.GetPodWithLabel(kubernetesClientForSuiteRun, namespace, "control-plane=oadp-kubevirt-datamover-controller")
@@ -443,6 +453,7 @@ func runKubevirtDMBackup(v *lib.VirtOperator, vmNamespace, backupName string, on
 	// failing/retrying on) the full timeout.
 	lastFlakeCheck := time.Time{}
 	lastFlakeMatched := false
+	emptyConditionsSince := time.Time{}
 	err = wait.PollUntilContextTimeout(context.Background(), 10*time.Second, 20*time.Minute, true, func(ctx context.Context) (bool, error) {
 		done, doneErr := lib.IsKubevirtDMBackupDone(dpaCR.Client, dynamicClientForSuiteRun, namespace, backupName)()
 		if doneErr != nil {
@@ -455,6 +466,26 @@ func runKubevirtDMBackup(v *lib.VirtOperator, vmNamespace, backupName string, on
 			return false, nil
 		}
 		lastFlakeCheck = time.Now()
+		// Second, distinct manifestation of the same CNV-85377/kubevirt/kubevirt#18949
+		// bug: the VirtualMachineBackup can sit with ZERO status.conditions for the
+		// whole timeout instead of a specific frozen "is being attached to VMI"
+		// message -- no text for CheckIfFlakeOccurred below to match against, so
+		// check the VMB object directly. Require it to persist for a few checks
+		// (not just the first sighting) since a freshly-created VMB briefly has no
+		// conditions yet under completely normal, healthy operation.
+		if empty, found, vmbErr := v.VMBHasNoConditions(vmNamespace, dataUploadName); vmbErr == nil && found {
+			if empty {
+				if emptyConditionsSince.IsZero() {
+					emptyConditionsSince = time.Now()
+				} else if time.Since(emptyConditionsSince) >= 3*time.Minute {
+					lastFlakeMatched = true
+					_ = lib.NudgeVmiToTriggerResync(dynamicClientForSuiteRun, vmNamespace)
+					return false, nil
+				}
+			} else {
+				emptyConditionsSince = time.Time{}
+			}
+		}
 		pod, podErr := lib.GetPodWithLabel(kubernetesClientForSuiteRun, namespace, "control-plane=oadp-kubevirt-datamover-controller")
 		if podErr != nil {
 			return false, nil

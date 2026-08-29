@@ -1554,6 +1554,44 @@ func (v *VirtOperator) GetVMBBackupType(namespace, dataUploadName string) (backu
 	return "", "", fmt.Errorf("no VirtualMachineBackup found in %s with %s=%s", namespace, annotationDataUploadName, dataUploadName)
 }
 
+// VMBHasNoConditions finds the VirtualMachineBackup in namespace whose
+// annotationDataUploadName annotation matches dataUploadName, and reports
+// whether it exists but has zero status.conditions (not merely missing a
+// Done/Complete condition -- genuinely none at all).
+//
+// This is a second, distinct manifestation of the same upstream bug as
+// CNV-85377/kubevirt/kubevirt#18949 (see lib.NudgeVmiToTriggerResync's doc
+// comment): confirmed live (2026-08-29, oadp-operator PR#2404) via direct
+// APIReader access on a real cluster that a VirtualMachineBackup can sit
+// with status.conditions == nil for the ENTIRE backup timeout (20+ minutes,
+// 244 consecutive uncached reads all nil) -- not even an Initializing/
+// Progressing condition ever gets written, so kdm-controller's own log has
+// no distinguishing text to pattern-match against (its generic "in
+// progress, requeuing" message is identical to a perfectly healthy backup's
+// normal early-lifecycle message). kubevirt-fixer confirmed this traces to
+// the exact same root cause as #18949 (startBackup()'s attach branch never
+// writing a status condition), just with an even earlier/more complete
+// failure to write anything at all -- not a separate bug. Returns
+// found=false (not a match) if the VMB doesn't exist yet at all, since
+// that's a different, earlier-stage scenario already handled elsewhere.
+func (v *VirtOperator) VMBHasNoConditions(namespace, dataUploadName string) (empty bool, found bool, err error) {
+	list, err := v.Dynamic.Resource(virtualMachineBackupGvr).Namespace(namespace).List(context.Background(), metav1.ListOptions{})
+	if err != nil {
+		return false, false, fmt.Errorf("failed to list VirtualMachineBackups in %s: %w", namespace, err)
+	}
+	for _, vmb := range list.Items {
+		if vmb.GetAnnotations()[annotationDataUploadName] != dataUploadName {
+			continue
+		}
+		conditions, _, err := unstructured.NestedSlice(vmb.Object, "status", "conditions")
+		if err != nil {
+			return false, true, fmt.Errorf("failed to read status.conditions from VirtualMachineBackup %s/%s: %w", namespace, vmb.GetName(), err)
+		}
+		return len(conditions) == 0, true, nil
+	}
+	return false, false, nil
+}
+
 // vmbBackupProtectionFinalizer is the finalizer virt-controller stamps on a
 // VirtualMachineBackup while it is protecting an in-progress backup.
 const vmbBackupProtectionFinalizer = "backup.kubevirt.io/vmbackup-protection"
