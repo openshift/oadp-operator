@@ -1320,10 +1320,26 @@ func (v *VirtOperator) RequireVEP25Support() error {
 	return nil
 }
 
-// EnableCBTFeatureGate patches the HyperConverged CR to set
-// spec.featureGates.incrementalBackup = true, then waits for the KubeVirt CR
-// to reflect "IncrementalBackup" in its featureGates and for the
-// backup.kubevirt.io CRDs to appear (requires KubeVirt >= 1.8 / HCO >= 1.18).
+// EnableCBTFeatureGate patches the HyperConverged CR to enable the
+// "incrementalBackup" feature gate, then waits for the KubeVirt CR to reflect
+// "IncrementalBackup" in its featureGates and for the backup.kubevirt.io CRDs
+// to appear (requires KubeVirt >= 1.8 / HCO >= 1.18).
+//
+// spec.featureGates is HCO's `[]FeatureGate{Name string, State *string}` array
+// (api/v1/featuregates/feature_gates.go, State one of "Enabled"/"Disabled") --
+// NOT a map with a bool field per gate name. Confirmed by fetching that type at
+// both HEAD and the v1.18.0 tag: identical shape, no version skew, so this was
+// simply wrong the whole time, not something that changed under us. Writing
+// the old {"incrementalBackup": true} object shape instead of a matching array
+// entry corrupts the CR's stored spec.featureGates -- HCO's own v1beta1 write
+// path is permissive enough to accept it, but the v1 conversion webhook then
+// fails to unmarshal it on the next read: "conversion webhook for
+// hco.kubevirt.io/v1, Kind=HyperConverged failed: json: cannot unmarshal
+// object into Go struct field HyperConvergedSpec.spec.featureGates of type
+// featuregates.HyperConvergedFeatureGates" -- confirmed live as the actual
+// cause of an unrelated-looking suite-wide BeforeAll timeout on
+// oadp-operator PR#2404, previously misattributed to a separate upstream
+// issue (kubevirt/hyperconverged-cluster-operator#4549).
 func (v *VirtOperator) EnableCBTFeatureGate(timeout time.Duration) error {
 	log.Printf("Enabling incrementalBackup feature gate on HCO")
 
@@ -1333,10 +1349,25 @@ func (v *VirtOperator) EnableCBTFeatureGate(timeout time.Duration) error {
 			return false, fmt.Errorf("failed to get HCO: %w", err)
 		}
 
-		current, _, _ := unstructured.NestedBool(hco.UnstructuredContent(), "spec", "featureGates", "incrementalBackup")
-		log.Printf("HCO spec.featureGates.incrementalBackup current value: %v — setting to true", current)
+		gates, _, _ := unstructured.NestedSlice(hco.UnstructuredContent(), "spec", "featureGates")
+		updated := false
+		for _, g := range gates {
+			gate, ok := g.(map[string]interface{})
+			if !ok {
+				continue
+			}
+			if name, _, _ := unstructured.NestedString(gate, "name"); name == "incrementalBackup" {
+				gate["state"] = "Enabled"
+				updated = true
+				break
+			}
+		}
+		if !updated {
+			gates = append(gates, map[string]interface{}{"name": "incrementalBackup", "state": "Enabled"})
+		}
+		log.Printf("HCO spec.featureGates: setting incrementalBackup to Enabled (updated existing entry: %v)", updated)
 
-		if err := unstructured.SetNestedField(hco.UnstructuredContent(), true, "spec", "featureGates", "incrementalBackup"); err != nil {
+		if err := unstructured.SetNestedSlice(hco.UnstructuredContent(), gates, "spec", "featureGates"); err != nil {
 			return false, fmt.Errorf("failed to set incrementalBackup feature gate: %w", err)
 		}
 
