@@ -82,7 +82,22 @@ var packageManifestsGvr = schema.GroupVersionResource{
 	Version:  "v1",
 }
 
-var hyperConvergedGvr = schema.GroupVersionResource{
+// hco.kubevirt.io's HyperConverged CRD has two served API versions with a
+// conversion webhook between them. v1 is the storage/hub version (confirmed
+// via the CRD's own manifest: v1 has storage:true, v1beta1 has
+// storage:false), so reading/writing v1 directly needs zero conversion,
+// while v1beta1 always round-trips through HCO's conversion webhook. That
+// webhook has a live upstream bug (kubevirt/hyperconverged-cluster-operator#4549)
+// that can reject valid spec.featureGates writes/reads made via v1beta1.
+// Prefer v1 whenever the cluster serves it; fall back to v1beta1 only for
+// older HCO releases that don't yet serve v1. See hyperConvergedGVR().
+var hyperConvergedGvrV1 = schema.GroupVersionResource{
+	Group:    "hco.kubevirt.io",
+	Resource: "hyperconvergeds",
+	Version:  "v1",
+}
+
+var hyperConvergedGvrV1beta1 = schema.GroupVersionResource{
 	Group:    "hco.kubevirt.io",
 	Resource: "hyperconvergeds",
 	Version:  "v1beta1",
@@ -149,6 +164,31 @@ type VirtOperator struct {
 	Upstream         bool
 	CommunityIndex   string // HCO index image tag (e.g. "1.17.1"); empty means no custom catalog
 	CommunityChannel string // OLM channel actually published by that tag's catalog (discovered, not guessed)
+
+	hcoGVR *schema.GroupVersionResource // cache for hyperConvergedGVR(), resolved once via discovery
+}
+
+// hyperConvergedGVR returns the HyperConverged GVR to use against this
+// cluster, preferring v1 (the CRD's storage/hub version, see the comment on
+// hyperConvergedGvrV1) whenever it's actually served, and falling back to
+// v1beta1 otherwise. The result is discovered once via the Discovery API and
+// cached for the lifetime of this VirtOperator.
+func (v *VirtOperator) hyperConvergedGVR() schema.GroupVersionResource {
+	if v.hcoGVR != nil {
+		return *v.hcoGVR
+	}
+
+	gvr := hyperConvergedGvrV1beta1
+	if v.Clientset != nil {
+		groupVersion := hyperConvergedGvrV1.Group + "/" + hyperConvergedGvrV1.Version
+		if _, err := v.Clientset.Discovery().ServerResourcesForGroupVersion(groupVersion); err == nil {
+			gvr = hyperConvergedGvrV1
+		} else {
+			log.Printf("hco.kubevirt.io/v1 not served (%v), falling back to v1beta1", err)
+		}
+	}
+	v.hcoGVR = &gvr
+	return gvr
 }
 
 // communityChannelFromTag derives the OLM subscription channel name from an HCO
@@ -525,7 +565,7 @@ func (v *VirtOperator) checkCsv() bool {
 // health status field is "healthy". Uses dynamic client to avoid uprooting lots
 // of package dependencies, which should probably be fixed later.
 func (v *VirtOperator) checkHco() bool {
-	unstructuredHco, err := v.Dynamic.Resource(hyperConvergedGvr).Namespace(v.Namespace).Get(context.Background(), "kubevirt-hyperconverged", metav1.GetOptions{})
+	unstructuredHco, err := v.Dynamic.Resource(v.hyperConvergedGVR()).Namespace(v.Namespace).Get(context.Background(), "kubevirt-hyperconverged", metav1.GetOptions{})
 	if err != nil {
 		log.Printf("Error getting HCO: %v", err)
 		return false
@@ -549,7 +589,7 @@ func (v *VirtOperator) checkHco() bool {
 // the jsonpatch annotation array. This handles annotations that contain
 // additional patches (e.g. CBT label selectors).
 func (v *VirtOperator) checkEmulation() bool {
-	hco, err := v.Dynamic.Resource(hyperConvergedGvr).Namespace(v.Namespace).Get(context.Background(), "kubevirt-hyperconverged", metav1.GetOptions{})
+	hco, err := v.Dynamic.Resource(v.hyperConvergedGVR()).Namespace(v.Namespace).Get(context.Background(), "kubevirt-hyperconverged", metav1.GetOptions{})
 	if err != nil {
 		return false
 	}
@@ -648,9 +688,10 @@ func (v *VirtOperator) installSubscription() error {
 // Creates a HyperConverged Operator instance. Another dynamic client to avoid
 // bringing in the KubeVirt APIs for now.
 func (v *VirtOperator) installHco() error {
+	gvr := v.hyperConvergedGVR()
 	unstructuredHco := unstructured.Unstructured{
 		Object: map[string]interface{}{
-			"apiVersion": "hco.kubevirt.io/v1beta1",
+			"apiVersion": gvr.Group + "/" + gvr.Version,
 			"kind":       "HyperConverged",
 			"metadata": map[string]interface{}{
 				"name":      "kubevirt-hyperconverged",
@@ -659,7 +700,7 @@ func (v *VirtOperator) installHco() error {
 			"spec": map[string]interface{}{},
 		},
 	}
-	_, err := v.Dynamic.Resource(hyperConvergedGvr).Namespace(v.Namespace).Create(context.Background(), &unstructuredHco, metav1.CreateOptions{})
+	_, err := v.Dynamic.Resource(v.hyperConvergedGVR()).Namespace(v.Namespace).Create(context.Background(), &unstructuredHco, metav1.CreateOptions{})
 	if err != nil {
 		log.Printf("Error creating HCO: %v", err)
 		return err
@@ -669,7 +710,7 @@ func (v *VirtOperator) installHco() error {
 }
 
 func (v *VirtOperator) configureEmulation() error {
-	hco, err := v.Dynamic.Resource(hyperConvergedGvr).Namespace(v.Namespace).Get(context.Background(), "kubevirt-hyperconverged", metav1.GetOptions{})
+	hco, err := v.Dynamic.Resource(v.hyperConvergedGVR()).Namespace(v.Namespace).Get(context.Background(), "kubevirt-hyperconverged", metav1.GetOptions{})
 	if err != nil {
 		return err
 	}
@@ -708,7 +749,7 @@ func (v *VirtOperator) configureEmulation() error {
 		return err
 	}
 
-	_, err = v.Dynamic.Resource(hyperConvergedGvr).Namespace(v.Namespace).Update(context.Background(), hco, metav1.UpdateOptions{})
+	_, err = v.Dynamic.Resource(v.hyperConvergedGVR()).Namespace(v.Namespace).Update(context.Background(), hco, metav1.UpdateOptions{})
 	return err
 }
 
@@ -835,7 +876,7 @@ func (v *VirtOperator) removeCsv() error {
 
 // Deletes a HyperConverged Operator instance.
 func (v *VirtOperator) removeHco() error {
-	err := v.Dynamic.Resource(hyperConvergedGvr).Namespace(v.Namespace).Delete(context.Background(), "kubevirt-hyperconverged", metav1.DeleteOptions{})
+	err := v.Dynamic.Resource(v.hyperConvergedGVR()).Namespace(v.Namespace).Delete(context.Background(), "kubevirt-hyperconverged", metav1.DeleteOptions{})
 	if err != nil {
 		log.Printf("Error deleting HCO: %v", err)
 		return err
@@ -1327,20 +1368,48 @@ func (v *VirtOperator) RequireVEP25Support() error {
 func (v *VirtOperator) EnableCBTFeatureGate(timeout time.Duration) error {
 	log.Printf("Enabling incrementalBackup feature gate on HCO")
 
+	gvr := v.hyperConvergedGVR()
 	err := wait.PollUntilContextTimeout(context.Background(), 5*time.Second, timeout, true, func(ctx context.Context) (bool, error) {
-		hco, err := v.Dynamic.Resource(hyperConvergedGvr).Namespace(v.Namespace).Get(ctx, "kubevirt-hyperconverged", metav1.GetOptions{})
+		hco, err := v.Dynamic.Resource(gvr).Namespace(v.Namespace).Get(ctx, "kubevirt-hyperconverged", metav1.GetOptions{})
 		if err != nil {
 			return false, fmt.Errorf("failed to get HCO: %w", err)
 		}
 
-		current, _, _ := unstructured.NestedBool(hco.UnstructuredContent(), "spec", "featureGates", "incrementalBackup")
-		log.Printf("HCO spec.featureGates.incrementalBackup current value: %v — setting to true", current)
+		// v1's spec.featureGates is HyperConvergedFeatureGates, an array of
+		// {name, state} objects (confirmed against api/v1/featuregates), unlike
+		// v1beta1's object-with-named-bool-fields shape. Set the right shape
+		// for whichever version we're actually talking to.
+		if gvr.Version == hyperConvergedGvrV1.Version {
+			gates, _, _ := unstructured.NestedSlice(hco.UnstructuredContent(), "spec", "featureGates")
+			idx := -1
+			for i, g := range gates {
+				if m, ok := g.(map[string]interface{}); ok {
+					if name, _ := m["name"].(string); strings.EqualFold(name, "incrementalBackup") {
+						idx = i
+						break
+					}
+				}
+			}
+			log.Printf("HCO spec.featureGates (v1 array) incrementalBackup already present: %v — setting to Enabled", idx >= 0)
+			entry := map[string]interface{}{"name": "incrementalBackup", "state": "Enabled"}
+			if idx >= 0 {
+				gates[idx] = entry
+			} else {
+				gates = append(gates, entry)
+			}
+			if err := unstructured.SetNestedSlice(hco.UnstructuredContent(), gates, "spec", "featureGates"); err != nil {
+				return false, fmt.Errorf("failed to set incrementalBackup feature gate (v1 array): %w", err)
+			}
+		} else {
+			current, _, _ := unstructured.NestedBool(hco.UnstructuredContent(), "spec", "featureGates", "incrementalBackup")
+			log.Printf("HCO spec.featureGates.incrementalBackup current value: %v — setting to true", current)
 
-		if err := unstructured.SetNestedField(hco.UnstructuredContent(), true, "spec", "featureGates", "incrementalBackup"); err != nil {
-			return false, fmt.Errorf("failed to set incrementalBackup feature gate: %w", err)
+			if err := unstructured.SetNestedField(hco.UnstructuredContent(), true, "spec", "featureGates", "incrementalBackup"); err != nil {
+				return false, fmt.Errorf("failed to set incrementalBackup feature gate: %w", err)
+			}
 		}
 
-		_, err = v.Dynamic.Resource(hyperConvergedGvr).Namespace(v.Namespace).Update(ctx, hco, metav1.UpdateOptions{})
+		_, err = v.Dynamic.Resource(gvr).Namespace(v.Namespace).Update(ctx, hco, metav1.UpdateOptions{})
 		if err != nil {
 			if apierrors.IsConflict(err) {
 				log.Printf("HCO modification conflict setting incrementalBackup, retrying...")
@@ -1428,7 +1497,7 @@ func (v *VirtOperator) EnableCBTLabelSelector(timeout time.Duration) error {
 	}
 
 	err := wait.PollUntilContextTimeout(context.Background(), 5*time.Second, timeout, true, func(ctx context.Context) (bool, error) {
-		hco, err := v.Dynamic.Resource(hyperConvergedGvr).Namespace(v.Namespace).Get(ctx, "kubevirt-hyperconverged", metav1.GetOptions{})
+		hco, err := v.Dynamic.Resource(v.hyperConvergedGVR()).Namespace(v.Namespace).Get(ctx, "kubevirt-hyperconverged", metav1.GetOptions{})
 		if err != nil {
 			return false, fmt.Errorf("failed to get HCO: %w", err)
 		}
@@ -1464,7 +1533,7 @@ func (v *VirtOperator) EnableCBTLabelSelector(timeout time.Duration) error {
 			return false, err
 		}
 
-		_, err = v.Dynamic.Resource(hyperConvergedGvr).Namespace(v.Namespace).Update(ctx, hco, metav1.UpdateOptions{})
+		_, err = v.Dynamic.Resource(v.hyperConvergedGVR()).Namespace(v.Namespace).Update(ctx, hco, metav1.UpdateOptions{})
 		if err != nil {
 			if apierrors.IsConflict(err) {
 				log.Printf("HCO modification conflict setting CBT label selector, retrying...")
