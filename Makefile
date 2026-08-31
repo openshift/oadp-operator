@@ -1003,9 +1003,11 @@ TEST_VIRT ?= false
 # TEST_VIRT_KDM runs only the kubevirt-datamover-specific specs (ginkgo label
 # "kdm", a subset of "virt") -- for CI jobs that build/test against the
 # kubevirt-datamover-controller/-plugin repos specifically and don't need the
-# full TEST_VIRT suite's runtime. TEST_VIRT=true already covers these specs
-# too, since they carry both labels -- this only matters when TEST_VIRT_KDM
-# is set WITHOUT TEST_VIRT.
+# full TEST_VIRT suite's runtime. TEST_VIRT=true excludes kdm specs (see
+# TEST_FILTER below) so the two suites can run as separate, parallel CI jobs
+# without overlap -- see https://github.com/openshift/oadp-operator/issues/2413
+# option B. Set TEST_VIRT_KDM=true (with or without TEST_VIRT) to run kdm
+# specs only.
 TEST_VIRT_KDM ?= false
 HCO_INDEX_TAG ?= 1.18.0
 # hcp
@@ -1027,12 +1029,15 @@ FAIL_FAST ?= true
 TEST_FILTER = (($(shell echo '! aws && ! gcp && ! azure && ! ibmcloud' | \
 $(SED) -r "s/[&]* [!] $(CLUSTER_TYPE)|[!] $(CLUSTER_TYPE) [&]*//")) || $(CLUSTER_TYPE))
 #TEST_FILTER := $(shell echo '! aws && ! gcp && ! azure' | $(SED) -r "s/[&]* [!] $(CLUSTER_TYPE)|[!] $(CLUSTER_TYPE) [&]*//")
-ifeq ($(TEST_VIRT),true)
-	TEST_FILTER += && (virt)
+# TEST_VIRT_KDM takes precedence: it isolates the kdm job regardless of
+# TEST_VIRT/TEST_VIRT_GA. Otherwise TEST_VIRT excludes kdm specs (they run as
+# their own job via TEST_VIRT_KDM=true) -- option B of issue #2413.
+ifeq ($(TEST_VIRT_KDM),true)
+	TEST_FILTER += && (kdm)
+else ifeq ($(TEST_VIRT),true)
+	TEST_FILTER += && (virt) && (! kdm)
 else ifeq ($(TEST_VIRT_GA),true)
 	TEST_FILTER += && (virt)
-else ifeq ($(TEST_VIRT_KDM),true)
-	TEST_FILTER += && (kdm)
 else
 	TEST_FILTER += && (! virt)
 endif
