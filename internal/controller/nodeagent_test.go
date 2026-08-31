@@ -1891,6 +1891,9 @@ func TestDPAReconciler_updateNodeAgentCM(t *testing.T) {
 							}
 						}
 					],
+					"podLabels": {
+						"oadp.openshift.io/network-policy": "velero"
+					},
 					"privilegedFsBackup": true
 				}`,
 			}),
@@ -1951,6 +1954,9 @@ func TestDPAReconciler_updateNodeAgentCM(t *testing.T) {
 								"number": 1
 							}
 						]
+					},
+					"podLabels": {
+						"oadp.openshift.io/network-policy": "velero"
 					},
 					"privilegedFsBackup": true
 				}`,
@@ -2077,6 +2083,9 @@ func TestDPAReconciler_updateNodeAgentCM(t *testing.T) {
 					"restorePVC": {
 						"ignoreDelayBinding": true
 					},
+					"podLabels": {
+						"oadp.openshift.io/network-policy": "velero"
+					},
 					"privilegedFsBackup": true
 				}`,
 			}),
@@ -2119,6 +2128,9 @@ func TestDPAReconciler_updateNodeAgentCM(t *testing.T) {
 					"cachePVC": {
 						"storageClass": "gp3-csi",
 						"residentThresholdInMB": 1024
+					},
+					"podLabels": {
+						"oadp.openshift.io/network-policy": "velero"
 					},
 					"privilegedFsBackup": true
 				}`,
@@ -2167,6 +2179,9 @@ func TestDPAReconciler_updateNodeAgentCM(t *testing.T) {
 					"cachePVC": {
 						"storageClass": "gp3-csi"
 					},
+					"podLabels": {
+						"oadp.openshift.io/network-policy": "velero"
+					},
 					"privilegedFsBackup": true
 				}`,
 			}),
@@ -2212,7 +2227,8 @@ func TestDPAReconciler_updateNodeAgentCM(t *testing.T) {
 						"sidecar.istio.io/inject": "false"
 					},
 					"podLabels": {
-						"network-access": "allowed"
+						"network-access": "allowed",
+						"oadp.openshift.io/network-policy": "velero"
 					},
 					"privilegedFsBackup": true
 				}`,
@@ -2293,6 +2309,9 @@ func TestDPAReconciler_updateNodeAgentCM(t *testing.T) {
 							}
 						}
 					],
+					"podLabels": {
+						"oadp.openshift.io/network-policy": "velero"
+					},
 					"privilegedFsBackup": true
 				}`,
 			}),
@@ -2339,6 +2358,9 @@ func TestDPAReconciler_updateNodeAgentCM(t *testing.T) {
 						"ephemeralStorageRequest": "0",
 						"ephemeralStorageLimit": "0"
 					},
+					"podLabels": {
+						"oadp.openshift.io/network-policy": "velero"
+					},
 					"privilegedFsBackup": true
 				}`,
 			}),
@@ -2384,6 +2406,9 @@ func TestDPAReconciler_updateNodeAgentCM(t *testing.T) {
 						"memoryLimit": "0",
 						"ephemeralStorageRequest": "0",
 						"ephemeralStorageLimit": "250Mi"
+					},
+					"podLabels": {
+						"oadp.openshift.io/network-policy": "velero"
 					},
 					"privilegedFsBackup": true
 				}`,
@@ -2450,7 +2475,11 @@ func TestDPAReconciler_updateNodeAgentCM(t *testing.T) {
 	}
 }
 
-func Test_isNodeAgentCMRequired_CachePVCConfig(t *testing.T) {
+// Test_isNodeAgentCMRequired_AlwaysRequired verifies the NodeAgent ConfigMap is always
+// considered required regardless of DPA config, so OADP can always inject
+// networkPolicyMoverLabel into node-agent's data-mover pods for NetworkPolicy coverage
+// (see networkpolicy.go / reconcileVeleroMoverNetworkPolicy).
+func Test_isNodeAgentCMRequired_AlwaysRequired(t *testing.T) {
 	tests := []struct {
 		name            string
 		config          oadpv1alpha1.NodeAgentConfigMapSettings
@@ -2458,16 +2487,16 @@ func Test_isNodeAgentCMRequired_CachePVCConfig(t *testing.T) {
 		want            bool
 	}{
 		{
-			name:            "CachePVCConfig set, fs-backup disabled, CM should be required",
+			name:            "CachePVCConfig set, fs-backup disabled, CM required",
 			config:          oadpv1alpha1.NodeAgentConfigMapSettings{CachePVCConfig: &velerotypes.CachePVC{StorageClass: "gp3-csi"}},
 			disableFsBackup: ptr.To(true),
 			want:            true,
 		},
 		{
-			name:            "No config set, fs-backup disabled, CM should not be required",
+			name:            "No config set, fs-backup disabled, CM still required (always-on for NetworkPolicy label injection)",
 			config:          oadpv1alpha1.NodeAgentConfigMapSettings{},
 			disableFsBackup: ptr.To(true),
-			want:            false,
+			want:            true,
 		},
 		{
 			name:            "PodLabels set, fs-backup disabled, CM should be required",

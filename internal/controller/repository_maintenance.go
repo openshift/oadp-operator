@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	"github.com/go-logr/logr"
+	"github.com/vmware-tanzu/velero/pkg/repository/maintenance"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -16,8 +17,14 @@ import (
 	"github.com/openshift/oadp-operator/pkg/common"
 )
 
-func isRepositoryMaintenanceCmRequired(config *oadpv1alpha1.ApplicationConfig) bool {
-	return config != nil && config.RepositoryMaintenance != nil && len(config.RepositoryMaintenance) > 0
+func isRepositoryMaintenanceCmRequired(dpa *oadpv1alpha1.DataProtectionApplication) bool {
+	// Required whenever node-agent is enabled: OADP must be able to inject
+	// networkPolicyMoverLabel into the "global" repository-maintenance config so
+	// repo-maintenance job pods (which otherwise get no default labels at all) can be
+	// selected by reconcileVeleroMoverNetworkPolicy. Repository maintenance is only
+	// relevant to node-agent/kopia-based backups, so gate on isNodeAgentEnabled to avoid
+	// always creating this ConfigMap for DPAs that don't use node-agent at all.
+	return isNodeAgentEnabled(dpa)
 }
 
 // updateRepositoryMaintenanceCM handles the creation or update of the RepositoryMaintenance ConfigMap with all required data.
@@ -56,6 +63,25 @@ func (r *DataProtectionApplicationReconciler) updateRepositoryMaintenanceCM(cm *
 		cm.Data[key] = string(configJSON)
 	}
 
+	// Velero only reads PodLabels/PodAnnotations from the "global" maintenance config key
+	// (never per-repository). Repository-maintenance job pods otherwise get no default
+	// labels at all, so we always ensure a "global" entry exists and carries
+	// networkPolicyMoverLabel, merged on top of (not overriding) any user-supplied
+	// PodLabels, so reconcileVeleroMoverNetworkPolicy can select these pods.
+	globalConfig := r.dpa.Spec.Configuration.RepositoryMaintenance[maintenance.GlobalKeyForRepoMaintenanceJobCM]
+	globalConfig.PodResources = newPodResourcesWithUnboundedDefaults(globalConfig.PodResources)
+	mergedPodLabels := make(map[string]string, len(globalConfig.PodLabels)+1)
+	for k, v := range globalConfig.PodLabels {
+		mergedPodLabels[k] = v
+	}
+	mergedPodLabels[networkPolicyMoverLabel] = networkPolicyMoverLabelValue
+	globalConfig.PodLabels = mergedPodLabels
+	globalConfigJSON, err := json.Marshal(globalConfig)
+	if err != nil {
+		return fmt.Errorf("failed to serialize global repository maintenance config: %w", err)
+	}
+	cm.Data[maintenance.GlobalKeyForRepoMaintenanceJobCM] = string(globalConfigJSON)
+
 	return nil
 }
 
@@ -79,7 +105,7 @@ func (r *DataProtectionApplicationReconciler) ReconcileRepositoryMaintenanceConf
 	}
 
 	// Delete CM if it is not required
-	if !isRepositoryMaintenanceCmRequired(dpa.Spec.Configuration) {
+	if !isRepositoryMaintenanceCmRequired(dpa) {
 		err := r.Get(r.Context, cmName, &configMap)
 		if err != nil && !errors.IsNotFound(err) {
 			return false, err

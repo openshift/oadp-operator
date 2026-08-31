@@ -1701,6 +1701,11 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 				oadpv1alpha1.DataProtectionApplicationSpec{
 					Configuration: &oadpv1alpha1.ApplicationConfig{
 						Velero: &oadpv1alpha1.VeleroConfig{},
+						NodeAgent: &oadpv1alpha1.NodeAgentConfig{
+							NodeAgentCommonFields: oadpv1alpha1.NodeAgentCommonFields{
+								Enable: ptr.To(true),
+							},
+						},
 						RepositoryMaintenance: map[string]oadpv1alpha1.RepositoryMaintenanceConfig{
 							"global": {
 								LoadAffinityConfig: []*oadpv1alpha1.LoadAffinity{

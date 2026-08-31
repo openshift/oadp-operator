@@ -15,6 +15,7 @@ import (
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	networkingv1 "k8s.io/api/networking/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -28,13 +29,14 @@ import (
 )
 
 const (
-	MinioDeploymentName = "minio-cacert-test"
-	MinioServiceName    = "minio-cacert-test"
-	MinioTLSSecretName  = "minio-tls-cacert-test"
-	MinioBucketName     = "cacert-test-bucket"
-	MinioAccessKey      = "minioadmin"
-	MinioSecretKey      = "minioadmin"
-	minioPort           = int32(9000)
+	MinioDeploymentName    = "minio-cacert-test"
+	MinioServiceName       = "minio-cacert-test"
+	MinioTLSSecretName     = "minio-tls-cacert-test"
+	MinioBucketName        = "cacert-test-bucket"
+	MinioAccessKey         = "minioadmin"
+	MinioSecretKey         = "minioadmin"
+	minioPort              = int32(9000)
+	minioNetworkPolicyName = "minio-cacert-test-network-policy"
 
 	// minioImage pins a specific minio release. Update this when bumping minio.
 	// Use a digest or immutable tag to keep test runs deterministic.
@@ -248,6 +250,34 @@ func DeployMinioWithTLS(ctx context.Context, c *kubernetes.Clientset, namespace 
 		return "", fmt.Errorf("creating minio service: %w", err)
 	}
 
+	// The OADP operator's NetworkPolicy suite installs a default-deny policy on this
+	// namespace (see internal/controller/networkpolicy.go), which only allow-lists
+	// OADP-managed workloads. This minio pod is a test-only fixture unknown to those
+	// policies, so it needs its own explicit allow rule for Velero to reach it over TLS.
+	protoTCP := corev1.ProtocolTCP
+	np := &networkingv1.NetworkPolicy{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      minioNetworkPolicyName,
+			Namespace: namespace,
+		},
+		Spec: networkingv1.NetworkPolicySpec{
+			PodSelector: metav1.LabelSelector{
+				MatchLabels: map[string]string{"app": MinioDeploymentName},
+			},
+			PolicyTypes: []networkingv1.PolicyType{networkingv1.PolicyTypeIngress},
+			Ingress: []networkingv1.NetworkPolicyIngressRule{
+				{
+					Ports: []networkingv1.NetworkPolicyPort{
+						{Protocol: &protoTCP, Port: &intstr.IntOrString{Type: intstr.Int, IntVal: minioPort}},
+					},
+				},
+			},
+		},
+	}
+	if _, err := c.NetworkingV1().NetworkPolicies(namespace).Create(ctx, np, metav1.CreateOptions{}); err != nil && !apierrors.IsAlreadyExists(err) {
+		return "", fmt.Errorf("creating minio NetworkPolicy: %w", err)
+	}
+
 	if err := wait.PollUntilContextTimeout(ctx, 5*time.Second, 3*time.Minute, true, func(ctx context.Context) (bool, error) {
 		d, err := c.AppsV1().Deployments(namespace).Get(ctx, MinioDeploymentName, metav1.GetOptions{})
 		if err != nil {
@@ -316,11 +346,12 @@ func CreateMinioBucket(ctx context.Context, c *kubernetes.Clientset, cfg *rest.C
 	return nil
 }
 
-// DeleteMinioResources removes the minio deployment, service, and TLS secret.
+// DeleteMinioResources removes the minio deployment, service, TLS secret, and NetworkPolicy.
 func DeleteMinioResources(ctx context.Context, c *kubernetes.Clientset, namespace string) {
 	background := metav1.DeletePropagationBackground
 	deleteOpts := metav1.DeleteOptions{PropagationPolicy: &background}
 	_ = c.AppsV1().Deployments(namespace).Delete(ctx, MinioDeploymentName, deleteOpts)
 	_ = c.CoreV1().Services(namespace).Delete(ctx, MinioServiceName, metav1.DeleteOptions{})
 	_ = c.CoreV1().Secrets(namespace).Delete(ctx, MinioTLSSecretName, metav1.DeleteOptions{})
+	_ = c.NetworkingV1().NetworkPolicies(namespace).Delete(ctx, minioNetworkPolicyName, metav1.DeleteOptions{})
 }

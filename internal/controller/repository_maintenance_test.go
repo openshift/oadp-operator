@@ -86,7 +86,7 @@ func TestDataProtectionApplicationReconciler_updateRepositoryMaintenanceCM(t *te
 					},
 				},
 				Data: map[string]string{
-					"global":            `{"loadAffinity":[{"nodeSelector":{"matchLabels":{"app.kubernetes.io/name":"test-dpa"}}}],"podResources":{"cpuRequest":"100m","memoryRequest":"128Mi","cpuLimit":"200m","memoryLimit":"256Mi","ephemeralStorageRequest":"0","ephemeralStorageLimit":"0"}}`,
+					"global":            `{"loadAffinity":[{"nodeSelector":{"matchLabels":{"app.kubernetes.io/name":"test-dpa"}}}],"podResources":{"cpuRequest":"100m","memoryRequest":"128Mi","cpuLimit":"200m","memoryLimit":"256Mi","ephemeralStorageRequest":"0","ephemeralStorageLimit":"0"},"podLabels":{"oadp.openshift.io/network-policy":"velero"}}`,
 					"maintenance-job-1": `{"loadAffinity":[{"nodeSelector":{"matchLabels":{"app.kubernetes.io/name":"test-dpa"}}}]}`,
 				},
 			},
@@ -142,7 +142,7 @@ func TestDataProtectionApplicationReconciler_updateRepositoryMaintenanceCM(t *te
 					},
 				},
 				Data: map[string]string{
-					"global": `{"loadAffinity":[{"nodeSelector":{"matchLabels":{"node-type":"fast"}},"storageClass":"gp3-csi"},{"nodeSelector":{"matchLabels":{"node-type":"general"}}}]}`,
+					"global": `{"loadAffinity":[{"nodeSelector":{"matchLabels":{"node-type":"fast"}},"storageClass":"gp3-csi"},{"nodeSelector":{"matchLabels":{"node-type":"general"}}}],"podLabels":{"oadp.openshift.io/network-policy":"velero"}}`,
 				},
 			},
 		},
@@ -194,7 +194,49 @@ func TestDataProtectionApplicationReconciler_updateRepositoryMaintenanceCM(t *te
 					},
 				},
 				Data: map[string]string{
-					"global": `{"podResources":{"cpuRequest":"100m","memoryRequest":"128Mi","cpuLimit":"0","memoryLimit":"0","ephemeralStorageRequest":"0","ephemeralStorageLimit":"0"},"podAnnotations":{"sidecar.istio.io/inject":"false"},"podLabels":{"network-access":"allowed"}}`,
+					"global": `{"podResources":{"cpuRequest":"100m","memoryRequest":"128Mi","cpuLimit":"0","memoryLimit":"0","ephemeralStorageRequest":"0","ephemeralStorageLimit":"0"},"podAnnotations":{"sidecar.istio.io/inject":"false"},"podLabels":{"network-access":"allowed","oadp.openshift.io/network-policy":"velero"}}`,
+				},
+			},
+		},
+		{
+			// No RepositoryMaintenance config supplied by the user at all. OADP must still
+			// always produce a "global" entry carrying networkPolicyMoverLabel, so
+			// repository-maintenance job pods (which otherwise get no default labels) can be
+			// selected by reconcileVeleroMoverNetworkPolicy.
+			name: "repository maintenance cm always includes global networkPolicyMoverLabel even with no user config",
+			cm: &corev1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "repository-maintenance-test-dpa",
+					Namespace: "test-ns",
+				},
+			},
+			dpa: &oadpv1alpha1.DataProtectionApplication{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-dpa",
+					Namespace: "test-ns",
+				},
+				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
+					BackupImages: ptr.To(false),
+					Configuration: &oadpv1alpha1.ApplicationConfig{
+						Velero: &oadpv1alpha1.VeleroConfig{
+							NoDefaultBackupLocation: true,
+						},
+					},
+				},
+			},
+			wantCM: &corev1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "repository-maintenance-test-dpa",
+					Namespace: "test-ns",
+					Labels: map[string]string{
+						"app.kubernetes.io/instance":   "test-dpa",
+						"app.kubernetes.io/managed-by": "oadp-operator",
+						"app.kubernetes.io/component":  "repository-maintenance-config",
+						"openshift.io/oadp":            "True",
+					},
+				},
+				Data: map[string]string{
+					"global": `{"podLabels":{"oadp.openshift.io/network-policy":"velero"}}`,
 				},
 			},
 		},
@@ -255,6 +297,74 @@ func TestDataProtectionApplicationReconciler_updateRepositoryMaintenanceCM(t *te
 					"updateRepositoryMaintenanceCM must not modify the DPA Spec: diff=%s",
 					cmp.Diff(dpaSpecBeforeTest, tt.dpa.Spec))
 			}
+		})
+	}
+}
+
+func Test_isRepositoryMaintenanceCmRequired(t *testing.T) {
+	tests := []struct {
+		name string
+		dpa  *oadpv1alpha1.DataProtectionApplication
+		want bool
+	}{
+		{
+			name: "node-agent disabled, no config set - not required",
+			dpa: &oadpv1alpha1.DataProtectionApplication{
+				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
+					Configuration: &oadpv1alpha1.ApplicationConfig{},
+				},
+			},
+			want: false,
+		},
+		{
+			name: "node-agent disabled, RepositoryMaintenance config set - still not required",
+			dpa: &oadpv1alpha1.DataProtectionApplication{
+				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
+					Configuration: &oadpv1alpha1.ApplicationConfig{
+						RepositoryMaintenance: map[string]oadpv1alpha1.RepositoryMaintenanceConfig{
+							"global": {},
+						},
+					},
+				},
+			},
+			want: false,
+		},
+		{
+			name: "node-agent enabled - required",
+			dpa: &oadpv1alpha1.DataProtectionApplication{
+				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
+					Configuration: &oadpv1alpha1.ApplicationConfig{
+						NodeAgent: &oadpv1alpha1.NodeAgentConfig{
+							NodeAgentCommonFields: oadpv1alpha1.NodeAgentCommonFields{
+								Enable: ptr.To(true),
+							},
+						},
+					},
+				},
+			},
+			want: true,
+		},
+		{
+			name: "node-agent explicitly disabled - not required",
+			dpa: &oadpv1alpha1.DataProtectionApplication{
+				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
+					Configuration: &oadpv1alpha1.ApplicationConfig{
+						NodeAgent: &oadpv1alpha1.NodeAgentConfig{
+							NodeAgentCommonFields: oadpv1alpha1.NodeAgentCommonFields{
+								Enable: ptr.To(false),
+							},
+						},
+					},
+				},
+			},
+			want: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := isRepositoryMaintenanceCmRequired(tt.dpa)
+			require.Equal(t, tt.want, got)
 		})
 	}
 }
