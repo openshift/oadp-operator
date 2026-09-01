@@ -931,9 +931,17 @@ TEST_VIRT ?= false
 # TEST_VIRT_KDM runs only the kubevirt-datamover-specific specs (ginkgo label
 # "kdm", a subset of "virt") -- for CI jobs that build/test against the
 # kubevirt-datamover-controller/-plugin repos specifically and don't need the
-# full TEST_VIRT suite's runtime. TEST_VIRT=true already covers these specs
-# too, since they carry both labels -- this only matters when TEST_VIRT_KDM
-# is set WITHOUT TEST_VIRT.
+# full TEST_VIRT suite's runtime. Tri-state, distinguished via $(origin):
+#   unset          -> TEST_VIRT=true includes kdm specs too (legacy behavior,
+#                      what existing openshift/release jobs rely on today)
+#   explicit false -> TEST_VIRT=true excludes kdm specs, for a split non-kdm
+#                      CI job
+#   explicit true  -> kdm specs only, regardless of TEST_VIRT/TEST_VIRT_GA
+# This lets a new split kdm-only job opt in (TEST_VIRT_KDM=true) and a new
+# split non-kdm job opt out (TEST_VIRT_KDM=false) without changing what
+# existing jobs that don't set this var at all get today -- see
+# https://github.com/openshift/oadp-operator/issues/2413 option B.
+TEST_VIRT_KDM_ORIGIN := $(origin TEST_VIRT_KDM)
 TEST_VIRT_KDM ?= false
 HCO_INDEX_TAG ?= 1.18.0
 # hcp
@@ -955,12 +963,19 @@ FAIL_FAST ?= true
 TEST_FILTER = (($(shell echo '! aws && ! gcp && ! azure && ! ibmcloud' | \
 $(SED) -r "s/[&]* [!] $(CLUSTER_TYPE)|[!] $(CLUSTER_TYPE) [&]*//")) || $(CLUSTER_TYPE))
 #TEST_FILTER := $(shell echo '! aws && ! gcp && ! azure' | $(SED) -r "s/[&]* [!] $(CLUSTER_TYPE)|[!] $(CLUSTER_TYPE) [&]*//")
-ifeq ($(TEST_VIRT),true)
-	TEST_FILTER += && (virt)
+# TEST_VIRT_KDM=true takes precedence: it isolates the kdm job regardless of
+# TEST_VIRT/TEST_VIRT_GA. Otherwise TEST_VIRT includes kdm specs unless
+# TEST_VIRT_KDM was explicitly set to false (see TEST_VIRT_KDM_ORIGIN above).
+ifeq ($(TEST_VIRT_KDM),true)
+	TEST_FILTER += && (kdm)
+else ifeq ($(TEST_VIRT),true)
+	ifeq ($(TEST_VIRT_KDM_ORIGIN),undefined)
+		TEST_FILTER += && (virt)
+	else
+		TEST_FILTER += && (virt) && (! kdm)
+	endif
 else ifeq ($(TEST_VIRT_GA),true)
 	TEST_FILTER += && (virt)
-else ifeq ($(TEST_VIRT_KDM),true)
-	TEST_FILTER += && (kdm)
 else
 	TEST_FILTER += && (! virt)
 endif
