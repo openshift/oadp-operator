@@ -324,7 +324,7 @@ func runKubevirtDMBackup(v *lib.VirtOperator, vmNamespace, backupName string, on
 		log.Printf("VirtualMachineBackupTracker was not observed in %s during backup window", vmNamespace)
 	}()
 
-	err = lib.CreateBackupWithVolumePolicy(dpaCR.Client, namespace, backupName, []string{vmNamespace}, true)
+	err = lib.CreateBackupWithVolumePolicy(dpaCR.Client, namespace, backupName, []string{vmNamespace}, true, map[string]string{"kubevirt-datamover.io/skip-quiesce": "true"})
 	gomega.Expect(err).ToNot(gomega.HaveOccurred(), "failed to create backup %s", backupName)
 
 	var dataUploadName, expectedBackupType string
@@ -1356,7 +1356,7 @@ var _ = ginkgo.Describe("VM backup and restore tests", ginkgo.Ordered, func() {
 			for i, vm := range vms {
 				includedNamespaces[i] = vm.namespace
 			}
-			err = lib.CreateBackupWithVolumePolicy(dpaCR.Client, namespace, concurrencyBackup, includedNamespaces, true)
+			err = lib.CreateBackupWithVolumePolicy(dpaCR.Client, namespace, concurrencyBackup, includedNamespaces, true, map[string]string{"kubevirt-datamover.io/skip-quiesce": "true"})
 			gomega.Expect(err).ToNot(gomega.HaveOccurred())
 
 			// One Backup spanning both VMs' namespaces produces one DataUpload per VM
