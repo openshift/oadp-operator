@@ -1333,6 +1333,79 @@ func (v *VirtOperator) RestartVmAndWaitRunning(namespace, name string, timeout t
 	return nil
 }
 
+// EnsureVmHaltedForExclusivePVCAccess makes sure vmName's VM is genuinely
+// stopped -- its virt-launcher pod gone, releasing the RWO block PVC -- before
+// the caller checksums that PVC via a separate helper pod
+// (ChecksumPVCBlockDeviceRegion). That helper pod needs exclusive access to
+// the PVC; pausing a running VMI does NOT release it (a paused VMI's
+// virt-launcher pod stays attached, only a real stop does). Confirmed live
+// across multiple Prow runs that a restored VM is already Running by the very
+// first status read after restore completes -- there's no naturally-occurring
+// halted window to catch here, so this creates one deterministically instead
+// of hoping to observe one.
+//
+// Always calls StopVm unconditionally, even if no virt-launcher pod currently
+// exists -- a bypass keyed on "no pod right now" would have exactly the same
+// race shape as the bug this closes: with the restored VM's spec.running
+// still true, KubeVirt's own controller could create a brand new
+// virt-launcher pod moments after that check, right as the caller's checksum
+// helper pod tries to attach the same PVC. Only an explicit stop keeps
+// spec.running false and guarantees no new pod appears during the checksum
+// window. The caller must always restart the VM afterward if the rest of the
+// spec needs it running again (e.g. via StartVm) -- this function's own
+// stop is unconditional, so the caller's restart should be too.
+func (v *VirtOperator) EnsureVmHaltedForExclusivePVCAccess(namespace, name string, timeout time.Duration) error {
+	log.Printf("Stopping VM %s/%s to get exclusive PVC access for the hard data-integrity checksum", namespace, name)
+	if err := v.StopVm(namespace, name); err != nil {
+		return fmt.Errorf("failed to stop VM %s/%s: %w", namespace, name, err)
+	}
+
+	err := wait.PollUntilContextTimeout(context.Background(), 5*time.Second, timeout, true, func(ctx context.Context) (bool, error) {
+		stillHasPod, podErr := v.hasVirtLauncherPod(ctx, namespace, name)
+		if podErr != nil {
+			// Treat a lookup failure as transient (e.g. a momentary API
+			// error) rather than conflating it with "pod confirmed gone" --
+			// keep polling instead of declaring success on an error.
+			log.Printf("transient error checking VM %s/%s's virt-launcher pod, retrying: %v", namespace, name, podErr)
+			return false, nil
+		}
+		return !stillHasPod, nil
+	})
+	if err != nil {
+		return fmt.Errorf("VM %s/%s did not release its virt-launcher pod after StopVm: %w", namespace, name, err)
+	}
+	log.Printf("VM %s/%s stopped, virt-launcher pod gone -- safe to checksum its PVC", namespace, name)
+	return nil
+}
+
+// hasVirtLauncherPod reports whether vmName still has ANY matching
+// virt-launcher pod at all -- including one that's mid-termination
+// (DeletionTimestamp set) or no longer Running. Deliberately does NOT reuse
+// GetVirtLauncherPod's filtering: that one excludes a terminating pod because
+// it's hunting for the currently-active pod to exec into, which is the wrong
+// question here -- a pod already marked for deletion can still hold the PVC
+// attached until it actually finishes terminating, so counting it as "gone"
+// early would silently reintroduce the exact Multi-Attach race this function
+// exists to close. Also deliberately does NOT go through GetAllPodsWithLabel:
+// that helper returns an error on a genuinely empty list ("no Pod found")
+// instead of a clean empty result -- confirmed live that routing through it
+// here made every poll tick misread "the pod is actually gone" as a
+// transient failure worth retrying, so the wait never succeeded and ran out
+// the clock instead. Calls the client directly for correct, unambiguous
+// list semantics: empty result, nil error.
+func (v *VirtOperator) hasVirtLauncherPod(ctx context.Context, namespace, name string) (bool, error) {
+	podList, err := v.Clientset.CoreV1().Pods(namespace).List(ctx, metav1.ListOptions{LabelSelector: "kubevirt.io=virt-launcher"})
+	if err != nil {
+		return false, fmt.Errorf("failed to list virt-launcher pods in %s: %w", namespace, err)
+	}
+	for i := range podList.Items {
+		if podList.Items[i].Annotations["kubevirt.io/domain"] == name {
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
 // RequireVEP25Support is a pre-flight check that fails immediately if the
 // installed HCO version is older than 1.18 or if the backup.kubevirt.io CRDs
 // (VirtualMachineBackup, VirtualMachineBackupTracker) do not exist.

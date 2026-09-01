@@ -1613,15 +1613,23 @@ var _ = ginkgo.Describe("VM backup and restore tests", ginkgo.Ordered, func() {
 				// above) showed the payload region was genuinely quiet across the whole
 				// backup window -- otherwise a mismatch here couldn't be attributed to a
 				// real transfer bug versus something unrelated that touched the region.
-				// Bracketed by its own "not Running yet" VM-status checks: the halt is the
-				// controller's to release, not this test's.
 				if payloadRegionStable {
 					ginkgo.By("verifying the payload region survived backup and restore intact (hard assertion)")
-					prePayloadStatus, statusErr := v.GetVmStatus(alpineNamespace, alpineVMName)
-					restoredPayloadChecksum, restoredPayloadErr := v.ChecksumPVCBlockDeviceRegion(kubeConfig, alpineNamespace, restoredPVC.Name, fullBackupPayloadOffsetMiB, fullBackupPayloadSizeMiB)
-					postPayloadStatus, postStatusErr := v.GetVmStatus(alpineNamespace, alpineVMName)
-					if statusErr != nil || prePayloadStatus == "Running" || postStatusErr != nil || postPayloadStatus == "Running" {
-						log.Printf("WARNING: restored VM %s/%s resumed around the payload-region read (pre=%q err=%v, post=%q err=%v) -- skipping the hard assertion for this run", alpineNamespace, alpineVMName, prePayloadStatus, statusErr, postPayloadStatus, postStatusErr)
+					haltErr := v.EnsureVmHaltedForExclusivePVCAccess(alpineNamespace, alpineVMName, 5*time.Minute)
+					var restoredPayloadChecksum string
+					var restoredPayloadErr error
+					if haltErr == nil {
+						restoredPayloadChecksum, restoredPayloadErr = v.ChecksumPVCBlockDeviceRegion(kubeConfig, alpineNamespace, restoredPVC.Name, fullBackupPayloadOffsetMiB, fullBackupPayloadSizeMiB)
+					}
+					// EnsureVmHaltedForExclusivePVCAccess always calls StopVm
+					// unconditionally (even if it then errors out waiting for the
+					// virt-launcher pod to disappear), so the restart must be
+					// unconditional too -- leaving the VM stopped would break every
+					// step after this one.
+					err = v.StartVm(alpineNamespace, alpineVMName)
+					gomega.Expect(err).ToNot(gomega.HaveOccurred(), "failed to restart VM %s/%s after checksum", alpineNamespace, alpineVMName)
+					if haltErr != nil {
+						log.Printf("WARNING: could not get exclusive PVC access to checksum the restored payload region: %v -- skipping the hard assertion for this run", haltErr)
 					} else {
 						gomega.Expect(restoredPayloadErr).ToNot(gomega.HaveOccurred(), "failed to checksum restored payload region")
 						gomega.Expect(restoredPayloadChecksum).To(gomega.Equal(payloadChecksumBeforeBackup),
@@ -1820,29 +1828,23 @@ var _ = ginkgo.Describe("VM backup and restore tests", ginkgo.Ordered, func() {
 				gomega.Expect(succeeded).To(gomega.BeTrue(), "expected restore from an incremental checkpoint to reconstruct the full chain")
 
 				ginkgo.By("verifying both payloads independently, each gated on its own bracket-stability")
-				// Bracketed the same way the full-backup It's payload check is: only
-				// trust these reads if the restored VM was still Halted immediately
-				// before AND after both of them -- confirmed live against a real cluster
-				// that the sibling-completion hold can release fast enough for the VM
-				// to already be Running by the time this check runs, which would make a
-				// mismatch here meaningless (comparing against a disk the booted guest
-				// may have already written to).
-				prePayloadStatus, preStatusErr := v.GetVmStatus(alpineNamespace, alpineVMName)
-				vmStillHalted := preStatusErr == nil && prePayloadStatus != "Running"
-				var restoredA, restoredB string
-				var restoredAErr, restoredBErr error
-				if vmStillHalted {
+				// Deterministically get exclusive PVC access rather than hoping to catch
+				// the VM still Halted -- confirmed live that it's already Running by the
+				// very first status read after restore, every time. See
+				// EnsureVmHaltedForExclusivePVCAccess. No restart needed afterward: this
+				// VM gets removed a few lines below regardless of its run-state.
+				haltErr := v.EnsureVmHaltedForExclusivePVCAccess(alpineNamespace, alpineVMName, 5*time.Minute)
+				if haltErr != nil {
+					log.Printf("WARNING: could not get exclusive PVC access to checksum restored payloads: %v -- skipping the hard assertions for this run", haltErr)
+				} else {
+					var restoredA, restoredB string
+					var restoredAErr, restoredBErr error
 					if payloadAStable {
 						restoredA, restoredAErr = v.ChecksumPVCBlockDeviceRegion(kubeConfig, alpineNamespace, "alpine-guestagent-disk", payloadAOffsetMiB, payloadSizeMiB)
 					}
 					if payloadBStable {
 						restoredB, restoredBErr = v.ChecksumPVCBlockDeviceRegion(kubeConfig, alpineNamespace, "alpine-guestagent-disk", payloadBOffsetMiB, payloadSizeMiB)
 					}
-				}
-				postPayloadStatus, postStatusErr := v.GetVmStatus(alpineNamespace, alpineVMName)
-				if !vmStillHalted || postStatusErr != nil || postPayloadStatus == "Running" {
-					log.Printf("WARNING: restored VM %s/%s resumed around the payload-region reads (pre=%q err=%v, post=%q err=%v) -- skipping the hard assertions for this run", alpineNamespace, alpineVMName, prePayloadStatus, preStatusErr, postPayloadStatus, postStatusErr)
-				} else {
 					if payloadAStable {
 						gomega.Expect(restoredAErr).ToNot(gomega.HaveOccurred(), "failed to checksum restored payload A region")
 						gomega.Expect(restoredA).To(gomega.Equal(payloadA0), "payload A region did not survive the full+incremental backup/restore chain intact")
