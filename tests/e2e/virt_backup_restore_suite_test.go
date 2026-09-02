@@ -291,7 +291,7 @@ func waitForKubevirtDatamoverControllerRollout(cl client.Client, timeout time.Du
 // log text for CheckIfFlakeOccurred to match (kdm-controller's generic "in progress,
 // requeuing" message is identical to a perfectly healthy backup's normal early-lifecycle
 // state), so lib.VirtOperator.VMBHasNoConditions checks the VMB object directly instead.
-func runKubevirtDMBackup(v *lib.VirtOperator, vmNamespace, backupName string, onDataUploadFound func(dataUploadName, expectedBackupType string)) {
+func runKubevirtDMBackup(v *lib.VirtOperator, vmNamespace, backupName string, annotations map[string]string, onDataUploadFound func(dataUploadName, expectedBackupType string)) {
 	defer func() {
 		pod, err := lib.GetPodWithLabel(kubernetesClientForSuiteRun, namespace, "control-plane=oadp-kubevirt-datamover-controller")
 		if err != nil {
@@ -328,7 +328,7 @@ func runKubevirtDMBackup(v *lib.VirtOperator, vmNamespace, backupName string, on
 		log.Printf("VirtualMachineBackupTracker was not observed in %s during backup window", vmNamespace)
 	}()
 
-	err = lib.CreateBackupWithVolumePolicy(dpaCR.Client, namespace, backupName, []string{vmNamespace}, true)
+	err = lib.CreateBackupWithVolumePolicy(dpaCR.Client, namespace, backupName, []string{vmNamespace}, true, annotations)
 	gomega.Expect(err).ToNot(gomega.HaveOccurred(), "failed to create backup %s", backupName)
 
 	var dataUploadName, expectedBackupType string
@@ -876,7 +876,7 @@ var _ = ginkgo.Describe("VM backup and restore tests", ginkgo.Ordered, func() {
 			backupCount++
 			backupName := fmt.Sprintf("cirros-incr-seq-%d", backupCount)
 
-			runKubevirtDMBackup(v, incSeqNamespace, backupName, func(dataUploadName, expectedBackupType string) {
+			runKubevirtDMBackup(v, incSeqNamespace, backupName, map[string]string{"kubevirt-datamover.io/skip-quiesce": "true"}, func(dataUploadName, expectedBackupType string) {
 				gomega.Expect(expectedBackupType).To(gomega.Equal(expectedType), "controller's expected-backup-type annotation on DataUpload")
 
 				// Poll here, while the backup is still in flight -- the VirtualMachineBackup
@@ -1095,7 +1095,7 @@ var _ = ginkgo.Describe("VM backup and restore tests", ginkgo.Ordered, func() {
 			// attempt of that VM, even a fully successful new one --
 			// https://github.com/migtools/kubevirt-datamover-controller/issues/169.
 			backupName := "cirros-stale-sibling-backup"
-			runKubevirtDMBackup(v, restoreNamespace, backupName, nil)
+			runKubevirtDMBackup(v, restoreNamespace, backupName, map[string]string{"kubevirt-datamover.io/skip-quiesce": "true"}, nil)
 
 			err := v.RemoveVm(restoreNamespace, restoreVMName, 5*time.Minute)
 			gomega.Expect(err).To(gomega.BeNil(), "failed to remove VM %s/%s", restoreNamespace, restoreVMName)
@@ -1235,7 +1235,7 @@ var _ = ginkgo.Describe("VM backup and restore tests", ginkgo.Ordered, func() {
 			gomega.Expect(err).ToNot(gomega.HaveOccurred())
 
 			backupName := "cirros-multipvc-cbt-restore-backup"
-			runKubevirtDMBackup(v, multiPvcNamespace, backupName, nil)
+			runKubevirtDMBackup(v, multiPvcNamespace, backupName, map[string]string{"kubevirt-datamover.io/skip-quiesce": "true"}, nil)
 
 			err = v.RemoveVm(multiPvcNamespace, multiPvcVMName, 5*time.Minute)
 			gomega.Expect(err).To(gomega.BeNil())
@@ -1361,7 +1361,7 @@ var _ = ginkgo.Describe("VM backup and restore tests", ginkgo.Ordered, func() {
 			for i, vm := range vms {
 				includedNamespaces[i] = vm.namespace
 			}
-			err = lib.CreateBackupWithVolumePolicy(dpaCR.Client, namespace, concurrencyBackup, includedNamespaces, true)
+			err = lib.CreateBackupWithVolumePolicy(dpaCR.Client, namespace, concurrencyBackup, includedNamespaces, true, map[string]string{"kubevirt-datamover.io/skip-quiesce": "true"})
 			gomega.Expect(err).ToNot(gomega.HaveOccurred())
 
 			// One Backup spanning both VMs' namespaces produces one DataUpload per VM
@@ -1561,7 +1561,7 @@ var _ = ginkgo.Describe("VM backup and restore tests", ginkgo.Ordered, func() {
 						log.Printf("cleanup: failed to delete backup %s via velero CLI: %v", backupName, err)
 					}
 				}()
-				runKubevirtDMBackup(v, alpineNamespace, backupName, verifyBackupType(alpineNamespace, "full"))
+				runKubevirtDMBackup(v, alpineNamespace, backupName, nil, verifyBackupType(alpineNamespace, "full"))
 
 				// Second bracket read: if this matches payloadChecksumBeforeBackup, the
 				// payload region was genuinely quiet for the entire backup window, so any
@@ -1768,7 +1768,7 @@ var _ = ginkgo.Describe("VM backup and restore tests", ginkgo.Ordered, func() {
 						log.Printf("cleanup: failed to delete backup %s via velero CLI: %v", fullBackupName, err)
 					}
 				}()
-				runKubevirtDMBackup(v, alpineNamespace, fullBackupName, verifyBackupType(alpineNamespace, "full"))
+				runKubevirtDMBackup(v, alpineNamespace, fullBackupName, nil, verifyBackupType(alpineNamespace, "full"))
 				payloadA1, err := v.ChecksumBlockDeviceRegion(kubeConfig, alpineNamespace, alpineVMName, "volume0", payloadAOffsetMiB, payloadSizeMiB)
 				gomega.Expect(err).ToNot(gomega.HaveOccurred(), "failed to checksum payload A immediately after the full backup")
 
@@ -1787,7 +1787,7 @@ var _ = ginkgo.Describe("VM backup and restore tests", ginkgo.Ordered, func() {
 						log.Printf("cleanup: failed to delete backup %s via velero CLI: %v", incrementalBackupName, err)
 					}
 				}()
-				runKubevirtDMBackup(v, alpineNamespace, incrementalBackupName, verifyBackupType(alpineNamespace, "incremental"))
+				runKubevirtDMBackup(v, alpineNamespace, incrementalBackupName, nil, verifyBackupType(alpineNamespace, "incremental"))
 
 				// A third read for payload A: restoring from the incremental replays the
 				// whole chain, so anything that touched A's region between the full and
@@ -1919,7 +1919,7 @@ var _ = ginkgo.Describe("VM backup and restore tests", ginkgo.Ordered, func() {
 						log.Printf("cleanup: failed to delete backup %s via velero CLI: %v", backupName, err)
 					}
 				}()
-				runKubevirtDMBackup(v, fedoraNamespace, backupName, verifyBackupType(fedoraNamespace, "full"))
+				runKubevirtDMBackup(v, fedoraNamespace, backupName, nil, verifyBackupType(fedoraNamespace, "full"))
 
 				ginkgo.By("deleting the VM to prove restore recreates it")
 				err := v.RemoveVm(fedoraNamespace, fedoraVMName, 5*time.Minute)
