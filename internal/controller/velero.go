@@ -448,7 +448,7 @@ func (r *DataProtectionApplicationReconciler) customizeVeleroDeployment(veleroDe
 	}
 
 	// check for repository-maintenance-config parameter
-	if isRepositoryMaintenanceCmRequired(dpa.Spec.Configuration) {
+	if isRepositoryMaintenanceCmRequired(dpa) {
 		// Add the --repo-maintenance-job-configmap parameter with the name
 		// of the repository-maintenance-config ConfigMap
 		cmName := r.GetRepositoryMaintenanceConfigMapName()

@@ -28,6 +28,7 @@ import (
 	velerov1 "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	networkingv1 "k8s.io/api/networking/v1"
 	apimeta "k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -79,6 +80,7 @@ var debugMode = os.Getenv("DEBUG") == "true"
 //+kubebuilder:rbac:groups=console.openshift.io,resources=consoleclidownloads,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=monitoring.coreos.com,resources=servicemonitors,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=storage.k8s.io,resources=storageclasses,verbs=get;list;watch
+//+kubebuilder:rbac:groups=networking.k8s.io,resources=networkpolicies,verbs=get;list;watch;create;update;patch;delete
 
 // Reconcile is part of the main Kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
@@ -126,6 +128,7 @@ func (r *DataProtectionApplicationReconciler) Reconcile(ctx context.Context, req
 		r.ReconcileNonAdminController,
 		r.ReconcileVMFileRestoreController,
 		r.ReconcileKubevirtDatamoverController,
+		r.ReconcileNetworkPolicies,
 	)
 
 	if err != nil {
@@ -184,6 +187,7 @@ func (r *DataProtectionApplicationReconciler) SetupWithManager(mgr ctrl.Manager)
 		Owns(&routev1.Route{}).
 		// Owns watches ConfigMaps created by the operator (with ownerReference to DPA).
 		Owns(&corev1.ConfigMap{}).
+		Owns(&networkingv1.NetworkPolicy{}).
 		Watches(&corev1.Secret{}, &labelHandler{}).
 		// Watches for user-created ConfigMaps referenced by DPA annotations
 		// (not owned by DPA, so Owns above does not cover them).
