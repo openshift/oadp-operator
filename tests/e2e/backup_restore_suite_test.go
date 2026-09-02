@@ -421,7 +421,17 @@ func gatherLogs(brCase BackupRestoreCase, installTime time.Time, report ginkgo.S
 func deleteNamespace(namespace string) {
 	err := lib.DeleteNamespace(kubernetesClientForSuiteRun, namespace)
 	gomega.Expect(err).ToNot(gomega.HaveOccurred())
-	gomega.Eventually(lib.IsNamespaceDeleted(kubernetesClientForSuiteRun, namespace), time.Minute*5, time.Second*5).Should(gomega.BeTrue())
+	// Clear any stuck VirtualMachineBackup finalizers (workaround for kubevirt#18724)
+	// before waiting for namespace termination. A spec that hits a known-bug skip
+	// path (see lib.CheckIfFlakeOccurred) unwinds via ginkgo.Skip before reaching
+	// its own namespace cleanup (e.g. IsNamespaceDeletedClearingStuckVMBFinalizers
+	// in virt_backup_restore_suite_test.go), leaving this shared AfterEach path as
+	// the only place left to do it -- confirmed live: without this, the plain
+	// IsNamespaceDeleted wait times out after 5m on a namespace whose VMB never
+	// got a real completed status (same still-open kubevirt/kubevirt#18949 disease
+	// as VMBHasNoConditions). Harmless no-op for namespaces with no VMBs.
+	vmbClearer := &lib.VirtOperator{Dynamic: dynamicClientForSuiteRun}
+	gomega.Eventually(vmbClearer.IsNamespaceDeletedClearingStuckVMBFinalizers(kubernetesClientForSuiteRun, namespace), time.Minute*5, time.Second*5).Should(gomega.BeTrue())
 }
 
 var _ = ginkgo.Describe("Backup and restore tests", ginkgo.Ordered, func() {

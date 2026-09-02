@@ -82,7 +82,22 @@ var packageManifestsGvr = schema.GroupVersionResource{
 	Version:  "v1",
 }
 
-var hyperConvergedGvr = schema.GroupVersionResource{
+// hco.kubevirt.io's HyperConverged CRD has two served API versions with a
+// conversion webhook between them. v1 is the storage/hub version (confirmed
+// via the CRD's own manifest: v1 has storage:true, v1beta1 has
+// storage:false), so reading/writing v1 directly needs zero conversion,
+// while v1beta1 always round-trips through HCO's conversion webhook. That
+// webhook has a live upstream bug (kubevirt/hyperconverged-cluster-operator#4549)
+// that can reject valid spec.featureGates writes/reads made via v1beta1.
+// Prefer v1 whenever the cluster serves it; fall back to v1beta1 only for
+// older HCO releases that don't yet serve v1. See hyperConvergedGVR().
+var hyperConvergedGvrV1 = schema.GroupVersionResource{
+	Group:    "hco.kubevirt.io",
+	Resource: "hyperconvergeds",
+	Version:  "v1",
+}
+
+var hyperConvergedGvrV1beta1 = schema.GroupVersionResource{
 	Group:    "hco.kubevirt.io",
 	Resource: "hyperconvergeds",
 	Version:  "v1beta1",
@@ -140,14 +155,40 @@ const (
 )
 
 type VirtOperator struct {
-	Client         client.Client
-	Clientset      *kubernetes.Clientset
-	Dynamic        dynamic.Interface
-	Namespace      string
-	Csv            string
-	Version        *version.Version
-	Upstream       bool
-	CommunityIndex string // HCO index image tag (e.g. "1.17.1"); empty means no custom catalog
+	Client           client.Client
+	Clientset        *kubernetes.Clientset
+	Dynamic          dynamic.Interface
+	Namespace        string
+	Csv              string
+	Version          *version.Version
+	Upstream         bool
+	CommunityIndex   string // HCO index image tag (e.g. "1.17.1"); empty means no custom catalog
+	CommunityChannel string // OLM channel actually published by that tag's catalog (discovered, not guessed)
+
+	hcoGVR *schema.GroupVersionResource // cache for hyperConvergedGVR(), resolved once via discovery
+}
+
+// hyperConvergedGVR returns the HyperConverged GVR to use against this
+// cluster, preferring v1 (the CRD's storage/hub version, see the comment on
+// hyperConvergedGvrV1) whenever it's actually served, and falling back to
+// v1beta1 otherwise. The result is discovered once via the Discovery API and
+// cached for the lifetime of this VirtOperator.
+func (v *VirtOperator) hyperConvergedGVR() schema.GroupVersionResource {
+	if v.hcoGVR != nil {
+		return *v.hcoGVR
+	}
+
+	gvr := hyperConvergedGvrV1beta1
+	if v.Clientset != nil {
+		groupVersion := hyperConvergedGvrV1.Group + "/" + hyperConvergedGvrV1.Version
+		if _, err := v.Clientset.Discovery().ServerResourcesForGroupVersion(groupVersion); err == nil {
+			gvr = hyperConvergedGvrV1
+		} else {
+			log.Printf("hco.kubevirt.io/v1 not served (%v), falling back to v1beta1", err)
+		}
+	}
+	v.hcoGVR = &gvr
+	return gvr
 }
 
 // communityChannelFromTag derives the OLM subscription channel name from an HCO
@@ -162,9 +203,19 @@ func communityChannelFromTag(indexTag string) string {
 
 // EnsureCommunityHcoCatalog creates a CatalogSource in openshift-marketplace
 // pointing to the community HCO index image with the given tag. It then waits
-// for the corresponding PackageManifest to become available, which indicates
-// the catalog's grpc pod is serving content.
-func EnsureCommunityHcoCatalog(dynamicClient dynamic.Interface, indexTag string, timeout time.Duration) error {
+// for the corresponding PackageManifest to become available (indicating the
+// catalog's grpc pod is serving content) and returns the channel that catalog
+// actually publishes.
+//
+// The returned channel is DISCOVERED from the live PackageManifest, not
+// guessed from indexTag's string shape (communityChannelFromTag's "1.18.0" ->
+// "stable-v1.18" assumption only holds for numeric release tags -- a moving
+// tag like "nightly" publishes something like "candidate-v1.20" instead, with
+// no numeric relationship to the tag string at all). Filtered by the
+// PackageManifest's own "catalog" label so a same-named manifest from a
+// different CatalogSource (e.g. redhat-operators/community-operators, which
+// can coexist under the same package name) is never mistaken for ours.
+func EnsureCommunityHcoCatalog(dynamicClient dynamic.Interface, indexTag string, timeout time.Duration) (string, error) {
 	catalogSource := &unstructured.Unstructured{
 		Object: map[string]interface{}{
 			"apiVersion": "operators.coreos.com/v1alpha1",
@@ -189,11 +240,11 @@ func EnsureCommunityHcoCatalog(dynamicClient dynamic.Interface, indexTag string,
 		if existingImage != expectedImage {
 			log.Printf("CatalogSource %s exists with stale image %s, updating to %s", communityHcoCatalogName, existingImage, expectedImage)
 			if err := unstructured.SetNestedField(existing.UnstructuredContent(), expectedImage, "spec", "image"); err != nil {
-				return fmt.Errorf("failed to set CatalogSource image: %w", err)
+				return "", fmt.Errorf("failed to set CatalogSource image: %w", err)
 			}
 			_, err = dynamicClient.Resource(catalogSourceGvr).Namespace("openshift-marketplace").Update(context.Background(), existing, metav1.UpdateOptions{})
 			if err != nil {
-				return fmt.Errorf("failed to update CatalogSource %s: %w", communityHcoCatalogName, err)
+				return "", fmt.Errorf("failed to update CatalogSource %s: %w", communityHcoCatalogName, err)
 			}
 		} else {
 			log.Printf("CatalogSource %s already exists with correct image %s", communityHcoCatalogName, existingImage)
@@ -202,20 +253,25 @@ func EnsureCommunityHcoCatalog(dynamicClient dynamic.Interface, indexTag string,
 		log.Printf("Creating CatalogSource %s with image %s:%s", communityHcoCatalogName, communityHcoIndexImage, indexTag)
 		_, err = dynamicClient.Resource(catalogSourceGvr).Namespace("openshift-marketplace").Create(context.Background(), catalogSource, metav1.CreateOptions{})
 		if err != nil {
-			return fmt.Errorf("failed to create CatalogSource %s: %w", communityHcoCatalogName, err)
+			return "", fmt.Errorf("failed to create CatalogSource %s: %w", communityHcoCatalogName, err)
 		}
 	}
 
-	// Wait for the packagemanifest to include a channel from the community catalog.
-	// The community-kubevirt-hyperconverged manifest may already exist from the
-	// community-operators catalog (with only "stable","1.10.7","1.11.0"), so we
-	// must wait until the new catalog's channels (e.g. "stable-v1.17") appear.
-	log.Printf("Waiting for community-kubevirt-hyperconverged PackageManifest to appear")
+	log.Printf("Waiting for community-kubevirt-hyperconverged PackageManifest from CatalogSource %s to appear", communityHcoCatalogName)
+	var channel string
 	err = wait.PollUntilContextTimeout(context.Background(), 5*time.Second, timeout, true, func(ctx context.Context) (bool, error) {
-		manifest, getErr := dynamicClient.Resource(packageManifestsGvr).Namespace("default").Get(context.Background(), "community-kubevirt-hyperconverged", metav1.GetOptions{})
-		if getErr != nil {
-			log.Printf("PackageManifest not yet available: %v", getErr)
+		manifests, listErr := dynamicClient.Resource(packageManifestsGvr).Namespace("default").List(context.Background(), metav1.ListOptions{
+			LabelSelector: "catalog=" + communityHcoCatalogName,
+		})
+		if listErr != nil || len(manifests.Items) == 0 {
+			log.Printf("PackageManifest for CatalogSource %s not yet available, retrying...", communityHcoCatalogName)
 			return false, nil
+		}
+		manifest := manifests.Items[0]
+		if defaultChannel, found, _ := unstructured.NestedString(manifest.UnstructuredContent(), "status", "defaultChannel"); found && defaultChannel != "" {
+			channel = defaultChannel
+			log.Printf("PackageManifest defaultChannel: %s", channel)
+			return true, nil
 		}
 		channels, _, _ := unstructured.NestedSlice(manifest.UnstructuredContent(), "status", "channels")
 		for _, ch := range channels {
@@ -223,20 +279,20 @@ func EnsureCommunityHcoCatalog(dynamicClient dynamic.Interface, indexTag string,
 			if !ok {
 				continue
 			}
-			name, _, _ := unstructured.NestedString(chMap, "name")
-			if strings.HasPrefix(name, "stable-v") {
-				log.Printf("PackageManifest has community channel: %s", name)
+			if name, _, _ := unstructured.NestedString(chMap, "name"); name != "" {
+				channel = name
+				log.Printf("PackageManifest channel (no defaultChannel set): %s", channel)
 				return true, nil
 			}
 		}
-		log.Printf("PackageManifest exists but community stable-v* channel not yet populated, retrying...")
+		log.Printf("PackageManifest exists but has no channels populated yet, retrying...")
 		return false, nil
 	})
 	if err != nil {
-		return fmt.Errorf("timed out waiting for PackageManifest from CatalogSource %s: %w", communityHcoCatalogName, err)
+		return "", fmt.Errorf("timed out waiting for PackageManifest from CatalogSource %s: %w", communityHcoCatalogName, err)
 	}
-	log.Printf("CatalogSource %s is ready", communityHcoCatalogName)
-	return nil
+	log.Printf("CatalogSource %s is ready, channel %s", communityHcoCatalogName, channel)
+	return channel, nil
 }
 
 // RemoveCommunityHcoCatalog removes the custom community HCO CatalogSource.
@@ -267,27 +323,35 @@ func RemoveCommunityHcoCatalog(dynamicClient dynamic.Interface, timeout time.Dur
 // GetVirtOperator fills out a new VirtOperator. Set communityIndexTag to a
 // non-empty string (e.g. "1.17.1") to use a custom CatalogSource for the
 // community HCO operator. The CatalogSource must already exist before calling
-// this function (see EnsureCommunityHcoCatalog).
-func GetVirtOperator(c client.Client, clientset *kubernetes.Clientset, dynamicClient dynamic.Interface, upstream bool, communityIndexTag string) (*VirtOperator, error) {
+// this function (see EnsureCommunityHcoCatalog). communityChannel should be
+// the channel EnsureCommunityHcoCatalog returned for that same tag; pass ""
+// to fall back to guessing a channel from communityIndexTag's numeric shape
+// (communityChannelFromTag), which only works for release-style tags.
+func GetVirtOperator(c client.Client, clientset *kubernetes.Clientset, dynamicClient dynamic.Interface, upstream bool, communityIndexTag string, communityChannel string) (*VirtOperator, error) {
 	namespace := "openshift-cnv"
 	manifest := "kubevirt-hyperconverged"
 	channel := "stable"
 	if communityIndexTag != "" {
 		namespace = "kubevirt-hyperconverged"
 		manifest = "community-kubevirt-hyperconverged"
-		channel = communityChannelFromTag(communityIndexTag)
+		if communityChannel != "" {
+			channel = communityChannel
+		} else {
+			channel = communityChannelFromTag(communityIndexTag)
+		}
 	} else if upstream {
 		namespace = "kubevirt-hyperconverged"
 		manifest = "community-kubevirt-hyperconverged"
 	}
 
 	v := &VirtOperator{
-		Client:         c,
-		Clientset:      clientset,
-		Dynamic:        dynamicClient,
-		Namespace:      namespace,
-		Upstream:       upstream || communityIndexTag != "",
-		CommunityIndex: communityIndexTag,
+		Client:           c,
+		Clientset:        clientset,
+		Dynamic:          dynamicClient,
+		Namespace:        namespace,
+		Upstream:         upstream || communityIndexTag != "",
+		CommunityIndex:   communityIndexTag,
+		CommunityChannel: channel,
 	}
 
 	// If virt is already installed, read the CSV directly from the existing
@@ -312,11 +376,15 @@ func GetVirtOperator(c client.Client, clientset *kubernetes.Clientset, dynamicCl
 
 	// Virt not yet installed (or subscription unreadable): look up CSV from
 	// the PackageManifest. Retry to tolerate OLM PackageServer replica skew.
+	catalogSourceName := ""
+	if communityIndexTag != "" {
+		catalogSourceName = communityHcoCatalogName
+	}
 	var csv string
 	var operatorVersion *version.Version
 	err := wait.PollUntilContextTimeout(context.Background(), 5*time.Second, 2*time.Minute, true, func(ctx context.Context) (bool, error) {
 		var getErr error
-		csv, operatorVersion, getErr = getCsvFromPackageManifest(dynamicClient, manifest, channel)
+		csv, operatorVersion, getErr = getCsvFromPackageManifest(dynamicClient, manifest, channel, catalogSourceName)
 		if getErr != nil {
 			log.Printf("PackageManifest lookup failed, retrying: %v", getErr)
 			return false, nil
@@ -364,12 +432,37 @@ func (v *VirtOperator) makeOperatorGroup() *operatorsv1.OperatorGroup {
 // the currentCSV string, like: kubevirt-hyperconverged-operator.v4.12.8
 // Also returns just the version (e.g. 4.12.8 from above) as a comparable
 // Version type, so it is easy to check against the current cluster version.
-func getCsvFromPackageManifest(dynamicClient dynamic.Interface, name string, channel string) (string, *version.Version, error) {
+func getCsvFromPackageManifest(dynamicClient dynamic.Interface, name string, channel string, catalogSourceName string) (string, *version.Version, error) {
 	log.Println("Getting packagemanifest...")
-	unstructuredManifest, err := dynamicClient.Resource(packageManifestsGvr).Namespace("default").Get(context.Background(), name, metav1.GetOptions{})
-	if err != nil {
-		log.Printf("Error getting packagemanifest %s: %v", name, err)
-		return "", nil, err
+	var unstructuredManifest *unstructured.Unstructured
+	if catalogSourceName != "" {
+		// Plain Get-by-name is ambiguous when more than one CatalogSource
+		// publishes a PackageManifest under the same package name (e.g. our
+		// community catalog and community-operators both publish
+		// "community-kubevirt-hyperconverged") -- OLM's synthetic
+		// PackageManifest aggregation can return either one on a given call,
+		// observed live flapping between our catalog's channel and a
+		// generic community-operators one across consecutive polls. List
+		// filtered by the PackageManifest's own "catalog" label to reliably
+		// target the manifest OUR CatalogSource actually produced.
+		manifests, listErr := dynamicClient.Resource(packageManifestsGvr).Namespace("default").List(context.Background(), metav1.ListOptions{
+			LabelSelector: "catalog=" + catalogSourceName,
+		})
+		if listErr != nil {
+			log.Printf("Error listing packagemanifests for catalog %s: %v", catalogSourceName, listErr)
+			return "", nil, listErr
+		}
+		if len(manifests.Items) == 0 {
+			return "", nil, errors.New("no packagemanifest found for catalog " + catalogSourceName)
+		}
+		unstructuredManifest = &manifests.Items[0]
+	} else {
+		m, getErr := dynamicClient.Resource(packageManifestsGvr).Namespace("default").Get(context.Background(), name, metav1.GetOptions{})
+		if getErr != nil {
+			log.Printf("Error getting packagemanifest %s: %v", name, getErr)
+			return "", nil, getErr
+		}
+		unstructuredManifest = m
 	}
 
 	log.Println("Extracting channels...")
@@ -472,7 +565,7 @@ func (v *VirtOperator) checkCsv() bool {
 // health status field is "healthy". Uses dynamic client to avoid uprooting lots
 // of package dependencies, which should probably be fixed later.
 func (v *VirtOperator) checkHco() bool {
-	unstructuredHco, err := v.Dynamic.Resource(hyperConvergedGvr).Namespace(v.Namespace).Get(context.Background(), "kubevirt-hyperconverged", metav1.GetOptions{})
+	unstructuredHco, err := v.Dynamic.Resource(v.hyperConvergedGVR()).Namespace(v.Namespace).Get(context.Background(), "kubevirt-hyperconverged", metav1.GetOptions{})
 	if err != nil {
 		log.Printf("Error getting HCO: %v", err)
 		return false
@@ -496,7 +589,7 @@ func (v *VirtOperator) checkHco() bool {
 // the jsonpatch annotation array. This handles annotations that contain
 // additional patches (e.g. CBT label selectors).
 func (v *VirtOperator) checkEmulation() bool {
-	hco, err := v.Dynamic.Resource(hyperConvergedGvr).Namespace(v.Namespace).Get(context.Background(), "kubevirt-hyperconverged", metav1.GetOptions{})
+	hco, err := v.Dynamic.Resource(v.hyperConvergedGVR()).Namespace(v.Namespace).Get(context.Background(), "kubevirt-hyperconverged", metav1.GetOptions{})
 	if err != nil {
 		return false
 	}
@@ -562,7 +655,7 @@ func (v *VirtOperator) installSubscription() error {
 			CatalogSource:          communityHcoCatalogName,
 			CatalogSourceNamespace: "openshift-marketplace",
 			Package:                "community-kubevirt-hyperconverged",
-			Channel:                communityChannelFromTag(v.CommunityIndex),
+			Channel:                v.CommunityChannel,
 			StartingCSV:            v.Csv,
 			InstallPlanApproval:    operatorsv1alpha1.ApprovalAutomatic,
 		}
@@ -595,9 +688,10 @@ func (v *VirtOperator) installSubscription() error {
 // Creates a HyperConverged Operator instance. Another dynamic client to avoid
 // bringing in the KubeVirt APIs for now.
 func (v *VirtOperator) installHco() error {
+	gvr := v.hyperConvergedGVR()
 	unstructuredHco := unstructured.Unstructured{
 		Object: map[string]interface{}{
-			"apiVersion": "hco.kubevirt.io/v1beta1",
+			"apiVersion": gvr.Group + "/" + gvr.Version,
 			"kind":       "HyperConverged",
 			"metadata": map[string]interface{}{
 				"name":      "kubevirt-hyperconverged",
@@ -606,7 +700,7 @@ func (v *VirtOperator) installHco() error {
 			"spec": map[string]interface{}{},
 		},
 	}
-	_, err := v.Dynamic.Resource(hyperConvergedGvr).Namespace(v.Namespace).Create(context.Background(), &unstructuredHco, metav1.CreateOptions{})
+	_, err := v.Dynamic.Resource(v.hyperConvergedGVR()).Namespace(v.Namespace).Create(context.Background(), &unstructuredHco, metav1.CreateOptions{})
 	if err != nil {
 		log.Printf("Error creating HCO: %v", err)
 		return err
@@ -616,7 +710,7 @@ func (v *VirtOperator) installHco() error {
 }
 
 func (v *VirtOperator) configureEmulation() error {
-	hco, err := v.Dynamic.Resource(hyperConvergedGvr).Namespace(v.Namespace).Get(context.Background(), "kubevirt-hyperconverged", metav1.GetOptions{})
+	hco, err := v.Dynamic.Resource(v.hyperConvergedGVR()).Namespace(v.Namespace).Get(context.Background(), "kubevirt-hyperconverged", metav1.GetOptions{})
 	if err != nil {
 		return err
 	}
@@ -655,7 +749,7 @@ func (v *VirtOperator) configureEmulation() error {
 		return err
 	}
 
-	_, err = v.Dynamic.Resource(hyperConvergedGvr).Namespace(v.Namespace).Update(context.Background(), hco, metav1.UpdateOptions{})
+	_, err = v.Dynamic.Resource(v.hyperConvergedGVR()).Namespace(v.Namespace).Update(context.Background(), hco, metav1.UpdateOptions{})
 	return err
 }
 
@@ -782,7 +876,7 @@ func (v *VirtOperator) removeCsv() error {
 
 // Deletes a HyperConverged Operator instance.
 func (v *VirtOperator) removeHco() error {
-	err := v.Dynamic.Resource(hyperConvergedGvr).Namespace(v.Namespace).Delete(context.Background(), "kubevirt-hyperconverged", metav1.DeleteOptions{})
+	err := v.Dynamic.Resource(v.hyperConvergedGVR()).Namespace(v.Namespace).Delete(context.Background(), "kubevirt-hyperconverged", metav1.DeleteOptions{})
 	if err != nil {
 		log.Printf("Error deleting HCO: %v", err)
 		return err
@@ -935,6 +1029,42 @@ func (v *VirtOperator) WaitForVMReady(namespace, name string, timeout time.Durat
 		}
 		return false, nil
 	})
+}
+
+// NudgeVmiToTriggerResync patches a harmless annotation onto every
+// VirtualMachineInstance in vmNamespace to force a fresh Update watch event on
+// it.
+//
+// WORKAROUND for https://redhat.atlassian.net/browse/CNV-85377 (also reported
+// as https://redhat.atlassian.net/browse/CNV-89684) -- kubevirt/kubevirt#18949
+// has the real upstream fix; once that merges and rolls out to a released
+// build, this function becomes an unneeded no-op and should be removed along
+// with its call site. virt-controller's VirtualMachineBackup reconcile
+// (pkg/storage/cbt/backup.go startBackup()) can permanently stop advancing
+// after successfully attaching the backup target PVC to the VMI: that branch
+// returns without writing a status condition or requeuing, so recovery
+// depends entirely on the VMI's own informer watch firing again -- which
+// never happens if the VMI's status doesn't independently change afterward
+// (e.g. because virt-handler's own hotplug-attach status write stalls, see
+// kubevirt/kubevirt#18812). Patching an annotation is a real Update event on
+// that exact watched object, giving the stuck reconcile a chance to notice
+// the attach already succeeded and proceed -- it does not touch anything the
+// reconcile loop itself inspects, so it can't mask a genuine failure, only
+// unstick a missed watch event.
+func NudgeVmiToTriggerResync(dynamicClient dynamic.Interface, vmNamespace string) error {
+	vmis, err := dynamicClient.Resource(virtualMachineInstanceGvr).Namespace(vmNamespace).List(context.Background(), metav1.ListOptions{})
+	if err != nil {
+		return err
+	}
+	patch := []byte(fmt.Sprintf(`{"metadata":{"annotations":{"oadp-e2e.io/cnv-85377-nudge":%q}}}`, time.Now().UTC().Format(time.RFC3339Nano)))
+	for _, vmi := range vmis.Items {
+		if _, patchErr := dynamicClient.Resource(virtualMachineInstanceGvr).Namespace(vmNamespace).Patch(context.Background(), vmi.GetName(), types.MergePatchType, patch, metav1.PatchOptions{}); patchErr != nil {
+			log.Printf("CNV-85377 workaround: failed to nudge VMI %s/%s: %v", vmNamespace, vmi.GetName(), patchErr)
+		} else {
+			log.Printf("CNV-85377 workaround: nudged VMI %s/%s to retrigger a stuck VirtualMachineBackup reconcile", vmNamespace, vmi.GetName())
+		}
+	}
+	return nil
 }
 
 // HasQemuGuestAgent reports whether vmName's VMI currently has a connected
@@ -1203,6 +1333,79 @@ func (v *VirtOperator) RestartVmAndWaitRunning(namespace, name string, timeout t
 	return nil
 }
 
+// EnsureVmHaltedForExclusivePVCAccess makes sure vmName's VM is genuinely
+// stopped -- its virt-launcher pod gone, releasing the RWO block PVC -- before
+// the caller checksums that PVC via a separate helper pod
+// (ChecksumPVCBlockDeviceRegion). That helper pod needs exclusive access to
+// the PVC; pausing a running VMI does NOT release it (a paused VMI's
+// virt-launcher pod stays attached, only a real stop does). Confirmed live
+// across multiple Prow runs that a restored VM is already Running by the very
+// first status read after restore completes -- there's no naturally-occurring
+// halted window to catch here, so this creates one deterministically instead
+// of hoping to observe one.
+//
+// Always calls StopVm unconditionally, even if no virt-launcher pod currently
+// exists -- a bypass keyed on "no pod right now" would have exactly the same
+// race shape as the bug this closes: with the restored VM's spec.running
+// still true, KubeVirt's own controller could create a brand new
+// virt-launcher pod moments after that check, right as the caller's checksum
+// helper pod tries to attach the same PVC. Only an explicit stop keeps
+// spec.running false and guarantees no new pod appears during the checksum
+// window. The caller must always restart the VM afterward if the rest of the
+// spec needs it running again (e.g. via StartVm) -- this function's own
+// stop is unconditional, so the caller's restart should be too.
+func (v *VirtOperator) EnsureVmHaltedForExclusivePVCAccess(namespace, name string, timeout time.Duration) error {
+	log.Printf("Stopping VM %s/%s to get exclusive PVC access for the hard data-integrity checksum", namespace, name)
+	if err := v.StopVm(namespace, name); err != nil {
+		return fmt.Errorf("failed to stop VM %s/%s: %w", namespace, name, err)
+	}
+
+	err := wait.PollUntilContextTimeout(context.Background(), 5*time.Second, timeout, true, func(ctx context.Context) (bool, error) {
+		stillHasPod, podErr := v.hasVirtLauncherPod(ctx, namespace, name)
+		if podErr != nil {
+			// Treat a lookup failure as transient (e.g. a momentary API
+			// error) rather than conflating it with "pod confirmed gone" --
+			// keep polling instead of declaring success on an error.
+			log.Printf("transient error checking VM %s/%s's virt-launcher pod, retrying: %v", namespace, name, podErr)
+			return false, nil
+		}
+		return !stillHasPod, nil
+	})
+	if err != nil {
+		return fmt.Errorf("VM %s/%s did not release its virt-launcher pod after StopVm: %w", namespace, name, err)
+	}
+	log.Printf("VM %s/%s stopped, virt-launcher pod gone -- safe to checksum its PVC", namespace, name)
+	return nil
+}
+
+// hasVirtLauncherPod reports whether vmName still has ANY matching
+// virt-launcher pod at all -- including one that's mid-termination
+// (DeletionTimestamp set) or no longer Running. Deliberately does NOT reuse
+// GetVirtLauncherPod's filtering: that one excludes a terminating pod because
+// it's hunting for the currently-active pod to exec into, which is the wrong
+// question here -- a pod already marked for deletion can still hold the PVC
+// attached until it actually finishes terminating, so counting it as "gone"
+// early would silently reintroduce the exact Multi-Attach race this function
+// exists to close. Also deliberately does NOT go through GetAllPodsWithLabel:
+// that helper returns an error on a genuinely empty list ("no Pod found")
+// instead of a clean empty result -- confirmed live that routing through it
+// here made every poll tick misread "the pod is actually gone" as a
+// transient failure worth retrying, so the wait never succeeded and ran out
+// the clock instead. Calls the client directly for correct, unambiguous
+// list semantics: empty result, nil error.
+func (v *VirtOperator) hasVirtLauncherPod(ctx context.Context, namespace, name string) (bool, error) {
+	podList, err := v.Clientset.CoreV1().Pods(namespace).List(ctx, metav1.ListOptions{LabelSelector: "kubevirt.io=virt-launcher"})
+	if err != nil {
+		return false, fmt.Errorf("failed to list virt-launcher pods in %s: %w", namespace, err)
+	}
+	for i := range podList.Items {
+		if podList.Items[i].Annotations["kubevirt.io/domain"] == name {
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
 // RequireVEP25Support is a pre-flight check that fails immediately if the
 // installed HCO version is older than 1.18 or if the backup.kubevirt.io CRDs
 // (VirtualMachineBackup, VirtualMachineBackupTracker) do not exist.
@@ -1238,20 +1441,48 @@ func (v *VirtOperator) RequireVEP25Support() error {
 func (v *VirtOperator) EnableCBTFeatureGate(timeout time.Duration) error {
 	log.Printf("Enabling incrementalBackup feature gate on HCO")
 
+	gvr := v.hyperConvergedGVR()
 	err := wait.PollUntilContextTimeout(context.Background(), 5*time.Second, timeout, true, func(ctx context.Context) (bool, error) {
-		hco, err := v.Dynamic.Resource(hyperConvergedGvr).Namespace(v.Namespace).Get(ctx, "kubevirt-hyperconverged", metav1.GetOptions{})
+		hco, err := v.Dynamic.Resource(gvr).Namespace(v.Namespace).Get(ctx, "kubevirt-hyperconverged", metav1.GetOptions{})
 		if err != nil {
 			return false, fmt.Errorf("failed to get HCO: %w", err)
 		}
 
-		current, _, _ := unstructured.NestedBool(hco.UnstructuredContent(), "spec", "featureGates", "incrementalBackup")
-		log.Printf("HCO spec.featureGates.incrementalBackup current value: %v — setting to true", current)
+		// v1's spec.featureGates is HyperConvergedFeatureGates, an array of
+		// {name, state} objects (confirmed against api/v1/featuregates), unlike
+		// v1beta1's object-with-named-bool-fields shape. Set the right shape
+		// for whichever version we're actually talking to.
+		if gvr.Version == hyperConvergedGvrV1.Version {
+			gates, _, _ := unstructured.NestedSlice(hco.UnstructuredContent(), "spec", "featureGates")
+			idx := -1
+			for i, g := range gates {
+				if m, ok := g.(map[string]interface{}); ok {
+					if name, _ := m["name"].(string); strings.EqualFold(name, "incrementalBackup") {
+						idx = i
+						break
+					}
+				}
+			}
+			log.Printf("HCO spec.featureGates (v1 array) incrementalBackup already present: %v — setting to Enabled", idx >= 0)
+			entry := map[string]interface{}{"name": "incrementalBackup", "state": "Enabled"}
+			if idx >= 0 {
+				gates[idx] = entry
+			} else {
+				gates = append(gates, entry)
+			}
+			if err := unstructured.SetNestedSlice(hco.UnstructuredContent(), gates, "spec", "featureGates"); err != nil {
+				return false, fmt.Errorf("failed to set incrementalBackup feature gate (v1 array): %w", err)
+			}
+		} else {
+			current, _, _ := unstructured.NestedBool(hco.UnstructuredContent(), "spec", "featureGates", "incrementalBackup")
+			log.Printf("HCO spec.featureGates.incrementalBackup current value: %v — setting to true", current)
 
-		if err := unstructured.SetNestedField(hco.UnstructuredContent(), true, "spec", "featureGates", "incrementalBackup"); err != nil {
-			return false, fmt.Errorf("failed to set incrementalBackup feature gate: %w", err)
+			if err := unstructured.SetNestedField(hco.UnstructuredContent(), true, "spec", "featureGates", "incrementalBackup"); err != nil {
+				return false, fmt.Errorf("failed to set incrementalBackup feature gate: %w", err)
+			}
 		}
 
-		_, err = v.Dynamic.Resource(hyperConvergedGvr).Namespace(v.Namespace).Update(ctx, hco, metav1.UpdateOptions{})
+		_, err = v.Dynamic.Resource(gvr).Namespace(v.Namespace).Update(ctx, hco, metav1.UpdateOptions{})
 		if err != nil {
 			if apierrors.IsConflict(err) {
 				log.Printf("HCO modification conflict setting incrementalBackup, retrying...")
@@ -1339,7 +1570,7 @@ func (v *VirtOperator) EnableCBTLabelSelector(timeout time.Duration) error {
 	}
 
 	err := wait.PollUntilContextTimeout(context.Background(), 5*time.Second, timeout, true, func(ctx context.Context) (bool, error) {
-		hco, err := v.Dynamic.Resource(hyperConvergedGvr).Namespace(v.Namespace).Get(ctx, "kubevirt-hyperconverged", metav1.GetOptions{})
+		hco, err := v.Dynamic.Resource(v.hyperConvergedGVR()).Namespace(v.Namespace).Get(ctx, "kubevirt-hyperconverged", metav1.GetOptions{})
 		if err != nil {
 			return false, fmt.Errorf("failed to get HCO: %w", err)
 		}
@@ -1375,7 +1606,7 @@ func (v *VirtOperator) EnableCBTLabelSelector(timeout time.Duration) error {
 			return false, err
 		}
 
-		_, err = v.Dynamic.Resource(hyperConvergedGvr).Namespace(v.Namespace).Update(ctx, hco, metav1.UpdateOptions{})
+		_, err = v.Dynamic.Resource(v.hyperConvergedGVR()).Namespace(v.Namespace).Update(ctx, hco, metav1.UpdateOptions{})
 		if err != nil {
 			if apierrors.IsConflict(err) {
 				log.Printf("HCO modification conflict setting CBT label selector, retrying...")
@@ -1463,6 +1694,44 @@ func (v *VirtOperator) GetVMBBackupType(namespace, dataUploadName string) (backu
 		return backupType, checkpointName, nil
 	}
 	return "", "", fmt.Errorf("no VirtualMachineBackup found in %s with %s=%s", namespace, annotationDataUploadName, dataUploadName)
+}
+
+// VMBHasNoConditions finds the VirtualMachineBackup in namespace whose
+// annotationDataUploadName annotation matches dataUploadName, and reports
+// whether it exists but has zero status.conditions (not merely missing a
+// Done/Complete condition -- genuinely none at all).
+//
+// This is a second, distinct manifestation of the same upstream bug as
+// CNV-85377/kubevirt/kubevirt#18949 (see lib.NudgeVmiToTriggerResync's doc
+// comment): confirmed live (2026-08-29, oadp-operator PR#2404) via direct
+// APIReader access on a real cluster that a VirtualMachineBackup can sit
+// with status.conditions == nil for the ENTIRE backup timeout (20+ minutes,
+// 244 consecutive uncached reads all nil) -- not even an Initializing/
+// Progressing condition ever gets written, so kdm-controller's own log has
+// no distinguishing text to pattern-match against (its generic "in
+// progress, requeuing" message is identical to a perfectly healthy backup's
+// normal early-lifecycle message). kubevirt-fixer confirmed this traces to
+// the exact same root cause as #18949 (startBackup()'s attach branch never
+// writing a status condition), just with an even earlier/more complete
+// failure to write anything at all -- not a separate bug. Returns
+// found=false (not a match) if the VMB doesn't exist yet at all, since
+// that's a different, earlier-stage scenario already handled elsewhere.
+func (v *VirtOperator) VMBHasNoConditions(namespace, dataUploadName string) (empty bool, found bool, err error) {
+	list, err := v.Dynamic.Resource(virtualMachineBackupGvr).Namespace(namespace).List(context.Background(), metav1.ListOptions{})
+	if err != nil {
+		return false, false, fmt.Errorf("failed to list VirtualMachineBackups in %s: %w", namespace, err)
+	}
+	for _, vmb := range list.Items {
+		if vmb.GetAnnotations()[annotationDataUploadName] != dataUploadName {
+			continue
+		}
+		conditions, _, err := unstructured.NestedSlice(vmb.Object, "status", "conditions")
+		if err != nil {
+			return false, true, fmt.Errorf("failed to read status.conditions from VirtualMachineBackup %s/%s: %w", namespace, vmb.GetName(), err)
+		}
+		return len(conditions) == 0, true, nil
+	}
+	return false, false, nil
 }
 
 // vmbBackupProtectionFinalizer is the finalizer virt-controller stamps on a
