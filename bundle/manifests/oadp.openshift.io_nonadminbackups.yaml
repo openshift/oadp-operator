@@ -666,6 +666,10 @@ spec:
                     description: number of PodVolumeBackups related to this NonAdminBackup's
                       Backup
                     type: integer
+                  uploaderType:
+                    description: type of uploader used for pod volume backups (e.g.,
+                      kopia, restic)
+                    type: string
                 type: object
               phase:
                 description: phase is a simple one high-level summary of the lifecycle
