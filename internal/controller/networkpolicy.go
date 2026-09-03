@@ -777,9 +777,9 @@ func (r *DataProtectionApplicationReconciler) reconcileVMFileRestoreNetworkPolic
 					},
 				},
 			},
-			// Egress: this controller only orchestrates via CRs (no cloud/BSL credentials
-			// referenced in its code) and needs no direct cloud storage access.
-			Egress: scopedEgressRules(),
+			// Egress: VMFR downloads backup contents directly from the configured
+			// BackupStorageLocation, which may be an arbitrary S3-compatible endpoint.
+			Egress: unrestrictedEgressRule(),
 		}
 
 		return nil
