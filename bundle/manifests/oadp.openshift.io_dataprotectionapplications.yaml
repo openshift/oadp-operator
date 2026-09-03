@@ -266,9 +266,28 @@ spec:
                                   type: string
                                 description: Annotations permits setting annotations for the backupPVC
                                 type: object
+                              configMapNames:
+                                description: |-
+                                  ConfigMapNames is a list of configmap names to copy from the source PVC namespace
+                                  to the Velero namespace before creating the backupPVC. The configmaps are deleted
+                                  after the DataUpload completes. This is needed for CSI drivers that require
+                                  namespace-scoped configmaps for volume provisioning (e.g., tenant-specific
+                                  Vault connection overrides for encrypted volumes).
+                                items:
+                                  type: string
+                                type: array
                               readOnly:
                                 description: ReadOnly sets the backupPVC's access mode as read only
                                 type: boolean
+                              secretNames:
+                                description: |-
+                                  SecretNames is a list of secret names to copy from the source PVC namespace
+                                  to the Velero namespace before creating the backupPVC. The secrets are deleted
+                                  after the DataUpload completes. This is needed for CSI drivers that require
+                                  namespace-scoped secrets for volume provisioning (e.g., encrypted volumes).
+                                items:
+                                  type: string
+                                type: array
                               spcNoRelabeling:
                                 description: |-
                                   SPCNoRelabeling sets Spec.SecurityContext.SELinux.Type to "spc_t" for the pod mounting the backupPVC
@@ -724,9 +743,27 @@ spec:
                         restorePVC:
                           description: RestoreVCConfig is the config for restorePVC (intermediate PVC) of generic restore
                           properties:
+                            configMapNames:
+                              description: |-
+                                ConfigMapNames is a list of configmap names to copy from the target namespace to the
+                                Velero namespace before creating the restorePVC. The configmaps are deleted after the
+                                DataDownload completes. This is needed for CSI drivers that require namespace-scoped
+                                configmaps for volume provisioning (e.g., tenant-specific Vault connection overrides).
+                              items:
+                                type: string
+                              type: array
                             ignoreDelayBinding:
                               description: IgnoreDelayBinding indicates to ignore delay binding the restorePVC when it is in WaitForFirstConsumer mode
                               type: boolean
+                            secretNames:
+                              description: |-
+                                SecretNames is a list of secret names to copy from the target namespace to the
+                                Velero namespace before creating the restorePVC. The secrets are deleted after the
+                                DataDownload completes. This is needed for CSI drivers that require namespace-scoped
+                                secrets for volume provisioning (e.g., encrypted volumes).
+                              items:
+                                type: string
+                              type: array
                           type: object
                         supplementalGroups:
                           description: supplementalGroups defines the linux groups to be applied to the NodeAgent Pod
@@ -2650,6 +2687,33 @@ spec:
                           type: boolean
                         resourceModifier:
                           description: ResourceModifier specifies the reference to JSON resource patches that should be applied to resources before restoration.
+                          nullable: true
+                          properties:
+                            apiGroup:
+                              description: |-
+                                APIGroup is the group for the resource being referenced.
+                                If APIGroup is not specified, the specified Kind must be in the core API group.
+                                For any other third-party types, APIGroup is required.
+                              type: string
+                            kind:
+                              description: Kind is the type of resource being referenced
+                              type: string
+                            name:
+                              description: Name is the name of resource being referenced
+                              type: string
+                          required:
+                            - kind
+                            - name
+                          type: object
+                          x-kubernetes-map-type: atomic
+                        resourcePolicy:
+                          description: |-
+                            ResourcePolicy specifies the reference to a ConfigMap containing resource
+                            filter policies for this restore. The ConfigMap can contain a
+                            namespacedFilterPolicies section that specifies per-namespace resource type
+                            filters, label selectors, and resource name patterns, and a
+                            clusterScopedFilterPolicy section for per-kind filtering of cluster-scoped
+                            resources. The ConfigMap format is the same as for BackupSpec.ResourcePolicy.
                           nullable: true
                           properties:
                             apiGroup:
