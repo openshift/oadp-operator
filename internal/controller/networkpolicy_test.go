@@ -316,9 +316,10 @@ var _ = ginkgo.Describe("ReconcileNetworkPolicies", func() {
 			gomega.Expect(*port.Protocol).To(gomega.Equal(corev1.ProtocolTCP))
 		}
 
-		// Verify scoped egress (DNS + API-server only)
+		// Verify unrestricted egress: VMFR downloads backup contents directly from
+		// arbitrary, admin-configured S3-compatible BackupStorageLocation endpoints.
 		gomega.Expect(np.Spec.PolicyTypes).To(gomega.ContainElement(networkingv1.PolicyTypeEgress))
-		gomega.Expect(np.Spec.Egress).To(gomega.Equal(scopedEgressRules()))
+		gomega.Expect(np.Spec.Egress).To(gomega.Equal(unrestrictedEgressRule()))
 	})
 
 	ginkgo.It("should create KubeVirt datamover NetworkPolicy when enabled", func() {
