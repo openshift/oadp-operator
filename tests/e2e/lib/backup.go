@@ -114,11 +114,12 @@ func DeleteKubevirtVolumePolicy(ocClient client.Client, namespace string) error 
 
 // CreateBackupWithVolumePolicy creates a backup that references the kubevirt
 // volume policy ConfigMap via Spec.ResourcePolicy.
-func CreateBackupWithVolumePolicy(ocClient client.Client, veleroNamespace, backupName string, namespaces []string, snapshotMoveData bool) error {
+func CreateBackupWithVolumePolicy(ocClient client.Client, veleroNamespace, backupName string, namespaces []string, snapshotMoveData bool, annotations map[string]string) error {
 	backup := velero.Backup{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      backupName,
-			Namespace: veleroNamespace,
+			Name:        backupName,
+			Namespace:   veleroNamespace,
+			Annotations: annotations,
 		},
 		Spec: velero.BackupSpec{
 			IncludedNamespaces:       namespaces,
