@@ -290,6 +290,7 @@ func (r *DataProtectionApplicationReconciler) customizeVeleroDeployment(veleroDe
 				terms = append(terms, a.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms...)
 			}
 		}
+		common.SortNodeSelectorTerms(terms)
 		if len(terms) > 0 {
 			veleroDeployment.Spec.Template.Spec.Affinity = &corev1.Affinity{
 				NodeAffinity: &corev1.NodeAffinity{
