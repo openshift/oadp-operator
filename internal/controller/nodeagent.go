@@ -681,8 +681,7 @@ func (r *DataProtectionApplicationReconciler) customizeNodeAgentDaemonset(ds *ap
 			nodeAgentContainer.Env = common.AppendUniqueEnvVars(nodeAgentContainer.Env, proxy.ReadProxyVarsFromEnv())
 
 			// Add Azure workload identity environment variables if configured
-			azureClientID := os.Getenv(stsflow.ClientIDEnvKey)
-			if azureClientID != "" && os.Getenv(stsflow.TenantIDEnvKey) != "" && os.Getenv(stsflow.SubscriptionIDEnvKey) != "" {
+			if stsflow.AzureIsWorkloadIdentity() {
 				// Use envFrom to reference the secret containing Azure workload identity env vars
 				if nodeAgentContainer.EnvFrom == nil {
 					nodeAgentContainer.EnvFrom = []corev1.EnvFromSource{}
