@@ -1344,6 +1344,14 @@ spec:
         - apiGroups:
           - kubevirt.io
           resources:
+          - virtualmachineinstances
+          verbs:
+          - get
+          - list
+          - watch
+        - apiGroups:
+          - kubevirt.io
+          resources:
           - virtualmachines
           verbs:
           - get
