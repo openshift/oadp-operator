@@ -253,6 +253,7 @@ type TestBuiltNodeAgentDaemonSetOptions struct {
 	dataMoverPrepareTimeout *string
 	resourceTimeout         *string
 	logFormat               *string
+	logLevel                *string
 	toleration              []corev1.Toleration
 	nodeSelector            map[string]string
 	disableFsBackup         *bool
@@ -583,6 +584,9 @@ func createTestBuiltNodeAgentDaemonSet(options TestBuiltNodeAgentDaemonSetOption
 	if len(options.priorityClassName) > 0 {
 		testBuiltNodeAgentDaemonSet.Spec.Template.Spec.PriorityClassName = options.priorityClassName
 	}
+	if options.logLevel != nil {
+		testBuiltNodeAgentDaemonSet.Spec.Template.Spec.Containers[0].Args = append(testBuiltNodeAgentDaemonSet.Spec.Template.Spec.Containers[0].Args, fmt.Sprintf("--log-level=%s", *options.logLevel))
+	}
 
 	return testBuiltNodeAgentDaemonSet
 }
@@ -843,6 +847,25 @@ func TestDPAReconciler_buildNodeAgentDaemonset(t *testing.T) {
 			nodeAgentDaemonSet: testNodeAgentDaemonSet.DeepCopy(),
 			wantNodeAgentDaemonSet: createTestBuiltNodeAgentDaemonSet(TestBuiltNodeAgentDaemonSetOptions{
 				logFormat: ptr.To("text"),
+			}),
+		},
+		{
+			name: "valid DPA CR with LogLevel set to debug, NodeAgent DaemonSet is built with LogLevel set to debug",
+			dpa: createTestDpaWith(
+				nil,
+				oadpv1alpha1.DataProtectionApplicationSpec{
+					Configuration: &oadpv1alpha1.ApplicationConfig{
+						Velero: &oadpv1alpha1.VeleroConfig{
+							LogLevel: "debug",
+						},
+						NodeAgent: &oadpv1alpha1.NodeAgentConfig{},
+					},
+				},
+			),
+			clientObjects:      []client.Object{testGenericInfrastructure},
+			nodeAgentDaemonSet: testNodeAgentDaemonSet.DeepCopy(),
+			wantNodeAgentDaemonSet: createTestBuiltNodeAgentDaemonSet(TestBuiltNodeAgentDaemonSetOptions{
+				logLevel: ptr.To("debug"),
 			}),
 		},
 		{
