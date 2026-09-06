@@ -2488,11 +2488,11 @@ func TestDPAReconciler_buildVeleroDeployment(t *testing.T) {
 			veleroDeployment: testVeleroDeployment.DeepCopy(),
 			wantVeleroDeployment: createTestBuiltVeleroDeployment(TestBuiltVeleroDeploymentOptions{
 				args: []string{
-					// should be present... "--uploader-type=kopia",
 					"--client-burst=321",
 					"--client-qps=321",
 					"--fs-backup-timeout=4h0m0s",
 					defaultRestoreResourcePriorities,
+					"--uploader-type=kopia",
 					defaultDisableInformerCache,
 				},
 			}),
