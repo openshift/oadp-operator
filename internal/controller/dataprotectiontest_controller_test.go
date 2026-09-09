@@ -787,7 +787,6 @@ func TestBuildHTTPClientWithTLS(t *testing.T) {
 					},
 				},
 			},
-			caCertData:  caPEM,
 			expectError: false,
 		},
 		{
