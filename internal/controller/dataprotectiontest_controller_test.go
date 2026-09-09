@@ -18,6 +18,9 @@ package controller
 
 import (
 	"context"
+	"crypto/x509"
+	"encoding/pem"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -29,6 +32,7 @@ import (
 	"github.com/stretchr/testify/require"
 	velerov1 "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
 	corev1 "k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -37,6 +41,7 @@ import (
 
 	oadpv1alpha1 "github.com/openshift/oadp-operator/api/v1alpha1"
 	"github.com/openshift/oadp-operator/pkg/cloudprovider"
+	"github.com/openshift/oadp-operator/tests/e2e/lib"
 )
 
 type mockProvider struct {
@@ -56,11 +61,18 @@ func (m *mockProvider) GetBucketMetadata(ctx context.Context, bucket string, log
 }
 
 func TestDetermineVendor(t *testing.T) {
+
+	caPEM, _, err := lib.GenerateSelfSignedCA()
+	if err != nil {
+		require.Fail(t, "Fail to generate test CA")
+	}
+
 	tests := []struct {
 		name           string
 		serverHeader   string
 		extraHeaders   map[string]string
 		expectedVendor string
+		caCertData     []byte
 	}{
 		{
 			name:           "Detect AWS via Server header",
@@ -111,6 +123,18 @@ func TestDetermineVendor(t *testing.T) {
 			serverHeader:   "",
 			expectedVendor: "Unknown",
 		},
+		{
+			name:           "With CA Certificate to unknown s3-compatible",
+			serverHeader:   "SomethingElse",
+			expectedVendor: "somethingelse",
+			caCertData:     caPEM,
+		},
+		{
+			name:           "With CA Certificate to Minio",
+			serverHeader:   "MinIO",
+			expectedVendor: "MinIO",
+			caCertData:     caPEM,
+		},
 	}
 
 	for _, tc := range tests {
@@ -139,7 +163,7 @@ func TestDetermineVendor(t *testing.T) {
 
 			reconciler := &DataProtectionTestReconciler{}
 
-			err := reconciler.determineVendor(context.Background(), dpt, dpt.Spec.BackupLocationSpec)
+			err := reconciler.determineVendor(context.Background(), dpt, dpt.Spec.BackupLocationSpec, tc.caCertData)
 			require.NoError(t, err)
 			require.Equal(t, tc.expectedVendor, dpt.Status.S3Vendor)
 		})
@@ -529,12 +553,20 @@ func TestCreateVolumeSnapshot(t *testing.T) {
 }
 
 func TestBuildTLSConfig(t *testing.T) {
+
+	caPEM, _, err := lib.GenerateSelfSignedCA()
+	if err != nil {
+		require.Fail(t, "Failed to generate CA Certificate for testing.")
+	}
+
 	tests := []struct {
 		name           string
 		dpt            *oadpv1alpha1.DataProtectionTest
 		bsl            *velerov1.BackupStorageLocationSpec
+		caCertData     []byte
 		expectInsecure bool
 		expectCustomCA bool
+		expectCA       []byte
 		expectError    bool
 		description    string
 	}{
@@ -570,6 +602,7 @@ func TestBuildTLSConfig(t *testing.T) {
 			expectCustomCA: false, // Should not set custom CA when skipTLSVerify is true
 			expectError:    false,
 			description:    "SkipTLSVerify should take precedence over CA cert",
+			caCertData:     []byte("some-ca-cert"), // Should be ignored due to skipTLSVerify,
 		},
 		{
 			name: "neither skipTLS nor custom CA",
@@ -601,12 +634,52 @@ func TestBuildTLSConfig(t *testing.T) {
 				StorageType: velerov1.StorageType{
 					ObjectStorage: &velerov1.ObjectStorageLocation{
 						Bucket: "test-bucket",
-						CACert: []byte("invalid-base64!"),
 					},
 				},
 			},
 			expectError: true,
 			description: "Should error on invalid base64 CA cert",
+			caCertData:  []byte("invalid-base64!"),
+		},
+		{
+			name: "with CA Cert from param",
+			dpt: &oadpv1alpha1.DataProtectionTest{
+				Spec: oadpv1alpha1.DataProtectionTestSpec{
+					SkipTLSVerify: false,
+				},
+			},
+			bsl: &velerov1.BackupStorageLocationSpec{
+				StorageType: velerov1.StorageType{
+					ObjectStorage: &velerov1.ObjectStorageLocation{
+						Bucket: "test-bucket",
+					},
+				},
+			},
+			expectCustomCA: true,
+			expectError:    false,
+			expectCA:       caPEM,
+			description:    "Should configure custom CA cert in RootCAs passed in from param",
+			caCertData:     caPEM,
+		},
+		{
+			name: "with CA Cert inline BSL",
+			dpt: &oadpv1alpha1.DataProtectionTest{
+				Spec: oadpv1alpha1.DataProtectionTestSpec{
+					SkipTLSVerify: false,
+				},
+			},
+			bsl: &velerov1.BackupStorageLocationSpec{
+				StorageType: velerov1.StorageType{
+					ObjectStorage: &velerov1.ObjectStorageLocation{
+						Bucket: "test-bucket",
+						CACert: caPEM,
+					},
+				},
+			},
+			expectCustomCA: true,
+			expectError:    false,
+			description:    "Should configure custom CA cert in RootCAs from BSL",
+			expectCA:       caPEM,
 		},
 	}
 
@@ -614,7 +687,7 @@ func TestBuildTLSConfig(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			logger := logr.Discard()
 
-			tlsConfig, err := buildTLSConfig(tt.dpt, tt.bsl, logger)
+			tlsConfig, err := buildTLSConfig(tt.dpt, tt.bsl, logger, tt.caCertData)
 
 			if tt.expectError {
 				require.Error(t, err)
@@ -627,19 +700,36 @@ func TestBuildTLSConfig(t *testing.T) {
 
 			if tt.expectCustomCA {
 				require.NotNil(t, tlsConfig.RootCAs)
-			} else if !tt.expectInsecure {
-				// System certs case - RootCAs should be nil (uses system)
-				require.Nil(t, tlsConfig.RootCAs)
+			}
+
+			if tt.expectInsecure {
+				// RootCAs field is ignored when set to insecure
+				require.Equal(t, tlsConfig.InsecureSkipVerify, true)
+			}
+
+			if tt.expectCustomCA && !tt.expectError {
+				block, _ := pem.Decode(tt.expectCA)
+				require.NotNil(t, block, "expectCA should be a valid PEM block")
+				cert, parseErr := x509.ParseCertificate(block.Bytes)
+				require.NoError(t, parseErr, "expectCA should contain a parseable certificate")
+				_, verifyErr := cert.Verify(x509.VerifyOptions{Roots: tlsConfig.RootCAs})
+				require.NoError(t, verifyErr, "generated CA cert should be trusted by tlsConfig.RootCAs")
 			}
 		})
 	}
 }
 
 func TestBuildHTTPClientWithTLS(t *testing.T) {
+	caPEM, _, err := lib.GenerateSelfSignedCA()
+	if err != nil {
+		require.Fail(t, "Failed to generate CA certificate for testing.")
+	}
+
 	tests := []struct {
 		name        string
 		dpt         *oadpv1alpha1.DataProtectionTest
 		bsl         *velerov1.BackupStorageLocationSpec
+		caCertData  []byte
 		expectError bool
 	}{
 		{
@@ -653,7 +743,22 @@ func TestBuildHTTPClientWithTLS(t *testing.T) {
 			expectError: false,
 		},
 		{
-			name: "invalid CA cert",
+			name: "invalid CA cert from param",
+			dpt: &oadpv1alpha1.DataProtectionTest{
+				Spec: oadpv1alpha1.DataProtectionTestSpec{
+					SkipTLSVerify: false,
+				},
+			},
+			bsl: &velerov1.BackupStorageLocationSpec{
+				StorageType: velerov1.StorageType{
+					ObjectStorage: &velerov1.ObjectStorageLocation{},
+				},
+			},
+			expectError: true,
+			caCertData:  []byte("invalid-base64!"),
+		},
+		{
+			name: "invalid CA cert from bsl",
 			dpt: &oadpv1alpha1.DataProtectionTest{
 				Spec: oadpv1alpha1.DataProtectionTestSpec{
 					SkipTLSVerify: false,
@@ -668,13 +773,45 @@ func TestBuildHTTPClientWithTLS(t *testing.T) {
 			},
 			expectError: true,
 		},
+		{
+			name: "valid generated CA cert from bsl",
+			dpt: &oadpv1alpha1.DataProtectionTest{
+				Spec: oadpv1alpha1.DataProtectionTestSpec{
+					SkipTLSVerify: false,
+				},
+			},
+			bsl: &velerov1.BackupStorageLocationSpec{
+				StorageType: velerov1.StorageType{
+					ObjectStorage: &velerov1.ObjectStorageLocation{
+						CACert: caPEM,
+					},
+				},
+			},
+			caCertData:  caPEM,
+			expectError: false,
+		},
+		{
+			name: "valid generated CA cert from param",
+			dpt: &oadpv1alpha1.DataProtectionTest{
+				Spec: oadpv1alpha1.DataProtectionTestSpec{
+					SkipTLSVerify: false,
+				},
+			},
+			bsl: &velerov1.BackupStorageLocationSpec{
+				StorageType: velerov1.StorageType{
+					ObjectStorage: &velerov1.ObjectStorageLocation{},
+				},
+			},
+			caCertData:  caPEM,
+			expectError: false,
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			logger := logr.Discard()
 
-			client, err := buildHTTPClientWithTLS(tt.dpt, tt.bsl, logger)
+			client, err := buildHTTPClientWithTLS(tt.dpt, tt.bsl, logger, tt.caCertData)
 
 			if tt.expectError {
 				require.Error(t, err)
@@ -689,12 +826,18 @@ func TestBuildHTTPClientWithTLS(t *testing.T) {
 }
 
 func TestBuildAWSSessionWithTLS(t *testing.T) {
+	caPEM, _, err := lib.GenerateSelfSignedCA()
+	if err != nil {
+		require.Fail(t, "Failed to generate CA certificate for testing.")
+	}
+
 	tests := []struct {
 		name        string
 		dpt         *oadpv1alpha1.DataProtectionTest
 		bsl         *velerov1.BackupStorageLocationSpec
 		region      string
 		endpoint    string
+		caCertData  []byte
 		expectError bool
 	}{
 		{
@@ -737,7 +880,25 @@ func TestBuildAWSSessionWithTLS(t *testing.T) {
 			},
 			region:      "us-east-1",
 			endpoint:    "",
+			caCertData:  []byte("invalid-base64!"),
 			expectError: true,
+		},
+		{
+			name: "valid generated CA cert",
+			dpt: &oadpv1alpha1.DataProtectionTest{
+				Spec: oadpv1alpha1.DataProtectionTestSpec{
+					SkipTLSVerify: false,
+				},
+			},
+			bsl: &velerov1.BackupStorageLocationSpec{
+				StorageType: velerov1.StorageType{
+					ObjectStorage: &velerov1.ObjectStorageLocation{},
+				},
+			},
+			region:      "us-east-1",
+			endpoint:    "",
+			caCertData:  caPEM,
+			expectError: false,
 		},
 	}
 
@@ -745,7 +906,7 @@ func TestBuildAWSSessionWithTLS(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			logger := logr.Discard()
 
-			session, err := buildAWSSessionWithTLS(tt.dpt, tt.bsl, tt.region, tt.endpoint, logger)
+			session, err := buildAWSSessionWithTLS(tt.dpt, tt.bsl, tt.region, tt.endpoint, logger, tt.caCertData)
 
 			if tt.expectError {
 				require.Error(t, err)
@@ -1183,4 +1344,161 @@ func TestRunSnapshotTests(t *testing.T) {
 			require.Equal(t, tt.expectedSummary, tt.dpt.Status.SnapshotSummary)
 		})
 	}
+}
+
+func TestRetrieveCAData(t *testing.T) {
+	scheme := runtime.NewScheme()
+	require.NoError(t, oadpv1alpha1.AddToScheme(scheme))
+	require.NoError(t, snapshotv1api.AddToScheme(scheme))
+	require.NoError(t, corev1.AddToScheme(scheme))
+
+	namespace := "dpt-test"
+
+	tests := []struct {
+		name           string
+		bsl            *velerov1.BackupStorageLocationSpec
+		startingSecret *v1.Secret
+		expectError    error
+		expectBytes    []byte
+	}{
+		{
+			name: "no bsl spec",
+		},
+		{
+			name: "no ca certificate",
+			bsl:  &velerov1.BackupStorageLocationSpec{},
+		},
+		{
+			name: "inline ca certificate",
+			bsl: &velerov1.BackupStorageLocationSpec{
+				StorageType: velerov1.StorageType{
+					ObjectStorage: &velerov1.ObjectStorageLocation{
+						CACert: []byte("bad ca data"),
+					},
+				},
+			},
+			expectBytes: []byte("bad ca data"),
+		},
+		{
+			name: "ca cert ref",
+			bsl: &velerov1.BackupStorageLocationSpec{
+				StorageType: velerov1.StorageType{
+					ObjectStorage: &velerov1.ObjectStorageLocation{
+						CACertRef: &v1.SecretKeySelector{
+							Key: "ca",
+							LocalObjectReference: v1.LocalObjectReference{
+								Name: "casecret",
+							},
+						},
+					},
+				},
+			},
+			startingSecret: &v1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "casecret",
+					Namespace: namespace,
+				},
+				Data: map[string][]byte{
+					"ca": []byte("more bad ca data"),
+				},
+			},
+			expectBytes: []byte("more bad ca data"),
+		},
+		{
+			name: "missing ca cert ref secret",
+			bsl: &velerov1.BackupStorageLocationSpec{
+				StorageType: velerov1.StorageType{
+					ObjectStorage: &velerov1.ObjectStorageLocation{
+						CACertRef: &v1.SecretKeySelector{
+							Key: "ca",
+							LocalObjectReference: v1.LocalObjectReference{
+								Name: "casecret",
+							},
+						},
+					},
+				},
+			},
+			expectError: errors.New("secrets \"casecret\" not found"),
+		},
+		{
+			name: "ca cert secret has no data",
+			bsl: &velerov1.BackupStorageLocationSpec{
+				StorageType: velerov1.StorageType{
+					ObjectStorage: &velerov1.ObjectStorageLocation{
+						CACertRef: &v1.SecretKeySelector{
+							Key: "ca",
+							LocalObjectReference: v1.LocalObjectReference{
+								Name: "casecret",
+							},
+						},
+					},
+				},
+			},
+			startingSecret: &v1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "casecret",
+					Namespace: namespace,
+				},
+				Data: map[string][]byte{},
+			},
+			expectError: errors.New("secret casecret has no data"),
+		},
+		{
+			name: "ca cert ref points to wrong key",
+			bsl: &velerov1.BackupStorageLocationSpec{
+				StorageType: velerov1.StorageType{
+					ObjectStorage: &velerov1.ObjectStorageLocation{
+						CACertRef: &v1.SecretKeySelector{
+							Key: "ca",
+							LocalObjectReference: v1.LocalObjectReference{
+								Name: "casecret",
+							},
+						},
+					},
+				},
+			},
+			startingSecret: &v1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "casecret",
+					Namespace: namespace,
+				},
+				Data: map[string][]byte{
+					"wrongkey": []byte("not a valid ca"),
+				},
+			},
+			expectError: errors.New("secret \"casecret\" has no key \"ca\""),
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctx := context.Background()
+
+			builder := fake.NewClientBuilder().WithScheme(scheme)
+			if tt.startingSecret != nil {
+				builder = builder.WithObjects(tt.startingSecret)
+			}
+			fakeClient := builder.Build()
+
+			reconciler := &DataProtectionTestReconciler{
+				Client:            fakeClient,
+				ClusterWideClient: fakeClient,
+				Log:               logr.Discard(),
+				NamespacedName:    types.NamespacedName{Namespace: namespace, Name: "test-obj"},
+				Context:           ctx,
+			}
+
+			caData, err := reconciler.retrieveCAData(reconciler.Context, tt.bsl)
+
+			if tt.expectError == nil {
+				require.NoError(t, err, "test should not error")
+			} else {
+				require.Error(t, err, "test should have errored")
+				require.Contains(t, err.Error(), tt.expectError.Error(), "error text did not contain required value")
+			}
+
+			require.Equal(t, tt.expectBytes, caData, "retrieved data of CA not as expected")
+		})
+	}
+
 }

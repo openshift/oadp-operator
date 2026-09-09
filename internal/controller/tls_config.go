@@ -33,10 +33,15 @@ import (
 // buildTLSConfig creates a TLS configuration based on the DPT spec and BSL spec.
 // Priority order:
 // 1. If skipTLSVerify is true → InsecureSkipVerify: true
-// 2. If BSL has caCert → Use custom CA cert
+// 2. If BSL has caCert → Use custom CA cert with system certs
 // 3. Otherwise → Use system certs (default)
-func buildTLSConfig(dpt *oadpv1alpha1.DataProtectionTest, bsl *velerov1.BackupStorageLocationSpec, logger logr.Logger) (*tls.Config, error) {
+func buildTLSConfig(dpt *oadpv1alpha1.DataProtectionTest, bsl *velerov1.BackupStorageLocationSpec, logger logr.Logger, caCertData []byte) (*tls.Config, error) {
 	tlsConfig := &tls.Config{}
+	// Priority 3: Load default system CA certificates.
+	caCertPool, err := x509.SystemCertPool()
+	if err != nil {
+		return nil, fmt.Errorf("failed to load system certificate pool %v", err)
+	}
 
 	// Priority 1: Check if skipTLSVerify is set
 	if dpt.Spec.SkipTLSVerify {
@@ -45,32 +50,31 @@ func buildTLSConfig(dpt *oadpv1alpha1.DataProtectionTest, bsl *velerov1.BackupSt
 		return tlsConfig, nil
 	}
 
-	// Priority 2: Check for custom CA cert in BSL
-	if bsl != nil && bsl.ObjectStorage != nil && bsl.ObjectStorage.CACert != nil {
-		logger.Info("Custom CA certificate found in BSL")
+	// Priority 2: Check for custom CA cert in retrieved by the controller from BSL or SecretKeySelector and append.
+	// caCertData should be passed as parameter to handle the BSL CAData and CACertRef fields
+	if len(caCertData) > 0 {
+		logger.Info("Custom CA certificate found in param")
 
-		// Use the PEM certificate directly (already decoded by Kubernetes)
-		caCertPEM := bsl.ObjectStorage.CACert
-
-		// Create certificate pool with custom CA
-		caCertPool := x509.NewCertPool()
-		if !caCertPool.AppendCertsFromPEM(caCertPEM) {
-			return nil, fmt.Errorf("failed to parse CA certificate")
+		if !caCertPool.AppendCertsFromPEM(caCertData) {
+			return nil, fmt.Errorf("failed to parse CA certificates from param")
 		}
 
-		tlsConfig.RootCAs = caCertPool
-		logger.Info("Successfully configured custom CA certificate")
-		return tlsConfig, nil
+		logger.Info("Successfully configured custom CA certificate from param")
+	} else if bsl != nil && bsl.ObjectStorage != nil && len(bsl.ObjectStorage.CACert) > 0 {
+		logger.Info("Custom CA certificate found in BSL")
+		if !caCertPool.AppendCertsFromPEM(bsl.ObjectStorage.CACert) {
+			return nil, fmt.Errorf("failed to parse CA certificates from BSL")
+		}
+		logger.Info("Successfully configured custom CA certificate from BSL")
 	}
 
-	// Priority 3: Use system certificates (default behavior)
-	logger.Info("Using system default certificates")
+	tlsConfig.RootCAs = caCertPool
 	return tlsConfig, nil
 }
 
 // buildHTTPClientWithTLS creates an HTTP client with the appropriate TLS configuration
-func buildHTTPClientWithTLS(dpt *oadpv1alpha1.DataProtectionTest, bsl *velerov1.BackupStorageLocationSpec, logger logr.Logger) (*http.Client, error) {
-	tlsConfig, err := buildTLSConfig(dpt, bsl, logger)
+func buildHTTPClientWithTLS(dpt *oadpv1alpha1.DataProtectionTest, bsl *velerov1.BackupStorageLocationSpec, logger logr.Logger, caCertData []byte) (*http.Client, error) {
+	tlsConfig, err := buildTLSConfig(dpt, bsl, logger, caCertData)
 	if err != nil {
 		return nil, fmt.Errorf("failed to build TLS config: %w", err)
 	}
@@ -87,8 +91,8 @@ func buildHTTPClientWithTLS(dpt *oadpv1alpha1.DataProtectionTest, bsl *velerov1.
 }
 
 // buildAWSSessionWithTLS creates an AWS session with the appropriate TLS configuration
-func buildAWSSessionWithTLS(dpt *oadpv1alpha1.DataProtectionTest, bsl *velerov1.BackupStorageLocationSpec, region, endpoint string, logger logr.Logger) (*session.Session, error) {
-	tlsConfig, err := buildTLSConfig(dpt, bsl, logger)
+func buildAWSSessionWithTLS(dpt *oadpv1alpha1.DataProtectionTest, bsl *velerov1.BackupStorageLocationSpec, region, endpoint string, logger logr.Logger, caCertData []byte) (*session.Session, error) {
+	tlsConfig, err := buildTLSConfig(dpt, bsl, logger, caCertData)
 	if err != nil {
 		return nil, fmt.Errorf("failed to build TLS config: %w", err)
 	}
