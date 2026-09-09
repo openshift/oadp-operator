@@ -145,7 +145,9 @@ func (r *DataProtectionTestReconciler) Reconcile(ctx context.Context, req ctrl.R
 	// Retrieve the CAs if provided
 	caPEMData, err := r.retrieveCAData(ctx, resolvedBackupLocationSpec)
 	if err != nil {
-		return ctrl.Result{}, fmt.Errorf("Unable to retrieve CA data from BSL %v", err)
+		logger.Error(err, "failed to retrieve CA data from BackupLocation")
+		r.updateDPTErrorStatus(ctx, fmt.Sprintf("failed to retrieve CA data from BackupLocation: %v", err))
+		return ctrl.Result{}, fmt.Errorf("failed to retrieve CA data from BackupLocation: %w", err)
 	}
 
 	// Determine S3-compatible vendor (if applicable)
