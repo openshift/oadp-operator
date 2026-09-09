@@ -37,17 +37,18 @@ import (
 // 3. Otherwise → Use system certs (default)
 func buildTLSConfig(dpt *oadpv1alpha1.DataProtectionTest, bsl *velerov1.BackupStorageLocationSpec, logger logr.Logger, caCertData []byte) (*tls.Config, error) {
 	tlsConfig := &tls.Config{}
-	// Priority 3: Load default system CA certificates.
-	caCertPool, err := x509.SystemCertPool()
-	if err != nil {
-		return nil, fmt.Errorf("failed to load system certificate pool %v", err)
-	}
 
 	// Priority 1: Check if skipTLSVerify is set
 	if dpt.Spec.SkipTLSVerify {
 		logger.Info("TLS verification disabled via skipTLSVerify")
 		tlsConfig.InsecureSkipVerify = true
 		return tlsConfig, nil
+	}
+
+	// Priority 3: Load default system CA certificates.
+	caCertPool, err := x509.SystemCertPool()
+	if err != nil {
+		return nil, fmt.Errorf("failed to load system certificate pool %v", err)
 	}
 
 	// Priority 2: Check for custom CA cert in retrieved by the controller from BSL or SecretKeySelector and append.
