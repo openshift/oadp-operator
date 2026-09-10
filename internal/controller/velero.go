@@ -262,6 +262,9 @@ func (r *DataProtectionApplicationReconciler) customizeVeleroDeployment(veleroDe
 			veleroAffinityStruct[i] = (*kube.LoadAffinity)(aff)
 		}
 		affinity := kube.ToSystemAffinity(veleroAffinityStruct)
+		if affinity != nil && affinity.NodeAffinity != nil && affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution != nil {
+			common.SortNodeSelectorTerms(affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms)
+		}
 		veleroDeployment.Spec.Template.Spec.Affinity = affinity
 	}
 

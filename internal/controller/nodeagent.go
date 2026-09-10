@@ -259,6 +259,9 @@ func (r *DataProtectionApplicationReconciler) ReconcileNodeAgentDaemonset(log lo
 				veleroAffinityStruct[i] = (*kube.LoadAffinity)(aff)
 			}
 			affinity := kube.ToSystemAffinity(veleroAffinityStruct)
+			if affinity != nil && affinity.NodeAffinity != nil && affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution != nil {
+				common.SortNodeSelectorTerms(affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms)
+			}
 			ds.Spec.Template.Spec.Affinity = affinity
 		}
 		return nil
