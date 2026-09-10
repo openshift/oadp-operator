@@ -592,10 +592,12 @@ var _ = ginkgo.Describe("VM backup and restore tests", ginkgo.Ordered, func() {
 			wasInstalledFromTest = true
 		}
 
-		// Pre-flight: require HCO >= 1.18 and backup.kubevirt.io CRDs for VEP-25.
+		// Pre-flight: require HCO >= 1.18 for VEP-25. CRD existence is verified
+		// later, after EnableCBTFeatureGate enables the feature gate that
+		// creates them — see RequireVEP25Support's doc comment.
 		if useCommunityHco {
 			err = v.RequireVEP25Support()
-			gomega.Expect(err).To(gomega.BeNil(), "VEP-25 pre-flight check failed — HCO 1.18+ and backup.kubevirt.io CRDs are required")
+			gomega.Expect(err).To(gomega.BeNil(), "VEP-25 pre-flight check failed — HCO 1.18+ is required")
 		}
 
 		if kvmEmulation {
