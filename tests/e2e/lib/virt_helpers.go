@@ -1407,9 +1407,16 @@ func (v *VirtOperator) hasVirtLauncherPod(ctx context.Context, namespace, name s
 }
 
 // RequireVEP25Support is a pre-flight check that fails immediately if the
-// installed HCO version is older than 1.18 or if the backup.kubevirt.io CRDs
-// (VirtualMachineBackup, VirtualMachineBackupTracker) do not exist.
-// Call this after EnsureVirtInstallation to gate the test suite early.
+// installed HCO version is older than 1.18. Call this after
+// EnsureVirtInstallation to gate the test suite early.
+//
+// This deliberately does NOT check for the backup.kubevirt.io CRDs
+// (VirtualMachineBackup, VirtualMachineBackupTracker): those are
+// feature-gated and only materialize once EnableCBTFeatureGate enables
+// incrementalBackup on HCO, which runs later in the same BeforeAll. Checking
+// for them here — before they can possibly exist — always fails. CRD
+// existence is verified once, after enabling the feature gate, by
+// EnableCBTFeatureGate itself.
 func (v *VirtOperator) RequireVEP25Support() error {
 	if v.Version == nil {
 		return fmt.Errorf("VirtOperator has no version — cannot verify VEP-25 support")
@@ -1422,15 +1429,6 @@ func (v *VirtOperator) RequireVEP25Support() error {
 		return fmt.Errorf("HCO version %s is too old for VEP-25 (IncrementalBackup); need >= 1.18.0 — upgrade the community HCO or set HCO_INDEX_TAG=1.18.0", v.Version)
 	}
 	log.Printf("HCO version %s satisfies VEP-25 minimum (>= 1.18.0)", v.Version)
-
-	crdGvr := schema.GroupVersionResource{Group: "apiextensions.k8s.io", Version: "v1", Resource: "customresourcedefinitions"}
-	for _, crd := range []string{"virtualmachinebackups.backup.kubevirt.io", "virtualmachinebackuptrackers.backup.kubevirt.io"} {
-		_, err := v.Dynamic.Resource(crdGvr).Get(context.Background(), crd, metav1.GetOptions{})
-		if err != nil {
-			return fmt.Errorf("required CRD %s not found — VEP-25 is not available on this cluster: %w", crd, err)
-		}
-		log.Printf("VEP-25 CRD present: %s", crd)
-	}
 	return nil
 }
 
