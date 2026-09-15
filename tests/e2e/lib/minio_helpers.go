@@ -40,7 +40,7 @@ const (
 
 	// minioImage pins a specific minio release. Update this when bumping minio.
 	// Use a digest or immutable tag to keep test runs deterministic.
-	minioImage = "docker.io/minio/minio:RELEASE.2025-04-22T22-12-26Z"
+	minioImage = "quay.io/minio/minio:RELEASE.2025-09-07T16-13-09Z.hotfix.7aa24e772"
 )
 
 // GenerateSelfSignedCA creates a CA certificate and private key.
