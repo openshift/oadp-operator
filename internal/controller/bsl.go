@@ -262,8 +262,11 @@ func (r *DataProtectionApplicationReconciler) ReconcileBackupStorageLocations(lo
 				// only when bucket.Spec.Config is non-nil: otherwise a nil CloudStorage config leaves
 				// bsl.Spec.Config holding stale keys (e.g. s3Url, region) from a previous reconcile
 				// against a different bucket.
-				bsl.Spec.Config = make(map[string]string)
+				bsl.Spec.Config = nil
 				for k, v := range bucket.Spec.Config {
+					if bsl.Spec.Config == nil {
+						bsl.Spec.Config = make(map[string]string)
+					}
 					bsl.Spec.Config[k] = v
 				}
 
