@@ -4206,6 +4206,116 @@ func TestDPAReconciler_ReconcileBackupStorageLocations_CloudStorageAutoRegion_Em
 	}
 }
 
+// TestDPAReconciler_ReconcileBackupStorageLocations_CloudStorageConfigNotStale covers a
+// CodeRabbit-flagged bug: when a CloudStorage-backed BSL's bucket changes to one with a nil
+// CloudStorage.Spec.Config, bsl.Spec.Config must be rebuilt from scratch rather than left with
+// stale keys (e.g. a leftover "s3Url") from the previous bucket's config, which would otherwise
+// silently suppress region auto-detection for the new bucket.
+func TestDPAReconciler_ReconcileBackupStorageLocations_CloudStorageConfigNotStale(t *testing.T) {
+	originalGetBucketRegionFunc := aws.GetBucketRegionFunc
+	defer func() { aws.GetBucketRegionFunc = originalGetBucketRegionFunc }()
+	aws.GetBucketRegionFunc = func(bucket string) (string, error) {
+		if bucket == "second-bucket" {
+			return "ca-central-1", nil
+		}
+		return "", fmt.Errorf("bucket region not discoverable")
+	}
+
+	dpa := &oadpv1alpha1.DataProtectionApplication{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-dpa",
+			Namespace: "test-ns",
+		},
+		Spec: oadpv1alpha1.DataProtectionApplicationSpec{
+			BackupLocations: []oadpv1alpha1.BackupLocation{
+				{
+					CloudStorage: &oadpv1alpha1.CloudStorageLocation{
+						CloudStorageRef: corev1.LocalObjectReference{
+							Name: "stale-config-cs",
+						},
+						Credential: &corev1.SecretKeySelector{
+							LocalObjectReference: corev1.LocalObjectReference{
+								Name: "cloud-credentials",
+							},
+							Key: "credentials",
+						},
+					},
+				},
+			},
+		},
+	}
+	secret := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "cloud-credentials",
+			Namespace: "test-ns",
+		},
+		Data: map[string][]byte{"credentials": {}},
+	}
+	cloudStorage := &oadpv1alpha1.CloudStorage{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "stale-config-cs",
+			Namespace: "test-ns",
+		},
+		Spec: oadpv1alpha1.CloudStorageSpec{
+			Provider: oadpv1alpha1.AWSBucketProvider,
+			Name:     "first-bucket",
+			Config: map[string]string{
+				"s3Url": "https://s3-compatible.example.com",
+			},
+		},
+	}
+
+	fakeClient, err := getFakeClientFromObjects(dpa, secret, cloudStorage)
+	if err != nil {
+		t.Fatalf("error in creating fake client, likely programmer error: %v", err)
+	}
+	r := &DataProtectionApplicationReconciler{
+		Client:  fakeClient,
+		Scheme:  fakeClient.Scheme(),
+		Log:     logr.Discard(),
+		Context: newContextForTest(),
+		NamespacedName: types.NamespacedName{
+			Namespace: dpa.Namespace,
+			Name:      dpa.Name,
+		},
+		EventRecorder: record.NewFakeRecorder(10),
+		dpa:           dpa,
+	}
+
+	if _, err := r.ReconcileBackupStorageLocations(r.Log); err != nil {
+		t.Fatalf("ReconcileBackupStorageLocations() unexpected error: %v", err)
+	}
+	bsl := &velerov1.BackupStorageLocation{}
+	if err := r.Get(r.Context, client.ObjectKey{Namespace: "test-ns", Name: "test-dpa-1"}, bsl); err != nil {
+		t.Fatalf("failed to get reconciled BSL: %v", err)
+	}
+	if got := bsl.Spec.Config["s3Url"]; got != "https://s3-compatible.example.com" {
+		t.Fatalf("expected s3Url to be set from first bucket's config, got %q", got)
+	}
+	if got := bsl.Spec.Config["region"]; got != "" {
+		t.Fatalf("expected no region while s3Url is set, got %q", got)
+	}
+
+	// Switch to a second bucket with no Config at all (real AWS S3, no s3Url).
+	cloudStorage.Spec.Name = "second-bucket"
+	cloudStorage.Spec.Config = nil
+	if err := r.Update(r.Context, cloudStorage); err != nil {
+		t.Fatalf("failed to update CloudStorage: %v", err)
+	}
+	if _, err := r.ReconcileBackupStorageLocations(r.Log); err != nil {
+		t.Fatalf("second ReconcileBackupStorageLocations() unexpected error: %v", err)
+	}
+	if err := r.Get(r.Context, client.ObjectKey{Namespace: "test-ns", Name: "test-dpa-1"}, bsl); err != nil {
+		t.Fatalf("failed to get reconciled BSL after bucket switch: %v", err)
+	}
+	if got := bsl.Spec.Config["s3Url"]; got != "" {
+		t.Errorf("expected stale s3Url to be cleared after switching to a bucket with nil config, got %q", got)
+	}
+	if got := bsl.Spec.Config["region"]; got != "ca-central-1" {
+		t.Errorf("expected region to be auto-detected for the new bucket once stale s3Url is cleared, got %q", got)
+	}
+}
+
 func TestPatchSecretsForBSL(t *testing.T) {
 	tests := []struct {
 		name          string

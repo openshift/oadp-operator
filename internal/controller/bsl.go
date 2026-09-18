@@ -258,19 +258,13 @@ func (r *DataProtectionApplicationReconciler) ReconcileBackupStorageLocations(lo
 				}
 				bsl.Spec.BackupSyncPeriod = bslSpec.CloudStorage.BackupSyncPeriod
 
-				// If the CloudStorage CR now points at a different bucket than what this BSL
-				// was last reconciled with, drop any auto-detected region carried over from the
-				// previous bucket instead of leaving it in place (it belongs to the old bucket).
-				if existingBucket != "" && existingBucket != bucket.Spec.Name {
-					delete(bsl.Spec.Config, "region")
-				}
-
-				// Start with CloudStorage CR's config as base (fallback)
-				if bucket.Spec.Config != nil {
-					bsl.Spec.Config = make(map[string]string)
-					for k, v := range bucket.Spec.Config {
-						bsl.Spec.Config[k] = v
-					}
+				// Start with CloudStorage CR's config as base (fallback). Always reset rather than
+				// only when bucket.Spec.Config is non-nil: otherwise a nil CloudStorage config leaves
+				// bsl.Spec.Config holding stale keys (e.g. s3Url, region) from a previous reconcile
+				// against a different bucket.
+				bsl.Spec.Config = make(map[string]string)
+				for k, v := range bucket.Spec.Config {
+					bsl.Spec.Config[k] = v
 				}
 
 				// Add region from CloudStorage CR only for AWS provider.
