@@ -757,6 +757,12 @@ type CloudStorageLocation struct {
 	// CACert defines a CA bundle to use when verifying TLS connections to the provider.
 	// +optional
 	CACert []byte `json:"caCert,omitempty"`
+
+	// CACertRef is a reference to a Secret containing the CA certificate bundle to use
+	// when verifying TLS connections to the provider. The Secret must be in the same
+	// namespace as the DataProtectionApplication.
+	// +optional
+	CACertRef *corev1.SecretKeySelector `json:"caCertRef,omitempty"`
 }
 
 // BackupLocation defines the configuration for the DPA backup storage
@@ -796,6 +802,12 @@ type ObjectStorageLocation struct {
 	// CACert defines a CA bundle to use when verifying TLS connections to the provider.
 	// +optional
 	CACert []byte `json:"caCert,omitempty"`
+
+	// CACertRef is a reference to a Secret containing the CA certificate bundle to use
+	// when verifying TLS connections to the provider. The Secret must be in the same
+	// namespace as the DataProtectionApplication.
+	// +optional
+	CACertRef *corev1.SecretKeySelector `json:"caCertRef,omitempty"`
 }
 
 // StorageType defines the enforced values for the Velero StorageType
