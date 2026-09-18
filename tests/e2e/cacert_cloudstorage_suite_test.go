@@ -87,6 +87,7 @@ var _ = ginkgo.Describe("BSL cacert with CloudStorage-backed BSL", ginkgo.Ordere
 					},
 				},
 				NodeAgent: &oadpv1alpha1.NodeAgentConfig{
+					UploaderType: "kopia",
 					NodeAgentCommonFields: oadpv1alpha1.NodeAgentCommonFields{
 						Enable: ptr.To(false),
 					},
