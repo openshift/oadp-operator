@@ -3,6 +3,7 @@ package lib
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"log"
 	"time"
@@ -206,6 +207,7 @@ func CancelDataUploadsForBackup(ocClient client.Client, veleroNamespace, backupN
 		return err
 	}
 	var pending []string
+	var patchErrs []error
 	for i := range dataUploads {
 		du := &dataUploads[i]
 		switch du.Status.Phase {
@@ -224,13 +226,19 @@ func CancelDataUploadsForBackup(ocClient client.Client, veleroNamespace, backupN
 		}
 		patch := client.MergeFrom(du.DeepCopy())
 		du.Spec.Cancel = true
+		// A patch failure on one DataUpload must not skip the rest -- a
+		// multi-disk VM backup creates one DataUpload per disk, and this is a
+		// best-effort cleanup during an already-decided-to-skip spec, so every
+		// disk's upload should still get a cancel attempt (and be waited on
+		// below if it succeeds) rather than bailing out on the first error.
 		if err := ocClient.Patch(context.Background(), du, patch); err != nil {
-			return fmt.Errorf("failed to set cancel=true on DataUpload %s for backup %s: %w", du.Name, backupName, err)
+			patchErrs = append(patchErrs, fmt.Errorf("failed to set cancel=true on DataUpload %s for backup %s: %w", du.Name, backupName, err))
+			continue
 		}
 		pending = append(pending, du.Name)
 	}
 	if len(pending) == 0 {
-		return nil
+		return errors.Join(patchErrs...)
 	}
 	pollErr := wait.PollUntilContextTimeout(context.Background(), 5*time.Second, 2*time.Minute, true, func(ctx context.Context) (bool, error) {
 		for _, name := range pending {
@@ -248,9 +256,9 @@ func CancelDataUploadsForBackup(ocClient client.Client, veleroNamespace, backupN
 		return true, nil
 	})
 	if pollErr != nil {
-		return fmt.Errorf("DataUpload(s) %v for backup %s did not reach a terminal phase after cancel: %w", pending, backupName, pollErr)
+		patchErrs = append(patchErrs, fmt.Errorf("DataUpload(s) %v for backup %s did not reach a terminal phase after cancel: %w", pending, backupName, pollErr))
 	}
-	return nil
+	return errors.Join(patchErrs...)
 }
 
 func GetBackup(c client.Client, namespace string, name string) (*velero.Backup, error) {
