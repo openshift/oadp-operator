@@ -238,8 +238,14 @@ func (r *DataProtectionApplicationReconciler) ReconcileBackupStorageLocations(lo
 			if bslSpec.CloudStorage != nil {
 				// Preserve the default field to avoid conflicts with Velero's management
 				existingDefault := bsl.Spec.Default
-				// Preserve any previously auto-detected region so we don't re-query AWS every reconcile
+				// Preserve any previously auto-detected region so we don't re-query AWS every reconcile,
+				// but only if it was detected for the same bucket (the CloudStorage CR's bucket name
+				// can change without the BSL name changing).
 				existingRegion := bsl.Spec.Config["region"]
+				existingBucket := ""
+				if bsl.Spec.ObjectStorage != nil {
+					existingBucket = bsl.Spec.ObjectStorage.Bucket
+				}
 
 				bucket := &oadpv1alpha1.CloudStorage{}
 				err := r.Get(r.Context, client.ObjectKey{Namespace: dpa.Namespace, Name: bslSpec.CloudStorage.CloudStorageRef.Name}, bucket)
@@ -251,6 +257,13 @@ func (r *DataProtectionApplicationReconciler) ReconcileBackupStorageLocations(lo
 					return err
 				}
 				bsl.Spec.BackupSyncPeriod = bslSpec.CloudStorage.BackupSyncPeriod
+
+				// If the CloudStorage CR now points at a different bucket than what this BSL
+				// was last reconciled with, drop any auto-detected region carried over from the
+				// previous bucket instead of leaving it in place (it belongs to the old bucket).
+				if existingBucket != "" && existingBucket != bucket.Spec.Name {
+					delete(bsl.Spec.Config, "region")
+				}
 
 				// Start with CloudStorage CR's config as base (fallback)
 				if bucket.Spec.Config != nil {
@@ -283,8 +296,11 @@ func (r *DataProtectionApplicationReconciler) ReconcileBackupStorageLocations(lo
 				// the region at backup time using real (non-anonymous) credentials, which fails
 				// in environments without EC2 IMDS access (see OADP-6065).
 				if bucket.Spec.Provider == oadpv1alpha1.AWSBucketProvider {
-					if _, hasS3Url := bsl.Spec.Config[S3URL]; !hasS3Url && bsl.Spec.Config["region"] == "" {
-						region := existingRegion
+					if bsl.Spec.Config[S3URL] == "" && bsl.Spec.Config["region"] == "" {
+						region := ""
+						if existingBucket != "" && existingBucket == bucket.Spec.Name {
+							region = existingRegion
+						}
 						if region == "" && bucket.Spec.Name != "" {
 							detectedRegion, err := aws.GetBucketRegion(bucket.Spec.Name)
 							if err != nil {
