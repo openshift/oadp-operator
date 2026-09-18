@@ -942,7 +942,8 @@ func caCertSecretName(name string) string {
 // reconcileCACertSecret resolves a CACertRef for a BSL's object storage TLS verification.
 //
 // If the DPA spec already provides an explicit CACertRef, it is returned as-is, so the user
-// can manage and rotate that Secret themselves.
+// can manage and rotate that Secret themselves. Any Secret OADP previously generated for this
+// name is cleaned up, since it's no longer referenced by anything.
 //
 // If inline CACert bytes are provided instead, OADP creates/updates an owned Secret containing
 // those bytes and returns a SecretKeySelector pointing at it. This gives users cert rotation
@@ -950,21 +951,44 @@ func caCertSecretName(name string) string {
 // Velero resolves CACertRef fresh on each use instead of caching CACert bytes on the BSL object.
 //
 // If neither is provided, any previously-created Secret for this name is removed and nil is returned.
+//
+// A Secret at the generated name is only ever created, updated, or deleted here if it already
+// carries OADP's own label (i.e. OADP created it) — an unrelated, unmanaged Secret that happens
+// to collide with the generated name is left untouched and an error is returned instead.
 func (r *DataProtectionApplicationReconciler) reconcileCACertSecret(namespace, name string, caCert []byte, caCertRef *corev1.SecretKeySelector, owner client.Object) (*corev1.SecretKeySelector, error) {
+	secretName := caCertSecretName(name)
+	existing := &corev1.Secret{}
+	err := r.Get(r.Context, types.NamespacedName{Name: secretName, Namespace: namespace}, existing)
+	if err != nil && !k8serrors.IsNotFound(err) {
+		return nil, err
+	}
+	exists := err == nil
+	oadpOwned := exists && existing.Labels[oadpv1alpha1.OadpOperatorLabel] == "True"
+	if exists && !oadpOwned {
+		return nil, fmt.Errorf("secret %s/%s already exists and is not managed by OADP; refusing to overwrite or delete it", namespace, secretName)
+	}
+
 	if caCertRef != nil {
+		if oadpOwned {
+			if err := r.Delete(r.Context, existing); err != nil && !k8serrors.IsNotFound(err) {
+				return nil, err
+			}
+		}
 		return caCertRef, nil
 	}
 
 	secret := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      caCertSecretName(name),
+			Name:      secretName,
 			Namespace: namespace,
 		},
 	}
 
 	if len(caCert) == 0 {
-		if err := r.Delete(r.Context, secret); err != nil && !k8serrors.IsNotFound(err) {
-			return nil, err
+		if oadpOwned {
+			if err := r.Delete(r.Context, secret); err != nil && !k8serrors.IsNotFound(err) {
+				return nil, err
+			}
 		}
 		return nil, nil
 	}
@@ -1006,20 +1030,33 @@ func (r *DataProtectionApplicationReconciler) reconcileCACertSecret(namespace, n
 
 // resolveCACertBytes returns the raw CA certificate bytes for either inline caCert or, when caCert
 // is empty, a caCertRef pointing at a Secret in the given namespace (e.g. one reconcileCACertSecret
-// created, or one the user manages themselves).
-func (r *DataProtectionApplicationReconciler) resolveCACertBytes(caCert []byte, caCertRef *corev1.SecretKeySelector, namespace string) []byte {
+// created, or one the user manages themselves). A required (non-optional) Secret or key that can't
+// be resolved is a real error, not an empty CA bundle — otherwise a BSL that needs the CA cert for
+// TLS verification would silently fail at backup time instead of failing reconciliation loudly.
+func (r *DataProtectionApplicationReconciler) resolveCACertBytes(caCert []byte, caCertRef *corev1.SecretKeySelector, namespace string) ([]byte, error) {
 	if len(caCert) > 0 {
-		return caCert
+		return caCert, nil
 	}
 	if caCertRef == nil {
-		return nil
+		return nil, nil
 	}
+	optional := caCertRef.Optional != nil && *caCertRef.Optional
+
 	secret := &corev1.Secret{}
 	if err := r.Get(r.Context, types.NamespacedName{Name: caCertRef.Name, Namespace: namespace}, secret); err != nil {
-		r.Log.Info("failed to resolve CACertRef secret", "secret", caCertRef.Name, "namespace", namespace, "error", err.Error())
-		return nil
+		if k8serrors.IsNotFound(err) && optional {
+			return nil, nil
+		}
+		return nil, fmt.Errorf("failed to resolve CACertRef secret %s/%s: %w", namespace, caCertRef.Name, err)
 	}
-	return secret.Data[caCertRef.Key]
+	data, ok := secret.Data[caCertRef.Key]
+	if !ok {
+		if optional {
+			return nil, nil
+		}
+		return nil, fmt.Errorf("CACertRef secret %s/%s has no key %q", namespace, caCertRef.Name, caCertRef.Key)
+	}
+	return data, nil
 }
 
 // processCACertForBSLs creates a ConfigMap containing CA certificates from BackupStorageLocations
@@ -1043,7 +1080,11 @@ func (r *DataProtectionApplicationReconciler) processCACertForBSLs() (string, er
 		if bslSpec.Velero != nil {
 			provider = bslSpec.Velero.Provider
 			if bslSpec.Velero.ObjectStorage != nil {
-				caCert = r.resolveCACertBytes(bslSpec.Velero.ObjectStorage.CACert, bslSpec.Velero.ObjectStorage.CACertRef, dpa.Namespace)
+				var err error
+				caCert, err = r.resolveCACertBytes(bslSpec.Velero.ObjectStorage.CACert, bslSpec.Velero.ObjectStorage.CACertRef, dpa.Namespace)
+				if err != nil {
+					return "", fmt.Errorf("BSL %s: %w", bslName, err)
+				}
 			}
 		} else if bslSpec.CloudStorage != nil {
 			// For CloudStorage, determine provider from the CloudStorage resource
@@ -1060,7 +1101,11 @@ func (r *DataProtectionApplicationReconciler) processCACertForBSLs() (string, er
 				}
 			}
 			if bslSpec.CloudStorage.CACert != nil || bslSpec.CloudStorage.CACertRef != nil {
-				caCert = r.resolveCACertBytes(bslSpec.CloudStorage.CACert, bslSpec.CloudStorage.CACertRef, dpa.Namespace)
+				var err error
+				caCert, err = r.resolveCACertBytes(bslSpec.CloudStorage.CACert, bslSpec.CloudStorage.CACertRef, dpa.Namespace)
+				if err != nil {
+					return "", fmt.Errorf("BSL %s: %w", bslName, err)
+				}
 			}
 		}
 
@@ -1119,7 +1164,13 @@ func (r *DataProtectionApplicationReconciler) processCACertForBSLs() (string, er
 
 			// Check for CA certificate in this BSL
 			if bsl.Spec.ObjectStorage != nil {
-				caCert := r.resolveCACertBytes(bsl.Spec.ObjectStorage.CACert, bsl.Spec.ObjectStorage.CACertRef, bsl.Namespace)
+				caCert, err := r.resolveCACertBytes(bsl.Spec.ObjectStorage.CACert, bsl.Spec.ObjectStorage.CACertRef, bsl.Namespace)
+				if err != nil {
+					// This BSL isn't part of the DPA spec (it's an extra one already in the
+					// cluster), so a resolution failure here shouldn't block the ConfigMap
+					// update for the BSLs the DPA spec actually declares.
+					r.Log.Error(err, "Failed to resolve CACertRef for BSL, skipping its CA cert", "bsl", bsl.Name)
+				}
 				if len(caCert) > 0 {
 					certStr := string(caCert)
 					if !collectedCerts[certStr] {
