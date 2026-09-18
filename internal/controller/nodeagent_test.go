@@ -1899,6 +1899,47 @@ func TestDPAReconciler_updateNodeAgentCM(t *testing.T) {
 			}),
 		},
 		{
+			name: "Given DPA CR instance with PodConfig PriorityClassName, NodeAgent config cm includes priorityClassName",
+			nodeAgentConfigMap: &corev1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      common.NodeAgentConfigMapPrefix + testCmName,
+					Namespace: testCmNs,
+				},
+			},
+			dpa: &oadpv1alpha1.DataProtectionApplication{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      testCmName,
+					Namespace: testCmNs,
+				},
+				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
+					Configuration: &oadpv1alpha1.ApplicationConfig{
+						Velero: &oadpv1alpha1.VeleroConfig{
+							DefaultPlugins: []oadpv1alpha1.DefaultPlugin{
+								oadpv1alpha1.DefaultPluginAWS,
+							},
+						},
+						NodeAgent: &oadpv1alpha1.NodeAgentConfig{
+							NodeAgentCommonFields: oadpv1alpha1.NodeAgentCommonFields{
+								PodConfig: &oadpv1alpha1.PodConfig{
+									PriorityClassName: "node-agent-critical",
+								},
+							},
+						},
+					},
+				},
+			},
+			wantErr: false,
+			wantNodeAgentConfigMap: createTestBuiltNodeAgentCM(map[string]string{
+				"node-agent-config": `{
+					"podLabels": {
+						"oadp.openshift.io/network-policy": "velero"
+					},
+					"privilegedFsBackup": true,
+					"priorityClassName": "node-agent-critical"
+				}`,
+			}),
+		},
+		{
 			name: "Given DPA CR instance, appropriate NodeAgent config cm is created with LoadConcurrency including PrepareQueueLength",
 			nodeAgentConfigMap: &corev1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{

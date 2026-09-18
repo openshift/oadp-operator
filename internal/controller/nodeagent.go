@@ -63,7 +63,8 @@ var (
 // DPA spec field, as this must always be privileged in OpenShift
 type nodeAgentConfigMapWithPrivileged struct {
 	oadpv1alpha1.NodeAgentConfigMapSettings `json:",inline"`
-	PrivilegedFsBackup                      bool `json:"privilegedFsBackup,omitempty"`
+	PrivilegedFsBackup                      bool   `json:"privilegedFsBackup,omitempty"`
+	PriorityClassName                       string `json:"priorityClassName,omitempty"`
 }
 
 // getFsPvHostPath returns the host path for persistent volumes based on the platform type.
@@ -156,6 +157,12 @@ func (r *DataProtectionApplicationReconciler) updateNodeAgentCM(cm *corev1.Confi
 	configWithPrivileged := nodeAgentConfigMapWithPrivileged{
 		NodeAgentConfigMapSettings: r.dpa.Spec.Configuration.NodeAgent.NodeAgentConfigMapSettings,
 		PrivilegedFsBackup:         privilegedFsBackup,
+	}
+
+	// Propagate PriorityClassName from PodConfig so Velero's node-agent server can apply it
+	// to data mover pods it launches at runtime (read from the ConfigMap, not the DaemonSet spec).
+	if r.dpa.Spec.Configuration.NodeAgent.PodConfig != nil {
+		configWithPrivileged.PriorityClassName = r.dpa.Spec.Configuration.NodeAgent.PodConfig.PriorityClassName
 	}
 
 	// Always ensure Velero's dynamically-spawned data-mover pods (CSI DataUpload/DataDownload,
