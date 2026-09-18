@@ -307,10 +307,14 @@ func (r *DataProtectionApplicationReconciler) ReconcileBackupStorageLocations(lo
 					// Preserve Velero's management of default
 					bsl.Spec.Default = existingDefault
 				}
+				caCertRef, err := r.reconcileCACertSecret(dpa.Namespace, bslName, bslSpec.CloudStorage.CACert, bslSpec.CloudStorage.CACertRef, dpa)
+				if err != nil {
+					return err
+				}
 				bsl.Spec.ObjectStorage = &velerov1.ObjectStorageLocation{
-					Bucket: bucket.Spec.Name,
-					Prefix: bslSpec.CloudStorage.Prefix,
-					CACert: bslSpec.CloudStorage.CACert,
+					Bucket:    bucket.Spec.Name,
+					Prefix:    bslSpec.CloudStorage.Prefix,
+					CACertRef: caCertRef,
 				}
 				switch bucket.Spec.Provider {
 				case oadpv1alpha1.AWSBucketProvider:
@@ -473,10 +477,14 @@ func (r *DataProtectionApplicationReconciler) populateBSLFromCloudStorage(bslSpe
 	}
 
 	// Set object storage configuration
+	caCertRef, err := r.reconcileCACertSecret(namespace, cloudStorage.Name, bslSpec.CloudStorage.CACert, bslSpec.CloudStorage.CACertRef, nil)
+	if err != nil {
+		return fmt.Errorf("failed to reconcile CACert secret for CloudStorage %s: %w", cloudStorage.Name, err)
+	}
 	bslSpec.Velero.ObjectStorage = &velerov1.ObjectStorageLocation{
-		Bucket: cloudStorage.Spec.Name,
-		Prefix: bslSpec.CloudStorage.Prefix,
-		CACert: bslSpec.CloudStorage.CACert,
+		Bucket:    cloudStorage.Spec.Name,
+		Prefix:    bslSpec.CloudStorage.Prefix,
+		CACertRef: caCertRef,
 	}
 
 	// Set config, merging CloudStorage config with BSL-specific config
@@ -924,6 +932,96 @@ func (r *DataProtectionApplicationReconciler) patchAzureSecretWithResourceGroup(
 	return nil
 }
 
+const caCertSecretKey = "cacert"
+
+// caCertSecretName returns the name of the Secret OADP creates to hold a BSL's inline CACert bytes.
+func caCertSecretName(name string) string {
+	return "oadp-" + name + "-cacert"
+}
+
+// reconcileCACertSecret resolves a CACertRef for a BSL's object storage TLS verification.
+//
+// If the DPA spec already provides an explicit CACertRef, it is returned as-is, so the user
+// can manage and rotate that Secret themselves.
+//
+// If inline CACert bytes are provided instead, OADP creates/updates an owned Secret containing
+// those bytes and returns a SecretKeySelector pointing at it. This gives users cert rotation
+// support (updating the Secret directly) without requiring them to know about CACertRef, since
+// Velero resolves CACertRef fresh on each use instead of caching CACert bytes on the BSL object.
+//
+// If neither is provided, any previously-created Secret for this name is removed and nil is returned.
+func (r *DataProtectionApplicationReconciler) reconcileCACertSecret(namespace, name string, caCert []byte, caCertRef *corev1.SecretKeySelector, owner client.Object) (*corev1.SecretKeySelector, error) {
+	if caCertRef != nil {
+		return caCertRef, nil
+	}
+
+	secret := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      caCertSecretName(name),
+			Namespace: namespace,
+		},
+	}
+
+	if len(caCert) == 0 {
+		if err := r.Delete(r.Context, secret); err != nil && !k8serrors.IsNotFound(err) {
+			return nil, err
+		}
+		return nil, nil
+	}
+
+	if err := validatePEMCertificate(caCert); err != nil {
+		// Log warning but continue processing (graceful degradation for testing),
+		// consistent with validation elsewhere in this file.
+		r.Log.Info("CA certificate validation failed, but continuing with processing",
+			"name", name, "error", err.Error())
+	}
+
+	op, err := controllerutil.CreateOrPatch(r.Context, r.Client, secret, func() error {
+		if secret.Labels == nil {
+			secret.Labels = map[string]string{}
+		}
+		secret.Labels[oadpv1alpha1.OadpOperatorLabel] = "True"
+		secret.Data = map[string][]byte{caCertSecretKey: caCert}
+		if owner == nil {
+			return nil
+		}
+		return controllerutil.SetControllerReference(owner, secret, r.Scheme)
+	})
+	if err != nil {
+		return nil, err
+	}
+	if op == controllerutil.OperationResultCreated || op == controllerutil.OperationResultUpdated {
+		r.EventRecorder.Event(secret,
+			corev1.EventTypeNormal,
+			"CACertSecretReconciled",
+			fmt.Sprintf("performed %s on secret %s/%s", op, secret.Namespace, secret.Name),
+		)
+	}
+
+	return &corev1.SecretKeySelector{
+		LocalObjectReference: corev1.LocalObjectReference{Name: secret.Name},
+		Key:                  caCertSecretKey,
+	}, nil
+}
+
+// resolveCACertBytes returns the raw CA certificate bytes for either inline caCert or, when caCert
+// is empty, a caCertRef pointing at a Secret in the given namespace (e.g. one reconcileCACertSecret
+// created, or one the user manages themselves).
+func (r *DataProtectionApplicationReconciler) resolveCACertBytes(caCert []byte, caCertRef *corev1.SecretKeySelector, namespace string) []byte {
+	if len(caCert) > 0 {
+		return caCert
+	}
+	if caCertRef == nil {
+		return nil
+	}
+	secret := &corev1.Secret{}
+	if err := r.Get(r.Context, types.NamespacedName{Name: caCertRef.Name, Namespace: namespace}, secret); err != nil {
+		r.Log.Info("failed to resolve CACertRef secret", "secret", caCertRef.Name, "namespace", namespace, "error", err.Error())
+		return nil
+	}
+	return secret.Data[caCertRef.Key]
+}
+
 // processCACertForBSLs creates a ConfigMap containing CA certificates from BackupStorageLocations
 // Returns the ConfigMap name if certificates were found, empty string otherwise
 func (r *DataProtectionApplicationReconciler) processCACertForBSLs() (string, error) {
@@ -944,8 +1042,8 @@ func (r *DataProtectionApplicationReconciler) processCACertForBSLs() (string, er
 		// Determine provider and get CA certificate
 		if bslSpec.Velero != nil {
 			provider = bslSpec.Velero.Provider
-			if bslSpec.Velero.ObjectStorage != nil && bslSpec.Velero.ObjectStorage.CACert != nil {
-				caCert = bslSpec.Velero.ObjectStorage.CACert
+			if bslSpec.Velero.ObjectStorage != nil {
+				caCert = r.resolveCACertBytes(bslSpec.Velero.ObjectStorage.CACert, bslSpec.Velero.ObjectStorage.CACertRef, dpa.Namespace)
 			}
 		} else if bslSpec.CloudStorage != nil {
 			// For CloudStorage, determine provider from the CloudStorage resource
@@ -961,8 +1059,8 @@ func (r *DataProtectionApplicationReconciler) processCACertForBSLs() (string, er
 					provider = GCPProvider
 				}
 			}
-			if bslSpec.CloudStorage.CACert != nil {
-				caCert = bslSpec.CloudStorage.CACert
+			if bslSpec.CloudStorage.CACert != nil || bslSpec.CloudStorage.CACertRef != nil {
+				caCert = r.resolveCACertBytes(bslSpec.CloudStorage.CACert, bslSpec.CloudStorage.CACertRef, dpa.Namespace)
 			}
 		}
 
@@ -1020,8 +1118,8 @@ func (r *DataProtectionApplicationReconciler) processCACertForBSLs() (string, er
 			}
 
 			// Check for CA certificate in this BSL
-			if bsl.Spec.ObjectStorage != nil && bsl.Spec.ObjectStorage.CACert != nil {
-				caCert := bsl.Spec.ObjectStorage.CACert
+			if bsl.Spec.ObjectStorage != nil {
+				caCert := r.resolveCACertBytes(bsl.Spec.ObjectStorage.CACert, bsl.Spec.ObjectStorage.CACertRef, bsl.Namespace)
 				if len(caCert) > 0 {
 					certStr := string(caCert)
 					if !collectedCerts[certStr] {
