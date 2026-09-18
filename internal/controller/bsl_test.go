@@ -6104,16 +6104,43 @@ func TestDPAReconciler_resolveCACertBytes(t *testing.T) {
 	testScheme, err := getSchemeForFakeClient()
 	assert.NoError(t, err)
 
-	t.Run("inline CACert wins over CACertRef", func(t *testing.T) {
+	t.Run("CACertRef wins over inline CACert when both are set", func(t *testing.T) {
+		secret := &corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{Name: "s", Namespace: "test-ns"},
+			Data:       map[string][]byte{"k": []byte("from-secret")},
+		}
+		r := &DataProtectionApplicationReconciler{
+			Client:  getFakeClientFromObjectsForTest(t, secret),
+			Scheme:  testScheme,
+			Context: context.Background(),
+			Log:     logr.Discard(),
+		}
+		data, err := r.resolveCACertBytes([]byte("inline"), &corev1.SecretKeySelector{LocalObjectReference: corev1.LocalObjectReference{Name: "s"}, Key: "k"}, "test-ns")
+		assert.NoError(t, err)
+		assert.Equal(t, []byte("from-secret"), data)
+	})
+
+	t.Run("inline CACert used only when CACertRef is nil", func(t *testing.T) {
 		r := &DataProtectionApplicationReconciler{
 			Client:  getFakeClientFromObjectsForTest(t),
 			Scheme:  testScheme,
 			Context: context.Background(),
 			Log:     logr.Discard(),
 		}
-		data, err := r.resolveCACertBytes([]byte("inline"), &corev1.SecretKeySelector{LocalObjectReference: corev1.LocalObjectReference{Name: "missing"}, Key: "k"}, "test-ns")
+		data, err := r.resolveCACertBytes([]byte("inline"), nil, "test-ns")
 		assert.NoError(t, err)
 		assert.Equal(t, []byte("inline"), data)
+	})
+
+	t.Run("a required but unresolvable CACertRef errors even when inline CACert is also set", func(t *testing.T) {
+		r := &DataProtectionApplicationReconciler{
+			Client:  getFakeClientFromObjectsForTest(t),
+			Scheme:  testScheme,
+			Context: context.Background(),
+			Log:     logr.Discard(),
+		}
+		_, err := r.resolveCACertBytes([]byte("inline"), &corev1.SecretKeySelector{LocalObjectReference: corev1.LocalObjectReference{Name: "missing"}, Key: "k"}, "test-ns")
+		assert.Error(t, err)
 	})
 
 	t.Run("required CACertRef pointing at a missing Secret returns an error", func(t *testing.T) {
