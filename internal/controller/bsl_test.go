@@ -3989,6 +3989,109 @@ func TestDPAReconciler_ReconcileBackupStorageLocations(t *testing.T) {
 	})
 }
 
+// TestDPAReconciler_ReconcileBackupStorageLocations_CloudStorageAutoRegion covers OADP-6065:
+// a CloudStorage-backed AWS BSL with no region configured anywhere (CloudStorage CR nor DPA
+// override) must have its region auto-detected and persisted onto the BSL, the same way a
+// plain Velero-type AWS BSL already does via common.UpdateBackupStorageLocation. Without this,
+// Velero falls back to discovering the region at backup time using real (non-anonymous)
+// credentials, which fails in environments without EC2 IMDS access.
+func TestDPAReconciler_ReconcileBackupStorageLocations_CloudStorageAutoRegion(t *testing.T) {
+	originalGetBucketRegionFunc := aws.GetBucketRegionFunc
+	defer func() { aws.GetBucketRegionFunc = originalGetBucketRegionFunc }()
+
+	callCount := 0
+	aws.GetBucketRegionFunc = func(bucket string) (string, error) {
+		callCount++
+		if bucket == "no-region-bucket" {
+			return "us-west-1", nil
+		}
+		return "", fmt.Errorf("bucket region not discoverable")
+	}
+
+	dpa := &oadpv1alpha1.DataProtectionApplication{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-dpa",
+			Namespace: "test-ns",
+		},
+		Spec: oadpv1alpha1.DataProtectionApplicationSpec{
+			BackupLocations: []oadpv1alpha1.BackupLocation{
+				{
+					CloudStorage: &oadpv1alpha1.CloudStorageLocation{
+						CloudStorageRef: corev1.LocalObjectReference{
+							Name: "no-region-cs",
+						},
+						Credential: &corev1.SecretKeySelector{
+							LocalObjectReference: corev1.LocalObjectReference{
+								Name: "cloud-credentials",
+							},
+							Key: "credentials",
+						},
+					},
+				},
+			},
+		},
+	}
+	secret := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "cloud-credentials",
+			Namespace: "test-ns",
+		},
+		Data: map[string][]byte{"credentials": {}},
+	}
+	cloudStorage := &oadpv1alpha1.CloudStorage{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "no-region-cs",
+			Namespace: "test-ns",
+		},
+		Spec: oadpv1alpha1.CloudStorageSpec{
+			Provider: oadpv1alpha1.AWSBucketProvider,
+			Name:     "no-region-bucket",
+			// No Region set: must be auto-detected.
+		},
+	}
+
+	fakeClient, err := getFakeClientFromObjects(dpa, secret, cloudStorage)
+	if err != nil {
+		t.Fatalf("error in creating fake client, likely programmer error: %v", err)
+	}
+	r := &DataProtectionApplicationReconciler{
+		Client:  fakeClient,
+		Scheme:  fakeClient.Scheme(),
+		Log:     logr.Discard(),
+		Context: newContextForTest(),
+		NamespacedName: types.NamespacedName{
+			Namespace: dpa.Namespace,
+			Name:      dpa.Name,
+		},
+		EventRecorder: record.NewFakeRecorder(10),
+		dpa:           dpa,
+	}
+
+	if _, err := r.ReconcileBackupStorageLocations(r.Log); err != nil {
+		t.Fatalf("ReconcileBackupStorageLocations() unexpected error: %v", err)
+	}
+
+	bsl := &velerov1.BackupStorageLocation{}
+	if err := r.Get(r.Context, client.ObjectKey{Namespace: "test-ns", Name: "test-dpa-1"}, bsl); err != nil {
+		t.Fatalf("failed to get reconciled BSL: %v", err)
+	}
+	if got := bsl.Spec.Config["region"]; got != "us-west-1" {
+		t.Errorf("expected auto-detected region %q on BSL config, got %q", "us-west-1", got)
+	}
+	if callCount != 1 {
+		t.Errorf("expected GetBucketRegionFunc to be called exactly once, got %d", callCount)
+	}
+
+	// Reconciling again should reuse the region already present on the BSL rather than
+	// re-querying AWS every reconcile.
+	if _, err := r.ReconcileBackupStorageLocations(r.Log); err != nil {
+		t.Fatalf("second ReconcileBackupStorageLocations() unexpected error: %v", err)
+	}
+	if callCount != 1 {
+		t.Errorf("expected GetBucketRegionFunc to not be called again on subsequent reconcile, call count = %d", callCount)
+	}
+}
+
 func TestPatchSecretsForBSL(t *testing.T) {
 	tests := []struct {
 		name          string

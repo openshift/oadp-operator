@@ -238,6 +238,8 @@ func (r *DataProtectionApplicationReconciler) ReconcileBackupStorageLocations(lo
 			if bslSpec.CloudStorage != nil {
 				// Preserve the default field to avoid conflicts with Velero's management
 				existingDefault := bsl.Spec.Default
+				// Preserve any previously auto-detected region so we don't re-query AWS every reconcile
+				existingRegion := bsl.Spec.Config["region"]
 
 				bucket := &oadpv1alpha1.CloudStorage{}
 				err := r.Get(r.Context, client.ObjectKey{Namespace: dpa.Namespace, Name: bslSpec.CloudStorage.CloudStorageRef.Name}, bucket)
@@ -273,6 +275,32 @@ func (r *DataProtectionApplicationReconciler) ReconcileBackupStorageLocations(lo
 						bsl.Spec.Config = make(map[string]string)
 					}
 					bsl.Spec.Config[k] = v
+				}
+
+				// Auto-detect region for actual AWS S3 buckets (not S3-compatible storage)
+				// when it isn't explicitly configured on the CloudStorage CR or DPA override.
+				// Without this, Velero's kopia/restic repo identifier falls back to discovering
+				// the region at backup time using real (non-anonymous) credentials, which fails
+				// in environments without EC2 IMDS access (see OADP-6065).
+				if bucket.Spec.Provider == oadpv1alpha1.AWSBucketProvider {
+					if _, hasS3Url := bsl.Spec.Config[S3URL]; !hasS3Url && bsl.Spec.Config["region"] == "" {
+						region := existingRegion
+						if region == "" && bucket.Spec.Name != "" {
+							detectedRegion, err := aws.GetBucketRegion(bucket.Spec.Name)
+							if err != nil {
+								r.Log.Error(err, "Failed to auto-detect AWS bucket region", "bucket", bucket.Spec.Name)
+							} else {
+								region = detectedRegion
+							}
+						}
+						if region != "" {
+							if bsl.Spec.Config == nil {
+								bsl.Spec.Config = make(map[string]string)
+							}
+							r.Log.Info("Setting AWS bucket region on BSL", "bucket", bucket.Spec.Name, "region", region)
+							bsl.Spec.Config["region"] = region
+						}
+					}
 				}
 
 				// Defensive cleanup: region is only supported in BSL config for AWS.
