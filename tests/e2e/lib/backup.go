@@ -240,10 +240,17 @@ func CancelDataUploadsForBackup(ocClient client.Client, veleroNamespace, backupN
 	if len(pending) == 0 {
 		return errors.Join(patchErrs...)
 	}
+	var lastGetErr error
 	pollErr := wait.PollUntilContextTimeout(context.Background(), 5*time.Second, 2*time.Minute, true, func(ctx context.Context) (bool, error) {
 		for _, name := range pending {
 			du := velerov2alpha1.DataUpload{}
 			if err := ocClient.Get(ctx, client.ObjectKey{Namespace: veleroNamespace, Name: name}, &du); err != nil {
+				// Retried below (could be a transient API blip), but the
+				// error is not silently discarded: if it turns out to be
+				// persistent (RBAC, decode, etc.), the poll times out with
+				// no better explanation than a bare "did not reach a
+				// terminal phase" unless the actual Get error rides along.
+				lastGetErr = err
 				return false, nil
 			}
 			switch du.Status.Phase {
@@ -256,7 +263,7 @@ func CancelDataUploadsForBackup(ocClient client.Client, veleroNamespace, backupN
 		return true, nil
 	})
 	if pollErr != nil {
-		patchErrs = append(patchErrs, fmt.Errorf("DataUpload(s) %v for backup %s did not reach a terminal phase after cancel: %w", pending, backupName, pollErr))
+		patchErrs = append(patchErrs, fmt.Errorf("DataUpload(s) %v for backup %s did not reach a terminal phase after cancel: %w", pending, backupName, errors.Join(pollErr, lastGetErr)))
 	}
 	return errors.Join(patchErrs...)
 }
