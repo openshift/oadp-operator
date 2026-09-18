@@ -428,6 +428,18 @@ func runKubevirtDMBackup(v *lib.VirtOperator, vmNamespace, backupName string, an
 		// blocking DataUpload is itself stuck on a known bug. This is exactly
 		// how the very NEXT kdm spec in this file failed with this identical
 		// symptom despite being otherwise unrelated to backupName.
+		//
+		// Cancel the underlying DataUpload FIRST: `velero backup delete` only
+		// waits on backups.velero.io/external-resources-finalizer, which
+		// isn't cleared until the DataUpload itself reaches a terminal phase
+		// -- if it's still uploading, the delete below can time out while the
+		// upload keeps running in the background and later completes against
+		// a DPA recreated by the NEXT spec's BeforeEach, pushing a checkpoint
+		// into the shared per-suite BSL prefix that poisons that spec's own
+		// backup-type classification. See lib.CancelDataUploadsForBackup.
+		if cancelErr := lib.CancelDataUploadsForBackup(dpaCR.Client, namespace, backupName); cancelErr != nil {
+			log.Printf("could not cancel DataUploads for abandoned backup %s after known-bug skip: %v", backupName, cancelErr)
+		}
 		if cleanupErr := lib.DeleteVeleroBackupAndRestore(dpaCR.Client, kubernetesClientForSuiteRun, kubeConfig, namespace, backupName, ""); cleanupErr != nil {
 			log.Printf("could not clean up abandoned backup %s after known-bug skip: %v", backupName, cleanupErr)
 		}
@@ -544,6 +556,14 @@ func runKubevirtDMBackup(v *lib.VirtOperator, vmNamespace, backupName string, an
 		// this VM, waiting"). Confirmed live: this exact backup's own
 		// never-cleaned-up DataUpload was the blockingDU that failed a
 		// completely unrelated later spec.
+		//
+		// Cancel the underlying DataUpload FIRST -- see the identical
+		// reasoning and lib.CancelDataUploadsForBackup doc comment at the
+		// other known-bug skip site above; same finalizer-wait race applies
+		// here.
+		if cancelErr := lib.CancelDataUploadsForBackup(dpaCR.Client, namespace, backupName); cancelErr != nil {
+			log.Printf("could not cancel DataUploads for abandoned backup %s after known-bug skip: %v", backupName, cancelErr)
+		}
 		if cleanupErr := lib.DeleteVeleroBackupAndRestore(dpaCR.Client, kubernetesClientForSuiteRun, kubeConfig, namespace, backupName, ""); cleanupErr != nil {
 			log.Printf("could not clean up abandoned backup %s after known-bug skip: %v", backupName, cleanupErr)
 		}
@@ -642,15 +662,39 @@ var _ = ginkgo.Describe("VM backup and restore tests", ginkgo.Ordered, func() {
 			log.Printf("Fedora DataSource already exists in openshift-virtualization-os-images, skipping creation")
 		} else {
 			log.Printf("Creating fedora DataSource in openshift-virtualization-os-images namespace")
-			pvcNamespace, pvcName, err := v.GetDataSourcePvc("kubevirt-os-images", "fedora")
-			if err != nil {
-				log.Printf("Fedora DataSource is not PVC-backed, trying snapshot: %v", err)
-				snapshotNamespace, snapshotName, snapErr := v.GetDataSourceSnapshot("kubevirt-os-images", "fedora")
-				gomega.Expect(snapErr).To(gomega.BeNil())
-				err = v.CreateTargetDataSourceFromSnapshot(snapshotNamespace, "openshift-virtualization-os-images", snapshotName, "fedora")
+			var pvcNamespace, pvcName, snapshotNamespace, snapshotName string
+			var usePvc bool
+			// The golden-image DataSource's status.source (pvc or snapshot) is
+			// populated asynchronously by CDI/SSP's own reconcile once the
+			// underlying import/clone finishes -- right after a fresh cluster
+			// install this can still be empty for a few minutes even though the
+			// DataSource object itself already exists. Confirmed live: both
+			// GetDataSourcePvc and GetDataSourceSnapshot failed back-to-back
+			// moments after the cirros DataVolume's own import had just
+			// completed. Poll instead of a single-shot lookup so this doesn't
+			// fail the whole BeforeAll on a startup race.
+			err = wait.PollUntilContextTimeout(context.Background(), 10*time.Second, 5*time.Minute, true, func(ctx context.Context) (bool, error) {
+				var pvcErr error
+				pvcNamespace, pvcName, pvcErr = v.GetDataSourcePvc("kubevirt-os-images", "fedora")
+				if pvcErr == nil {
+					usePvc = true
+					return true, nil
+				}
+				var snapErr error
+				snapshotNamespace, snapshotName, snapErr = v.GetDataSourceSnapshot("kubevirt-os-images", "fedora")
+				if snapErr == nil {
+					usePvc = false
+					return true, nil
+				}
+				log.Printf("fedora DataSource in kubevirt-os-images not yet PVC- or snapshot-backed, retrying (pvc err: %v, snapshot err: %v)", pvcErr, snapErr)
+				return false, nil
+			})
+			gomega.Expect(err).To(gomega.BeNil(), "fedora DataSource in kubevirt-os-images never became PVC- or snapshot-backed")
+			if usePvc {
+				err = v.CreateTargetDataSourceFromPvc(pvcNamespace, "openshift-virtualization-os-images", pvcName, "fedora")
 				gomega.Expect(err).To(gomega.BeNil())
 			} else {
-				err = v.CreateTargetDataSourceFromPvc(pvcNamespace, "openshift-virtualization-os-images", pvcName, "fedora")
+				err = v.CreateTargetDataSourceFromSnapshot(snapshotNamespace, "openshift-virtualization-os-images", snapshotName, "fedora")
 				gomega.Expect(err).To(gomega.BeNil())
 			}
 		}
