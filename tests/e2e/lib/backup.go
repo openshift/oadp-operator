@@ -172,6 +172,42 @@ func ListDataUploadsForBackup(ocClient client.Client, veleroNamespace, backupNam
 	return list.Items, nil
 }
 
+// CancelDataUploadsForBackup sets spec.cancel=true on every still-running DataUpload
+// for backupName, signaling velero's node-agent datamover controller (a separate,
+// always-healthy velero-native reconciler, not kdm-controller) to actually stop its
+// upload rather than just asking `velero backup delete` to wait out the
+// backups.velero.io/external-resources-finalizer -- confirmed live that the finalizer
+// wait alone is not enough: `velero backup delete --confirm` can time out
+// (context deadline exceeded) while the underlying DataUpload keeps uploading in the
+// background, so by the time a later BeforeEach recreates the DPA, the orphaned
+// DataUpload finishes and pushes a checkpoint into the shared per-suite BSL prefix --
+// poisoning a LATER spec's backup-type classification (it finds this stale checkpoint
+// and classifies its own backup as incremental instead of full). Call this BEFORE
+// DeleteVeleroBackupAndRestore during a known-bug skip so the upload is actually torn
+// down, not just requested to go away. Already-terminal DataUploads (Completed/Failed/
+// Canceled/Canceling) are left alone -- setting cancel on one that already finished
+// would do nothing useful and only adds noise.
+func CancelDataUploadsForBackup(ocClient client.Client, veleroNamespace, backupName string) error {
+	dataUploads, err := ListDataUploadsForBackup(ocClient, veleroNamespace, backupName)
+	if err != nil {
+		return err
+	}
+	for i := range dataUploads {
+		du := &dataUploads[i]
+		switch du.Status.Phase {
+		case velerov2alpha1.DataUploadPhaseCompleted, velerov2alpha1.DataUploadPhaseFailed,
+			velerov2alpha1.DataUploadPhaseCanceled, velerov2alpha1.DataUploadPhaseCanceling:
+			continue
+		}
+		patch := client.MergeFrom(du.DeepCopy())
+		du.Spec.Cancel = true
+		if err := ocClient.Patch(context.Background(), du, patch); err != nil {
+			return fmt.Errorf("failed to set cancel=true on DataUpload %s for backup %s: %w", du.Name, backupName, err)
+		}
+	}
+	return nil
+}
+
 func GetBackup(c client.Client, namespace string, name string) (*velero.Backup, error) {
 	backup := velero.Backup{}
 	err := c.Get(context.Background(), client.ObjectKey{
