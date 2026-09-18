@@ -6037,4 +6037,121 @@ func TestDPAReconciler_reconcileCACertSecret(t *testing.T) {
 		secret := &corev1.Secret{}
 		assert.True(t, k8serrors.IsNotFound(r.Get(r.Context, types.NamespacedName{Name: "oadp-bsl-1-cacert", Namespace: "test-ns"}, secret)))
 	})
+
+	t.Run("switching to an explicit CACertRef cleans up the previously-created owned Secret", func(t *testing.T) {
+		r := &DataProtectionApplicationReconciler{
+			Client:        getFakeClientFromObjectsForTest(t),
+			Scheme:        testScheme,
+			Context:       context.Background(),
+			Log:           logr.Discard(),
+			EventRecorder: record.NewFakeRecorder(10),
+		}
+
+		caCert := generateTestCACert("bsl-1")
+		_, err := r.reconcileCACertSecret("test-ns", "bsl-1", caCert, nil, dpa)
+		assert.NoError(t, err)
+
+		userRef := &corev1.SecretKeySelector{
+			LocalObjectReference: corev1.LocalObjectReference{Name: "user-managed-secret"},
+			Key:                  "ca.crt",
+		}
+		ref, err := r.reconcileCACertSecret("test-ns", "bsl-1", nil, userRef, dpa)
+		assert.NoError(t, err)
+		assert.Same(t, userRef, ref)
+
+		secret := &corev1.Secret{}
+		assert.True(t, k8serrors.IsNotFound(r.Get(r.Context, types.NamespacedName{Name: "oadp-bsl-1-cacert", Namespace: "test-ns"}, secret)))
+	})
+
+	t.Run("a pre-existing Secret not owned by OADP is never touched", func(t *testing.T) {
+		foreignSecret := &corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "oadp-bsl-1-cacert",
+				Namespace: "test-ns",
+			},
+			Data: map[string][]byte{"unrelated": []byte("do-not-touch")},
+		}
+		r := &DataProtectionApplicationReconciler{
+			Client:        getFakeClientFromObjectsForTest(t, foreignSecret),
+			Scheme:        testScheme,
+			Context:       context.Background(),
+			Log:           logr.Discard(),
+			EventRecorder: record.NewFakeRecorder(10),
+		}
+
+		caCert := generateTestCACert("bsl-1")
+		_, err := r.reconcileCACertSecret("test-ns", "bsl-1", caCert, nil, dpa)
+		assert.Error(t, err)
+
+		secret := &corev1.Secret{}
+		assert.NoError(t, r.Get(r.Context, types.NamespacedName{Name: "oadp-bsl-1-cacert", Namespace: "test-ns"}, secret))
+		assert.Equal(t, foreignSecret.Data, secret.Data)
+
+		// Same guard applies on the delete path (no CACert/CACertRef) and the
+		// switch-to-CACertRef path.
+		_, err = r.reconcileCACertSecret("test-ns", "bsl-1", nil, nil, dpa)
+		assert.Error(t, err)
+		userRef := &corev1.SecretKeySelector{LocalObjectReference: corev1.LocalObjectReference{Name: "other"}, Key: "k"}
+		_, err = r.reconcileCACertSecret("test-ns", "bsl-1", nil, userRef, dpa)
+		assert.Error(t, err)
+
+		assert.NoError(t, r.Get(r.Context, types.NamespacedName{Name: "oadp-bsl-1-cacert", Namespace: "test-ns"}, secret))
+		assert.Equal(t, foreignSecret.Data, secret.Data)
+	})
+}
+
+func TestDPAReconciler_resolveCACertBytes(t *testing.T) {
+	testScheme, err := getSchemeForFakeClient()
+	assert.NoError(t, err)
+
+	t.Run("inline CACert wins over CACertRef", func(t *testing.T) {
+		r := &DataProtectionApplicationReconciler{
+			Client:  getFakeClientFromObjectsForTest(t),
+			Scheme:  testScheme,
+			Context: context.Background(),
+			Log:     logr.Discard(),
+		}
+		data, err := r.resolveCACertBytes([]byte("inline"), &corev1.SecretKeySelector{LocalObjectReference: corev1.LocalObjectReference{Name: "missing"}, Key: "k"}, "test-ns")
+		assert.NoError(t, err)
+		assert.Equal(t, []byte("inline"), data)
+	})
+
+	t.Run("required CACertRef pointing at a missing Secret returns an error", func(t *testing.T) {
+		r := &DataProtectionApplicationReconciler{
+			Client:  getFakeClientFromObjectsForTest(t),
+			Scheme:  testScheme,
+			Context: context.Background(),
+			Log:     logr.Discard(),
+		}
+		_, err := r.resolveCACertBytes(nil, &corev1.SecretKeySelector{LocalObjectReference: corev1.LocalObjectReference{Name: "missing"}, Key: "k"}, "test-ns")
+		assert.Error(t, err)
+	})
+
+	t.Run("required CACertRef pointing at a Secret missing the key returns an error", func(t *testing.T) {
+		secret := &corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{Name: "s", Namespace: "test-ns"},
+			Data:       map[string][]byte{"other-key": []byte("x")},
+		}
+		r := &DataProtectionApplicationReconciler{
+			Client:  getFakeClientFromObjectsForTest(t, secret),
+			Scheme:  testScheme,
+			Context: context.Background(),
+			Log:     logr.Discard(),
+		}
+		_, err := r.resolveCACertBytes(nil, &corev1.SecretKeySelector{LocalObjectReference: corev1.LocalObjectReference{Name: "s"}, Key: "missing-key"}, "test-ns")
+		assert.Error(t, err)
+	})
+
+	t.Run("optional CACertRef pointing at a missing Secret returns no error", func(t *testing.T) {
+		r := &DataProtectionApplicationReconciler{
+			Client:  getFakeClientFromObjectsForTest(t),
+			Scheme:  testScheme,
+			Context: context.Background(),
+			Log:     logr.Discard(),
+		}
+		optional := true
+		data, err := r.resolveCACertBytes(nil, &corev1.SecretKeySelector{LocalObjectReference: corev1.LocalObjectReference{Name: "missing"}, Key: "k", Optional: &optional}, "test-ns")
+		assert.NoError(t, err)
+		assert.Nil(t, data)
+	})
 }
