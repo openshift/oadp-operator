@@ -187,11 +187,23 @@ func ListDataUploadsForBackup(ocClient client.Client, veleroNamespace, backupNam
 // down, not just requested to go away. Already-terminal DataUploads (Completed/Failed/
 // Canceled/Canceling) are left alone -- setting cancel on one that already finished
 // would do nothing useful and only adds noise.
+//
+// Waits (bounded, 5s/2m) for each patched DataUpload to actually reach a terminal
+// phase before returning: setting spec.cancel=true only requests cancellation --
+// node-agent's own datamover controller still needs a reconcile tick to notice it,
+// abort the in-flight upload, and write Canceled/Failed. Returning immediately after
+// the patch would leave the caller's subsequent `velero backup delete` racing that
+// same asynchronous cancellation with no better odds than before this function
+// existed. A timeout here is returned as an error (not swallowed) so the caller's
+// existing log-and-continue handling at the known-bug skip site still surfaces it,
+// but does not turn an already-decided-to-skip spec into a hard failure -- cleanup
+// during a known-bug skip is inherently best-effort.
 func CancelDataUploadsForBackup(ocClient client.Client, veleroNamespace, backupName string) error {
 	dataUploads, err := ListDataUploadsForBackup(ocClient, veleroNamespace, backupName)
 	if err != nil {
 		return err
 	}
+	var pending []string
 	for i := range dataUploads {
 		du := &dataUploads[i]
 		switch du.Status.Phase {
@@ -204,6 +216,28 @@ func CancelDataUploadsForBackup(ocClient client.Client, veleroNamespace, backupN
 		if err := ocClient.Patch(context.Background(), du, patch); err != nil {
 			return fmt.Errorf("failed to set cancel=true on DataUpload %s for backup %s: %w", du.Name, backupName, err)
 		}
+		pending = append(pending, du.Name)
+	}
+	if len(pending) == 0 {
+		return nil
+	}
+	pollErr := wait.PollUntilContextTimeout(context.Background(), 5*time.Second, 2*time.Minute, true, func(ctx context.Context) (bool, error) {
+		for _, name := range pending {
+			du := velerov2alpha1.DataUpload{}
+			if err := ocClient.Get(ctx, client.ObjectKey{Namespace: veleroNamespace, Name: name}, &du); err != nil {
+				return false, nil
+			}
+			switch du.Status.Phase {
+			case velerov2alpha1.DataUploadPhaseCompleted, velerov2alpha1.DataUploadPhaseFailed,
+				velerov2alpha1.DataUploadPhaseCanceled:
+			default:
+				return false, nil
+			}
+		}
+		return true, nil
+	})
+	if pollErr != nil {
+		return fmt.Errorf("DataUpload(s) %v for backup %s did not reach a terminal phase after cancel: %w", pending, backupName, pollErr)
 	}
 	return nil
 }
