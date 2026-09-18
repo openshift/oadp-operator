@@ -5962,7 +5962,7 @@ ddummyenddummyenddummyenddummyend
 }
 
 func TestDPAReconciler_reconcileCACertSecret(t *testing.T) {
-	scheme, err := getSchemeForFakeClient()
+	testScheme, err := getSchemeForFakeClient()
 	assert.NoError(t, err)
 
 	dpa := &oadpv1alpha1.DataProtectionApplication{
@@ -5975,7 +5975,7 @@ func TestDPAReconciler_reconcileCACertSecret(t *testing.T) {
 	t.Run("inline CACert creates an owned Secret and returns a CACertRef to it", func(t *testing.T) {
 		r := &DataProtectionApplicationReconciler{
 			Client:        getFakeClientFromObjectsForTest(t),
-			Scheme:        scheme,
+			Scheme:        testScheme,
 			Context:       context.Background(),
 			Log:           logr.Discard(),
 			EventRecorder: record.NewFakeRecorder(10),
@@ -5999,7 +5999,7 @@ func TestDPAReconciler_reconcileCACertSecret(t *testing.T) {
 	t.Run("explicit CACertRef is passed through and no Secret is created", func(t *testing.T) {
 		r := &DataProtectionApplicationReconciler{
 			Client:        getFakeClientFromObjectsForTest(t),
-			Scheme:        scheme,
+			Scheme:        testScheme,
 			Context:       context.Background(),
 			Log:           logr.Discard(),
 			EventRecorder: record.NewFakeRecorder(10),
@@ -6020,7 +6020,7 @@ func TestDPAReconciler_reconcileCACertSecret(t *testing.T) {
 	t.Run("removing CACert deletes a previously-created Secret", func(t *testing.T) {
 		r := &DataProtectionApplicationReconciler{
 			Client:        getFakeClientFromObjectsForTest(t),
-			Scheme:        scheme,
+			Scheme:        testScheme,
 			Context:       context.Background(),
 			Log:           logr.Discard(),
 			EventRecorder: record.NewFakeRecorder(10),
