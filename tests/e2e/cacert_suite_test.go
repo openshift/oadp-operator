@@ -25,7 +25,8 @@ var (
 var _ = ginkgo.Describe("BSL cacert with in-cluster minio", ginkgo.Ordered, ginkgo.Label("aws"), func() {
 	const (
 		minioBSLSecretName = "minio-bsl-creds"
-		testBackupName     = "cacert-minio-backup"
+		minioCACertSecret  = "minio-bsl-cacert"
+		minioCACertKey     = "ca.crt"
 		testNamespace      = "cacert-minio-test-app"
 	)
 
@@ -42,7 +43,8 @@ var _ = ginkgo.Describe("BSL cacert with in-cluster minio", ginkgo.Ordered, gink
 		}
 
 		// Clean up any resources left by a previously interrupted run.
-		_ = lib.DeleteBackup(runTimeClientForSuiteRun, namespace, testBackupName)
+		_ = lib.DeleteBackup(runTimeClientForSuiteRun, namespace, "cacert-minio-backup-legacy")
+		_ = lib.DeleteBackup(runTimeClientForSuiteRun, namespace, "cacert-minio-backup-ref")
 
 		log.Println("cacert: generating self-signed CA and server certificate")
 		var caKeyPEM []byte
@@ -80,12 +82,20 @@ var _ = ginkgo.Describe("BSL cacert with in-cluster minio", ginkgo.Ordered, gink
 			gomega.Expect(err).NotTo(gomega.HaveOccurred(), "creating BSL credentials secret %s", minioBSLSecretName)
 		}
 
+		log.Println("cacert: creating a user-managed Secret holding the CA cert for CACertRef")
+		_, err = kubernetesClientForSuiteRun.CoreV1().Secrets(namespace).Create(ctx, &corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{Name: minioCACertSecret, Namespace: namespace},
+			Data:       map[string][]byte{minioCACertKey: caPEM},
+		}, metav1.CreateOptions{})
+		if err != nil && !apierrors.IsAlreadyExists(err) {
+			gomega.Expect(err).NotTo(gomega.HaveOccurred(), "creating CACertRef secret %s", minioCACertSecret)
+		}
+
 		// kubevirt/hypershift plugins lack arm64-compatible images in some environments.
 		cacertDpaCR.BSLSecretName = minioBSLSecretName
 		cacertDpaCR.BSLProvider = dpaCR.BSLProvider
 		cacertDpaCR.BSLBucket = lib.MinioBucketName
 		cacertDpaCR.BSLBucketPrefix = "e2e"
-		cacertDpaCR.BSLCacert = caPEM
 		cacertDpaCR.BSLConfig = map[string]string{
 			"s3Url":            minioURL,
 			"s3ForcePathStyle": "true",
@@ -103,17 +113,21 @@ var _ = ginkgo.Describe("BSL cacert with in-cluster minio", ginkgo.Ordered, gink
 	ginkgo.AfterAll(func(ctx ginkgo.SpecContext) {
 		lib.DeleteMinioResources(ctx, kubernetesClientForSuiteRun, namespace)
 		_ = lib.DeleteSecret(kubernetesClientForSuiteRun, namespace, minioBSLSecretName)
+		_ = lib.DeleteSecret(kubernetesClientForSuiteRun, namespace, minioCACertSecret)
 	})
 
 	ginkgo.AfterEach(func(ctx ginkgo.SpecContext) {
 		if !skipMustGather && ctx.SpecReport().Failed() {
 			_ = lib.RunMustGather(artifact_dir, cacertDpaCR.Client)
 		}
-		// Happy path: the positive It block exercised deletion via DeleteBackupRequest.
+		// Happy path: the positive It blocks exercise deletion via DeleteBackupRequest.
 		// Fallback: direct CR delete when the test failed before reaching that step.
 		if ctx.SpecReport().Failed() {
-			if err := lib.DeleteBackup(runTimeClientForSuiteRun, namespace, testBackupName); err != nil {
-				log.Printf("cacert: warning: could not delete backup CR %s: %v", testBackupName, err)
+			if err := lib.DeleteBackup(runTimeClientForSuiteRun, namespace, "cacert-minio-backup-legacy"); err != nil {
+				log.Printf("cacert: warning: could not delete backup CR: %v", err)
+			}
+			if err := lib.DeleteBackup(runTimeClientForSuiteRun, namespace, "cacert-minio-backup-ref"); err != nil {
+				log.Printf("cacert: warning: could not delete backup CR: %v", err)
 			}
 		}
 		// Clean up whichever DPA was created this run (positive or negative test).
@@ -129,7 +143,10 @@ var _ = ginkgo.Describe("BSL cacert with in-cluster minio", ginkgo.Ordered, gink
 
 	// ── Tests ──────────────────────────────────────────────────────────────────
 
-	ginkgo.It("BSL is Available and Velero gets AWS_CA_BUNDLE when using minio with custom TLS", func(ctx ginkgo.SpecContext) {
+	// verifyBSLWithCACertBackup drives the DPA through reconcile, asserts the CA cert was
+	// actually used (BSL Available, AWS_CA_BUNDLE set, ConfigMap populated), and proves it
+	// end-to-end with a real backup + delete against minio over the custom-CA TLS connection.
+	verifyBSLWithCACertBackup := func(ctx ginkgo.SpecContext, testBackupName string) {
 		gomega.Expect(cacertDpaCR.CreateOrUpdate(cacertDpaCR.Build(lib.CSI))).NotTo(gomega.HaveOccurred())
 		gomega.Eventually(cacertDpaCR.IsReconciledTrue(), 3*time.Minute, 5*time.Second).Should(gomega.BeTrue())
 		gomega.Eventually(lib.VeleroPodIsRunning(kubernetesClientForSuiteRun, namespace), 3*time.Minute, 5*time.Second).Should(gomega.BeTrue())
@@ -171,6 +188,21 @@ var _ = ginkgo.Describe("BSL cacert with in-cluster minio", ginkgo.Ordered, gink
 			runTimeClientForSuiteRun, kubernetesClientForSuiteRun, kubeConfig,
 			namespace, testBackupName, "",
 		)).NotTo(gomega.HaveOccurred())
+	}
+
+	ginkgo.It("BSL is Available and Velero gets AWS_CA_BUNDLE when using minio with custom TLS (legacy inline CACert)", func(ctx ginkgo.SpecContext) {
+		cacertDpaCR.BSLCacert = caPEM
+		cacertDpaCR.BSLCacertRef = nil
+		verifyBSLWithCACertBackup(ctx, "cacert-minio-backup-legacy")
+	})
+
+	ginkgo.It("BSL is Available and Velero gets AWS_CA_BUNDLE when using minio with custom TLS (CACertRef, default)", func(ctx ginkgo.SpecContext) {
+		cacertDpaCR.BSLCacert = nil
+		cacertDpaCR.BSLCacertRef = &corev1.SecretKeySelector{
+			LocalObjectReference: corev1.LocalObjectReference{Name: minioCACertSecret},
+			Key:                  minioCACertKey,
+		}
+		verifyBSLWithCACertBackup(ctx, "cacert-minio-backup-ref")
 	})
 
 	ginkgo.It("BSL without CACert does not become Available against minio with self-signed TLS", func(ctx ginkgo.SpecContext) {
