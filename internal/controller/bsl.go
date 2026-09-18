@@ -1028,17 +1028,19 @@ func (r *DataProtectionApplicationReconciler) reconcileCACertSecret(namespace, n
 	}, nil
 }
 
-// resolveCACertBytes returns the raw CA certificate bytes for either inline caCert or, when caCert
-// is empty, a caCertRef pointing at a Secret in the given namespace (e.g. one reconcileCACertSecret
-// created, or one the user manages themselves). A required (non-optional) Secret or key that can't
-// be resolved is a real error, not an empty CA bundle — otherwise a BSL that needs the CA cert for
-// TLS verification would silently fail at backup time instead of failing reconciliation loudly.
+// resolveCACertBytes returns the raw CA certificate bytes for a caCertRef pointing at a Secret in
+// the given namespace (e.g. one reconcileCACertSecret created, or one the user manages themselves),
+// falling back to inline caCert only when caCertRef is nil. A required (non-optional) Secret or key
+// that can't be resolved is a real error, not an empty CA bundle — otherwise a BSL that needs the CA
+// cert for TLS verification would silently fail at backup time instead of failing reconciliation
+// loudly.
 func (r *DataProtectionApplicationReconciler) resolveCACertBytes(caCert []byte, caCertRef *corev1.SecretKeySelector, namespace string) ([]byte, error) {
-	if len(caCert) > 0 {
-		return caCert, nil
-	}
+	// CACertRef takes precedence when both are set, matching reconcileCACertSecret's own
+	// precedence for the Velero BSL object itself — otherwise the two consumers of this
+	// DPA-level CACert/CACertRef pair (the BSL's ObjectStorage and this AWS_CA_BUNDLE
+	// aggregation) could end up trusting different CA material.
 	if caCertRef == nil {
-		return nil, nil
+		return caCert, nil
 	}
 	optional := caCertRef.Optional != nil && *caCertRef.Optional
 
