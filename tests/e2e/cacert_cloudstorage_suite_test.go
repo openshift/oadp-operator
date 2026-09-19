@@ -99,6 +99,7 @@ var _ = ginkgo.Describe("BSL cacert with CloudStorage-backed BSL", ginkgo.Ordere
 					CloudStorage: &oadpv1alpha1.CloudStorageLocation{
 						CloudStorageRef: corev1.LocalObjectReference{Name: cloudStorageName},
 						CACert:          caCert,
+						Default:         true,
 						// Prefix is required by DPA validation when backupImages is enabled.
 						Prefix: "cloudstorage",
 					},
