@@ -639,7 +639,7 @@ func (r *DataProtectionApplicationReconciler) reconcileNonAdminNetworkPolicy(log
 		np.Labels = getDpaAppLabels(r.dpa)
 		np.Labels, np.Annotations = applyResourceLabels(r.dpa, np.Labels, np.Annotations)
 
-		// Pod selector: app.kubernetes.io/component=manager (matches non-admin controller)
+		// Pod selector: control-plane=non-admin-controller (matches non-admin controller)
 		np.Spec = networkingv1.NetworkPolicySpec{
 			PodSelector: metav1.LabelSelector{
 				MatchLabels: map[string]string{
