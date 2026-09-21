@@ -201,8 +201,10 @@ var _ = ginkgo.Describe("ReconcileNetworkPolicies", func() {
 		}, np)
 		gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
-		// Verify pod selector
-		gomega.Expect(np.Spec.PodSelector.MatchLabels).To(gomega.HaveKeyWithValue("control-plane", "non-admin-controller"))
+		// Verify the complete pod selector to prevent accidental extra labels.
+		gomega.Expect(np.Spec.PodSelector.MatchLabels).To(gomega.Equal(map[string]string{
+			"control-plane": "non-admin-controller",
+		}))
 
 		// Verify ports 8081 and 8080 (in that order per implementation)
 		gomega.Expect(np.Spec.Ingress).To(gomega.HaveLen(1))
