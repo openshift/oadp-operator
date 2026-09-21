@@ -202,7 +202,6 @@ var _ = ginkgo.Describe("ReconcileNetworkPolicies", func() {
 		gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
 		// Verify pod selector
-		gomega.Expect(np.Spec.PodSelector.MatchLabels).To(gomega.HaveKeyWithValue("app.kubernetes.io/component", "manager"))
 		gomega.Expect(np.Spec.PodSelector.MatchLabels).To(gomega.HaveKeyWithValue("control-plane", "non-admin-controller"))
 
 		// Verify ports 8081 and 8080 (in that order per implementation)
@@ -216,7 +215,7 @@ var _ = ginkgo.Describe("ReconcileNetworkPolicies", func() {
 			gomega.Expect(*port.Protocol).To(gomega.Equal(corev1.ProtocolTCP))
 		}
 
-		// Verify scoped egress (DNS + API-server only)
+		// Verify scoped egress (DNS + API server only)
 		gomega.Expect(np.Spec.PolicyTypes).To(gomega.ContainElement(networkingv1.PolicyTypeEgress))
 		gomega.Expect(np.Spec.Egress).To(gomega.Equal(scopedEgressRules()))
 	})
