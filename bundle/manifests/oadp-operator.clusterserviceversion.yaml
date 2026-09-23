@@ -892,6 +892,7 @@ spec:
           resources:
           - persistentvolumeclaims
           verbs:
+          - delete
           - get
           - list
           - watch
