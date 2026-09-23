@@ -3105,7 +3105,7 @@ MjUwMTI0MTcxNjQyWhcNMjYwMTI0MTcxNjQyWjAzMTEwLwYDVQQDDChlYzItNTQt
 			dpa := &oadpv1alpha1.DataProtectionApplication{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "test-dpa",
-					Namespace: "test-ns",
+					Namespace: "test-namespace",
 				},
 				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
 					BackupLocations: tt.backupLocations,
