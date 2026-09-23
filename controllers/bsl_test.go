@@ -3189,8 +3189,106 @@ MjUwMTI0MTcxNjQyWhcNMjYwMTI0MTcxNjQyWjAzMTEwLwYDVQQDDChlYzItNTQt
 				if configMap.Labels[oadpv1alpha1.OadpOperatorLabel] != "True" {
 					t.Errorf("expected OADP operator label to be True")
 				}
+
+				// Verify the DPA is set as the controller owner of the ConfigMap so
+				// that deleting the DPA garbage-collects the CA bundle ConfigMap.
+				if len(configMap.OwnerReferences) != 1 {
+					t.Fatalf("expected exactly one owner reference on ConfigMap, got %d: %#v", len(configMap.OwnerReferences), configMap.OwnerReferences)
+				}
+				ownerRef := configMap.OwnerReferences[0]
+				assert.Equal(t, "oadp.openshift.io/v1alpha1", ownerRef.APIVersion)
+				assert.Equal(t, "DataProtectionApplication", ownerRef.Kind)
+				assert.Equal(t, dpa.Name, ownerRef.Name)
+				assert.Equal(t, dpa.UID, ownerRef.UID)
+				if assert.NotNil(t, ownerRef.Controller) {
+					assert.True(t, *ownerRef.Controller, "expected owner reference Controller to be true")
+				}
 			}
 		})
+	}
+}
+
+// TestProcessCACertForBSLs_OwnerReference verifies that processCACertForBSLs sets the
+// DataProtectionApplication as the controller owner of the velero-ca-bundle ConfigMap.
+// Without this owner reference the ConfigMap would not be garbage-collected when the DPA
+// is deleted (regression guard for OADP-8835).
+func TestProcessCACertForBSLs_OwnerReference(t *testing.T) {
+	testCACertPEM := `-----BEGIN CERTIFICATE-----
+MIIDNzCCAh+gAwIBAgIJAJ7qAHESwpNwMA0GCSqGSIb3DQEBCwUAMDMxMTAvBgNV
+BAMMKGVjMi01NC0yMTEtOC0yNDguY29tcHV0ZS0xLmFtYXpvbmF3cy5jb20wHhcN
+MjUwMTI0MTcxNjQyWhcNMjYwMTI0MTcxNjQyWjAzMTEwLwYDVQQDDChlYzItNTQt
+-----END CERTIFICATE-----`
+
+	dpa := &oadpv1alpha1.DataProtectionApplication{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-dpa",
+			Namespace: "test-namespace",
+			UID:       "1a2b3c4d-5e6f-7a8b-9c0d-1e2f3a4b5c6d",
+		},
+		Spec: oadpv1alpha1.DataProtectionApplicationSpec{
+			BackupLocations: []oadpv1alpha1.BackupLocation{
+				{
+					Velero: &velerov1.BackupStorageLocationSpec{
+						Provider: "aws",
+						StorageType: velerov1.StorageType{
+							ObjectStorage: &velerov1.ObjectStorageLocation{
+								Bucket: "test-bucket",
+								CACert: []byte(testCACertPEM),
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	fakeClient, err := getFakeClientFromObjects(dpa)
+	if err != nil {
+		t.Fatalf("error creating fake client: %v", err)
+	}
+
+	r := &DPAReconciler{
+		Client:        fakeClient,
+		Scheme:        fakeClient.Scheme(),
+		Log:           logr.Discard(),
+		Context:       context.Background(),
+		EventRecorder: record.NewFakeRecorder(10),
+		NamespacedName: types.NamespacedName{
+			Name:      dpa.Name,
+			Namespace: dpa.Namespace,
+		},
+	}
+
+	gotConfigMapName, err := r.processCACertForBSLs(dpa)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if gotConfigMapName != caBundleConfigMapName {
+		t.Fatalf("expected ConfigMap name %q, got %q", caBundleConfigMapName, gotConfigMapName)
+	}
+
+	configMap := &corev1.ConfigMap{}
+	if err := fakeClient.Get(context.Background(), types.NamespacedName{
+		Name:      caBundleConfigMapName,
+		Namespace: dpa.Namespace,
+	}, configMap); err != nil {
+		t.Fatalf("expected ConfigMap to exist: %v", err)
+	}
+
+	if len(configMap.OwnerReferences) != 1 {
+		t.Fatalf("expected exactly one owner reference, got %d: %#v", len(configMap.OwnerReferences), configMap.OwnerReferences)
+	}
+
+	expectedOwnerRef := metav1.OwnerReference{
+		APIVersion:         "oadp.openshift.io/v1alpha1",
+		Kind:               "DataProtectionApplication",
+		Name:               dpa.Name,
+		UID:                dpa.UID,
+		Controller:         pointer.Bool(true),
+		BlockOwnerDeletion: pointer.Bool(true),
+	}
+	if !reflect.DeepEqual(configMap.OwnerReferences[0], expectedOwnerRef) {
+		t.Errorf("owner reference mismatch:\n  got:  %#v\n  want: %#v", configMap.OwnerReferences[0], expectedOwnerRef)
 	}
 }
 

@@ -725,6 +725,11 @@ func (r *DPAReconciler) processCACertForBSLs(dpa *oadpv1alpha1.DataProtectionApp
 	}
 
 	op, err := controllerutil.CreateOrPatch(r.Context, r.Client, configMap, func() error {
+		// Set controller reference so the ConfigMap is garbage-collected when the DPA is deleted
+		if err := controllerutil.SetControllerReference(dpa, configMap, r.Scheme); err != nil {
+			return err
+		}
+
 		// Set labels
 		if configMap.Labels == nil {
 			configMap.Labels = make(map[string]string)
