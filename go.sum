@@ -707,8 +707,8 @@ github.com/matttproud/golang_protobuf_extensions v1.0.2-0.20181231171920-c182aff
 github.com/mfridman/tparse v0.18.0 h1:wh6dzOKaIwkUGyKgOntDW4liXSo37qg5AXbIhkMV3vE=
 github.com/mfridman/tparse v0.18.0/go.mod h1:gEvqZTuCgEhPbYk/2lS3Kcxg1GmTxxU7kTC8DvP0i/A=
 github.com/miekg/dns v1.0.14/go.mod h1:W1PPwlIAgtquWBMBEV9nkV9Cazfe8ScdGz/Lj7v3Nrg=
-github.com/migtools/kopia v0.0.0-20260904060021-9d3c597548ee h1:12pEnrc8wLb2nVYiZ1VAqiASJniZCKvLkp9wPz3ieo0=
-github.com/migtools/kopia v0.0.0-20260904060021-9d3c597548ee/go.mod h1:sprsaLcP6UwK7dscGucwYseILHyWYCq4XTA7kHiexWA=
+github.com/migtools/kopia v0.0.0-20260922194857-c880aae06643 h1:cxzhCYFPliZZTZ7OSFMSleprFgyqsdom8ZLVi2/ltN0=
+github.com/migtools/kopia v0.0.0-20260922194857-c880aae06643/go.mod h1:0ElhJj+ehAlyXL/KpjnS8E7Z8xS1gGdOWIljOIn557s=
 github.com/mikefarah/yq/v3 v3.0.0-20201202084205-8846255d1c37/go.mod h1:dYWq+UWoFCDY1TndvFUQuhBbIYmZpjreC8adEAx93zE=
 github.com/minio/crc64nvme v1.1.0 h1:e/tAguZ+4cw32D+IO/8GSf5UVr9y+3eJcxZI2WOO/7Q=
 github.com/minio/crc64nvme v1.1.0/go.mod h1:eVfm2fAzLlxMdUGc0EEBGSMmPwmXD5XiNRpnu9J3bvg=
@@ -782,8 +782,8 @@ github.com/openshift/api v0.0.0-20240524162738-d899f8877d22 h1:AW8KUN4k7qR2egrCC
 github.com/openshift/api v0.0.0-20240524162738-d899f8877d22/go.mod h1:7Hm1kLJGxWT6eysOpD2zUztdn+w91eiERn6KtI5o9aw=
 github.com/openshift/hypershift/api v0.0.0-20241128081537-8326d865eaf5 h1:z8AkPjlJ/CPqED/EPtlgQKYEt8+Edc30ZR8eQWOEigA=
 github.com/openshift/hypershift/api v0.0.0-20241128081537-8326d865eaf5/go.mod h1:3UlUlywmXBCEMF3GACTvMAOvv2lU5qzUDvTYFXeGbKU=
-github.com/openshift/velero v0.10.2-0.20260904060022-e81ee90062e6 h1:VFIkD4G7ViOq3ZE8YLJ7pLOWRV+BTl19M5Uq9tyZIIw=
-github.com/openshift/velero v0.10.2-0.20260904060022-e81ee90062e6/go.mod h1:P9obU3E0hJrXBOeTZ0YUCcgFOcBthXYQlEmWlHlu0tc=
+github.com/openshift/velero v0.10.2-0.20260922232025-4365110ccbf8 h1:FDAMiAe3dg2Qu2a+qp8T1SWHCT2f4B5zpFsBjIlLaYk=
+github.com/openshift/velero v0.10.2-0.20260922232025-4365110ccbf8/go.mod h1:DheLnS57gNzCVvgswGkyUO92r9QHxy6Qlztx5NhlAlI=
 github.com/opentracing/opentracing-go v1.1.0/go.mod h1:UkNAQd3GIcIGf0SeVgPpRdFStlNbqXla1AfSYxPUl2o=
 github.com/operator-framework/api v0.10.0/go.mod h1:tV0BUNvly7szq28ZPBXhjp1Sqg5yHCOeX19ui9K4vjI=
 github.com/operator-framework/api v0.10.7 h1:GlZJ6m+0WSVdSsSjTbhKKAvHXamWJXhwXHUhVwL8LBE=
@@ -1059,8 +1059,8 @@ golang.org/x/crypto v0.0.0-20200622213623-75b288015ac9/go.mod h1:LzIPMQfyMNhhGPh
 golang.org/x/crypto v0.0.0-20201002170205-7f63de1d35b0/go.mod h1:LzIPMQfyMNhhGPhUkYOs5KpL4U8rLKemX1yGLhDgUto=
 golang.org/x/crypto v0.0.0-20210220033148-5ea612d1eb83/go.mod h1:jdWPYTVW3xRLrWPugEBEK3UY2ZEsg3UU495nc5E+M+I=
 golang.org/x/crypto v0.0.0-20210921155107-089bfa567519/go.mod h1:GvvjBRRGRdwPK5ydBHafDWAxML/pGHZbMvKqRZ5+Abc=
-golang.org/x/crypto v0.55.0 h1:+KWHjbgOaAQ66dh/YlkZKHlz9ZUlq61AFirAR9ntP8M=
-golang.org/x/crypto v0.55.0/go.mod h1:uq0V9dE/fzQuJtbnL+2EhWOE63vo164FY8xqEnV9xis=
+golang.org/x/crypto v0.56.0 h1:GUh5Ii4J5jtcseSMiRqr1jXCNHoxjeV9Fmekc2oLy6Y=
+golang.org/x/crypto v0.56.0/go.mod h1:OMW5y6CY9l38uPLmxU6l6pwcXp1obtLo3e6gT7gQR2I=
 golang.org/x/exp v0.0.0-20190121172915-509febef88a4/go.mod h1:CJ0aWSM057203Lf6IL+f9T1iT9GByDxfZKAQTCR3kQA=
 golang.org/x/exp v0.0.0-20190306152737-a1d7652674e8/go.mod h1:CJ0aWSM057203Lf6IL+f9T1iT9GByDxfZKAQTCR3kQA=
 golang.org/x/exp v0.0.0-20190510132918-efd6b22b2522/go.mod h1:ZjyILWgesfNpC6sMxTJOJm9Kp84zZh5NQWvqDGG3Qr8=

@@ -1,6 +1,6 @@
 module github.com/openshift/oadp-operator
 
-go 1.25.8
+go 1.26.0
 
 require (
 	github.com/aws/aws-sdk-go v1.44.253
@@ -184,7 +184,7 @@ require (
 	go.uber.org/zap v1.28.0 // indirect
 	go.yaml.in/yaml/v2 v2.4.4 // indirect
 	go.yaml.in/yaml/v3 v3.0.4 // indirect
-	golang.org/x/crypto v0.55.0 // indirect
+	golang.org/x/crypto v0.56.0 // indirect
 	golang.org/x/mod v0.40.0 // indirect
 	golang.org/x/net v0.58.0 // indirect
 	golang.org/x/oauth2 v0.36.0 // indirect
@@ -210,9 +210,9 @@ require (
 	sigs.k8s.io/structured-merge-diff/v4 v4.6.0 // indirect
 )
 
-replace github.com/vmware-tanzu/velero => github.com/openshift/velero v0.10.2-0.20260904060022-e81ee90062e6
+replace github.com/vmware-tanzu/velero => github.com/openshift/velero v0.10.2-0.20260922232025-4365110ccbf8
 
-replace github.com/kopia/kopia => github.com/migtools/kopia v0.0.0-20260904060021-9d3c597548ee
+replace github.com/kopia/kopia => github.com/migtools/kopia v0.0.0-20260922194857-c880aae06643
 
 replace github.com/kcp-dev/kcp/sdk v0.0.0-00010101000000-000000000000 => github.com/kcp-dev/kcp/sdk v0.27.1
 
