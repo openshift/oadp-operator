@@ -334,7 +334,7 @@ func (r *DPAReconciler) UpdateCredentialsSecretLabels(secretName string, namespa
 		needPatch = true
 	}
 	if needPatch {
-		err = r.Client.Patch(r.Context, &secret, client.MergeFrom(originalSecret))
+		err = r.Patch(r.Context, &secret, client.MergeFrom(originalSecret))
 		if err != nil {
 			return false, err
 		}
@@ -410,7 +410,7 @@ func (r *DPAReconciler) validateAWSBackupStorageLocation(bslSpec velerov1.Backup
 		return fmt.Errorf("bucket name for AWS backupstoragelocation cannot be empty")
 	}
 
-	if len(bslSpec.StorageType.ObjectStorage.Prefix) == 0 && dpa.BackupImages() {
+	if len(bslSpec.ObjectStorage.Prefix) == 0 && dpa.BackupImages() {
 		return fmt.Errorf("prefix for AWS backupstoragelocation object storage cannot be empty. It is required for backing up images")
 	}
 
@@ -452,7 +452,7 @@ func (r *DPAReconciler) validateAzureBackupStorageLocation(bslSpec velerov1.Back
 		return fmt.Errorf("storageAccount for Azure backupstoragelocation config cannot be empty")
 	}
 
-	if len(bslSpec.StorageType.ObjectStorage.Prefix) == 0 && dpa.BackupImages() {
+	if len(bslSpec.ObjectStorage.Prefix) == 0 && dpa.BackupImages() {
 		return fmt.Errorf("prefix for Azure backupstoragelocation object storage cannot be empty. it is required for backing up images")
 	}
 
@@ -474,7 +474,7 @@ func (r *DPAReconciler) validateGCPBackupStorageLocation(bslSpec velerov1.Backup
 	if len(bslSpec.ObjectStorage.Bucket) == 0 {
 		return fmt.Errorf("bucket name for GCP backupstoragelocation cannot be empty")
 	}
-	if len(bslSpec.StorageType.ObjectStorage.Prefix) == 0 && dpa.BackupImages() {
+	if len(bslSpec.ObjectStorage.Prefix) == 0 && dpa.BackupImages() {
 		return fmt.Errorf("prefix for GCP backupstoragelocation object storage cannot be empty. it is required for backing up images")
 	}
 
