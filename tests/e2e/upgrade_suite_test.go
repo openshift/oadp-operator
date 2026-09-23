@@ -111,6 +111,7 @@ var _ = ginkgo.Describe("OADP upgrade scenarios", ginkgo.Ordered, func() {
 								ObjectStorage: &velerov1.ObjectStorageLocation{
 									Bucket: dpaCR.BSLBucket,
 									Prefix: dpaCR.BSLBucketPrefix,
+									CACert: dpaCR.BSLCacert,
 								},
 							},
 						},
