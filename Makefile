@@ -300,12 +300,15 @@ vet: check-go ## Run go vet against code.
 	go vet -mod=mod ./...
 
 ENVTEST := $(shell pwd)/bin/setup-envtest
-ENVTESTPATH = $(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) -p path)
-ifeq ($(shell $(ENVTEST) list | grep $(ENVTEST_K8S_VERSION)),)
-	ENVTESTPATH = $(shell $(ENVTEST) --arch=amd64 use $(ENVTEST_K8S_VERSION) -p path)
-endif
 # Uses go-install-tool-versioned (see its doc comment above) for both the version and
-# architecture check, rather than a bespoke arch-only check here.
+# architecture check. ENVTESTPATH itself is resolved inline in the `test` recipe below
+# via `--bin-dir`, the same mechanism oadp-1.5/oadp-1.6/oadp-dev use -- it lets
+# setup-envtest resolve its own native-arch assets directly against $(LOCALBIN) rather
+# than this Makefile maintaining a separate arch-fallback variable/probe (see #2377: the
+# old separate-variable approach got its arch decision wrong on a cold bin/, and a probe
+# added to fix it tripped over setup-envtest's own documented `--help` exit-2 behavior
+# under this Makefile's `.SHELLFLAGS = -ec` -- inheriting the already-correct mechanism
+# from the newer branches avoids both failure modes rather than patching around them).
 .PHONY: envtest $(ENVTEST)
 envtest: $(ENVTEST) ## Download envtest-setup locally if necessary.
 $(ENVTEST): $(LOCALBIN)
@@ -319,7 +322,7 @@ $(ENVTEST): $(LOCALBIN)
 # If bin/ contains binaries of different arch, you may remove them so the container can install their arch.
 .PHONY: test
 test: check-go vet envtest ## Run Go linter and unit tests and check Go code format and if api and bundle folders are up to date.
-	KUBEBUILDER_ASSETS="$(ENVTESTPATH)" go test -mod=mod $(shell go list -mod=mod ./... | grep -v /tests/e2e) -coverprofile cover.out
+	KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) --bin-dir $(LOCALBIN) -p path)" go test -mod=mod $(shell go list -mod=mod ./... | grep -v /tests/e2e) -coverprofile cover.out
 	@make fmt-isupdated
 	@make api-isupdated
 	@make bundle-isupdated
