@@ -300,24 +300,18 @@ vet: check-go ## Run go vet against code.
 	go vet -mod=mod ./...
 
 ENVTEST := $(shell pwd)/bin/setup-envtest
-# Native-arch resolution first, falling back to amd64 only if that fails (e.g. no
-# native-arch envtest assets published for this k8s version). Done as a single shell
-# expression (not a make ifeq) so it's decided when ENVTESTPATH is actually referenced
-# in a recipe, after $(ENVTEST) is guaranteed installed for the host's real arch --
-# not at Makefile-parse time against a possibly-cold bin/ (see issue #2377).
-ENVTESTPATH = $(shell out=$$($(ENVTEST) use $(ENVTEST_K8S_VERSION) -p path 2>/dev/null); if [ -z "$$out" ]; then out=$$($(ENVTEST) --arch=amd64 use $(ENVTEST_K8S_VERSION) -p path 2>/dev/null); fi; echo "$$out")
-.PHONY: check-envtest-arch
-check-envtest-arch:
-	@if [ -f $(ENVTEST) ] && ! $(ENVTEST) --help >/dev/null 2>&1; then \
-		echo "$(ENVTEST) is not executable on this platform, removing and re-downloading"; \
-		rm -f $(ENVTEST); \
-	fi
-
 # Uses go-install-tool-versioned (see its doc comment above) for both the version and
-# architecture check, in addition to check-envtest-arch's not-executable safety net above.
+# architecture check. ENVTESTPATH itself is resolved inline in the `test` recipe below
+# via `--bin-dir`, the same mechanism oadp-1.5/oadp-1.6/oadp-dev use -- it lets
+# setup-envtest resolve its own native-arch assets directly against $(LOCALBIN) rather
+# than this Makefile maintaining a separate arch-fallback variable/probe (see #2377: the
+# old separate-variable approach got its arch decision wrong on a cold bin/, and a probe
+# added to fix it tripped over setup-envtest's own documented `--help` exit-2 behavior
+# under this Makefile's `.SHELLFLAGS = -ec` -- inheriting the already-correct mechanism
+# from the newer branches avoids both failure modes rather than patching around them).
 .PHONY: envtest $(ENVTEST)
 envtest: $(ENVTEST) ## Download envtest-setup locally if necessary.
-$(ENVTEST): check-envtest-arch $(LOCALBIN)
+$(ENVTEST): $(LOCALBIN)
 	$(call go-install-tool-versioned,$(ENVTEST),sigs.k8s.io/controller-runtime/tools/setup-envtest@v0.0.0-20250308055145-5fe7bb3edc86,v0.0.0-20250308055145-5fe7bb3edc86)
 
 # If test results in prow are different, it is because the environment used.
@@ -328,7 +322,7 @@ $(ENVTEST): check-envtest-arch $(LOCALBIN)
 # If bin/ contains binaries of different arch, you may remove them so the container can install their arch.
 .PHONY: test
 test: check-go vet envtest ## Run Go linter and unit tests and check Go code format and if api and bundle folders are up to date.
-	KUBEBUILDER_ASSETS="$(ENVTESTPATH)" go test -mod=mod $(shell go list -mod=mod ./... | grep -v /tests/e2e) -coverprofile cover.out
+	KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) --bin-dir $(LOCALBIN) -p path)" go test -mod=mod $(shell go list -mod=mod ./... | grep -v /tests/e2e) -coverprofile cover.out
 	@make fmt-isupdated
 	@make api-isupdated
 	@make bundle-isupdated
