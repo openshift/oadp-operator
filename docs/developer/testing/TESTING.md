@@ -154,6 +154,46 @@ export NON_ADMIN_IMAGE=<non_admin_image>
 ```
 For further details, see [tests/e2e/scripts/](../../../tests/e2e/scripts/)
 
+### MinIO image for TLS tests
+
+The MinIO TLS suites deploy a MinIO pod using the digest in
+[`minio_helpers.go`](../../../tests/e2e/lib/minio_helpers.go). The image is
+published at `quay.io/migtools/minio` and built from the same pinned Bitnami
+commit used by [Velero's Kind E2E workflow](https://github.com/velero-io/velero/blob/main/.github/workflows/e2e-test-kind.yaml).
+
+To rebuild it with Podman, run:
+
+```sh
+tests/e2e/scripts/build_minio_image.sh
+```
+
+The script fetches the pinned Bitnami Dockerfile, removes its optional BuildKit
+secret mount for Podman, builds Linux amd64 and arm64 images, and assembles a
+local multiarch manifest. The Dockerfile downloads Bitnami's packaged MinIO and
+MinIO client archives and verifies their SHA256 checksums. It does not compile
+MinIO from Go source.
+
+The script prints a publish command containing the local manifest name. After
+checking the image, log in to Quay and run that command to publish the same
+manifest:
+
+```sh
+podman login quay.io
+```
+
+Make the repository public and verify that the new digest can be read without
+credentials:
+
+```sh
+skopeo inspect --raw --no-creds \
+  "docker://quay.io/migtools/minio@$(cat /tmp/oadp-minio-digest)" > /dev/null
+```
+
+Update the digest in `minio_helpers.go`, then run the MinIO TLS E2E suites. The
+Bitnami source commit is pinned, while its base image and Debian packages can
+change on a later rebuild. The digest in the test code fixes the image used by
+each test run.
+
 ## Clean up
 
 To clean environment after running E2E tests, run
