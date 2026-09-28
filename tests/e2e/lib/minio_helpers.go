@@ -38,9 +38,9 @@ const (
 	minioPort              = int32(9000)
 	minioNetworkPolicyName = "minio-cacert-test-network-policy"
 
-	// minioImage pins a specific minio release. Update this when bumping minio.
-	// Use a digest or immutable tag to keep test runs deterministic.
-	minioImage = "quay.io/minio/minio:RELEASE.2025-09-07T16-13-09Z.hotfix.7aa24e772"
+	// Built from bitnami/containers commit 19fb570e551f15ab0c8264aafa93774266761b8d.
+	// Pin the multiarch digest to keep test runs deterministic.
+	minioImage = "quay.io/migtools/minio@sha256:77241bb188693e574b03a7deff85e30bb644d6c0e8f5aabb0b88e04270f444ea"
 )
 
 // GenerateSelfSignedCA creates a CA certificate and private key.
