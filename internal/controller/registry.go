@@ -808,9 +808,15 @@ func (r *DataProtectionApplicationReconciler) populateAzureRegistrySecret(bsl *v
 	// Check if Azure workload identity is configured
 	isWorkloadIdentity := stsflow.AzureIsWorkloadIdentity()
 
-	// Determine authentication type
+	// Determine authentication type. An explicit BSL credential (e.g. a
+	// shared storage account key) must always take precedence over workload
+	// identity: selecting default_credentials here would authenticate with
+	// the workload identity instead of the BSL's supplied key, which may not
+	// have access to that BSL's storage account. The actual value/presence
+	// of the credential itself is validated below once the secret is parsed.
 	var credentialsType string
-	if isWorkloadIdentity {
+	hasExplicitStorageAccountKey := len(bsl.Spec.Config["storageAccountKeyEnvVar"]) != 0
+	if isWorkloadIdentity && !hasExplicitStorageAccountKey {
 		credentialsType = "default_credentials"
 		r.Log.Info("Azure workload identity detected, using default_credentials for registry")
 	}
