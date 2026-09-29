@@ -755,8 +755,19 @@ type CloudStorageLocation struct {
 	Prefix string `json:"prefix,omitempty"`
 
 	// CACert defines a CA bundle to use when verifying TLS connections to the provider.
+	// Deprecated: use CACertRef instead, matching Velero's own deprecation of inline CACert.
+	// Inline CACert requires updating this BSL to rotate the certificate; CACertRef lets
+	// Velero resolve the CA fresh from the Secret on each use, so rotation is just a Secret
+	// update.
 	// +optional
 	CACert []byte `json:"caCert,omitempty"`
+
+	// CACertRef is a reference to a Secret containing the CA certificate bundle to use
+	// when verifying TLS connections to the provider. The Secret must be in the same
+	// namespace as the DataProtectionApplication. Prefer this over CACert for CA
+	// certificate rotation support.
+	// +optional
+	CACertRef *corev1.SecretKeySelector `json:"caCertRef,omitempty"`
 }
 
 // BackupLocation defines the configuration for the DPA backup storage
@@ -794,8 +805,19 @@ type ObjectStorageLocation struct {
 	Prefix string `json:"prefix,omitempty"`
 
 	// CACert defines a CA bundle to use when verifying TLS connections to the provider.
+	// Deprecated: use CACertRef instead, matching Velero's own deprecation of inline CACert.
+	// Inline CACert requires updating this BSL to rotate the certificate; CACertRef lets
+	// Velero resolve the CA fresh from the Secret on each use, so rotation is just a Secret
+	// update.
 	// +optional
 	CACert []byte `json:"caCert,omitempty"`
+
+	// CACertRef is a reference to a Secret containing the CA certificate bundle to use
+	// when verifying TLS connections to the provider. The Secret must be in the same
+	// namespace as the DataProtectionApplication. Prefer this over CACert for CA
+	// certificate rotation support.
+	// +optional
+	CACertRef *corev1.SecretKeySelector `json:"caCertRef,omitempty"`
 }
 
 // StorageType defines the enforced values for the Velero StorageType

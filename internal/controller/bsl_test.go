@@ -13,6 +13,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	velerov1 "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
 	corev1 "k8s.io/api/core/v1"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -3105,7 +3106,12 @@ func TestDPAReconciler_ReconcileBackupStorageLocations(t *testing.T) {
 						ObjectStorage: &velerov1.ObjectStorageLocation{
 							Bucket: "test-bucket",
 							Prefix: "test-prefix",
-							CACert: []byte("test-ca"),
+							CACertRef: &corev1.SecretKeySelector{
+								LocalObjectReference: corev1.LocalObjectReference{
+									Name: "oadp-test-dpa-1-cacert",
+								},
+								Key: "cacert",
+							},
 						},
 					},
 					Credential: &corev1.SecretKeySelector{
@@ -3989,6 +3995,333 @@ func TestDPAReconciler_ReconcileBackupStorageLocations(t *testing.T) {
 	})
 }
 
+// TestDPAReconciler_ReconcileBackupStorageLocations_CloudStorageAutoRegion covers OADP-6065:
+// a CloudStorage-backed AWS BSL with no region configured anywhere (CloudStorage CR nor DPA
+// override) must have its region auto-detected and persisted onto the BSL, the same way a
+// plain Velero-type AWS BSL already does via common.UpdateBackupStorageLocation. Without this,
+// Velero falls back to discovering the region at backup time using real (non-anonymous)
+// credentials, which fails in environments without EC2 IMDS access.
+func TestDPAReconciler_ReconcileBackupStorageLocations_CloudStorageAutoRegion(t *testing.T) {
+	originalGetBucketRegionFunc := aws.GetBucketRegionFunc
+	defer func() { aws.GetBucketRegionFunc = originalGetBucketRegionFunc }()
+
+	callCount := 0
+	aws.GetBucketRegionFunc = func(bucket string) (string, error) {
+		callCount++
+		if bucket == "no-region-bucket" {
+			return "us-west-1", nil
+		}
+		return "", fmt.Errorf("bucket region not discoverable")
+	}
+
+	dpa := &oadpv1alpha1.DataProtectionApplication{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-dpa",
+			Namespace: "test-ns",
+		},
+		Spec: oadpv1alpha1.DataProtectionApplicationSpec{
+			BackupLocations: []oadpv1alpha1.BackupLocation{
+				{
+					CloudStorage: &oadpv1alpha1.CloudStorageLocation{
+						CloudStorageRef: corev1.LocalObjectReference{
+							Name: "no-region-cs",
+						},
+						Credential: &corev1.SecretKeySelector{
+							LocalObjectReference: corev1.LocalObjectReference{
+								Name: "cloud-credentials",
+							},
+							Key: "credentials",
+						},
+					},
+				},
+			},
+		},
+	}
+	secret := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "cloud-credentials",
+			Namespace: "test-ns",
+		},
+		Data: map[string][]byte{"credentials": {}},
+	}
+	cloudStorage := &oadpv1alpha1.CloudStorage{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "no-region-cs",
+			Namespace: "test-ns",
+		},
+		Spec: oadpv1alpha1.CloudStorageSpec{
+			Provider: oadpv1alpha1.AWSBucketProvider,
+			Name:     "no-region-bucket",
+			// No Region set: must be auto-detected.
+		},
+	}
+
+	fakeClient, err := getFakeClientFromObjects(dpa, secret, cloudStorage)
+	if err != nil {
+		t.Fatalf("error in creating fake client, likely programmer error: %v", err)
+	}
+	r := &DataProtectionApplicationReconciler{
+		Client:  fakeClient,
+		Scheme:  fakeClient.Scheme(),
+		Log:     logr.Discard(),
+		Context: newContextForTest(),
+		NamespacedName: types.NamespacedName{
+			Namespace: dpa.Namespace,
+			Name:      dpa.Name,
+		},
+		EventRecorder: record.NewFakeRecorder(10),
+		dpa:           dpa,
+	}
+
+	if _, err := r.ReconcileBackupStorageLocations(r.Log); err != nil {
+		t.Fatalf("ReconcileBackupStorageLocations() unexpected error: %v", err)
+	}
+
+	bsl := &velerov1.BackupStorageLocation{}
+	if err := r.Get(r.Context, client.ObjectKey{Namespace: "test-ns", Name: "test-dpa-1"}, bsl); err != nil {
+		t.Fatalf("failed to get reconciled BSL: %v", err)
+	}
+	if got := bsl.Spec.Config["region"]; got != "us-west-1" {
+		t.Errorf("expected auto-detected region %q on BSL config, got %q", "us-west-1", got)
+	}
+	if callCount != 1 {
+		t.Errorf("expected GetBucketRegionFunc to be called exactly once, got %d", callCount)
+	}
+
+	// Reconciling again should reuse the region already present on the BSL rather than
+	// re-querying AWS every reconcile.
+	if _, err := r.ReconcileBackupStorageLocations(r.Log); err != nil {
+		t.Fatalf("second ReconcileBackupStorageLocations() unexpected error: %v", err)
+	}
+	if callCount != 1 {
+		t.Errorf("expected GetBucketRegionFunc to not be called again on subsequent reconcile, call count = %d", callCount)
+	}
+
+	// If the CloudStorage CR's bucket changes, the stale region must not be reused:
+	// detection must run again for the new bucket.
+	cloudStorage.Spec.Name = "other-region-bucket"
+	if err := r.Update(r.Context, cloudStorage); err != nil {
+		t.Fatalf("failed to update CloudStorage bucket name: %v", err)
+	}
+	aws.GetBucketRegionFunc = func(bucket string) (string, error) {
+		callCount++
+		if bucket == "other-region-bucket" {
+			return "eu-west-1", nil
+		}
+		return "", fmt.Errorf("bucket region not discoverable")
+	}
+	if _, err := r.ReconcileBackupStorageLocations(r.Log); err != nil {
+		t.Fatalf("third ReconcileBackupStorageLocations() unexpected error: %v", err)
+	}
+	if err := r.Get(r.Context, client.ObjectKey{Namespace: "test-ns", Name: "test-dpa-1"}, bsl); err != nil {
+		t.Fatalf("failed to get reconciled BSL after bucket change: %v", err)
+	}
+	if got := bsl.Spec.Config["region"]; got != "eu-west-1" {
+		t.Errorf("expected re-detected region %q after bucket change, got %q (stale region reuse bug)", "eu-west-1", got)
+	}
+	if callCount != 2 {
+		t.Errorf("expected GetBucketRegionFunc to be called again after bucket change, call count = %d", callCount)
+	}
+}
+
+// TestDPAReconciler_ReconcileBackupStorageLocations_CloudStorageAutoRegion_EmptyS3Url covers
+// the case where the DPA's CloudStorage config explicitly sets an empty "s3Url" value: this
+// must be treated the same as s3Url being absent (real AWS S3), not as "s3Url configured",
+// so region auto-detection still runs.
+func TestDPAReconciler_ReconcileBackupStorageLocations_CloudStorageAutoRegion_EmptyS3Url(t *testing.T) {
+	originalGetBucketRegionFunc := aws.GetBucketRegionFunc
+	defer func() { aws.GetBucketRegionFunc = originalGetBucketRegionFunc }()
+	aws.GetBucketRegionFunc = func(bucket string) (string, error) {
+		if bucket == "empty-s3url-bucket" {
+			return "ap-south-1", nil
+		}
+		return "", fmt.Errorf("bucket region not discoverable")
+	}
+
+	dpa := &oadpv1alpha1.DataProtectionApplication{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-dpa",
+			Namespace: "test-ns",
+		},
+		Spec: oadpv1alpha1.DataProtectionApplicationSpec{
+			BackupLocations: []oadpv1alpha1.BackupLocation{
+				{
+					CloudStorage: &oadpv1alpha1.CloudStorageLocation{
+						CloudStorageRef: corev1.LocalObjectReference{
+							Name: "empty-s3url-cs",
+						},
+						Credential: &corev1.SecretKeySelector{
+							LocalObjectReference: corev1.LocalObjectReference{
+								Name: "cloud-credentials",
+							},
+							Key: "credentials",
+						},
+						Config: map[string]string{
+							"s3Url": "",
+						},
+					},
+				},
+			},
+		},
+	}
+	secret := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "cloud-credentials",
+			Namespace: "test-ns",
+		},
+		Data: map[string][]byte{"credentials": {}},
+	}
+	cloudStorage := &oadpv1alpha1.CloudStorage{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "empty-s3url-cs",
+			Namespace: "test-ns",
+		},
+		Spec: oadpv1alpha1.CloudStorageSpec{
+			Provider: oadpv1alpha1.AWSBucketProvider,
+			Name:     "empty-s3url-bucket",
+		},
+	}
+
+	fakeClient, err := getFakeClientFromObjects(dpa, secret, cloudStorage)
+	if err != nil {
+		t.Fatalf("error in creating fake client, likely programmer error: %v", err)
+	}
+	r := &DataProtectionApplicationReconciler{
+		Client:  fakeClient,
+		Scheme:  fakeClient.Scheme(),
+		Log:     logr.Discard(),
+		Context: newContextForTest(),
+		NamespacedName: types.NamespacedName{
+			Namespace: dpa.Namespace,
+			Name:      dpa.Name,
+		},
+		EventRecorder: record.NewFakeRecorder(10),
+		dpa:           dpa,
+	}
+
+	if _, err := r.ReconcileBackupStorageLocations(r.Log); err != nil {
+		t.Fatalf("ReconcileBackupStorageLocations() unexpected error: %v", err)
+	}
+
+	bsl := &velerov1.BackupStorageLocation{}
+	if err := r.Get(r.Context, client.ObjectKey{Namespace: "test-ns", Name: "test-dpa-1"}, bsl); err != nil {
+		t.Fatalf("failed to get reconciled BSL: %v", err)
+	}
+	if got := bsl.Spec.Config["region"]; got != "ap-south-1" {
+		t.Errorf("expected auto-detected region %q despite empty s3Url config, got %q", "ap-south-1", got)
+	}
+}
+
+// TestDPAReconciler_ReconcileBackupStorageLocations_CloudStorageConfigNotStale covers a
+// CodeRabbit-flagged bug: when a CloudStorage-backed BSL's bucket changes to one with a nil
+// CloudStorage.Spec.Config, bsl.Spec.Config must be rebuilt from scratch rather than left with
+// stale keys (e.g. a leftover "s3Url") from the previous bucket's config, which would otherwise
+// silently suppress region auto-detection for the new bucket.
+func TestDPAReconciler_ReconcileBackupStorageLocations_CloudStorageConfigNotStale(t *testing.T) {
+	originalGetBucketRegionFunc := aws.GetBucketRegionFunc
+	defer func() { aws.GetBucketRegionFunc = originalGetBucketRegionFunc }()
+	aws.GetBucketRegionFunc = func(bucket string) (string, error) {
+		if bucket == "second-bucket" {
+			return "ca-central-1", nil
+		}
+		return "", fmt.Errorf("bucket region not discoverable")
+	}
+
+	dpa := &oadpv1alpha1.DataProtectionApplication{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-dpa",
+			Namespace: "test-ns",
+		},
+		Spec: oadpv1alpha1.DataProtectionApplicationSpec{
+			BackupLocations: []oadpv1alpha1.BackupLocation{
+				{
+					CloudStorage: &oadpv1alpha1.CloudStorageLocation{
+						CloudStorageRef: corev1.LocalObjectReference{
+							Name: "stale-config-cs",
+						},
+						Credential: &corev1.SecretKeySelector{
+							LocalObjectReference: corev1.LocalObjectReference{
+								Name: "cloud-credentials",
+							},
+							Key: "credentials",
+						},
+					},
+				},
+			},
+		},
+	}
+	secret := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "cloud-credentials",
+			Namespace: "test-ns",
+		},
+		Data: map[string][]byte{"credentials": {}},
+	}
+	cloudStorage := &oadpv1alpha1.CloudStorage{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "stale-config-cs",
+			Namespace: "test-ns",
+		},
+		Spec: oadpv1alpha1.CloudStorageSpec{
+			Provider: oadpv1alpha1.AWSBucketProvider,
+			Name:     "first-bucket",
+			Config: map[string]string{
+				"s3Url": "https://s3-compatible.example.com",
+			},
+		},
+	}
+
+	fakeClient, err := getFakeClientFromObjects(dpa, secret, cloudStorage)
+	if err != nil {
+		t.Fatalf("error in creating fake client, likely programmer error: %v", err)
+	}
+	r := &DataProtectionApplicationReconciler{
+		Client:  fakeClient,
+		Scheme:  fakeClient.Scheme(),
+		Log:     logr.Discard(),
+		Context: newContextForTest(),
+		NamespacedName: types.NamespacedName{
+			Namespace: dpa.Namespace,
+			Name:      dpa.Name,
+		},
+		EventRecorder: record.NewFakeRecorder(10),
+		dpa:           dpa,
+	}
+
+	if _, err := r.ReconcileBackupStorageLocations(r.Log); err != nil {
+		t.Fatalf("ReconcileBackupStorageLocations() unexpected error: %v", err)
+	}
+	bsl := &velerov1.BackupStorageLocation{}
+	if err := r.Get(r.Context, client.ObjectKey{Namespace: "test-ns", Name: "test-dpa-1"}, bsl); err != nil {
+		t.Fatalf("failed to get reconciled BSL: %v", err)
+	}
+	if got := bsl.Spec.Config["s3Url"]; got != "https://s3-compatible.example.com" {
+		t.Fatalf("expected s3Url to be set from first bucket's config, got %q", got)
+	}
+	if got := bsl.Spec.Config["region"]; got != "" {
+		t.Fatalf("expected no region while s3Url is set, got %q", got)
+	}
+
+	// Switch to a second bucket with no Config at all (real AWS S3, no s3Url).
+	cloudStorage.Spec.Name = "second-bucket"
+	cloudStorage.Spec.Config = nil
+	if err := r.Update(r.Context, cloudStorage); err != nil {
+		t.Fatalf("failed to update CloudStorage: %v", err)
+	}
+	if _, err := r.ReconcileBackupStorageLocations(r.Log); err != nil {
+		t.Fatalf("second ReconcileBackupStorageLocations() unexpected error: %v", err)
+	}
+	if err := r.Get(r.Context, client.ObjectKey{Namespace: "test-ns", Name: "test-dpa-1"}, bsl); err != nil {
+		t.Fatalf("failed to get reconciled BSL after bucket switch: %v", err)
+	}
+	if got := bsl.Spec.Config["s3Url"]; got != "" {
+		t.Errorf("expected stale s3Url to be cleared after switching to a bucket with nil config, got %q", got)
+	}
+	if got := bsl.Spec.Config["region"]; got != "ca-central-1" {
+		t.Errorf("expected region to be auto-detected for the new bucket once stale s3Url is cleared, got %q", got)
+	}
+}
+
 func TestPatchSecretsForBSL(t *testing.T) {
 	tests := []struct {
 		name          string
@@ -4733,7 +5066,12 @@ func TestDPAReconciler_populateBSLFromCloudStorage(t *testing.T) {
 						ObjectStorage: &velerov1.ObjectStorageLocation{
 							Bucket: "my-gcp-bucket",
 							Prefix: "velero",
-							CACert: []byte("test-ca-cert"),
+							CACertRef: &corev1.SecretKeySelector{
+								LocalObjectReference: corev1.LocalObjectReference{
+									Name: "oadp-gcp-bucket-cacert",
+								},
+								Key: "cacert",
+							},
 						},
 					},
 					Config: map[string]string{},
@@ -4947,10 +5285,11 @@ func TestDPAReconciler_populateBSLFromCloudStorage(t *testing.T) {
 			fakeClient := getFakeClientFromObjectsForTest(t, objs...)
 
 			r := &DataProtectionApplicationReconciler{
-				Client:  fakeClient,
-				Scheme:  scheme,
-				Context: context.Background(),
-				Log:     logr.Discard(),
+				Client:        fakeClient,
+				Scheme:        scheme,
+				Context:       context.Background(),
+				Log:           logr.Discard(),
+				EventRecorder: record.NewFakeRecorder(10),
 			}
 
 			err := r.populateBSLFromCloudStorage(tt.bslSpec, "test-ns")
@@ -5947,4 +6286,226 @@ ddummyenddummyenddummyenddummyend
 			}
 		})
 	}
+}
+
+func TestDPAReconciler_reconcileCACertSecret(t *testing.T) {
+	testScheme, err := getSchemeForFakeClient()
+	assert.NoError(t, err)
+
+	dpa := &oadpv1alpha1.DataProtectionApplication{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-dpa",
+			Namespace: "test-ns",
+		},
+	}
+
+	t.Run("inline CACert creates an owned Secret and returns a CACertRef to it", func(t *testing.T) {
+		r := &DataProtectionApplicationReconciler{
+			Client:        getFakeClientFromObjectsForTest(t),
+			Scheme:        testScheme,
+			Context:       context.Background(),
+			Log:           logr.Discard(),
+			EventRecorder: record.NewFakeRecorder(10),
+		}
+
+		caCert := generateTestCACert("bsl-1")
+		ref, err := r.reconcileCACertSecret("test-ns", "bsl-1", caCert, nil, dpa)
+		assert.NoError(t, err)
+		if assert.NotNil(t, ref) {
+			assert.Equal(t, "oadp-bsl-1-cacert", ref.Name)
+			assert.Equal(t, "cacert", ref.Key)
+		}
+
+		secret := &corev1.Secret{}
+		assert.NoError(t, r.Get(r.Context, types.NamespacedName{Name: "oadp-bsl-1-cacert", Namespace: "test-ns"}, secret))
+		assert.Equal(t, caCert, secret.Data["cacert"])
+		assert.Len(t, secret.OwnerReferences, 1)
+		assert.Equal(t, "test-dpa", secret.OwnerReferences[0].Name)
+	})
+
+	t.Run("explicit CACertRef is passed through and no Secret is created", func(t *testing.T) {
+		r := &DataProtectionApplicationReconciler{
+			Client:        getFakeClientFromObjectsForTest(t),
+			Scheme:        testScheme,
+			Context:       context.Background(),
+			Log:           logr.Discard(),
+			EventRecorder: record.NewFakeRecorder(10),
+		}
+
+		userRef := &corev1.SecretKeySelector{
+			LocalObjectReference: corev1.LocalObjectReference{Name: "user-managed-secret"},
+			Key:                  "ca.crt",
+		}
+		ref, err := r.reconcileCACertSecret("test-ns", "bsl-1", nil, userRef, dpa)
+		assert.NoError(t, err)
+		assert.Same(t, userRef, ref)
+
+		secret := &corev1.Secret{}
+		assert.True(t, k8serrors.IsNotFound(r.Get(r.Context, types.NamespacedName{Name: "oadp-bsl-1-cacert", Namespace: "test-ns"}, secret)))
+	})
+
+	t.Run("removing CACert deletes a previously-created Secret", func(t *testing.T) {
+		r := &DataProtectionApplicationReconciler{
+			Client:        getFakeClientFromObjectsForTest(t),
+			Scheme:        testScheme,
+			Context:       context.Background(),
+			Log:           logr.Discard(),
+			EventRecorder: record.NewFakeRecorder(10),
+		}
+
+		caCert := generateTestCACert("bsl-1")
+		_, err := r.reconcileCACertSecret("test-ns", "bsl-1", caCert, nil, dpa)
+		assert.NoError(t, err)
+
+		ref, err := r.reconcileCACertSecret("test-ns", "bsl-1", nil, nil, dpa)
+		assert.NoError(t, err)
+		assert.Nil(t, ref)
+
+		secret := &corev1.Secret{}
+		assert.True(t, k8serrors.IsNotFound(r.Get(r.Context, types.NamespacedName{Name: "oadp-bsl-1-cacert", Namespace: "test-ns"}, secret)))
+	})
+
+	t.Run("switching to an explicit CACertRef cleans up the previously-created owned Secret", func(t *testing.T) {
+		r := &DataProtectionApplicationReconciler{
+			Client:        getFakeClientFromObjectsForTest(t),
+			Scheme:        testScheme,
+			Context:       context.Background(),
+			Log:           logr.Discard(),
+			EventRecorder: record.NewFakeRecorder(10),
+		}
+
+		caCert := generateTestCACert("bsl-1")
+		_, err := r.reconcileCACertSecret("test-ns", "bsl-1", caCert, nil, dpa)
+		assert.NoError(t, err)
+
+		userRef := &corev1.SecretKeySelector{
+			LocalObjectReference: corev1.LocalObjectReference{Name: "user-managed-secret"},
+			Key:                  "ca.crt",
+		}
+		ref, err := r.reconcileCACertSecret("test-ns", "bsl-1", nil, userRef, dpa)
+		assert.NoError(t, err)
+		assert.Same(t, userRef, ref)
+
+		secret := &corev1.Secret{}
+		assert.True(t, k8serrors.IsNotFound(r.Get(r.Context, types.NamespacedName{Name: "oadp-bsl-1-cacert", Namespace: "test-ns"}, secret)))
+	})
+
+	t.Run("a pre-existing Secret not owned by OADP is never touched", func(t *testing.T) {
+		foreignSecret := &corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "oadp-bsl-1-cacert",
+				Namespace: "test-ns",
+			},
+			Data: map[string][]byte{"unrelated": []byte("do-not-touch")},
+		}
+		r := &DataProtectionApplicationReconciler{
+			Client:        getFakeClientFromObjectsForTest(t, foreignSecret),
+			Scheme:        testScheme,
+			Context:       context.Background(),
+			Log:           logr.Discard(),
+			EventRecorder: record.NewFakeRecorder(10),
+		}
+
+		caCert := generateTestCACert("bsl-1")
+		_, err := r.reconcileCACertSecret("test-ns", "bsl-1", caCert, nil, dpa)
+		assert.Error(t, err)
+
+		secret := &corev1.Secret{}
+		assert.NoError(t, r.Get(r.Context, types.NamespacedName{Name: "oadp-bsl-1-cacert", Namespace: "test-ns"}, secret))
+		assert.Equal(t, foreignSecret.Data, secret.Data)
+
+		// Same guard applies on the delete path (no CACert/CACertRef) and the
+		// switch-to-CACertRef path.
+		_, err = r.reconcileCACertSecret("test-ns", "bsl-1", nil, nil, dpa)
+		assert.Error(t, err)
+		userRef := &corev1.SecretKeySelector{LocalObjectReference: corev1.LocalObjectReference{Name: "other"}, Key: "k"}
+		_, err = r.reconcileCACertSecret("test-ns", "bsl-1", nil, userRef, dpa)
+		assert.Error(t, err)
+
+		assert.NoError(t, r.Get(r.Context, types.NamespacedName{Name: "oadp-bsl-1-cacert", Namespace: "test-ns"}, secret))
+		assert.Equal(t, foreignSecret.Data, secret.Data)
+	})
+}
+
+func TestDPAReconciler_resolveCACertBytes(t *testing.T) {
+	testScheme, err := getSchemeForFakeClient()
+	assert.NoError(t, err)
+
+	t.Run("CACertRef wins over inline CACert when both are set", func(t *testing.T) {
+		secret := &corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{Name: "s", Namespace: "test-ns"},
+			Data:       map[string][]byte{"k": []byte("from-secret")},
+		}
+		r := &DataProtectionApplicationReconciler{
+			Client:  getFakeClientFromObjectsForTest(t, secret),
+			Scheme:  testScheme,
+			Context: context.Background(),
+			Log:     logr.Discard(),
+		}
+		data, err := r.resolveCACertBytes([]byte("inline"), &corev1.SecretKeySelector{LocalObjectReference: corev1.LocalObjectReference{Name: "s"}, Key: "k"}, "test-ns")
+		assert.NoError(t, err)
+		assert.Equal(t, []byte("from-secret"), data)
+	})
+
+	t.Run("inline CACert used only when CACertRef is nil", func(t *testing.T) {
+		r := &DataProtectionApplicationReconciler{
+			Client:  getFakeClientFromObjectsForTest(t),
+			Scheme:  testScheme,
+			Context: context.Background(),
+			Log:     logr.Discard(),
+		}
+		data, err := r.resolveCACertBytes([]byte("inline"), nil, "test-ns")
+		assert.NoError(t, err)
+		assert.Equal(t, []byte("inline"), data)
+	})
+
+	t.Run("a required but unresolvable CACertRef errors even when inline CACert is also set", func(t *testing.T) {
+		r := &DataProtectionApplicationReconciler{
+			Client:  getFakeClientFromObjectsForTest(t),
+			Scheme:  testScheme,
+			Context: context.Background(),
+			Log:     logr.Discard(),
+		}
+		_, err := r.resolveCACertBytes([]byte("inline"), &corev1.SecretKeySelector{LocalObjectReference: corev1.LocalObjectReference{Name: "missing"}, Key: "k"}, "test-ns")
+		assert.Error(t, err)
+	})
+
+	t.Run("required CACertRef pointing at a missing Secret returns an error", func(t *testing.T) {
+		r := &DataProtectionApplicationReconciler{
+			Client:  getFakeClientFromObjectsForTest(t),
+			Scheme:  testScheme,
+			Context: context.Background(),
+			Log:     logr.Discard(),
+		}
+		_, err := r.resolveCACertBytes(nil, &corev1.SecretKeySelector{LocalObjectReference: corev1.LocalObjectReference{Name: "missing"}, Key: "k"}, "test-ns")
+		assert.Error(t, err)
+	})
+
+	t.Run("required CACertRef pointing at a Secret missing the key returns an error", func(t *testing.T) {
+		secret := &corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{Name: "s", Namespace: "test-ns"},
+			Data:       map[string][]byte{"other-key": []byte("x")},
+		}
+		r := &DataProtectionApplicationReconciler{
+			Client:  getFakeClientFromObjectsForTest(t, secret),
+			Scheme:  testScheme,
+			Context: context.Background(),
+			Log:     logr.Discard(),
+		}
+		_, err := r.resolveCACertBytes(nil, &corev1.SecretKeySelector{LocalObjectReference: corev1.LocalObjectReference{Name: "s"}, Key: "missing-key"}, "test-ns")
+		assert.Error(t, err)
+	})
+
+	t.Run("optional CACertRef pointing at a missing Secret returns no error", func(t *testing.T) {
+		r := &DataProtectionApplicationReconciler{
+			Client:  getFakeClientFromObjectsForTest(t),
+			Scheme:  testScheme,
+			Context: context.Background(),
+			Log:     logr.Discard(),
+		}
+		optional := true
+		data, err := r.resolveCACertBytes(nil, &corev1.SecretKeySelector{LocalObjectReference: corev1.LocalObjectReference{Name: "missing"}, Key: "k", Optional: &optional}, "test-ns")
+		assert.NoError(t, err)
+		assert.Nil(t, data)
+	})
 }

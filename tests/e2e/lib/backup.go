@@ -3,6 +3,7 @@ package lib
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"log"
 	"time"
@@ -170,6 +171,101 @@ func ListDataUploadsForBackup(ocClient client.Client, veleroNamespace, backupNam
 		return nil, fmt.Errorf("failed to list DataUploads for backup %s: %w", backupName, err)
 	}
 	return list.Items, nil
+}
+
+// CancelDataUploadsForBackup sets spec.cancel=true on every still-running DataUpload
+// for backupName, signaling velero's node-agent datamover controller (a separate,
+// always-healthy velero-native reconciler, not kdm-controller) to actually stop its
+// upload rather than just asking `velero backup delete` to wait out the
+// backups.velero.io/external-resources-finalizer -- confirmed live that the finalizer
+// wait alone is not enough: `velero backup delete --confirm` can time out
+// (context deadline exceeded) while the underlying DataUpload keeps uploading in the
+// background, so by the time a later BeforeEach recreates the DPA, the orphaned
+// DataUpload finishes and pushes a checkpoint into the shared per-suite BSL prefix --
+// poisoning a LATER spec's backup-type classification (it finds this stale checkpoint
+// and classifies its own backup as incremental instead of full). Call this BEFORE
+// DeleteVeleroBackupAndRestore during a known-bug skip so the upload is actually torn
+// down, not just requested to go away. Already-terminal DataUploads (Completed/Failed/
+// Canceled) are left alone entirely -- setting cancel on one that already finished
+// would do nothing useful and only adds noise. One already Canceling (cancel requested
+// by an earlier call, not yet finished) is not re-patched, but IS still waited on below.
+//
+// Waits (bounded, 5s/2m) for each non-terminal DataUpload (freshly patched, or already
+// Canceling) to actually reach a terminal phase before returning: setting
+// spec.cancel=true only requests cancellation -- node-agent's own datamover
+// controller still needs a reconcile tick to notice it, abort the in-flight upload,
+// and write Canceled/Failed. Returning immediately after the patch would leave the
+// caller's subsequent `velero backup delete` racing that same asynchronous
+// cancellation with no better odds than before this function existed. A timeout here
+// is returned as an error (not swallowed) so the caller's existing log-and-continue
+// handling at the known-bug skip site still surfaces it, but does not turn an
+// already-decided-to-skip spec into a hard failure -- cleanup during a known-bug skip
+// is inherently best-effort.
+func CancelDataUploadsForBackup(ocClient client.Client, veleroNamespace, backupName string) error {
+	dataUploads, err := ListDataUploadsForBackup(ocClient, veleroNamespace, backupName)
+	if err != nil {
+		return err
+	}
+	var pending []string
+	var patchErrs []error
+	for i := range dataUploads {
+		du := &dataUploads[i]
+		switch du.Status.Phase {
+		case velerov2alpha1.DataUploadPhaseCompleted, velerov2alpha1.DataUploadPhaseFailed,
+			velerov2alpha1.DataUploadPhaseCanceled:
+			// Truly terminal already -- nothing to patch or wait for.
+			continue
+		case velerov2alpha1.DataUploadPhaseCanceling:
+			// Cancellation already requested (e.g. by an earlier call) but not
+			// yet finished -- don't re-patch, but DO still wait for it below,
+			// or a DataUpload caught mid-cancel would be silently dropped from
+			// pending and this function would return before it actually
+			// reaches a terminal phase.
+			pending = append(pending, du.Name)
+			continue
+		}
+		patch := client.MergeFrom(du.DeepCopy())
+		du.Spec.Cancel = true
+		// A patch failure on one DataUpload must not skip the rest -- a
+		// multi-disk VM backup creates one DataUpload per disk, and this is a
+		// best-effort cleanup during an already-decided-to-skip spec, so every
+		// disk's upload should still get a cancel attempt (and be waited on
+		// below if it succeeds) rather than bailing out on the first error.
+		if err := ocClient.Patch(context.Background(), du, patch); err != nil {
+			patchErrs = append(patchErrs, fmt.Errorf("failed to set cancel=true on DataUpload %s for backup %s: %w", du.Name, backupName, err))
+			continue
+		}
+		pending = append(pending, du.Name)
+	}
+	if len(pending) == 0 {
+		return errors.Join(patchErrs...)
+	}
+	var lastGetErr error
+	pollErr := wait.PollUntilContextTimeout(context.Background(), 5*time.Second, 2*time.Minute, true, func(ctx context.Context) (bool, error) {
+		for _, name := range pending {
+			du := velerov2alpha1.DataUpload{}
+			if err := ocClient.Get(ctx, client.ObjectKey{Namespace: veleroNamespace, Name: name}, &du); err != nil {
+				// Retried below (could be a transient API blip), but the
+				// error is not silently discarded: if it turns out to be
+				// persistent (RBAC, decode, etc.), the poll times out with
+				// no better explanation than a bare "did not reach a
+				// terminal phase" unless the actual Get error rides along.
+				lastGetErr = err
+				return false, nil
+			}
+			switch du.Status.Phase {
+			case velerov2alpha1.DataUploadPhaseCompleted, velerov2alpha1.DataUploadPhaseFailed,
+				velerov2alpha1.DataUploadPhaseCanceled:
+			default:
+				return false, nil
+			}
+		}
+		return true, nil
+	})
+	if pollErr != nil {
+		patchErrs = append(patchErrs, fmt.Errorf("DataUpload(s) %v for backup %s did not reach a terminal phase after cancel: %w", pending, backupName, errors.Join(pollErr, lastGetErr)))
+	}
+	return errors.Join(patchErrs...)
 }
 
 func GetBackup(c client.Client, namespace string, name string) (*velero.Backup, error) {

@@ -1899,6 +1899,47 @@ func TestDPAReconciler_updateNodeAgentCM(t *testing.T) {
 			}),
 		},
 		{
+			name: "Given DPA CR instance with PodConfig PriorityClassName, NodeAgent config cm includes priorityClassName",
+			nodeAgentConfigMap: &corev1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      common.NodeAgentConfigMapPrefix + testCmName,
+					Namespace: testCmNs,
+				},
+			},
+			dpa: &oadpv1alpha1.DataProtectionApplication{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      testCmName,
+					Namespace: testCmNs,
+				},
+				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
+					Configuration: &oadpv1alpha1.ApplicationConfig{
+						Velero: &oadpv1alpha1.VeleroConfig{
+							DefaultPlugins: []oadpv1alpha1.DefaultPlugin{
+								oadpv1alpha1.DefaultPluginAWS,
+							},
+						},
+						NodeAgent: &oadpv1alpha1.NodeAgentConfig{
+							NodeAgentCommonFields: oadpv1alpha1.NodeAgentCommonFields{
+								PodConfig: &oadpv1alpha1.PodConfig{
+									PriorityClassName: "node-agent-critical",
+								},
+							},
+						},
+					},
+				},
+			},
+			wantErr: false,
+			wantNodeAgentConfigMap: createTestBuiltNodeAgentCM(map[string]string{
+				"node-agent-config": `{
+					"podLabels": {
+						"oadp.openshift.io/network-policy": "velero"
+					},
+					"privilegedFsBackup": true,
+					"priorityClassName": "node-agent-critical"
+				}`,
+			}),
+		},
+		{
 			name: "Given DPA CR instance, appropriate NodeAgent config cm is created with LoadConcurrency including PrepareQueueLength",
 			nodeAgentConfigMap: &corev1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
@@ -3022,6 +3063,72 @@ func TestDPAReconciler_buildNodeAgentDaemonsetWithAzureWorkloadIdentity(t *testi
 						break
 					}
 				}
+			}
+		})
+	}
+}
+
+// TestNodeAgentAffinityMatchExpressionsDeterministicOrder verifies that
+// matchExpressions built from a multi-label NodeSelector are always sorted
+// by key, preventing non-deterministic DaemonSet spec changes that cause
+// unnecessary node-agent pod restarts. See OADP-7541.
+func TestNodeAgentAffinityMatchExpressionsDeterministicOrder(t *testing.T) {
+	tests := []struct {
+		name        string
+		matchLabels map[string]string
+		wantKeys    []string
+	}{
+		{
+			name: "two labels matching customer config from OADP-7541",
+			matchLabels: map[string]string{
+				"network":                       "int",
+				"node-role.kubernetes.io/infra": "",
+			},
+			wantKeys: []string{"network", "node-role.kubernetes.io/infra"},
+		},
+		{
+			name: "three labels to verify sorting with more keys",
+			matchLabels: map[string]string{
+				"zone":                           "us-east-1a",
+				"disk-type":                      "ssd",
+				"node-role.kubernetes.io/worker": "",
+			},
+			wantKeys: []string{"disk-type", "node-role.kubernetes.io/worker", "zone"},
+		},
+		{
+			name: "single label is trivially stable",
+			matchLabels: map[string]string{
+				"node-role.kubernetes.io/infra": "",
+			},
+			wantKeys: []string{"node-role.kubernetes.io/infra"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			for i := 0; i < 100; i++ {
+				la := &kube.LoadAffinity{
+					NodeSelector: metav1.LabelSelector{
+						MatchLabels: tt.matchLabels,
+					},
+				}
+				affinity := kube.ToSystemAffinity(la, nil)
+				require.NotNil(t, affinity, "iteration %d: affinity should not be nil", i)
+
+				terms := affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms
+				require.Len(t, terms, 1, "iteration %d: expected 1 NodeSelectorTerm", i)
+
+				common.SortNodeSelectorTerms(terms)
+
+				exprs := terms[0].MatchExpressions
+				require.Len(t, exprs, len(tt.wantKeys), "iteration %d: wrong number of matchExpressions", i)
+
+				gotKeys := make([]string, len(exprs))
+				for j, expr := range exprs {
+					gotKeys[j] = expr.Key
+				}
+				require.Equal(t, tt.wantKeys, gotKeys,
+					"iteration %d: matchExpressions keys not in sorted order", i)
 			}
 		})
 	}

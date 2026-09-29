@@ -1407,9 +1407,16 @@ func (v *VirtOperator) hasVirtLauncherPod(ctx context.Context, namespace, name s
 }
 
 // RequireVEP25Support is a pre-flight check that fails immediately if the
-// installed HCO version is older than 1.18 or if the backup.kubevirt.io CRDs
-// (VirtualMachineBackup, VirtualMachineBackupTracker) do not exist.
-// Call this after EnsureVirtInstallation to gate the test suite early.
+// installed HCO version is older than 1.18. Call this after
+// EnsureVirtInstallation to gate the test suite early.
+//
+// This deliberately does NOT check for the backup.kubevirt.io CRDs
+// (VirtualMachineBackup, VirtualMachineBackupTracker): those are
+// feature-gated and only materialize once EnableCBTFeatureGate enables
+// incrementalBackup on HCO, which runs later in the same BeforeAll. Checking
+// for them here — before they can possibly exist — always fails. CRD
+// existence is verified once, after enabling the feature gate, by
+// EnableCBTFeatureGate itself.
 func (v *VirtOperator) RequireVEP25Support() error {
 	if v.Version == nil {
 		return fmt.Errorf("VirtOperator has no version — cannot verify VEP-25 support")
@@ -1422,15 +1429,6 @@ func (v *VirtOperator) RequireVEP25Support() error {
 		return fmt.Errorf("HCO version %s is too old for VEP-25 (IncrementalBackup); need >= 1.18.0 — upgrade the community HCO or set HCO_INDEX_TAG=1.18.0", v.Version)
 	}
 	log.Printf("HCO version %s satisfies VEP-25 minimum (>= 1.18.0)", v.Version)
-
-	crdGvr := schema.GroupVersionResource{Group: "apiextensions.k8s.io", Version: "v1", Resource: "customresourcedefinitions"}
-	for _, crd := range []string{"virtualmachinebackups.backup.kubevirt.io", "virtualmachinebackuptrackers.backup.kubevirt.io"} {
-		_, err := v.Dynamic.Resource(crdGvr).Get(context.Background(), crd, metav1.GetOptions{})
-		if err != nil {
-			return fmt.Errorf("required CRD %s not found — VEP-25 is not available on this cluster: %w", crd, err)
-		}
-		log.Printf("VEP-25 CRD present: %s", crd)
-	}
 	return nil
 }
 
@@ -1848,7 +1846,7 @@ func (v *VirtOperator) ChecksumBlockDeviceRegion(kubeConfig *rest.Config, namesp
 	if err != nil {
 		return "", err
 	}
-	stdout, stderr, err := ExecuteShellCommandInPod(ProxyPodParameters{
+	stdout, stderr, err := execShellCommandInPodWithRetry(ProxyPodParameters{
 		KubeClient:    v.Clientset,
 		KubeConfig:    kubeConfig,
 		Namespace:     namespace,
@@ -1889,6 +1887,54 @@ func lastNonEmptyLine(s string) string {
 		}
 	}
 	return ""
+}
+
+// polkitWarningPrefix is virsh's own transient authorization-not-ready
+// message, printed when polkitd hasn't finished initializing yet inside a
+// freshly (re)started virt-launcher pod's compute container. Usually it
+// precedes a real JSON reply on the next line (lastNonEmptyLine already
+// handles that case) -- but sometimes it is the ONLY output, with no JSON
+// reply at all: confirmed live on pod virt-launcher-alpine-guestagent-jxqhq,
+// where the immediately preceding guest-exec-status poll (1s earlier, same
+// domain) had returned the warning followed by a valid JSON reply, and the
+// next poll returned the warning alone.
+const polkitWarningPrefix = "Authorization not available."
+
+// isPolkitOnlyOutput reports whether virsh produced only its polkit
+// authorization warning with no JSON reply at all -- a transient
+// virt-launcher/polkit readiness gap, not a real virsh/qemu-agent error.
+func isPolkitOnlyOutput(s string) bool {
+	return strings.HasPrefix(lastNonEmptyLine(s), polkitWarningPrefix)
+}
+
+// isTransientAPIServerNetworkError reports whether err is a client-side
+// network failure reaching the API server itself (e.g. CoreDNS briefly
+// unreachable during a MachineConfigPool node reboot), as opposed to a real
+// command/exec failure inside the pod. Confirmed live: an in-cluster exec's
+// SPDY stream can fail with "dial tcp: lookup api.<cluster> ... i/o timeout"
+// moments after a completely unrelated MCP rollout, with no code path in this
+// repo able to prevent or wait out the rollout -- retrying the exec (a plain
+// read, e.g. dd|sha256sum) a few seconds later is safe and usually succeeds
+// once the API server is reachable again.
+func isTransientAPIServerNetworkError(err error) bool {
+	return err != nil && strings.Contains(err.Error(), "dial tcp")
+}
+
+// execShellCommandInPodWithRetry wraps ExecuteShellCommandInPod with a few
+// retries on isTransientAPIServerNetworkError -- safe here because every
+// caller passes a read-only command (dd|sha256sum for a checksum), so
+// re-running it after a dropped connection can't double-apply a write.
+// Non-network errors (a real command failure) are returned immediately.
+func execShellCommandInPodWithRetry(params ProxyPodParameters, command string) (stdout, stderr string, err error) {
+	backoff := 3 * time.Second
+	for attempt := 1; ; attempt++ {
+		stdout, stderr, err = ExecuteShellCommandInPod(params, command)
+		if err == nil || !isTransientAPIServerNetworkError(err) || attempt >= 3 {
+			return stdout, stderr, err
+		}
+		time.Sleep(backoff)
+		backoff *= 2
+	}
 }
 
 // RunGuestExecScript runs script INSIDE the guest OS (not the virt-launcher
@@ -1948,10 +1994,6 @@ func (v *VirtOperator) RunGuestExecScript(kubeConfig *rest.Config, namespace, vm
 		return nil, fmt.Errorf("failed to marshal guest-exec dispatch JSON: %w", err)
 	}
 	dispatchCmd := fmt.Sprintf("virsh qemu-agent-command %s '%s' --timeout 30", domainName, execJSON)
-	stdout, stderr, err := ExecuteShellCommandInPod(params, dispatchCmd)
-	if err != nil {
-		return nil, fmt.Errorf("guest-exec dispatch failed for VM %s/%s (domain %s, stderr: %s): %w", namespace, vmName, domainName, stderr, err)
-	}
 	var dispatchReply struct {
 		Return struct {
 			PID int `json:"pid"`
@@ -1966,8 +2008,27 @@ func (v *VirtOperator) RunGuestExecScript(kubeConfig *rest.Config, namespace, vm
 	// The raw output is always included in the error below so an unexpected
 	// preamble (or a real virsh error) is visible, not just an opaque
 	// "invalid character" JSON error.
-	if err := json.Unmarshal([]byte(lastNonEmptyLine(stdout)), &dispatchReply); err != nil {
-		return nil, fmt.Errorf("failed to parse guest-exec dispatch reply for VM %s/%s (domain %s, raw output: %q): %w", namespace, vmName, domainName, stdout, err)
+	//
+	// Retry with backoff if virsh returns ONLY the polkit warning (no JSON
+	// reply at all): confirmed live, this is a transient virt-launcher
+	// polkit-readiness gap, not a real virsh/qemu-agent error -- see
+	// isPolkitOnlyOutput.
+	const maxPolkitAttempts = 3
+	backoff := 2 * time.Second
+	for attempt := 1; ; attempt++ {
+		stdout, stderr, err := ExecuteShellCommandInPod(params, dispatchCmd)
+		if err != nil {
+			return nil, fmt.Errorf("guest-exec dispatch failed for VM %s/%s (domain %s, stderr: %s): %w", namespace, vmName, domainName, stderr, err)
+		}
+		if isPolkitOnlyOutput(stdout) && attempt < maxPolkitAttempts {
+			time.Sleep(backoff)
+			backoff *= 2
+			continue
+		}
+		if err := json.Unmarshal([]byte(lastNonEmptyLine(stdout)), &dispatchReply); err != nil {
+			return nil, fmt.Errorf("failed to parse guest-exec dispatch reply for VM %s/%s (domain %s, raw output: %q): %w", namespace, vmName, domainName, stdout, err)
+		}
+		break
 	}
 
 	statusJSON, err := json.Marshal(map[string]any{
@@ -1994,6 +2055,14 @@ func (v *VirtOperator) RunGuestExecScript(kubeConfig *rest.Config, namespace, vm
 				OutData  string `json:"out-data"`
 				ErrData  string `json:"err-data"`
 			} `json:"return"`
+		}
+		if isPolkitOnlyOutput(out) {
+			// Transient polkit-readiness gap (see isPolkitOnlyOutput): virsh
+			// returned only its authorization warning with no JSON reply at
+			// all. Treat as "not done yet" instead of a fatal parse error so
+			// the poll keeps retrying (2s interval, 2m overall timeout)
+			// rather than aborting on the first bad response.
+			return false, nil
 		}
 		if err := json.Unmarshal([]byte(lastNonEmptyLine(out)), &statusReply); err != nil {
 			return false, fmt.Errorf("failed to parse guest-exec-status reply for VM %s/%s (domain %s, raw output: %q): %w", namespace, vmName, domainName, out, err)
@@ -2157,7 +2226,7 @@ func (v *VirtOperator) runInPVCBlockDeviceHelperPod(kubeConfig *rest.Config, nam
 	}
 
 	var stderr string
-	stdout, stderr, err = ExecuteShellCommandInPod(ProxyPodParameters{
+	stdout, stderr, err = execShellCommandInPodWithRetry(ProxyPodParameters{
 		KubeClient:    v.Clientset,
 		KubeConfig:    kubeConfig,
 		Namespace:     namespace,
