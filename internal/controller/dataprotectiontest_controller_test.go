@@ -32,7 +32,6 @@ import (
 	"github.com/stretchr/testify/require"
 	velerov1 "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
 	corev1 "k8s.io/api/core/v1"
-	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -781,8 +780,8 @@ func TestBuildHTTPClientWithTLS(t *testing.T) {
 			bsl: &velerov1.BackupStorageLocationSpec{
 				StorageType: velerov1.StorageType{
 					ObjectStorage: &velerov1.ObjectStorageLocation{
-						CACertRef: &v1.SecretKeySelector{
-							LocalObjectReference: v1.LocalObjectReference{Name: "ca-secret"},
+						CACertRef: &corev1.SecretKeySelector{
+							LocalObjectReference: corev1.LocalObjectReference{Name: "ca-secret"},
 							Key:                  "ca.crt",
 						},
 					},
@@ -1345,7 +1344,7 @@ func TestRetrieveCAData(t *testing.T) {
 	tests := []struct {
 		name           string
 		bsl            *velerov1.BackupStorageLocationSpec
-		startingSecret *v1.Secret
+		startingSecret *corev1.Secret
 		expectError    error
 		expectBytes    []byte
 	}{
@@ -1372,16 +1371,16 @@ func TestRetrieveCAData(t *testing.T) {
 			bsl: &velerov1.BackupStorageLocationSpec{
 				StorageType: velerov1.StorageType{
 					ObjectStorage: &velerov1.ObjectStorageLocation{
-						CACertRef: &v1.SecretKeySelector{
+						CACertRef: &corev1.SecretKeySelector{
 							Key: "ca",
-							LocalObjectReference: v1.LocalObjectReference{
+							LocalObjectReference: corev1.LocalObjectReference{
 								Name: "casecret",
 							},
 						},
 					},
 				},
 			},
-			startingSecret: &v1.Secret{
+			startingSecret: &corev1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "casecret",
 					Namespace: namespace,
@@ -1397,9 +1396,9 @@ func TestRetrieveCAData(t *testing.T) {
 			bsl: &velerov1.BackupStorageLocationSpec{
 				StorageType: velerov1.StorageType{
 					ObjectStorage: &velerov1.ObjectStorageLocation{
-						CACertRef: &v1.SecretKeySelector{
+						CACertRef: &corev1.SecretKeySelector{
 							Key: "ca",
-							LocalObjectReference: v1.LocalObjectReference{
+							LocalObjectReference: corev1.LocalObjectReference{
 								Name: "casecret",
 							},
 						},
@@ -1413,16 +1412,16 @@ func TestRetrieveCAData(t *testing.T) {
 			bsl: &velerov1.BackupStorageLocationSpec{
 				StorageType: velerov1.StorageType{
 					ObjectStorage: &velerov1.ObjectStorageLocation{
-						CACertRef: &v1.SecretKeySelector{
+						CACertRef: &corev1.SecretKeySelector{
 							Key: "ca",
-							LocalObjectReference: v1.LocalObjectReference{
+							LocalObjectReference: corev1.LocalObjectReference{
 								Name: "casecret",
 							},
 						},
 					},
 				},
 			},
-			startingSecret: &v1.Secret{
+			startingSecret: &corev1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "casecret",
 					Namespace: namespace,
@@ -1436,16 +1435,16 @@ func TestRetrieveCAData(t *testing.T) {
 			bsl: &velerov1.BackupStorageLocationSpec{
 				StorageType: velerov1.StorageType{
 					ObjectStorage: &velerov1.ObjectStorageLocation{
-						CACertRef: &v1.SecretKeySelector{
+						CACertRef: &corev1.SecretKeySelector{
 							Key: "ca",
-							LocalObjectReference: v1.LocalObjectReference{
+							LocalObjectReference: corev1.LocalObjectReference{
 								Name: "casecret",
 							},
 						},
 					},
 				},
 			},
-			startingSecret: &v1.Secret{
+			startingSecret: &corev1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "casecret",
 					Namespace: namespace,
