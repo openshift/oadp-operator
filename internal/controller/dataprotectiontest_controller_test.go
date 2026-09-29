@@ -701,10 +701,10 @@ func TestBuildTLSConfig(t *testing.T) {
 			if tt.expectCustomCA {
 				require.NotNil(t, tlsConfig.RootCAs)
 			}
-
 			if tt.expectInsecure {
-				// RootCAs field is ignored when set to insecure
-				require.Equal(t, tlsConfig.InsecureSkipVerify, true)
+				require.Equal(t, tt.expectInsecure, tlsConfig.InsecureSkipVerify)
+				// buildTLSConfig returns early on skipTLSVerify and never populates RootCAs.
+				require.Nil(t, tlsConfig.RootCAs)
 			}
 
 			if tt.expectCustomCA && !tt.expectError {
@@ -771,6 +771,7 @@ func TestBuildHTTPClientWithTLS(t *testing.T) {
 					},
 				},
 			},
+			caCertData:  []byte("invalid-base64!"),
 			expectError: true,
 		},
 		{
@@ -787,10 +788,11 @@ func TestBuildHTTPClientWithTLS(t *testing.T) {
 					},
 				},
 			},
+			caCertData:  caPEM,
 			expectError: false,
 		},
 		{
-			name: "valid generated CA cert from param",
+			name: "valid generated CA cert from CACertRef",
 			dpt: &oadpv1alpha1.DataProtectionTest{
 				Spec: oadpv1alpha1.DataProtectionTestSpec{
 					SkipTLSVerify: false,
@@ -798,9 +800,16 @@ func TestBuildHTTPClientWithTLS(t *testing.T) {
 			},
 			bsl: &velerov1.BackupStorageLocationSpec{
 				StorageType: velerov1.StorageType{
-					ObjectStorage: &velerov1.ObjectStorageLocation{},
+					ObjectStorage: &velerov1.ObjectStorageLocation{
+						CACertRef: &v1.SecretKeySelector{
+							LocalObjectReference: v1.LocalObjectReference{Name: "ca-secret"},
+							Key:                  "ca.crt",
+						},
+					},
 				},
 			},
+			// caCertData simulates the bytes already resolved from the Secret by
+			// retrieveCAData; buildHTTPClientWithTLS receives the resolved PEM.
 			caCertData:  caPEM,
 			expectError: false,
 		},

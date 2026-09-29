@@ -31,6 +31,7 @@ import (
 )
 
 // buildTLSConfig creates a TLS configuration based on the DPT spec and BSL spec.
+// Certificate data should be passed through caCertData to handle both CaCertRef and CaCert in bsl parameter.
 // Priority order:
 // 1. If skipTLSVerify is true → InsecureSkipVerify: true
 // 2. If BSL has caCert → Use custom CA cert with system certs
@@ -57,16 +58,10 @@ func buildTLSConfig(dpt *oadpv1alpha1.DataProtectionTest, bsl *velerov1.BackupSt
 		logger.Info("Custom CA certificate found in param")
 
 		if !caCertPool.AppendCertsFromPEM(caCertData) {
-			return nil, fmt.Errorf("failed to parse CA certificates from param")
+			return nil, fmt.Errorf("failed to parse CA certificates from BackupStorageLocation CA data or referenced Secret")
 		}
 
 		logger.Info("Successfully configured custom CA certificate from param")
-	} else if bsl != nil && bsl.ObjectStorage != nil && len(bsl.ObjectStorage.CACert) > 0 {
-		logger.Info("Custom CA certificate found in BSL")
-		if !caCertPool.AppendCertsFromPEM(bsl.ObjectStorage.CACert) {
-			return nil, fmt.Errorf("failed to parse CA certificates from BSL")
-		}
-		logger.Info("Successfully configured custom CA certificate from BSL")
 	}
 
 	tlsConfig.RootCAs = caCertPool
