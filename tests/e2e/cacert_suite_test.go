@@ -205,6 +205,30 @@ var _ = ginkgo.Describe("BSL cacert with in-cluster minio", ginkgo.Ordered, gink
 		verifyBSLWithCACertBackup(ctx, "cacert-minio-backup-ref")
 	})
 
+	ginkgo.It("DataProtectionTest resolves CACertRef from BSL and completes successfully", func(ctx ginkgo.SpecContext) {
+		// Ensures the internal state is returned after the test is over.
+		// This test only uses CaCertRef of the BSL.
+		originalCacert := cacertDpaCR.BSLCacert
+		originalCacertRef := cacertDpaCR.BSLCacertRef
+		defer func() {
+			cacertDpaCR.BSLCacert = originalCacert
+			cacertDpaCR.BSLCacertRef = originalCacertRef
+		}()
+
+		cacertDpaCR.BSLCacert = nil
+		cacertDpaCR.BSLCacertRef = &corev1.SecretKeySelector{
+			LocalObjectReference: corev1.LocalObjectReference{Name: minioCACertSecret},
+			Key:                  minioCACertKey,
+		}
+		verifyBSLWithCACertBackup(ctx, "cacert-minio-backup-ref-dpt")
+
+		// Create a DPT referencing the BSL by name; the BSL carries CACertRef so
+		// retrieveCAData must resolve the Secret to establish the TLS connection.
+		err := lib.CreateDPTAndAssertComplete(runTimeClientForSuiteRun, namespace, cacertDpaCR.Name)
+		gomega.Expect(err).NotTo(gomega.HaveOccurred(),
+			"DPT should complete when BSL CACertRef points to a valid Secret")
+	})
+
 	ginkgo.It("BSL without CACert does not become Available against minio with self-signed TLS", func(ctx ginkgo.SpecContext) {
 		// Same minio, same bucket — but no CA cert supplied to the BSL.
 		// Velero cannot verify minio's self-signed cert, so the BSL must never become Available.

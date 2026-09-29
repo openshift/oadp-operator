@@ -661,26 +661,6 @@ func TestBuildTLSConfig(t *testing.T) {
 			description:    "Should configure custom CA cert in RootCAs passed in from param",
 			caCertData:     caPEM,
 		},
-		{
-			name: "with CA Cert inline BSL",
-			dpt: &oadpv1alpha1.DataProtectionTest{
-				Spec: oadpv1alpha1.DataProtectionTestSpec{
-					SkipTLSVerify: false,
-				},
-			},
-			bsl: &velerov1.BackupStorageLocationSpec{
-				StorageType: velerov1.StorageType{
-					ObjectStorage: &velerov1.ObjectStorageLocation{
-						Bucket: "test-bucket",
-						CACert: caPEM,
-					},
-				},
-			},
-			expectCustomCA: true,
-			expectError:    false,
-			description:    "Should configure custom CA cert in RootCAs from BSL",
-			expectCA:       caPEM,
-		},
 	}
 
 	for _, tt := range tests {

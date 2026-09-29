@@ -45,3 +45,46 @@ func CreateUploadTestOnlyDPT(c client.Client, namespace, bslName string) error {
 	log.Printf("✅ DPT %s completed with phase: %s", dpt.Name, dpt.Status.Phase)
 	return nil
 }
+
+// CreateDPTAndAssertComplete creates a DataProtectionTest for the given BSL,
+// waits for it to reach a terminal phase, and returns an error if it did not
+// complete successfully. The DPT is deleted after the check regardless of outcome.
+func CreateDPTAndAssertComplete(c client.Client, namespace, bslName string) error {
+	dpt := &v1alpha1.DataProtectionTest{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      fmt.Sprintf("e2e-dpt-%d", time.Now().Unix()),
+			Namespace: namespace,
+		},
+		Spec: v1alpha1.DataProtectionTestSpec{
+			BackupLocationName: bslName,
+			UploadSpeedTestConfig: &v1alpha1.UploadSpeedTestConfig{
+				FileSize: "5MB",
+				Timeout:  metav1.Duration{Duration: 120 * time.Second},
+			},
+		},
+	}
+
+	if err := c.Create(context.TODO(), dpt); err != nil {
+		return fmt.Errorf("creating DataProtectionTest: %w", err)
+	}
+	defer func() {
+		if err := c.Delete(context.TODO(), dpt); err != nil {
+			log.Printf("warning: could not delete DPT %s: %v", dpt.Name, err)
+		}
+	}()
+
+	gomega.Eventually(func() bool {
+		_ = c.Get(context.TODO(), types.NamespacedName{
+			Name:      dpt.Name,
+			Namespace: namespace,
+		}, dpt)
+		return dpt.Status.Phase == "Complete" || dpt.Status.Phase == "Failed"
+	}, time.Minute*3, time.Second*10).Should(gomega.BeTrue())
+
+	log.Printf("✅ DPT %s completed with phase: %s", dpt.Name, dpt.Status.Phase)
+
+	if dpt.Status.Phase != "Complete" {
+		return fmt.Errorf("DataProtectionTest %s reached phase %q (error: %s)", dpt.Name, dpt.Status.Phase, dpt.Status.ErrorMessage)
+	}
+	return nil
+}
