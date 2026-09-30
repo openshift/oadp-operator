@@ -1846,19 +1846,27 @@ func (v *VirtOperator) ChecksumBlockDeviceRegion(kubeConfig *rest.Config, namesp
 	if err != nil {
 		return "", err
 	}
+	return v.checksumBlockDeviceRegionForPod(kubeConfig, namespace, pod.Name, volumeName, offsetMiB, sizeMiB)
+}
+
+// checksumBlockDeviceRegionForPod is ChecksumBlockDeviceRegion's core logic
+// against an already-resolved pod name, split out so it can be exercised in
+// a unit test without needing a real/fake Kubernetes clientset to satisfy
+// GetVirtLauncherPod's pod-listing call.
+func (v *VirtOperator) checksumBlockDeviceRegionForPod(kubeConfig *rest.Config, namespace, podName, volumeName string, offsetMiB, sizeMiB int) (string, error) {
 	stdout, stderr, err := execShellCommandInPodWithRetry(ProxyPodParameters{
 		KubeClient:    v.Clientset,
 		KubeConfig:    kubeConfig,
 		Namespace:     namespace,
-		PodName:       pod.Name,
+		PodName:       podName,
 		ContainerName: "compute",
 	}, fmt.Sprintf("dd if=/dev/%s bs=1M skip=%d count=%d iflag=direct 2>/dev/null | sha256sum", volumeName, offsetMiB, sizeMiB))
 	if err != nil {
-		return "", fmt.Errorf("checksum of /dev/%s region (offset=%dMiB size=%dMiB) in %s/%s failed (stderr: %s): %w", volumeName, offsetMiB, sizeMiB, namespace, pod.Name, stderr, err)
+		return "", fmt.Errorf("checksum of /dev/%s region (offset=%dMiB size=%dMiB) in %s/%s failed (stderr: %s): %w", volumeName, offsetMiB, sizeMiB, namespace, podName, stderr, err)
 	}
 	fields := strings.Fields(stdout)
 	if len(fields) == 0 {
-		return "", fmt.Errorf("sha256sum produced no output for /dev/%s region in %s/%s", volumeName, namespace, pod.Name)
+		return "", fmt.Errorf("sha256sum produced no output for /dev/%s region in %s/%s", volumeName, namespace, podName)
 	}
 	return fields[0], nil
 }
