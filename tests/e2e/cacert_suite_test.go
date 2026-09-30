@@ -220,11 +220,28 @@ var _ = ginkgo.Describe("BSL cacert with in-cluster minio", ginkgo.Ordered, gink
 			LocalObjectReference: corev1.LocalObjectReference{Name: minioCACertSecret},
 			Key:                  minioCACertKey,
 		}
-		verifyBSLWithCACertBackup(ctx, "cacert-minio-backup-ref-dpt")
+
+		// Create BSL and Reconcile, BeforeAll creates the Secret
+		gomega.Expect(cacertDpaCR.CreateOrUpdate(cacertDpaCR.Build(lib.CSI))).NotTo(gomega.HaveOccurred())
+		gomega.Eventually(cacertDpaCR.IsReconciledTrue(), 3*time.Minute, 5*time.Second).Should(gomega.BeTrue())
+		// Velero is needed to mark the BSL as available
+		gomega.Eventually(lib.VeleroPodIsRunning(kubernetesClientForSuiteRun, namespace), 3*time.Minute, 5*time.Second).Should(gomega.BeTrue())
+
+		// BSL Available means Velero successfully TLS-connected to minio using our CA.
+		// DPT does not actually check this status, but it is a good test regardless as cannot use in production a BSL that Velero cannot resolve even if DPT can.
+		log.Println("cacert: waiting for BSL to become Available")
+		gomega.Eventually(cacertDpaCR.BSLsAreAvailable(), 3*time.Minute, 5*time.Second).Should(gomega.BeTrue())
+
+		gomega.Expect(awsCABundleIsSet(ctx, "/etc/velero/ca-certs/ca-bundle.pem")).NotTo(gomega.HaveOccurred())
+
+		cm, err := kubernetesClientForSuiteRun.CoreV1().ConfigMaps(namespace).Get(ctx, "velero-ca-bundle", metav1.GetOptions{})
+		gomega.Expect(err).NotTo(gomega.HaveOccurred())
+		gomega.Expect(cm.Data).To(gomega.HaveKey("ca-bundle.pem"))
 
 		// Create a DPT referencing the BSL by name; the BSL carries CACertRef so
 		// retrieveCAData must resolve the Secret to establish the TLS connection.
-		err := lib.CreateDPTAndAssertComplete(runTimeClientForSuiteRun, namespace, cacertDpaCR.Name)
+		// Function CreateDPTAndAssertComplete handles both create and delete.
+		err = lib.CreateDPTAndAssertComplete(runTimeClientForSuiteRun, namespace, cacertDpaCR.Name)
 		gomega.Expect(err).NotTo(gomega.HaveOccurred(),
 			"DPT should complete when BSL CACertRef points to a valid Secret")
 	})
