@@ -739,16 +739,49 @@ func isHealthzAlive(respData, errResp string) bool {
 }
 
 var (
-	getRouteEndpointURLForApp      = GetRouteEndpointURL
+	getRouteEndpointURLForApp      = GetRouteEndpointURLWithTimeout
 	getFirstPodByLabelForApp       = GetFirstPodByLabel
-	sleepForAppRouteRetry          = time.Sleep
+	sleepForAppRouteRetry          = sleepWithContext
 	appRouteRetryMaxAttempts       = 5
 	appRouteRetryBaseBackoffSecond = 5 * time.Second
+	appRouteAttemptTimeout         = 10 * time.Second
 )
 
+// sleepWithContext waits for d, or returns ctx.Err() early if ctx is
+// cancelled/times out first -- unlike a plain time.Sleep, this makes a
+// retry loop's backoff wait interruptible instead of always running to
+// completion regardless of the caller's own deadline.
+func sleepWithContext(ctx context.Context, d time.Duration) error {
+	timer := time.NewTimer(d)
+	defer timer.Stop()
+	select {
+	case <-timer.C:
+		return nil
+	case <-ctx.Done():
+		return ctx.Err()
+	}
+}
+
+// shouldRetryRouteEndpointError reports whether err from
+// GetRouteEndpointURLWithTimeout represents a transient condition worth
+// retrying before falling back to the proxy pod. Structured Kubernetes
+// errors (e.g. a route/service backed by an API that itself returns a
+// apierrors.StatusError with code 503) are checked first via the typed
+// apierrors helpers, since Error() text alone does not reliably surface the
+// HTTP status code for every error shape -- text matching on strings like
+// "status code: 5" is kept only as a fallback for the plain
+// fmt.Errorf-wrapped HTTP client errors this package also produces (e.g.
+// from IsURLReachableWithTimeout, which does not return a Kubernetes API
+// error), not as the primary classifier.
 func shouldRetryRouteEndpointError(err error) bool {
 	if err == nil {
 		return false
+	}
+	if apierrors.IsServiceUnavailable(err) || apierrors.IsTooManyRequests(err) || apierrors.IsTimeout(err) || apierrors.IsServerTimeout(err) {
+		return true
+	}
+	if errors.Is(err, context.DeadlineExceeded) {
+		return true
 	}
 	errLower := strings.ToLower(err.Error())
 	return strings.Contains(errLower, "status code: 5") ||
@@ -768,13 +801,22 @@ func getRequestParameters(url string, proxyPodParams *ProxyPodParameters, method
 }
 
 func getAppEndpointURLAndProxyParams(ocClient client.Client, kubeClient *kubernetes.Clientset, kubeConfig *rest.Config, namespace, serviceName, routeName string) (string, *ProxyPodParameters, error) {
+	return getAppEndpointURLAndProxyParamsWithContext(context.Background(), ocClient, kubeClient, kubeConfig, namespace, serviceName, routeName)
+}
+
+// getAppEndpointURLAndProxyParamsWithContext is getAppEndpointURLAndProxyParams
+// with a caller-supplied context that can cancel an in-progress retry backoff
+// wait -- e.g. an overall test timeout firing mid-retry stops the wait (and
+// the retries) immediately instead of running the full remaining backoff to
+// completion regardless.
+func getAppEndpointURLAndProxyParamsWithContext(ctx context.Context, ocClient client.Client, kubeClient *kubernetes.Clientset, kubeConfig *rest.Config, namespace, serviceName, routeName string) (string, *ProxyPodParameters, error) {
 	var (
 		appEndpointURL string
 		routeErr       error
 	)
 
 	for attempt := 1; attempt <= appRouteRetryMaxAttempts; attempt++ {
-		appEndpointURL, routeErr = getRouteEndpointURLForApp(ocClient, namespace, routeName)
+		appEndpointURL, routeErr = getRouteEndpointURLForApp(ocClient, namespace, routeName, appRouteAttemptTimeout)
 		if routeErr == nil {
 			return appEndpointURL, nil, nil
 		}
@@ -785,7 +827,9 @@ func getAppEndpointURLAndProxyParams(ocClient client.Client, kubeClient *kuberne
 
 		backoff := time.Duration(attempt) * appRouteRetryBaseBackoffSecond
 		log.Printf("Route endpoint not reachable yet (attempt %d/%d): %v. Retrying in %s", attempt, appRouteRetryMaxAttempts, routeErr, backoff)
-		sleepForAppRouteRetry(backoff)
+		if sleepErr := sleepForAppRouteRetry(ctx, backoff); sleepErr != nil {
+			return "", nil, fmt.Errorf("route endpoint retry cancelled after %d attempt(s) (last error: %v): %w", attempt, routeErr, sleepErr)
+		}
 	}
 
 	// Route remained unavailable after bounded retries, try with proxy pod.
