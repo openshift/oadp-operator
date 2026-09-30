@@ -1,12 +1,14 @@
 package lib
 
 import (
+	"context"
 	"errors"
 	"strings"
 	"testing"
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -94,8 +96,8 @@ func Test_getAppEndpointURLAndProxyParams_proxyErrorIncludesRouteError(t *testin
 	}()
 
 	appRouteRetryMaxAttempts = 1
-	sleepForAppRouteRetry = func(_ time.Duration) {}
-	getRouteEndpointURLForApp = func(_ client.Client, _ string, _ string) (string, error) {
+	sleepForAppRouteRetry = func(_ context.Context, _ time.Duration) error { return nil }
+	getRouteEndpointURLForApp = func(_ client.Client, _ string, _ string, _ time.Duration) (string, error) {
 		return "", errors.New("HTTP request failed with status code: 503")
 	}
 	getFirstPodByLabelForApp = func(_ *kubernetes.Clientset, _ string, _ string) (*corev1.Pod, error) {
@@ -109,5 +111,108 @@ func Test_getAppEndpointURLAndProxyParams_proxyErrorIncludesRouteError(t *testin
 	errMsg := err.Error()
 	if !strings.Contains(errMsg, "route endpoint remained unavailable") || !strings.Contains(errMsg, "no Pod found") {
 		t.Fatalf("expected composed error to include both route and proxy causes, got: %v", err)
+	}
+}
+
+// Test_getAppEndpointURLAndProxyParams_retriesTransient503ThenSucceeds
+// exercises the actual retry loop (max attempts > 1): a transient 503 on the
+// first call followed by success on the second must return the direct route
+// result with no proxy fallback, and the route function/sleep must each be
+// called exactly once for the one recovered failure.
+func Test_getAppEndpointURLAndProxyParams_retriesTransient503ThenSucceeds(t *testing.T) {
+	oldGetRoute := getRouteEndpointURLForApp
+	oldGetPod := getFirstPodByLabelForApp
+	oldSleep := sleepForAppRouteRetry
+	oldMax := appRouteRetryMaxAttempts
+	defer func() {
+		getRouteEndpointURLForApp = oldGetRoute
+		getFirstPodByLabelForApp = oldGetPod
+		sleepForAppRouteRetry = oldSleep
+		appRouteRetryMaxAttempts = oldMax
+	}()
+
+	appRouteRetryMaxAttempts = 3
+	routeCalls := 0
+	sleepCalls := 0
+	sleepForAppRouteRetry = func(_ context.Context, _ time.Duration) error {
+		sleepCalls++
+		return nil
+	}
+	getRouteEndpointURLForApp = func(_ client.Client, _ string, _ string, _ time.Duration) (string, error) {
+		routeCalls++
+		if routeCalls == 1 {
+			return "", errors.New("HTTP request failed with status code: 503")
+		}
+		return "http://recovered-route.example.com", nil
+	}
+	getFirstPodByLabelForApp = func(_ *kubernetes.Clientset, _ string, _ string) (*corev1.Pod, error) {
+		t.Fatalf("proxy fallback must not be attempted when the route recovers within the retry budget")
+		return nil, nil
+	}
+
+	url, proxyParams, err := getAppEndpointURLAndProxyParams(nil, nil, nil, "ns", "svc", "route")
+	if err != nil {
+		t.Fatalf("expected success after transient 503 recovers, got err=%v", err)
+	}
+	if url != "http://recovered-route.example.com" {
+		t.Fatalf("expected the direct route URL to be returned, got %q", url)
+	}
+	if proxyParams != nil {
+		t.Fatalf("expected no proxy params when the direct route succeeds, got %+v", proxyParams)
+	}
+	if routeCalls != 2 {
+		t.Fatalf("expected exactly 2 route attempts (1 failure + 1 success), got %d", routeCalls)
+	}
+	if sleepCalls != 1 {
+		t.Fatalf("expected exactly 1 backoff sleep between the failed and successful attempt, got %d", sleepCalls)
+	}
+}
+
+// Test_getAppEndpointURLAndProxyParams_exhaustsRetriesThenFallsBackToProxy
+// exercises the bounded-exhaustion path: persistent transient 503s across
+// every attempt must exhaust appRouteRetryMaxAttempts, then fall back to the
+// proxy pod and return its params.
+func Test_getAppEndpointURLAndProxyParams_exhaustsRetriesThenFallsBackToProxy(t *testing.T) {
+	oldGetRoute := getRouteEndpointURLForApp
+	oldGetPod := getFirstPodByLabelForApp
+	oldSleep := sleepForAppRouteRetry
+	oldMax := appRouteRetryMaxAttempts
+	defer func() {
+		getRouteEndpointURLForApp = oldGetRoute
+		getFirstPodByLabelForApp = oldGetPod
+		sleepForAppRouteRetry = oldSleep
+		appRouteRetryMaxAttempts = oldMax
+	}()
+
+	appRouteRetryMaxAttempts = 3
+	routeCalls := 0
+	sleepCalls := 0
+	sleepForAppRouteRetry = func(_ context.Context, _ time.Duration) error {
+		sleepCalls++
+		return nil
+	}
+	getRouteEndpointURLForApp = func(_ client.Client, _ string, _ string, _ time.Duration) (string, error) {
+		routeCalls++
+		return "", errors.New("HTTP request failed with status code: 503")
+	}
+	getFirstPodByLabelForApp = func(kubeClient *kubernetes.Clientset, namespace string, labelSelector string) (*corev1.Pod, error) {
+		return &corev1.Pod{ObjectMeta: metav1.ObjectMeta{Name: "curl-tool-pod"}}, nil
+	}
+
+	url, proxyParams, err := getAppEndpointURLAndProxyParams(nil, nil, nil, "ns", "svc", "route")
+	if err != nil {
+		t.Fatalf("expected proxy fallback to succeed after exhausted retries, got err=%v", err)
+	}
+	if proxyParams == nil || proxyParams.PodName != "curl-tool-pod" {
+		t.Fatalf("expected proxy params referencing the fallback pod, got %+v", proxyParams)
+	}
+	if url == "" {
+		t.Fatalf("expected a non-empty internal service endpoint URL for the proxy path")
+	}
+	if routeCalls != appRouteRetryMaxAttempts {
+		t.Fatalf("expected exactly %d route attempts (fully exhausted), got %d", appRouteRetryMaxAttempts, routeCalls)
+	}
+	if sleepCalls != appRouteRetryMaxAttempts-1 {
+		t.Fatalf("expected %d backoff sleeps (one between each attempt, none after the last), got %d", appRouteRetryMaxAttempts-1, sleepCalls)
 	}
 }
