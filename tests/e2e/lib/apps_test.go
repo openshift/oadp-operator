@@ -1,13 +1,17 @@
 package lib
 
 import (
+	"errors"
 	"reflect"
+	"strings"
 	"testing"
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/fake"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 // realMustGatherSummaryUnsupportedOverridesOnly is the actual "## Errors"
@@ -53,7 +57,7 @@ func Test_mustGatherErrorsAreOnlyKnownBenignWarnings_noErrorsSectionFailsSafe(t 
 	summary := `## Cluster information
 
 | Cluster ID | OpenShift version |
-`
+|`
 	if mustGatherErrorsAreOnlyKnownBenignWarnings(summary) {
 		t.Fatalf("expected a missing Errors section to fail safe (treated as a real error)")
 	}
@@ -128,5 +132,57 @@ func Test_GetNamespaceEventMessagesSince_scopesToWindowAndFormats(t *testing.T) 
 	// exists to protect.
 	if !CheckIfFlakeOccurred(got) {
 		t.Fatalf("expected in-window event texts to match the registered kubevirt/kubevirt#18957 pattern")
+	}
+}
+
+func Test_shouldRetryRouteEndpointError(t *testing.T) {
+	cases := []struct {
+		name string
+		err  error
+		want bool
+	}{
+		{name: "503", err: errors.New("HTTP request failed with status code: 503"), want: true},
+		{name: "connection refused", err: errors.New("connect: connection refused"), want: true},
+		{name: "timeout", err: errors.New("dial tcp: i/o timeout"), want: true},
+		{name: "route not found", err: errors.New("Service route not found"), want: false},
+		{name: "nil", err: nil, want: false},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := shouldRetryRouteEndpointError(tc.err); got != tc.want {
+				t.Fatalf("shouldRetryRouteEndpointError(%v) = %v, want %v", tc.err, got, tc.want)
+			}
+		})
+	}
+}
+
+func Test_getAppEndpointURLAndProxyParams_proxyErrorIncludesRouteError(t *testing.T) {
+	oldGetRoute := getRouteEndpointURLForApp
+	oldGetPod := getFirstPodByLabelForApp
+	oldSleep := sleepForAppRouteRetry
+	oldMax := appRouteRetryMaxAttempts
+	defer func() {
+		getRouteEndpointURLForApp = oldGetRoute
+		getFirstPodByLabelForApp = oldGetPod
+		sleepForAppRouteRetry = oldSleep
+		appRouteRetryMaxAttempts = oldMax
+	}()
+
+	appRouteRetryMaxAttempts = 1
+	sleepForAppRouteRetry = func(_ time.Duration) {}
+	getRouteEndpointURLForApp = func(_ client.Client, _ string, _ string) (string, error) {
+		return "", errors.New("HTTP request failed with status code: 503")
+	}
+	getFirstPodByLabelForApp = func(_ *kubernetes.Clientset, _ string, _ string) (*corev1.Pod, error) {
+		return nil, errors.New("no Pod found")
+	}
+
+	_, _, err := getAppEndpointURLAndProxyParams(nil, nil, nil, "ns", "svc", "route")
+	if err == nil {
+		t.Fatalf("expected error when both route and proxy fallback fail")
+	}
+	errMsg := err.Error()
+	if !strings.Contains(errMsg, "route endpoint remained unavailable") || !strings.Contains(errMsg, "no Pod found") {
+		t.Fatalf("expected composed error to include both route and proxy causes, got: %v", err)
 	}
 }
