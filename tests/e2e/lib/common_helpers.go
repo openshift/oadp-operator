@@ -1,6 +1,7 @@
 package lib
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -10,6 +11,7 @@ import (
 	"os"
 	"os/exec"
 	"strings"
+	"time"
 )
 
 type RequestParameters struct {
@@ -203,8 +205,23 @@ func convertJsonStringToURLParams(payload string) (string, error) {
 // that the site is reachable. If there is an error during the request
 // or if the status code indicates an error, it returns false.
 func IsURLReachable(url string) (bool, error) {
-	// Attempt to perform a GET request to the specified URL Head
-	resp, err := http.Get(url)
+	return IsURLReachableWithTimeout(url, 10*time.Second)
+}
+
+// IsURLReachableWithTimeout is IsURLReachable with a caller-supplied
+// per-attempt timeout, so a stalled connection can't block indefinitely --
+// e.g. a retry loop around this call needs each attempt individually bounded
+// to make its own overall bound meaningful.
+func IsURLReachableWithTimeout(url string, timeout time.Duration) (bool, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	if err != nil {
+		return false, err
+	}
+
+	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		// An error occurred during the HTTP request
 		return false, err
