@@ -1920,6 +1920,21 @@ func isTransientAPIServerNetworkError(err error) bool {
 	return err != nil && strings.Contains(err.Error(), "dial tcp")
 }
 
+func isTransientEmptyChecksumOutput(command, stdout string, err error) bool {
+	if err != nil {
+		return false
+	}
+	if !strings.Contains(command, "sha256sum") {
+		return false
+	}
+	return strings.TrimSpace(stdout) == ""
+}
+
+var (
+	executeShellCommandInPodWithRetryImpl = ExecuteShellCommandInPod
+	sleepForPodExecRetry                  = time.Sleep
+)
+
 // execShellCommandInPodWithRetry wraps ExecuteShellCommandInPod with a few
 // retries on isTransientAPIServerNetworkError -- safe here because every
 // caller passes a read-only command (dd|sha256sum for a checksum), so
@@ -1928,11 +1943,17 @@ func isTransientAPIServerNetworkError(err error) bool {
 func execShellCommandInPodWithRetry(params ProxyPodParameters, command string) (stdout, stderr string, err error) {
 	backoff := 3 * time.Second
 	for attempt := 1; ; attempt++ {
-		stdout, stderr, err = ExecuteShellCommandInPod(params, command)
-		if err == nil || !isTransientAPIServerNetworkError(err) || attempt >= 3 {
+		stdout, stderr, err = executeShellCommandInPodWithRetryImpl(params, command)
+		if err == nil && !isTransientEmptyChecksumOutput(command, stdout, err) {
+			return stdout, stderr, nil
+		}
+		if err != nil && !isTransientAPIServerNetworkError(err) {
 			return stdout, stderr, err
 		}
-		time.Sleep(backoff)
+		if attempt >= 3 {
+			return stdout, stderr, err
+		}
+		sleepForPodExecRetry(backoff)
 		backoff *= 2
 	}
 }
