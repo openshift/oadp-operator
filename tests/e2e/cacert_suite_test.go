@@ -241,7 +241,8 @@ var _ = ginkgo.Describe("BSL cacert with in-cluster minio", ginkgo.Ordered, gink
 		// Create a DPT referencing the BSL by name; the BSL carries CACertRef so
 		// retrieveCAData must resolve the Secret to establish the TLS connection.
 		// Function CreateDPTAndAssertComplete handles both create and delete.
-		err = lib.CreateDPTAndAssertComplete(runTimeClientForSuiteRun, namespace, cacertDpaCR.Name)
+		// needs the -1 suffix because the builder doesn't use the name field
+		err = lib.CreateDPTAndAssertComplete(runTimeClientForSuiteRun, namespace, fmt.Sprintf("%s-1", cacertDpaCR.Name))
 		gomega.Expect(err).NotTo(gomega.HaveOccurred(),
 			"DPT should complete when BSL CACertRef points to a valid Secret")
 	})
