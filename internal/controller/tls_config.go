@@ -30,7 +30,7 @@ import (
 )
 
 // buildTLSConfig creates a TLS configuration based on the DPT spec.
-// Certificate data should be passed through caCertData (handles both CaCertRef and BSL CACert).
+// Certificate data should be passed through caCertData (handles both CACertRef and BSL CACert).
 // Priority order:
 // 1. If skipTLSVerify is true → InsecureSkipVerify: true
 // 2. If caCertData is set → Use custom CA cert with system certs
