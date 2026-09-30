@@ -738,6 +738,26 @@ func isHealthzAlive(respData, errResp string) bool {
 		!errRespIndicatesHTTPError(errResp)
 }
 
+var (
+	getRouteEndpointURLForApp      = GetRouteEndpointURL
+	getFirstPodByLabelForApp       = GetFirstPodByLabel
+	sleepForAppRouteRetry          = time.Sleep
+	appRouteRetryMaxAttempts       = 5
+	appRouteRetryBaseBackoffSecond = 5 * time.Second
+)
+
+func shouldRetryRouteEndpointError(err error) bool {
+	if err == nil {
+		return false
+	}
+	errLower := strings.ToLower(err.Error())
+	return strings.Contains(errLower, "status code: 5") ||
+		strings.Contains(errLower, "connection refused") ||
+		strings.Contains(errLower, "i/o timeout") ||
+		strings.Contains(errLower, "no such host") ||
+		strings.Contains(errLower, "temporary")
+}
+
 func getRequestParameters(url string, proxyPodParams *ProxyPodParameters, method HTTPMethod, payload *string) *RequestParameters {
 	return &RequestParameters{
 		ProxyPodParams: proxyPodParams,
@@ -748,31 +768,45 @@ func getRequestParameters(url string, proxyPodParams *ProxyPodParameters, method
 }
 
 func getAppEndpointURLAndProxyParams(ocClient client.Client, kubeClient *kubernetes.Clientset, kubeConfig *rest.Config, namespace, serviceName, routeName string) (string, *ProxyPodParameters, error) {
-	appEndpointURL, err := GetRouteEndpointURL(ocClient, namespace, routeName)
-	// Something wrong with standard endpoint, try with proxy pod.
-	if err != nil {
-		log.Println("Can not connect to the application endpoint with route:", err)
-		log.Println("Trying to get to the service via proxy POD")
+	var (
+		appEndpointURL string
+		routeErr       error
+	)
 
-		pod, podErr := GetFirstPodByLabel(kubeClient, namespace, "curl-tool=true")
-		if podErr != nil {
-			return "", nil, fmt.Errorf("Error getting pod for the proxy command: %v", podErr)
+	for attempt := 1; attempt <= appRouteRetryMaxAttempts; attempt++ {
+		appEndpointURL, routeErr = getRouteEndpointURLForApp(ocClient, namespace, routeName)
+		if routeErr == nil {
+			return appEndpointURL, nil, nil
 		}
 
-		proxyPodParams := &ProxyPodParameters{
-			KubeClient:    kubeClient,
-			KubeConfig:    kubeConfig,
-			Namespace:     namespace,
-			PodName:       pod.ObjectMeta.Name,
-			ContainerName: "curl-tool",
+		if !shouldRetryRouteEndpointError(routeErr) || attempt == appRouteRetryMaxAttempts {
+			break
 		}
 
-		appEndpointURL = GetInternalServiceEndpointURL(namespace, serviceName)
-
-		return appEndpointURL, proxyPodParams, nil
+		backoff := time.Duration(attempt) * appRouteRetryBaseBackoffSecond
+		log.Printf("Route endpoint not reachable yet (attempt %d/%d): %v. Retrying in %s", attempt, appRouteRetryMaxAttempts, routeErr, backoff)
+		sleepForAppRouteRetry(backoff)
 	}
 
-	return appEndpointURL, nil, nil
+	// Route remained unavailable after bounded retries, try with proxy pod.
+	log.Printf("Can not connect to the application endpoint with route after %d attempt(s): %v", appRouteRetryMaxAttempts, routeErr)
+	log.Println("Trying to get to the service via proxy POD")
+
+	pod, podErr := getFirstPodByLabelForApp(kubeClient, namespace, "curl-tool=true")
+	if podErr != nil {
+		return "", nil, fmt.Errorf("route endpoint remained unavailable (%v) and proxy fallback failed: %w", routeErr, podErr)
+	}
+
+	proxyPodParams := &ProxyPodParameters{
+		KubeClient:    kubeClient,
+		KubeConfig:    kubeConfig,
+		Namespace:     namespace,
+		PodName:       pod.ObjectMeta.Name,
+		ContainerName: "curl-tool",
+	}
+
+	appEndpointURL = GetInternalServiceEndpointURL(namespace, serviceName)
+	return appEndpointURL, proxyPodParams, nil
 }
 
 // VerifyVolumeData for application with two volumes
