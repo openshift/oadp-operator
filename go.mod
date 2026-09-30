@@ -39,7 +39,7 @@ require (
 	github.com/hashicorp/go-multierror v1.1.1
 	github.com/kubernetes-csi/external-snapshotter/client/v6 v6.3.0
 	github.com/stretchr/testify v1.11.1
-	github.com/vmware-tanzu/velero v1.18.3
+	github.com/vmware-tanzu/velero v1.18.4
 	golang.org/x/exp v0.0.0-20240719175910-8a7402abbf56
 	google.golang.org/api v0.293.0
 	k8s.io/klog/v2 v2.140.0
@@ -210,7 +210,7 @@ require (
 	sigs.k8s.io/structured-merge-diff/v4 v4.6.0 // indirect
 )
 
-replace github.com/vmware-tanzu/velero => github.com/openshift/velero v0.10.2-0.20260922232025-4365110ccbf8
+replace github.com/vmware-tanzu/velero => github.com/openshift/velero v0.10.2-0.20260929214925-8752b8364664
 
 replace github.com/kopia/kopia => github.com/migtools/kopia v0.0.0-20260922194857-c880aae06643
 
