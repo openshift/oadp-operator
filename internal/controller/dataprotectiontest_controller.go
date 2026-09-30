@@ -250,7 +250,7 @@ func (r *DataProtectionTestReconciler) determineVendor(ctx context.Context, dpt 
 	}
 
 	// Build HTTP client with TLS configuration
-	httpClient, err := buildHTTPClientWithTLS(dpt, backupLocationSpec, r.Log, caCertData)
+	httpClient, err := buildHTTPClientWithTLS(dpt, r.Log, caCertData)
 	if err != nil {
 		return fmt.Errorf("failed to build HTTP client with TLS: %w", err)
 	}
@@ -365,7 +365,7 @@ func (r *DataProtectionTestReconciler) initializeAWSProvider(ctx context.Context
 	}
 
 	// Create AWS session with TLS configuration
-	sess, err := buildAWSSessionWithTLS(r.dpt, backupLocationSpec, region, s3Url, r.Log, caCertData)
+	sess, err := buildAWSSessionWithTLS(r.dpt, region, s3Url, r.Log, caCertData)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create AWS session with TLS: %w", err)
 	}

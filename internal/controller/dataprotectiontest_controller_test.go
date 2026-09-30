@@ -666,7 +666,7 @@ func TestBuildTLSConfig(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			logger := logr.Discard()
 
-			tlsConfig, err := buildTLSConfig(tt.dpt, tt.bsl, logger, tt.caCertData)
+			tlsConfig, err := buildTLSConfig(tt.dpt, logger, tt.caCertData)
 
 			if tt.expectError {
 				require.Error(t, err)
@@ -798,7 +798,7 @@ func TestBuildHTTPClientWithTLS(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			logger := logr.Discard()
 
-			client, err := buildHTTPClientWithTLS(tt.dpt, tt.bsl, logger, tt.caCertData)
+			client, err := buildHTTPClientWithTLS(tt.dpt, logger, tt.caCertData)
 
 			if tt.expectError {
 				require.Error(t, err)
@@ -893,7 +893,7 @@ func TestBuildAWSSessionWithTLS(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			logger := logr.Discard()
 
-			session, err := buildAWSSessionWithTLS(tt.dpt, tt.bsl, tt.region, tt.endpoint, logger, tt.caCertData)
+			session, err := buildAWSSessionWithTLS(tt.dpt, tt.region, tt.endpoint, logger, tt.caCertData)
 
 			if tt.expectError {
 				require.Error(t, err)

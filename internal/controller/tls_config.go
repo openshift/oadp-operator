@@ -25,18 +25,17 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/go-logr/logr"
-	velerov1 "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
 
 	oadpv1alpha1 "github.com/openshift/oadp-operator/api/v1alpha1"
 )
 
-// buildTLSConfig creates a TLS configuration based on the DPT spec and BSL spec.
-// Certificate data should be passed through caCertData to handle both CaCertRef and CaCert in bsl parameter.
+// buildTLSConfig creates a TLS configuration based on the DPT spec.
+// Certificate data should be passed through caCertData (handles both CaCertRef and BSL CACert).
 // Priority order:
 // 1. If skipTLSVerify is true → InsecureSkipVerify: true
-// 2. If BSL has caCert → Use custom CA cert with system certs
+// 2. If caCertData is set → Use custom CA cert with system certs
 // 3. Otherwise → Use system certs (default)
-func buildTLSConfig(dpt *oadpv1alpha1.DataProtectionTest, bsl *velerov1.BackupStorageLocationSpec, logger logr.Logger, caCertData []byte) (*tls.Config, error) {
+func buildTLSConfig(dpt *oadpv1alpha1.DataProtectionTest, logger logr.Logger, caCertData []byte) (*tls.Config, error) {
 	tlsConfig := &tls.Config{}
 
 	// Priority 1: Check if skipTLSVerify is set
@@ -69,8 +68,8 @@ func buildTLSConfig(dpt *oadpv1alpha1.DataProtectionTest, bsl *velerov1.BackupSt
 }
 
 // buildHTTPClientWithTLS creates an HTTP client with the appropriate TLS configuration
-func buildHTTPClientWithTLS(dpt *oadpv1alpha1.DataProtectionTest, bsl *velerov1.BackupStorageLocationSpec, logger logr.Logger, caCertData []byte) (*http.Client, error) {
-	tlsConfig, err := buildTLSConfig(dpt, bsl, logger, caCertData)
+func buildHTTPClientWithTLS(dpt *oadpv1alpha1.DataProtectionTest, logger logr.Logger, caCertData []byte) (*http.Client, error) {
+	tlsConfig, err := buildTLSConfig(dpt, logger, caCertData)
 	if err != nil {
 		return nil, fmt.Errorf("failed to build TLS config: %w", err)
 	}
@@ -87,8 +86,8 @@ func buildHTTPClientWithTLS(dpt *oadpv1alpha1.DataProtectionTest, bsl *velerov1.
 }
 
 // buildAWSSessionWithTLS creates an AWS session with the appropriate TLS configuration
-func buildAWSSessionWithTLS(dpt *oadpv1alpha1.DataProtectionTest, bsl *velerov1.BackupStorageLocationSpec, region, endpoint string, logger logr.Logger, caCertData []byte) (*session.Session, error) {
-	tlsConfig, err := buildTLSConfig(dpt, bsl, logger, caCertData)
+func buildAWSSessionWithTLS(dpt *oadpv1alpha1.DataProtectionTest, region, endpoint string, logger logr.Logger, caCertData []byte) (*session.Session, error) {
+	tlsConfig, err := buildTLSConfig(dpt, logger, caCertData)
 	if err != nil {
 		return nil, fmt.Errorf("failed to build TLS config: %w", err)
 	}
