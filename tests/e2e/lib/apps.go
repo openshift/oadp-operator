@@ -816,6 +816,9 @@ func getAppEndpointURLAndProxyParamsWithContext(ctx context.Context, ocClient cl
 	)
 
 	for attempt := 1; attempt <= appRouteRetryMaxAttempts; attempt++ {
+		if ctxErr := ctx.Err(); ctxErr != nil {
+			return "", nil, ctxErr
+		}
 		appEndpointURL, routeErr = getRouteEndpointURLForApp(ocClient, namespace, routeName, appRouteAttemptTimeout)
 		if routeErr == nil {
 			return appEndpointURL, nil, nil
@@ -830,6 +833,10 @@ func getAppEndpointURLAndProxyParamsWithContext(ctx context.Context, ocClient cl
 		if sleepErr := sleepForAppRouteRetry(ctx, backoff); sleepErr != nil {
 			return "", nil, fmt.Errorf("route endpoint retry cancelled after %d attempt(s) (last error: %v): %w", attempt, routeErr, sleepErr)
 		}
+	}
+
+	if ctxErr := ctx.Err(); ctxErr != nil {
+		return "", nil, ctxErr
 	}
 
 	// Route remained unavailable after bounded retries, try with proxy pod.
