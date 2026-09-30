@@ -1,6 +1,7 @@
 package lib
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -244,6 +245,35 @@ func IsURLReachable(url string) (bool, error) {
 
 	// All retries exhausted
 	return false, lastErr
+}
+
+// IsURLReachableWithTimeout is IsURLReachable with a caller-supplied
+// per-attempt timeout, so a stalled connection can't block indefinitely --
+// e.g. a retry loop around this call needs each attempt individually bounded
+// to make its own overall bound meaningful.
+func IsURLReachableWithTimeout(url string, timeout time.Duration) (bool, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	if err != nil {
+		return false, err
+	}
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		// An error occurred during the HTTP request
+		return false, err
+	}
+	defer resp.Body.Close()
+
+	// Check if the response status code indicates success (2xx range)
+	if resp.StatusCode >= 200 && resp.StatusCode < 300 {
+		return true, nil
+	}
+
+	// The response status code indicates an error
+	return false, fmt.Errorf("HTTP request failed with status code: %d", resp.StatusCode)
 }
 
 // MakeHTTPRequest performs an HTTP request with the specified URL, request method, and payload.
