@@ -210,7 +210,7 @@ require (
 	sigs.k8s.io/structured-merge-diff/v4 v4.6.0 // indirect
 )
 
-replace github.com/vmware-tanzu/velero => github.com/openshift/velero v0.10.2-0.20260929214925-8752b8364664
+replace github.com/vmware-tanzu/velero => github.com/openshift/velero v0.10.2-0.20261001175236-0e0b11d9e114
 
 replace github.com/kopia/kopia => github.com/migtools/kopia v0.0.0-20260922194857-c880aae06643
 
