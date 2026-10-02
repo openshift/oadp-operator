@@ -1832,6 +1832,13 @@ func (v *VirtOperator) RunVirshCommand(kubeConfig *rest.Config, namespace, vmNam
 	return stdout, nil
 }
 
+// sha256EmptyInput is the SHA-256 digest of zero bytes of input. When dd
+// reads 0 bytes (device not yet accessible), sha256sum still produces
+// output — this specific hash — instead of returning empty stdout. Treating
+// it as a valid checksum leads to false-positive matches when both pre-backup
+// and post-restore reads hit the same empty-device window.
+const sha256EmptyInput = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+
 // ChecksumBlockDeviceRegion hashes only a fixed-size region starting at
 // offsetMiB of the raw block device backing volumeName inside vmName's
 // virt-launcher pod's compute container -- pairs with
@@ -1846,21 +1853,40 @@ func (v *VirtOperator) ChecksumBlockDeviceRegion(kubeConfig *rest.Config, namesp
 	if err != nil {
 		return "", err
 	}
-	stdout, stderr, err := execShellCommandInPodWithRetry(ProxyPodParameters{
-		KubeClient:    v.Clientset,
-		KubeConfig:    kubeConfig,
-		Namespace:     namespace,
-		PodName:       pod.Name,
-		ContainerName: "compute",
-	}, fmt.Sprintf("dd if=/dev/%s bs=1M skip=%d count=%d iflag=direct 2>/dev/null | sha256sum", volumeName, offsetMiB, sizeMiB))
-	if err != nil {
-		return "", fmt.Errorf("checksum of /dev/%s region (offset=%dMiB size=%dMiB) in %s/%s failed (stderr: %s): %w", volumeName, offsetMiB, sizeMiB, namespace, pod.Name, stderr, err)
+
+	// Retry when sha256sum returns empty output: the block device inside
+	// the virt-launcher pod may not be immediately accessible after a
+	// restore, causing dd to silently fail (stderr is suppressed) and the
+	// pipeline to produce no stdout.
+	const maxAttempts = 3
+	for attempt := 1; attempt <= maxAttempts; attempt++ {
+		stdout, stderr, execErr := execShellCommandInPodWithRetry(ProxyPodParameters{
+			KubeClient:    v.Clientset,
+			KubeConfig:    kubeConfig,
+			Namespace:     namespace,
+			PodName:       pod.Name,
+			ContainerName: "compute",
+		}, fmt.Sprintf("dd if=/dev/%s bs=1M skip=%d count=%d iflag=direct 2>/dev/null | sha256sum", volumeName, offsetMiB, sizeMiB))
+		if execErr != nil {
+			return "", fmt.Errorf("checksum of /dev/%s region (offset=%dMiB size=%dMiB) in %s/%s failed (stderr: %s): %w", volumeName, offsetMiB, sizeMiB, namespace, pod.Name, stderr, execErr)
+		}
+		fields := strings.Fields(stdout)
+		if len(fields) > 0 {
+			if fields[0] == sha256EmptyInput {
+				if attempt < maxAttempts {
+					log.Printf("attempt %d/%d: dd read 0 bytes (got empty-input digest %s) for /dev/%s in %s/%s; retrying...", attempt, maxAttempts, sha256EmptyInput, volumeName, namespace, pod.Name)
+					time.Sleep(5 * time.Second)
+				}
+				continue
+			}
+			return fields[0], nil
+		}
+		if attempt < maxAttempts {
+			log.Printf("sha256sum produced no output for /dev/%s region in %s/%s (attempt %d/%d), retrying...", volumeName, namespace, pod.Name, attempt, maxAttempts)
+			time.Sleep(5 * time.Second)
+		}
 	}
-	fields := strings.Fields(stdout)
-	if len(fields) == 0 {
-		return "", fmt.Errorf("sha256sum produced no output for /dev/%s region in %s/%s", volumeName, namespace, pod.Name)
-	}
-	return fields[0], nil
+	return "", fmt.Errorf("sha256sum returned no usable output for /dev/%s region in %s/%s after %d attempts (empty output or empty-input digest)", volumeName, namespace, pod.Name, maxAttempts)
 }
 
 // GuestExecResult is the outcome of a qemu-guest-agent "guest-exec" call made
@@ -2247,16 +2273,34 @@ func (v *VirtOperator) runInPVCBlockDeviceHelperPod(kubeConfig *rest.Config, nam
 // the page cache so the read reflects what is actually on the PV, not a
 // cached copy.
 func (v *VirtOperator) ChecksumPVCBlockDeviceRegion(kubeConfig *rest.Config, namespace, pvcName string, offsetMiB, sizeMiB int) (string, error) {
-	stdout, err := v.runInPVCBlockDeviceHelperPod(kubeConfig, namespace, pvcName,
-		fmt.Sprintf("dd if=/dev/block bs=1M skip=%d count=%d iflag=direct 2>/dev/null | sha256sum", offsetMiB, sizeMiB))
-	if err != nil {
-		return "", err
+	// Retry when sha256sum returns empty output: the block device backing
+	// the PVC may not be immediately accessible after a restore, causing
+	// dd to silently fail (stderr is suppressed) and the pipeline to
+	// produce no stdout. Each retry creates a fresh helper pod.
+	const maxAttempts = 3
+	for attempt := 1; attempt <= maxAttempts; attempt++ {
+		stdout, err := v.runInPVCBlockDeviceHelperPod(kubeConfig, namespace, pvcName,
+			fmt.Sprintf("dd if=/dev/block bs=1M skip=%d count=%d iflag=direct 2>/dev/null | sha256sum", offsetMiB, sizeMiB))
+		if err != nil {
+			return "", err
+		}
+		fields := strings.Fields(stdout)
+		if len(fields) > 0 {
+			if fields[0] == sha256EmptyInput {
+				if attempt < maxAttempts {
+					log.Printf("attempt %d/%d: dd read 0 bytes (got empty-input digest %s) for PVC %s/%s; retrying...", attempt, maxAttempts, sha256EmptyInput, namespace, pvcName)
+					time.Sleep(5 * time.Second)
+				}
+				continue
+			}
+			return fields[0], nil
+		}
+		if attempt < maxAttempts {
+			log.Printf("sha256sum produced no output for PVC %s/%s region (offset=%dMiB size=%dMiB) (attempt %d/%d), retrying...", namespace, pvcName, offsetMiB, sizeMiB, attempt, maxAttempts)
+			time.Sleep(5 * time.Second)
+		}
 	}
-	fields := strings.Fields(stdout)
-	if len(fields) == 0 {
-		return "", fmt.Errorf("sha256sum produced no output for PVC %s/%s region (offset=%dMiB size=%dMiB)", namespace, pvcName, offsetMiB, sizeMiB)
-	}
-	return fields[0], nil
+	return "", fmt.Errorf("sha256sum returned no usable output for PVC %s/%s region (offset=%dMiB size=%dMiB) after %d attempts (empty output or empty-input digest)", namespace, pvcName, offsetMiB, sizeMiB, maxAttempts)
 }
 
 // SetVMAnnotation sets a single annotation on a VirtualMachine CR, retrying on update
