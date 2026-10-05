@@ -1485,7 +1485,7 @@ func TestRetrieveCAData(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			ctx := context.Background()
+			ctx := t.Context()
 
 			builder := fake.NewClientBuilder().WithScheme(scheme)
 			if tt.startingSecret != nil {
@@ -1592,13 +1592,13 @@ func TestResolveCAData(t *testing.T) {
 				Client:         fakeClient,
 				Log:            logr.Discard(),
 				NamespacedName: types.NamespacedName{Namespace: namespace, Name: "test-obj"},
-				Context:        context.Background(),
+				Context:        t.Context(),
 				dpt: &oadpv1alpha1.DataProtectionTest{
 					Spec: oadpv1alpha1.DataProtectionTestSpec{SkipTLSVerify: tt.skipTLSVerify},
 				},
 			}
 
-			caData, err := reconciler.resolveCAData(context.Background(), tt.bsl)
+			caData, err := reconciler.resolveCAData(t.Context(), tt.bsl)
 			if tt.expectErr {
 				require.Error(t, err)
 			} else {
