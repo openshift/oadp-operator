@@ -142,8 +142,10 @@ func (r *DataProtectionTestReconciler) Reconcile(ctx context.Context, req ctrl.R
 		return ctrl.Result{}, fmt.Errorf("resolved BackupLocationSpec is nil")
 	}
 
-	// Retrieve the CAs if provided
-	caPEMData, err := r.retrieveCAData(ctx, resolvedBackupLocationSpec)
+	// Retrieve the CAs if provided. Resolved once here and reused for vendor
+	// detection and provider initialization so a reconcile uses a single CA
+	// value and performs a single Secret lookup.
+	caPEMData, err := r.resolveCAData(ctx, resolvedBackupLocationSpec)
 	if err != nil {
 		logger.Error(err, "failed to retrieve CA data from BackupLocation")
 		r.updateDPTErrorStatus(ctx, fmt.Sprintf("failed to retrieve CA data from BackupLocation: %v", err))
@@ -161,7 +163,7 @@ func (r *DataProtectionTestReconciler) Reconcile(ctx context.Context, req ctrl.R
 	if cfg := r.dpt.Spec.UploadSpeedTestConfig; cfg != nil {
 		logger.Info("Initializing cloud provider for upload test...")
 
-		cp, err := r.initializeProvider(ctx, resolvedBackupLocationSpec)
+		cp, err := r.initializeProvider(ctx, resolvedBackupLocationSpec, caPEMData)
 		if err != nil {
 			logger.Error(err, "failed to initialize cloud provider")
 			r.updateDPTErrorStatus(ctx, fmt.Sprintf("cloud provider init failed: %v", err))
@@ -287,8 +289,9 @@ func (r *DataProtectionTestReconciler) determineVendor(ctx context.Context, dpt 
 
 // initializeProvider reads the BackupLocationSpec from the DPT CR,
 // retrieves the associated credentials from a Secret, and returns an initialized
-// CloudProvider
-func (r *DataProtectionTestReconciler) initializeProvider(ctx context.Context, backupLocationSpec *velerov1.BackupStorageLocationSpec) (cloudprovider.CloudProvider, error) {
+// CloudProvider. caCertData is the already-resolved CA bundle (see
+// resolveCAData); it is not looked up again here.
+func (r *DataProtectionTestReconciler) initializeProvider(ctx context.Context, backupLocationSpec *velerov1.BackupStorageLocationSpec, caCertData []byte) (cloudprovider.CloudProvider, error) {
 
 	if backupLocationSpec == nil {
 		return nil, fmt.Errorf("backupLocationSpec is nil")
@@ -297,11 +300,6 @@ func (r *DataProtectionTestReconciler) initializeProvider(ctx context.Context, b
 	providerName := strings.ToLower(backupLocationSpec.Provider)
 
 	//TODO handle credential when not specified
-	caCertData, err := r.retrieveCAData(ctx, backupLocationSpec)
-	if err != nil {
-		return nil, fmt.Errorf("cannot retrieve CA Certificate data: %s", err.Error())
-	}
-
 	switch providerName {
 	case AWSProvider:
 		return r.initializeAWSProvider(ctx, backupLocationSpec, caCertData)
@@ -725,6 +723,25 @@ func (r *DataProtectionTestReconciler) updateDPTStatusToComplete(ctx context.Con
 
 		return r.Status().Update(ctx, latest)
 	})
+}
+
+// resolveCAData returns the CA bundle the DPT should trust for this
+// reconciliation, or nil when none applies:
+//   - skipTLSVerify=true: no CA is needed, so the CACertRef Secret is not read
+//     (a missing Secret must not fail a DPT that disables verification).
+//   - non-AWS providers: only the AWS/S3-compatible path configures client
+//     trust from a CA bundle today, so resolving it for GCP/Azure would add a
+//     Secret dependency without changing any TLS behavior.
+//
+// Otherwise it defers to retrieveCAData, which owns CA selection.
+func (r *DataProtectionTestReconciler) resolveCAData(ctx context.Context, backupLocationSpec *velerov1.BackupStorageLocationSpec) ([]byte, error) {
+	if r.dpt != nil && r.dpt.Spec.SkipTLSVerify {
+		return nil, nil
+	}
+	if backupLocationSpec == nil || !strings.EqualFold(backupLocationSpec.Provider, AWSProvider) {
+		return nil, nil
+	}
+	return r.retrieveCAData(ctx, backupLocationSpec)
 }
 
 // retrieveCAData returns the PEM-encoded CA certificate bytes for the given
