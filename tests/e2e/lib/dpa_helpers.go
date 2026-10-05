@@ -40,6 +40,7 @@ type DpaCustomResource struct {
 	BSLConfig            map[string]string
 	BSLProvider          string
 	BSLBucket            string
+	BSLCacert            []byte
 	BSLBucketPrefix      string
 	VeleroDefaultPlugins []oadpv1alpha1.DefaultPlugin
 	SnapshotLocations    []oadpv1alpha1.SnapshotLocation
@@ -90,6 +91,7 @@ func (v *DpaCustomResource) Build(backupRestoreType BackupRestoreType) *oadpv1al
 						ObjectStorage: &velero.ObjectStorageLocation{
 							Bucket: v.BSLBucket,
 							Prefix: v.BSLBucketPrefix,
+							CACert: v.BSLCacert,
 						},
 					},
 				},
