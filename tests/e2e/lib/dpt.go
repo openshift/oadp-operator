@@ -86,5 +86,11 @@ func CreateDPTAndAssertComplete(c client.Client, namespace, bslName string) erro
 	if dpt.Status.Phase != "Complete" {
 		return fmt.Errorf("DataProtectionTest %s reached phase %q (error: %s)", dpt.Name, dpt.Status.Phase, dpt.Status.ErrorMessage)
 	}
+	// The reconciler marks the DPT Complete even when the upload itself failed
+	// and records the outcome in status.uploadTest, so phase alone is not
+	// enough: a TLS failure reaching the bucket would otherwise pass here.
+	if !dpt.Status.UploadTest.Success {
+		return fmt.Errorf("DataProtectionTest %s completed but the upload test failed: %s", dpt.Name, dpt.Status.UploadTest.ErrorMessage)
+	}
 	return nil
 }

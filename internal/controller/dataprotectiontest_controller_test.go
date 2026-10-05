@@ -347,7 +347,7 @@ aws_secret_access_key = test-secret
 				},
 			}
 
-			cp, err := reconciler.initializeProvider(ctx, spec)
+			cp, err := reconciler.initializeProvider(ctx, spec, nil)
 
 			if tt.expectError {
 				require.Error(t, err)
@@ -1392,6 +1392,32 @@ func TestRetrieveCAData(t *testing.T) {
 			expectBytes: []byte("more bad ca data"),
 		},
 		{
+			name: "ca cert ref takes precedence over inline ca cert",
+			bsl: &velerov1.BackupStorageLocationSpec{
+				StorageType: velerov1.StorageType{
+					ObjectStorage: &velerov1.ObjectStorageLocation{
+						CACert: []byte("inline ca data"),
+						CACertRef: &corev1.SecretKeySelector{
+							Key: "ca",
+							LocalObjectReference: corev1.LocalObjectReference{
+								Name: "casecret",
+							},
+						},
+					},
+				},
+			},
+			startingSecret: &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "casecret",
+					Namespace: namespace,
+				},
+				Data: map[string][]byte{
+					"ca": []byte("secret ca data"),
+				},
+			},
+			expectBytes: []byte("secret ca data"),
+		},
+		{
 			name: "missing ca cert ref secret",
 			bsl: &velerov1.BackupStorageLocationSpec{
 				StorageType: velerov1.StorageType{
@@ -1488,4 +1514,97 @@ func TestRetrieveCAData(t *testing.T) {
 		})
 	}
 
+}
+
+func TestResolveCAData(t *testing.T) {
+	scheme := runtime.NewScheme()
+	require.NoError(t, oadpv1alpha1.AddToScheme(scheme))
+	require.NoError(t, corev1.AddToScheme(scheme))
+
+	namespace := "dpt-test"
+
+	refBSL := func(provider string) *velerov1.BackupStorageLocationSpec {
+		return &velerov1.BackupStorageLocationSpec{
+			Provider: provider,
+			StorageType: velerov1.StorageType{
+				ObjectStorage: &velerov1.ObjectStorageLocation{
+					CACertRef: &corev1.SecretKeySelector{
+						Key:                  "ca",
+						LocalObjectReference: corev1.LocalObjectReference{Name: "casecret"},
+					},
+				},
+			},
+		}
+	}
+	caSecret := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{Name: "casecret", Namespace: namespace},
+		Data:       map[string][]byte{"ca": []byte("secret ca data")},
+	}
+
+	tests := []struct {
+		name           string
+		skipTLSVerify  bool
+		bsl            *velerov1.BackupStorageLocationSpec
+		startingSecret *corev1.Secret
+		expectErr      bool
+		expectBytes    []byte
+	}{
+		{
+			name:           "aws resolves the referenced secret",
+			bsl:            refBSL("aws"),
+			startingSecret: caSecret,
+			expectBytes:    []byte("secret ca data"),
+		},
+		{
+			name:          "skipTLSVerify does not read a missing ca secret",
+			skipTLSVerify: true,
+			bsl:           refBSL("aws"),
+		},
+		{
+			name: "aws with a missing ca secret still errors when verification is on",
+			bsl:  refBSL("aws"),
+			// no secret created
+			expectErr: true,
+		},
+		{
+			name: "gcp does not add a secret dependency",
+			bsl:  refBSL("gcp"),
+			// no secret created: must not be looked up
+		},
+		{
+			name: "azure does not add a secret dependency",
+			bsl:  refBSL("azure"),
+		},
+		{
+			name: "nil spec",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			builder := fake.NewClientBuilder().WithScheme(scheme)
+			if tt.startingSecret != nil {
+				builder = builder.WithObjects(tt.startingSecret)
+			}
+			fakeClient := builder.Build()
+
+			reconciler := &DataProtectionTestReconciler{
+				Client:         fakeClient,
+				Log:            logr.Discard(),
+				NamespacedName: types.NamespacedName{Namespace: namespace, Name: "test-obj"},
+				Context:        context.Background(),
+				dpt: &oadpv1alpha1.DataProtectionTest{
+					Spec: oadpv1alpha1.DataProtectionTestSpec{SkipTLSVerify: tt.skipTLSVerify},
+				},
+			}
+
+			caData, err := reconciler.resolveCAData(context.Background(), tt.bsl)
+			if tt.expectErr {
+				require.Error(t, err)
+			} else {
+				require.NoError(t, err)
+			}
+			require.Equal(t, tt.expectBytes, caData)
+		})
+	}
 }
