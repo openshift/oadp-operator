@@ -287,14 +287,14 @@ func GetAllPodsWithLabel(c *kubernetes.Clientset, namespace string, LabelSelecto
 }
 
 // GetPodWithLabel returns the single pod matching LabelSelector, ignoring any
-// pod already marked for deletion (non-nil DeletionTimestamp). A Deployment
-// rollout briefly has the old ReplicaSet's pod Terminating alongside the new
-// pod starting -- both match the same selector, and without this filter that
-// window was misreported as an error ("more than one Pod found") instead of
-// resolving to the one pod that actually matters. Confirmed live in CI: a DPA
-// spec change mid-table-test (dpa_deployment_suite_test.go) rolled the velero
-// Deployment, and Consistently(VeleroPodIsRunning) failed on the single
-// terminating-old-pod-still-present sample.
+// pod already marked for deletion (non-nil DeletionTimestamp) and preferring
+// the Ready pod when multiple live pods coexist during a Deployment rollout.
+//
+// A rollout briefly has the old ReplicaSet's pod alongside the new pod. If the
+// new pod is still initializing (e.g. slow image pull), both are live with nil
+// DeletionTimestamp. Filtering out terminating pods handles the normal case;
+// preferring the Ready pod handles the slow-pull case where neither is
+// terminating yet.
 func GetPodWithLabel(c *kubernetes.Clientset, namespace string, LabelSelector string) (*corev1.Pod, error) {
 	podList, err := GetAllPodsWithLabel(c, namespace, LabelSelector)
 	if err != nil {
@@ -311,10 +311,33 @@ func GetPodWithLabel(c *kubernetes.Clientset, namespace string, LabelSelector st
 		return nil, fmt.Errorf("no Pod found")
 	}
 	if len(live) > 1 {
-		log.Println("more than one Pod found")
+		// During a Deployment rollout with a slow image pull, both old (Ready)
+		// and new (initializing) pods can be live simultaneously. Prefer the
+		// Ready pod to avoid spurious "more than one Pod found" errors.
+		var ready []corev1.Pod
+		for i := range live {
+			if isPodReady(&live[i]) {
+				ready = append(ready, live[i])
+			}
+		}
+		if len(ready) == 1 {
+			log.Printf("Multiple live pods found during rollout, returning the Ready one: %s", ready[0].Name)
+			return &ready[0], nil
+		}
+		log.Printf("more than one Pod found (%d live, %d ready)", len(live), len(ready))
 		return nil, fmt.Errorf("more than one Pod found")
 	}
 	return &live[0], nil
+}
+
+// isPodReady returns true if the pod has the Ready condition set to True.
+func isPodReady(pod *corev1.Pod) bool {
+	for _, cond := range pod.Status.Conditions {
+		if cond.Type == corev1.PodReady {
+			return cond.Status == corev1.ConditionTrue
+		}
+	}
+	return false
 }
 
 // DeleteAllPVCsInNamespace deletes all PersistentVolumeClaims in a namespace

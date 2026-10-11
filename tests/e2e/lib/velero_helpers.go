@@ -174,6 +174,26 @@ func VeleroIsDeleted(c *kubernetes.Clientset, namespace string) wait.ConditionFu
 		if err == nil || !apierrors.IsNotFound(err) {
 			return false, err
 		}
+		// Wait for DPA-owned resources (e.g. registry secrets) to be garbage collected
+		// to avoid AlreadyExists errors when the next test creates a new DPA.
+		// Only check secrets with ownerReferences, to avoid blocking on user-managed
+		// credential secrets that also carry the OADP label.
+		secrets, err := c.CoreV1().Secrets(namespace).List(context.Background(), metav1.ListOptions{
+			LabelSelector: "openshift.io/oadp=True",
+		})
+		if err != nil {
+			return false, err
+		}
+		ownedSecrets := 0
+		for _, s := range secrets.Items {
+			if len(s.OwnerReferences) > 0 {
+				ownedSecrets++
+			}
+		}
+		if ownedSecrets > 0 {
+			log.Printf("Waiting for %d DPA-owned secrets to be garbage collected", ownedSecrets)
+			return false, nil
+		}
 		return true, nil
 	}
 }
