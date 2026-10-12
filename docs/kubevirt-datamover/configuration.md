@@ -167,7 +167,7 @@ spec:
             memory: 2Gi
 ```
 
-- Each `cpu`, `memory` or `ephemeral-storage` request and limit you set replaces the matching default. Anything you leave unset (or set to `0`) keeps its default, so the example above keeps the `100m` CPU request.
+- Each `cpu`, `memory` or `ephemeral-storage` request and limit you set replaces the matching default. Anything you leave unset (or set to `0`) keeps its default, so the example above keeps the `100m` CPU request. Other resource names and `claims` are not supported, and the DPA fails validation if you set them.
 - The memory limit can be raised or lowered but not removed.
 - If you set only a request and it is above the default limit, the limit is raised to match. If you set only a limit and it is below the default request, the request is lowered to match. If you set both a request and a limit for the same resource and the request is larger, the DPA fails validation.
 - The operator sets the `GOMEMLIMIT` environment variable on the controller to 90% of the memory limit, so the Go garbage collector works harder as memory use approaches the limit instead of letting the container run out of memory.

@@ -877,6 +877,30 @@ func TestGetKubevirtDatamoverResourceReqs(t *testing.T) {
 			}),
 			errorContains: "spec.configuration.kubevirtDatamover.podConfig.resourceAllocations: limits.memory must not be negative, got -1Gi",
 		},
+		{
+			name: "Should error on an unsupported resource request",
+			dpa: dpaWithResourceAllocations(corev1.ResourceRequirements{
+				Requests: corev1.ResourceList{
+					corev1.ResourceMemory:                 resource.MustParse("512Mi"),
+					corev1.ResourceName("nvidia.com/gpu"): resource.MustParse("1"),
+				},
+			}),
+			errorContains: "spec.configuration.kubevirtDatamover.podConfig.resourceAllocations: requests.nvidia.com/gpu is not supported; only cpu, memory and ephemeral-storage can be set",
+		},
+		{
+			name: "Should error on an unsupported resource limit",
+			dpa: dpaWithResourceAllocations(corev1.ResourceRequirements{
+				Limits: corev1.ResourceList{corev1.ResourceName("hugepages-2Mi"): resource.MustParse("1Gi")},
+			}),
+			errorContains: "spec.configuration.kubevirtDatamover.podConfig.resourceAllocations: limits.hugepages-2Mi is not supported; only cpu, memory and ephemeral-storage can be set",
+		},
+		{
+			name: "Should error on resource claims",
+			dpa: dpaWithResourceAllocations(corev1.ResourceRequirements{
+				Claims: []corev1.ResourceClaim{{Name: "gpu"}},
+			}),
+			errorContains: "spec.configuration.kubevirtDatamover.podConfig.resourceAllocations: claims is not supported",
+		},
 	}
 
 	for _, tt := range tests {

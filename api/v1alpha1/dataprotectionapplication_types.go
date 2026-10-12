@@ -711,6 +711,8 @@ type KubevirtDatamoverConfig struct {
 type KubevirtDatamoverPodConfig struct {
 	// resourceAllocations defines the CPU, memory and ephemeral-storage resource allocations
 	// for the kubevirt-datamover-controller container.
+	// Only cpu, memory and ephemeral-storage requests and limits can be set; other resources
+	// and claims are rejected.
 	// Each request and limit set here replaces the matching default; unset or zero values keep the default.
 	// Defaults: requests cpu 100m, memory 256Mi; limits memory 1Gi; no cpu limit.
 	// The memory limit can be changed but not removed.

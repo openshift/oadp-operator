@@ -3,6 +3,7 @@ package controller
 import (
 	"fmt"
 	"os"
+	"slices"
 	"strconv"
 
 	"github.com/go-logr/logr"
@@ -73,8 +74,10 @@ var (
 		},
 	}
 
-	// Resources that can be set in kubevirtDatamover.podConfig.resourceAllocations
-	// (the ones getResourceListFrom applies), in the order they are validated.
+	// The only resources that can be set in
+	// kubevirtDatamover.podConfig.resourceAllocations (the ones
+	// getResourceListFrom applies), in the order request/limit conflicts are
+	// checked.
 	kubevirtDatamoverResourceNames = []corev1.ResourceName{
 		corev1.ResourceCPU,
 		corev1.ResourceMemory,
@@ -463,15 +466,34 @@ func getKubevirtDatamoverResourceReqs(dpa *oadpv1alpha1.DataProtectionApplicatio
 	}
 	allocations := dpa.Spec.Configuration.KubevirtDatamover.PodConfig.ResourceAllocations
 
-	// getResourceListFrom skips zero values but passes negative ones through.
-	for _, name := range kubevirtDatamoverResourceNames {
-		if quantity, ok := allocations.Requests[name]; ok && quantity.Sign() < 0 {
-			return resources, fmt.Errorf("%s: requests.%s must not be negative, got %s",
-				kubevirtDatamoverResourceAllocationsPath, name, quantity.String())
+	// getResourceListFrom only applies cpu, memory and ephemeral-storage, skips
+	// zero values and passes negative ones through, so reject anything it
+	// would drop or pass on invalid instead of silently ignoring it.
+	if len(allocations.Claims) > 0 {
+		return resources, fmt.Errorf("%s: claims is not supported", kubevirtDatamoverResourceAllocationsPath)
+	}
+	for _, list := range []struct {
+		field  string
+		values corev1.ResourceList
+	}{
+		{field: "requests", values: allocations.Requests},
+		{field: "limits", values: allocations.Limits},
+	} {
+		// Sort so the same resource is reported on every reconcile.
+		names := make([]corev1.ResourceName, 0, len(list.values))
+		for name := range list.values {
+			names = append(names, name)
 		}
-		if quantity, ok := allocations.Limits[name]; ok && quantity.Sign() < 0 {
-			return resources, fmt.Errorf("%s: limits.%s must not be negative, got %s",
-				kubevirtDatamoverResourceAllocationsPath, name, quantity.String())
+		slices.Sort(names)
+		for _, name := range names {
+			if !slices.Contains(kubevirtDatamoverResourceNames, name) {
+				return resources, fmt.Errorf("%s: %s.%s is not supported; only cpu, memory and ephemeral-storage can be set",
+					kubevirtDatamoverResourceAllocationsPath, list.field, name)
+			}
+			if quantity := list.values[name]; quantity.Sign() < 0 {
+				return resources, fmt.Errorf("%s: %s.%s must not be negative, got %s",
+					kubevirtDatamoverResourceAllocationsPath, list.field, name, quantity.String())
+			}
 		}
 	}
 
