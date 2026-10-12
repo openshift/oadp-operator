@@ -323,6 +323,8 @@ type VeleroConfig struct {
 	// Pod specific configuration
 	PodConfig *PodConfig `json:"podConfig,omitempty"`
 	// Velero server's log level (use debug for the most logging, leave unset for velero default)
+	// Also sets the kubevirt-datamover-controller log level: trace -> 2 (V(2)), debug -> debug,
+	// unset, info or warning -> info, error, fatal or panic -> error.
 	// +optional
 	// +kubebuilder:validation:Enum=trace;debug;info;warning;error;fatal;panic
 	LogLevel string `json:"logLevel,omitempty"`
@@ -699,6 +701,26 @@ type KubevirtDatamoverConfig struct {
 	// DataUploads for the same VM. Default is 2h.
 	// +optional
 	StaleDataUploadThreshold *metav1.Duration `json:"staleDataUploadThreshold,omitempty"`
+
+	// PodConfig configures the kubevirt-datamover-controller pod.
+	// +optional
+	PodConfig *KubevirtDatamoverPodConfig `json:"podConfig,omitempty"`
+}
+
+// KubevirtDatamoverPodConfig configures the kubevirt-datamover-controller pod.
+type KubevirtDatamoverPodConfig struct {
+	// resourceAllocations defines the CPU, memory and ephemeral-storage resource allocations
+	// for the kubevirt-datamover-controller container.
+	// Each request and limit set here replaces the matching default; unset or zero values keep the default.
+	// Defaults: requests cpu 100m, memory 256Mi; limits memory 1Gi; no cpu limit.
+	// The memory limit can be changed but not removed.
+	// If only a request is set and it is above the default limit, the limit is raised to match;
+	// if only a limit is set and it is below the default request, the request is lowered to match.
+	// Setting both a request and a limit with the request above the limit is rejected.
+	// GOMEMLIMIT is set to 90% of the memory limit.
+	// +optional
+	// +nullable
+	ResourceAllocations corev1.ResourceRequirements `json:"resourceAllocations,omitempty"`
 }
 
 // ApplicationConfig defines the configuration for the Data Protection Application
@@ -1074,6 +1096,7 @@ type DataProtectionApplicationSpec struct {
 	// +optional
 	VMFileRestore *VMFileRestore `json:"vmFileRestore,omitempty"`
 	// The format for log output. Valid values are text, json. (default text)
+	// Also sets the kubevirt-datamover-controller log encoder: text -> console, json -> json.
 	// +kubebuilder:validation:Enum=text;json
 	// +kubebuilder:default=text
 	// +optional
