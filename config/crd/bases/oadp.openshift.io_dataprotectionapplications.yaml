@@ -266,7 +266,9 @@ spec:
                           description: |-
                             MaxConcurrentDataMovers is the maximum number of concurrent active
                             DataUploads/DataDownloads per direction (DU and DD counted independently).
-                            0 means unlimited (default behavior).
+                            If unset, the operator does not pass the flag and the
+                            kubevirt-datamover-controller default of 3 applies.
+                            Set to 0 to disable the limit (unlimited concurrency).
                           format: int32
                           minimum: 0
                           type: integer
@@ -279,6 +281,79 @@ spec:
                           format: int32
                           minimum: 0
                           type: integer
+                        podConfig:
+                          description: PodConfig configures the kubevirt-datamover-controller pod.
+                          properties:
+                            resourceAllocations:
+                              description: |-
+                                resourceAllocations defines the CPU, memory and ephemeral-storage resource allocations
+                                for the kubevirt-datamover-controller container.
+                                Each request and limit set here replaces the matching default; unset or zero values keep the default.
+                                Defaults: requests cpu 100m, memory 256Mi; limits memory 1Gi; no cpu limit.
+                                The memory limit can be changed but not removed.
+                                If only a request is set and it is above the default limit, the limit is raised to match;
+                                if only a limit is set and it is below the default request, the request is lowered to match.
+                                Setting both a request and a limit with the request above the limit is rejected.
+                                GOMEMLIMIT is set to 90% of the memory limit.
+                              nullable: true
+                              properties:
+                                claims:
+                                  description: |-
+                                    Claims lists the names of resources, defined in spec.resourceClaims,
+                                    that are used by this container.
+
+                                    This field depends on the
+                                    DynamicResourceAllocation feature gate.
+
+                                    This field is immutable. It can only be set for containers.
+                                  items:
+                                    description: ResourceClaim references one entry in PodSpec.ResourceClaims.
+                                    properties:
+                                      name:
+                                        description: |-
+                                          Name must match the name of one entry in pod.spec.resourceClaims of
+                                          the Pod where this field is used. It makes that resource available
+                                          inside a container.
+                                        type: string
+                                      request:
+                                        description: |-
+                                          Request is the name chosen for a request in the referenced claim.
+                                          If empty, everything from the claim is made available, otherwise
+                                          only the result of this request.
+                                        type: string
+                                    required:
+                                      - name
+                                    type: object
+                                  type: array
+                                  x-kubernetes-list-map-keys:
+                                    - name
+                                  x-kubernetes-list-type: map
+                                limits:
+                                  additionalProperties:
+                                    anyOf:
+                                      - type: integer
+                                      - type: string
+                                    pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                                    x-kubernetes-int-or-string: true
+                                  description: |-
+                                    Limits describes the maximum amount of compute resources allowed.
+                                    More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
+                                  type: object
+                                requests:
+                                  additionalProperties:
+                                    anyOf:
+                                      - type: integer
+                                      - type: string
+                                    pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                                    x-kubernetes-int-or-string: true
+                                  description: |-
+                                    Requests describes the minimum amount of compute resources required.
+                                    If Requests is omitted for a container, it defaults to Limits if that is explicitly specified,
+                                    otherwise to an implementation-defined value. Requests cannot exceed Limits.
+                                    More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
+                                  type: object
+                              type: object
+                          type: object
                         staleDataUploadThreshold:
                           description: |-
                             StaleDataUploadThreshold is the duration after which a DataUpload in an
@@ -1513,7 +1588,10 @@ spec:
                             type: object
                           type: array
                         logLevel:
-                          description: Velero server's log level (use debug for the most logging, leave unset for velero default)
+                          description: |-
+                            Velero server's log level (use debug for the most logging, leave unset for velero default)
+                            Also sets the kubevirt-datamover-controller log level: trace -> 2 (V(2)), debug -> debug,
+                            unset, info or warning -> info, error, fatal or panic -> error.
                           enum:
                             - trace
                             - debug
@@ -1938,7 +2016,9 @@ spec:
                   type: string
                 logFormat:
                   default: text
-                  description: The format for log output. Valid values are text, json. (default text)
+                  description: |-
+                    The format for log output. Valid values are text, json. (default text)
+                    Also sets the kubevirt-datamover-controller log encoder: text -> console, json -> json.
                   enum:
                     - text
                     - json
