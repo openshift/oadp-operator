@@ -258,8 +258,11 @@ This follows the pattern used by the Loki Operator (`openshift-operators-redhat`
 
 ### Phase 2: Deploy + CI for AllNamespaces
 
-- Add a `deploy-olm-allnamespaces` Makefile target using `operator-sdk run bundle --install-mode AllNamespaces`.
-- Add a Prow presubmit job that deploys with this target and runs the existing e2e suite unchanged.
+Two supported ways to install in AllNamespaces mode, both creating the same OLM resources (CatalogSource, global OperatorGroup, Subscription):
+
+- **Make target (local dev)** — `make deploy-olm-allnamespaces`. Wraps the repo's `deploy-olm` flow (build and push operator/bundle/catalog images, then `oc apply` the CatalogSource, OperatorGroup, and Subscription); the only difference is the OperatorGroup shape: `spec: {}` (empty `targetNamespaces`, OLM's all-namespaces signal) instead of `targetNamespaces: [openshift-adp]`. It reuses the same OperatorGroup name and namespace as `deploy-olm`, so `make undeploy-olm` cleans up either mode. (Done — `make -n` dry-run verified for both modes; live-cluster exercise lands with Phase 3 e2e.)
+- **`operator-sdk` one-liner (standalone)** — `operator-sdk run bundle <bundle-image> --install-mode AllNamespaces --security-context-config restricted --namespace openshift-adp`. Installs a pre-built bundle image without the repo's build flow; removed with `operator-sdk cleanup oadp-operator --namespace openshift-adp`.
+- Add a Prow presubmit job that deploys with the make target and runs the existing e2e suite unchanged.
 - This gives immediate signal before writing any new test code.
 
 ### Phase 3: AllNamespaces Install E2E Tests
