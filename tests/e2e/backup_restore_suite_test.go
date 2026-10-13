@@ -130,6 +130,12 @@ func (o *OADPDeploymentOperation) Undeploy(backupRestoreType lib.BackupRestoreTy
 		err := dpaCR.Delete()
 		gomega.Expect(err).ToNot(gomega.HaveOccurred())
 		gomega.Eventually(dpaCR.IsDeleted(), time.Minute*2, time.Second*5).Should(gomega.BeTrue())
+		// Wait for velero and DPA-owned resources (e.g. registry secrets) to be
+		// garbage collected. Otherwise the next Deploy (e.g. the AfterAll
+		// must-gather DPA) can hit AlreadyExists on an owned secret still
+		// pending GC -- the informer cache says NotFound, the API server says
+		// AlreadyExists, and DPA reconciliation stays false until timeout.
+		gomega.Eventually(lib.VeleroIsDeleted(kubernetesClientForSuiteRun, namespace), time.Minute*3, time.Second*5).Should(gomega.BeTrue())
 	}
 
 	if o.CreateBSL {
