@@ -47,7 +47,6 @@ import (
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 	"k8s.io/client-go/rest"
 	ctrl "sigs.k8s.io/controller-runtime"
-	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
@@ -201,11 +200,12 @@ func main() {
 		// duration, a crashed controller would block the new instance from acquiring
 		// leadership for ~4.5 minutes. See: https://issues.redhat.com/browse/OADP-7419
 		LeaderElectionReleaseOnCancel: true,
-		Cache: cache.Options{
-			DefaultNamespaces: map[string]cache.Config{
-				watchNamespace: {},
-			},
-		},
+		// Cache is intentionally not namespace-restricted: the manager watches
+		// DataProtectionApplication (and the resources it manages) across all
+		// namespaces, so one operator instance can reconcile one DPA per
+		// tenant namespace. watchNamespace is still used for the operator's
+		// own PSA labeling and CLI/VMDP setup, which remain scoped to the
+		// operator's own namespace.
 	})
 	if err != nil {
 		setupLog.Error(err, "unable to start manager")
@@ -345,11 +345,16 @@ func main() {
 	}
 }
 
-// getWatchNamespace returns the Namespace the operator should be watching for changes.
-// In OwnNamespace install mode, WATCH_NAMESPACE is set to the operator's namespace by OLM.
-// In AllNamespaces install mode, OLM sets WATCH_NAMESPACE to "" (its signal for cluster-wide
-// scope). OADP does not watch all namespaces, so we fall back to OPERATOR_NAMESPACE, which
-// is always the pod's own namespace via the Kubernetes downward API.
+// getWatchNamespace returns the operator's own namespace: where the operator
+// pod runs, used for the operator's own-namespace setup (PSA labeling, CLI and
+// VMDP download assets). It is NOT the manager's watch scope — the cache is
+// intentionally not namespace-restricted, so DPAs in any namespace are
+// reconciled (multi-tenant DPA).
+// In OwnNamespace install mode, WATCH_NAMESPACE is set to the operator's
+// namespace by OLM. In AllNamespaces install mode, OLM sets WATCH_NAMESPACE to
+// "" (its signal for cluster-wide scope); since that empty value must not
+// narrow the watch scope, we fall back to OPERATOR_NAMESPACE, which is always
+// the pod's own namespace via the Kubernetes downward API.
 func getWatchNamespace() (string, error) {
 	ns, found := os.LookupEnv("WATCH_NAMESPACE")
 	if !found {
