@@ -28,6 +28,13 @@ To install CRDs and deploy the OADP operator to the `openshift-adp`
 $ make deploy-olm
 ```
 
+To install in AllNamespaces mode instead (global OperatorGroup; the operator
+still watches only its own namespace), run:
+
+```
+$ make deploy-olm-allnamespaces
+```
+
 After testing, uninstall CRDs and undeploy the OADP operator from `openshift-adp` namespace, running
 ```
 $ make undeploy-olm

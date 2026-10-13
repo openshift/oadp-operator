@@ -626,6 +626,9 @@ GIT_REV:=$(shell git rev-parse --short HEAD)
 OADP_TEST_NAMESPACE ?= openshift-adp
 # Namespace to install CatalogSource (openshift-marketplace is the standard location)
 CATALOG_SOURCE_NAMESPACE ?= openshift-marketplace
+# OLM install mode used by deploy-olm: OwnNamespace (namespaced OperatorGroup)
+# or AllNamespaces (global OperatorGroup, empty targetNamespaces)
+INSTALL_MODE ?= OwnNamespace
 
 .PHONY: deploy-olm
 deploy-olm: THIS_OPERATOR_IMAGE?=ttl.sh/oadp-operator-$(GIT_REV):$(TTL_DURATION) # Set target specific variable
@@ -666,14 +669,30 @@ deploy-olm: undeploy-olm ## Build current branch operator image, bundle image, p
 		$(OC_CLI) logs -n $(CATALOG_SOURCE_NAMESPACE) -l olm.catalogSource=$(CATALOG_SOURCE_NAME) --tail=50 2>/dev/null || true; \
 		exit 1; \
 	fi
-	# Create OperatorGroup if not exists
-	@echo "Checking OperatorGroup..."
-	@OG_COUNT=$$($(OC_CLI) get operatorgroup -n $(OADP_TEST_NAMESPACE) --no-headers 2>/dev/null | wc -l | tr -d ' '); \
+	# Create OperatorGroup if not exists (AllNamespaces mode creates a global
+	# OperatorGroup: empty targetNamespaces is OLM's all-namespaces signal)
+	@echo "Checking OperatorGroup (install mode: $(INSTALL_MODE))..."
+	@if [ "$(INSTALL_MODE)" = "AllNamespaces" ]; then \
+		OG_SPEC="spec: {}"; \
+	else \
+		OG_SPEC="spec:\n  targetNamespaces:\n    - $(OADP_TEST_NAMESPACE)"; \
+	fi; \
+	OG_COUNT=$$($(OC_CLI) get operatorgroup -n $(OADP_TEST_NAMESPACE) --no-headers 2>/dev/null | wc -l | tr -d ' '); \
 	if [ "$$OG_COUNT" -eq "0" ]; then \
 		echo "Creating OperatorGroup..."; \
-		echo -e "apiVersion: operators.coreos.com/v1\nkind: OperatorGroup\nmetadata:\n  name: oadp-operator-group\n  namespace: $(OADP_TEST_NAMESPACE)\nspec:\n  targetNamespaces:\n    - $(OADP_TEST_NAMESPACE)" | $(OC_CLI) apply -f -; \
+		echo -e "apiVersion: operators.coreos.com/v1\nkind: OperatorGroup\nmetadata:\n  name: oadp-operator-group\n  namespace: $(OADP_TEST_NAMESPACE)\n$$OG_SPEC" | $(OC_CLI) apply -f -; \
 	else \
 		echo "OperatorGroup already exists"; \
+		OG_NAMESPACES=$$($(OC_CLI) get operatorgroup -n $(OADP_TEST_NAMESPACE) -o jsonpath='{.items[*].spec.targetNamespaces}' 2>/dev/null); \
+		if echo "$$OG_NAMESPACES" | grep -q "$(OADP_TEST_NAMESPACE)"; then \
+			EXISTING_MODE="OwnNamespace"; \
+		else \
+			EXISTING_MODE="AllNamespaces"; \
+		fi; \
+		if [ "$$EXISTING_MODE" != "$(INSTALL_MODE)" ]; then \
+			echo "ERROR: OperatorGroup in $(OADP_TEST_NAMESPACE) resolves to $$EXISTING_MODE but INSTALL_MODE=$(INSTALL_MODE) was requested. Delete it (oc delete operatorgroup -n $(OADP_TEST_NAMESPACE) --all) or rerun with a matching INSTALL_MODE." >&2; \
+			exit 1; \
+		fi; \
 	fi
 	# Create Subscription
 	@echo "Creating Subscription..."
@@ -722,6 +741,10 @@ deploy-olm: undeploy-olm ## Build current branch operator image, bundle image, p
 	@echo "Operator is ready!"
 	@$(OC_CLI) get subscription oadp-operator -n $(OADP_TEST_NAMESPACE)
 	@$(OC_CLI) get csv -n $(OADP_TEST_NAMESPACE)
+
+.PHONY: deploy-olm-allnamespaces
+deploy-olm-allnamespaces: INSTALL_MODE := AllNamespaces
+deploy-olm-allnamespaces: deploy-olm ## Build and install via OLM in AllNamespaces mode (global OperatorGroup)
 
 .PHONY: undeploy-olm
 undeploy-olm: login-required ## Uninstall current branch operator via OLM
