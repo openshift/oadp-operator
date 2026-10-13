@@ -208,6 +208,14 @@ func dpaUsesCredentialsFile(dpa *oadpv1alpha1.DataProtectionApplication) bool {
 }
 
 // SetupWithManager sets up the controller with the Manager.
+// SetupWithManager wires up the DPA reconciler. Note: no WithOptions(controller.Options{MaxConcurrentReconciles: ...})
+// is set here, so it defaults to 1 (controller-runtime's default), meaning
+// Reconcile() calls for every DPA across every namespace are fully
+// serialized. The cluster-wide kubevirt-datamover singleton check in
+// checkKubevirtDatamoverClusterSingleton additionally guards its
+// check-then-act with kubevirtDatamoverSingletonMu, so raising concurrency
+// here in the future (e.g. for multi-tenant DPA throughput) will not
+// silently reintroduce a race that lets two DPAs both enable that plugin.
 func (r *DataProtectionApplicationReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&oadpv1alpha1.DataProtectionApplication{}, builder.WithPredicates(veleroPredicate(r.Scheme))).

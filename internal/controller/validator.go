@@ -363,30 +363,15 @@ func (r *DataProtectionApplicationReconciler) ValidateDataProtectionCR(log logr.
 
 	// validate kubevirt-datamover plugin enable
 	if r.checkKubevirtDatamoverEnabled() {
-		// Check for cluster-wide singleton enforcement
-		dpaList := &oadpv1alpha1.DataProtectionApplicationList{}
-		err = r.ClusterWideClient.List(r.Context, dpaList)
-		if err != nil {
+		// Cluster-wide singleton enforcement. This is a best-effort, unlocked
+		// check done here purely for fast user feedback (reject obviously
+		// conflicting DPAs early, before running the rest of the reconcile
+		// batch). The authoritative check, which is also what actually
+		// protects against a concurrent create, is re-run under a mutex
+		// immediately before the deployment is created in
+		// ReconcileKubevirtDatamoverController.
+		if err := r.checkKubevirtDatamoverClusterSingleton(); err != nil {
 			return false, err
-		}
-		for _, dpa := range dpaList.Items {
-			if dpa.Namespace != r.NamespacedName.Namespace {
-				// Check if other DPA has kubevirt-datamover enabled
-				otherReconciler := &DataProtectionApplicationReconciler{dpa: &dpa}
-				if otherReconciler.checkKubevirtDatamoverEnabled() {
-					kubevirtDatamoverDeployment := &appsv1.Deployment{
-						ObjectMeta: metav1.ObjectMeta{
-							Name:      kubevirtDatamoverObjectName,
-							Namespace: dpa.Namespace,
-						},
-					}
-					if err := r.ClusterWideClient.Get(r.Context,
-						types.NamespacedName{Name: kubevirtDatamoverDeployment.Name, Namespace: kubevirtDatamoverDeployment.Namespace},
-						kubevirtDatamoverDeployment); err == nil {
-						return false, fmt.Errorf("only a single instance of KubeVirt DataMover Controller can be installed across the entire cluster. KubeVirt DataMover controller is already configured and installed in %s namespace", dpa.Namespace)
-					}
-				}
-			}
 		}
 
 		// Warn if kubevirt plugin not also configured (soft dependency)
