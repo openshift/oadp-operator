@@ -3,8 +3,9 @@
 ## Abstract
 
 - Enable `AllNamespaces` install mode alongside the existing `OwnNamespace` mode in a single CSV.
-- The operator's runtime behavior is unchanged — it watches only the namespace it is deployed in.
-- Two CSV metadata changes and one minimal Go code change are required.
+- The operator's cache is no longer restricted to its own namespace — a single operator instance now reconciles one `DataProtectionApplication` (DPA) per tenant namespace, each driving its own independent Velero deployment.
+
+> **Scope note:** This document originally proposed AllNamespaces install mode with runtime behavior unchanged (the operator would still watch only its own namespace). That scope has since expanded: implementing AllNamespaces install mode made cluster-wide watching straightforward enough that it was done as part of the same effort, so this document now also covers true multi-tenant DPA support. The original "watch only own namespace" framing is preserved below in Background/OLM context, but Goals, Non-Goals, Detailed Design, and Validation reflect the current, broader scope.
 
 ## Background
 
@@ -18,14 +19,29 @@ OLMv0 uses a five-resource model:
 - **`InstallPlan`** — auto-generated execution plan
 - **`ClusterServiceVersion` (CSV)** — the operator's metadata, permissions, and deployment spec
 
+```mermaid
+flowchart LR
+    CS["CatalogSource<br/>(catalog image)"] -->|provides package| Sub["Subscription<br/>(install request)"]
+    Sub -->|generates| IP["InstallPlan<br/>(execution plan)"]
+    OG["OperatorGroup<br/>(target namespaces + RBAC scope)"] -->|scopes namespaces + RBAC| IP
+    IP -->|creates| CSV["ClusterServiceVersion<br/>(metadata, permissions, deployment)"]
+    CSV -->|deploys| Pod["Operator Pod"]
+```
+
 OLMv0 supports four install modes: `AllNamespaces`, `OwnNamespace`, `SingleNamespace`, and `MultiNamespace`. This multi-tenancy model allowed multiple independent operator instances in different namespaces, each watching its own scope. OADP currently uses `OwnNamespace`, meaning the operator only watches CRs in the namespace where it is installed.
 
 ### OLMv1 — The new model
 
-OLMv1 is not a version bump — it is a ground-up redesign that consolidates the five OLMv0 resources into two:
+[OLMv1](https://www.redhat.com/en/blog/announcing-olm-v1-next-generation-operator-lifecycle-management) is a ground-up redesign that consolidates the five OLMv0 resources into two:
 
 - **`ClusterCatalog`** — replaces `CatalogSource`
 - **`ClusterExtension`** — replaces `OperatorGroup` + `Subscription` + `InstallPlan` + `CSV`
+
+```mermaid
+flowchart LR
+    CC["ClusterCatalog<br/>(catalog image)"] -->|provides package| CE["ClusterExtension<br/>(install request + target + permissions + deployment)"]
+    CE -->|deploys| Pod["Operator Pod"]
+```
 
 It is declarative, GitOps-friendly, and uses a cluster-admin security model instead of namespace-scoped ServiceAccount RBAC.
 
@@ -78,25 +94,28 @@ AllNamespaces is the strategically correct direction:
 ## Goals
 
 - Enable `AllNamespaces` install mode alongside `OwnNamespace` in the same CSV.
-- Keep runtime behavior identical: the operator watches only the namespace it is deployed in.
-- Maintain full backward compatibility for existing `OwnNamespace` installations.
+- Support multiple independent DPA instances, each in its own tenant namespace, reconciled by a single operator instance — each DPA drives its own Velero deployment in its own namespace, with no cross-tenant interference.
+- Maintain full backward compatibility for existing `OwnNamespace` installations, where the operator continues to watch (and support) exactly one DPA in its own namespace, as today.
 
 ## Non Goals
 
-- Actually watching all namespaces.
 - `SingleNamespace` or `MultiNamespace` install mode support.
+- Automatically migrating or forcing existing `OwnNamespace` installations onto AllNamespaces/multi-tenant behavior. `OwnNamespace` remains fully supported; see [Future: Deprecating OwnNamespace](#future-deprecating-ownnamespace) for the eventual (not immediate) hard-cutover direction.
+- Namespace-scoped PSA labeling and CLI/VMDP asset setup for every tenant namespace. These still operate only against the operator's own `watchNamespace` today — see [Known Gaps](#known-gaps).
+- Per-tenant resource quotas, isolation, or fairness guarantees between DPAs sharing one operator instance.
 
 ## High-Level Design
 
-Two CSV metadata changes and one minimal Go code change:
+Two CSV metadata changes and two Go code changes:
 
 | # | Change | Why |
 |---|---|---|
 | 1 | Enable `AllNamespaces: true` in `installModes` | Allow installation with a global OperatorGroup |
 | 2 | Add `OPERATOR_NAMESPACE` env var (from `metadata.namespace`) + Go fallback | `WATCH_NAMESPACE` is `""` in AllNamespaces mode by OLM design; operator needs its own namespace separately |
 | 3 | Add `permissions` entries for `non-admin-controller` and `velero` SAs | OLM requires these to create the ServiceAccounts in AllNamespaces mode |
+| 4 | Remove the manager cache's `DefaultNamespaces` restriction | Lets one operator instance reconcile DPAs across all namespaces, enabling multi-tenant DPA support |
 
-The RBAC `clusterPermissions` and all runtime behavior remain identical.
+The RBAC `clusterPermissions` already granted cluster scope prior to this change (via `+kubebuilder:rbac` markers compiled into `config/rbac/role.yaml`), so no RBAC changes were required for Change 4 — only the cache restriction in `cmd/main.go` was blocking cluster-wide reconciliation.
 
 **How the operator resolves its namespace in each mode:**
 
@@ -161,6 +180,46 @@ The CSV declares `clusterPermissions` for three SAs but only `openshift-adp-cont
 - In AllNamespaces mode, OLM promotes these namespace-scoped Role/RoleBinding entries to ClusterRoles/ClusterRoleBindings (via its internal `ensureSingletonRBAC` reconciler, which merges all operator permissions into a single cluster-scoped set).
 - In OwnNamespace mode, they remain namespace-scoped Roles/RoleBindings — no change to existing behavior.
 
+### Change 4: Remove the Manager Cache Namespace Restriction
+
+Prior to this change, `cmd/main.go` configured the controller-runtime manager with:
+
+```go
+Cache: cache.Options{
+    DefaultNamespaces: map[string]cache.Config{
+        watchNamespace: {},
+    },
+},
+```
+
+This restricted every watch and `List` call registered through the manager's client to `watchNamespace` — the operator's own namespace. It is removed entirely:
+
+```go
+// Cache is intentionally not namespace-restricted: the manager watches
+// DataProtectionApplication (and the resources it manages) across all
+// namespaces, so one operator instance can reconcile one DPA per
+// tenant namespace. watchNamespace is still used for the operator's
+// own PSA labeling and CLI/VMDP setup, which remain scoped to the
+// operator's own namespace.
+```
+
+`watchNamespace`/`OPERATOR_NAMESPACE` are still used elsewhere (PSA labeling, CLI/VMDP asset setup — see [Known Gaps](#known-gaps)), so neither the env vars nor `getWatchNamespace()` from Change 2 were removed.
+
+#### Multi-tenant Velero: how it holds together
+
+Removing the cache restriction raises an obvious question: if multiple DPAs in different namespaces are all reconciled by the same operator, do the resulting Velero instances interfere with each other? Three things make this safe without further code changes:
+
+- **Each Velero deployment already uses `dpa.Namespace`.** `internal/controller/velero.go` places the Velero Deployment, BackupStorageLocations, VolumeSnapshotLocations, and NodeAgent DaemonSet in the DPA's own namespace, not the operator's. This was already namespace-correct before this change — it just never mattered when only one DPA could exist cluster-wide.
+- **Velero itself resolves its own namespace per-pod.** Each Velero server pod sets `VELERO_NAMESPACE` via the Kubernetes downward API (`fieldRef: metadata.namespace`), the same mechanism used for `OPERATOR_NAMESPACE`. Velero's `pkg/client/factory.go` resolves the active namespace from `VELERO_NAMESPACE`, so each Velero instance only watches `Backup`/`Restore`/`BackupStorageLocation` CRs in its own namespace — never the operator's, and never another tenant's. No two Velero instances contend over the same CRs.
+- **The DPA singleton check is already namespace-scoped.** `ValidateDataProtectionCR` (`internal/controller/validator.go`) lists DPAs with `client.ListOptions{Namespace: r.NamespacedName.Namespace}` and rejects a second DPA *within the same namespace*. It does not, and should not, reject DPAs in different namespaces — that's exactly the multi-tenant case this change enables.
+
+One known, pre-existing footgun, operational rather than code: Velero's CLI resolves its target namespace via `VELERO_NAMESPACE`, but a local `$HOME/.config/velero/config.json` config file (`pkg/client/config.go`, `LoadConfig()`) takes precedence over the env var if present. This is a client-side risk only — it is never set in any OADP-managed pod — but should be called out in multi-tenant documentation so operators scripting against the Velero CLI across multiple tenant namespaces don't get silently redirected to a cached namespace.
+
+One exception that required its own fix: the `kubevirt-datamover` plugin is a genuine cluster-wide singleton — only one instance may run across the entire cluster, regardless of how many DPAs exist. `ValidateDataProtectionCR` already enforced this (using an uncached `ClusterWideClient.List`/`.Get` to check other namespaces' DPAs and their Deployments) before this change, but with reconciliation now happening across namespaces instead of being structurally impossible, the check-then-act sequence — check in `ValidateDataProtectionCR`, act (create the Deployment) later in `ReconcileKubevirtDatamoverController` — needed explicit concurrency protection:
+
+- `MaxConcurrentReconciles` defaults to `1` and is never overridden in `SetupWithManager`, so today `Reconcile()` calls for every DPA are fully serialized and no race is actually possible.
+- As defense-in-depth against that default changing later (e.g. to improve multi-tenant DPA throughput), the cross-namespace conflict check was extracted into `checkKubevirtDatamoverClusterSingleton()` and is re-run, under a new `kubevirtDatamoverSingletonMu` mutex, immediately before the `CreateOrUpdate` call that actually creates the deployment — making the enforcement atomic regardless of reconciler concurrency. Both the `MaxConcurrentReconciles` reliance and the mutex's defense-in-depth role are documented inline on `SetupWithManager` and next to the mutex.
+
 ### OLM Behavior in AllNamespaces Mode
 
 These OLM behaviors do not affect operator functionality but should be understood:
@@ -186,6 +245,8 @@ This follows the pattern used by the Loki Operator (`openshift-operators-redhat`
 | 2. Deploy + CI | Makefile target + Prow job with existing e2e suite | Low | Phase 1 |
 | 3. AllNamespaces e2e tests | AllNamespaces-specific test scenarios | Medium | Phase 2 |
 | 4. Migration documentation | OperatorGroup swap procedure | Low | Phase 3 |
+| 5. Multi-tenant DPA reconciliation | Remove cache restriction, mutex-protect kubevirt-datamover singleton | Medium | Phase 1 |
+| 6. Multi-tenant e2e tests | Concurrent DPAs in different namespaces, cross-tenant isolation | Medium | Phase 5 |
 
 ### Phase 1: CSV + Go Changes
 
@@ -223,6 +284,21 @@ Notes:
 - Rollback is the reverse. No CSV downgrade is needed.
 - Brief operator unavailability occurs during the swap (seconds to ~1 minute).
 - In-flight backups or restores should be completed before migration.
+
+### Phase 5: Multi-Tenant DPA Reconciliation
+
+- Remove the `cache.Options{DefaultNamespaces: ...}` restriction in `cmd/main.go`.
+- Extract and mutex-protect the `kubevirt-datamover` cluster-wide singleton check-then-act sequence.
+- Verify via `go build`, `go vet`, and `go test ./cmd/...` / `./internal/controller/...` that nothing else depends on the namespace-restricted cache. (Done — see [Validation](#validation).)
+
+### Phase 6: Multi-Tenant E2E Tests
+
+Not yet implemented. Test scenarios specific to multiple concurrent DPAs:
+
+- Two DPAs in different namespaces, both reconciled successfully, each with its own independent Velero deployment, BSL/VSL, and NodeAgent DaemonSet.
+- A backup created against one tenant's Velero instance is not visible to or picked up by another tenant's Velero instance.
+- A second DPA in a different namespace enabling `kubevirt-datamover` while another namespace already has it enabled is rejected with the existing singleton error.
+- Concurrent creation of two DPAs that both enable `kubevirt-datamover` (stress-testing the mutex added in Change 4) resolves to exactly one winner, not both or neither.
 
 ## Upgrade Path
 
@@ -272,7 +348,7 @@ Rejected:
 
 ## Validation
 
-Tested on OpenShift 4.22.0-ec.3 (2026-08-24) with the final implementation (`OPERATOR_NAMESPACE` + Go fallback, no post-gen patch).
+**CSV/install-mode changes (Changes 1-3).** Tested on OpenShift 4.22.0-ec.3 (2026-08-24) with the final implementation (`OPERATOR_NAMESPACE` + Go fallback, no post-gen patch).
 
 | Test | Mode | Result |
 |---|---|---|
@@ -284,17 +360,31 @@ Tested on OpenShift 4.22.0-ec.3 (2026-08-24) with the final implementation (`OPE
 | Manager started, leader election acquired | AllNamespaces | PASS |
 | `make bundle` idempotent (no post-gen patch) | — | PASS |
 
+**Multi-tenant cache change (Change 4).** Verified at the build/unit level only; not yet cluster-tested:
+
+| Check | Result |
+|---|---|
+| `go build ./...` after removing the cache restriction | PASS |
+| `go vet ./cmd/...`, `go vet ./internal/controller/...` | PASS |
+| `go test ./cmd/...` | PASS |
+| `go test ./internal/controller/...` (unit tests, excluding the envtest-based `TestAPIs` Ginkgo suite) | PASS, including existing `kubevirt-datamover` singleton tests |
+| Live cluster test with two DPAs in different namespaces, both reconciling | **Not yet done** — tracked in Phase 6 |
+
+The envtest-based `TestAPIs` suite does not currently run in this environment (missing `etcd`/`kube-apiserver` binaries under `bin/k8s/`), independent of this change.
+
+## Known Gaps
+
+- **PSA labeling and CLI/VMDP asset setup remain single-namespace.** `cmd/main.go` still only labels the operator's own `watchNamespace` for Pod Security Admission and sets up CLI/VMDP download assets there. Under multi-tenant DPA, each tenant namespace running Velero/NodeAgent pods needs equivalent PSA labeling; this has not been extended per-tenant yet.
+- **No live multi-tenant test coverage yet.** See Phase 6 above.
+
 ## Future Enhancements
 
-### Cluster-Wide Watching
+### Future: Deprecating OwnNamespace
 
-If a future requirement is for the operator to watch all namespaces, `WATCH_NAMESPACE` would remain empty (OLM's signal) and the Go fallback to `OPERATOR_NAMESPACE` would be removed. `OPERATOR_NAMESPACE` is already in place from this design, so the operator already knows its own namespace for PSA labeling, STS, and CLI/VMDP setup. What would still be required:
+OADP does not plan to drop `OwnNamespace` support immediately, but AllNamespaces is the strategically correct long-term direction (see [OLMv1 Alignment](#olmv1-alignment)), and a future major version may want to make AllNamespaces the only supported mode. This requires a path that doesn't strand existing `OwnNamespace` customers across a version bump (e.g. a hypothetical 1.6 → 1.7 jump). Open questions, not yet resolved:
 
-- Changes to the cache configuration (remove the `DefaultNamespaces` scope).
-- A design decision on DPA singleton scope (one globally or one per namespace).
+- **Two-stage deprecation, mirroring prior OADP precedent.** OADP has twice shipped a soft-deprecation release (log warning via `log.V(-1).Info(...)` + `EventRecorder` warning event) ahead of a later hard-rejection release — restic → nodeAgent, and VSM/Volsync → Velero's built-in datamover (see `9ce4670a`). The same two-stage shape (warn on `OwnNamespace` for N releases, then reject it in `ValidateDataProtectionCR`) is the natural candidate here, but the actual timeline and release targets are undecided.
+- **How OLM behaves when a new CSV's `installModes` narrows.** It's not yet confirmed whether OLM blocks or stalls an in-place upgrade when a new CSV's supported install modes no longer include the mode the existing OperatorGroup requires (i.e. dropping `OwnNamespace: true` from `installModes` while a customer still has a namespaced OperatorGroup). This needs to be verified against OLM source/behavior before any hard-cutover release — a single CSV silently failing to progress is a worse outcome than failing an explicit admission check.
+- **Customer-facing migration tooling.** The Phase 4 migration doc already covers the manual OperatorGroup swap; a forced cutover would need this to be either automated or called out prominently enough (changelog, must-gather, console warnings) that customers don't hit it unexpectedly during an unrelated upgrade.
 
-### Multi-Tenant Velero (One DPA Per Namespace)
-
-Supporting independent DPA instances per namespace — with each controlling its own Velero deployment — is a meaningful future direction that requires AllNamespaces install mode as a prerequisite.
-
-This is deferred to avoid breaking existing installations. OLMv0's multi-tenancy model (multiple operator instances in different namespaces) is the mechanism that would enable this, but OLMv0's `OwnNamespace` mode is already Tech Preview in OCP 4.19 with no GA promotion planned. Revisiting this becomes relevant when OLMv0 is no longer available (expected around OCP 6.0), at which point the right multi-tenancy model can be designed without the constraint of backward compatibility with existing `OwnNamespace` installations.
+This section intentionally has no implementation yet — it exists to capture the direction and open questions raised while implementing multi-tenant DPA support, so they aren't lost before a dedicated design effort picks them up.
