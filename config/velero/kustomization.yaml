@@ -3,3 +3,5 @@ resources:
 - velero-service_account.yaml
 - velero-role.yaml
 - velero-role_binding.yaml
+- velero-leader-election-role.yaml
+- velero-leader-election-role_binding.yaml

@@ -1,0 +1,40 @@
+# Placeholder namespace-scoped permissions required by OLM to create the
+# non-admin-controller ServiceAccount when the CSV is installed in
+# AllNamespaces mode. The non-admin-controller does not perform leader
+# election; these rules mirror the manager's leader-election Role.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: non-admin-controller-leader-election-role
+rules:
+- apiGroups:
+  - ""
+  resources:
+  - configmaps
+  verbs:
+  - get
+  - list
+  - watch
+  - create
+  - update
+  - patch
+  - delete
+- apiGroups:
+  - coordination.k8s.io
+  resources:
+  - leases
+  verbs:
+  - get
+  - list
+  - watch
+  - create
+  - update
+  - patch
+  - delete
+- apiGroups:
+  - ""
+  resources:
+  - events
+  verbs:
+  - create
+  - patch
