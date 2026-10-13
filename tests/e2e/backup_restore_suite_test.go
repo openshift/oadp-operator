@@ -682,7 +682,12 @@ var _ = ginkgo.Describe("Multiple BSL with custom CA cert tests", ginkgo.Ordered
 			}
 			gomega.Expect(defaultBSL).NotTo(gomega.BeNil(), "Default BSL should exist")
 
-			// Only the default BSL needs to be available for the test
+			// Only the default BSL needs to be available for the test.
+			// Use 5 min instead of 3 min: the BSL controller has a single
+			// worker, so when it picks up a non-default BSL with a dummy CA
+			// cert first it blocks on TLS retry, delaying reconciliation of
+			// the default BSL beyond the original 180 s timeout (~67% chance
+			// with 2-of-3 BSLs carrying dummy certs).
 			gomega.Eventually(func() bool {
 				bsl := &velero.BackupStorageLocation{}
 				err := dpaCR.Client.Get(context.Background(), client.ObjectKey{
@@ -693,7 +698,7 @@ var _ = ginkgo.Describe("Multiple BSL with custom CA cert tests", ginkgo.Ordered
 					return false
 				}
 				return bsl.Status.Phase == velero.BackupStorageLocationPhaseAvailable
-			}, time.Minute*3, time.Second*5).Should(gomega.BeTrue(), "Default BSL should be available")
+			}, time.Minute*5, time.Second*5).Should(gomega.BeTrue(), "Default BSL should be available")
 
 			log.Printf("Deploying test application")
 			err = lib.InstallApplication(dpaCR.Client, "./sample-applications/nginx/nginx-deployment.yaml")
