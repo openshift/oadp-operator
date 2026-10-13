@@ -37,7 +37,7 @@ SKIP_MUST_GATHER ?= false
 
 # TOOL VERSIONS
 # All version-related variables are defined here for easy maintenance
-DEFAULT_VERSION := 1.4.11
+DEFAULT_VERSION := 1.4.12
 VERSION ?= $(DEFAULT_VERSION) # the version of the operator
 OPERATOR_SDK_VERSION ?= v1.34.2
 ENVTEST_K8S_VERSION = 1.29 # Kubernetes version from OpenShift 4.16.x
@@ -179,7 +179,7 @@ ENVTEST_K8S_VERSION = 1.29
 # To re-generate a bundle for another specific version without changing the standard setup, you can:
 # - use the VERSION as arg of the bundle target (e.g make bundle VERSION=0.0.2)
 # - use environment variables to overwrite this value (e.g export VERSION=0.0.2)
-DEFAULT_VERSION := 1.4.11
+DEFAULT_VERSION := 1.4.12
 VERSION ?= $(DEFAULT_VERSION)
 
 # IMAGE_TAG_BASE defines the docker.io namespace and part of the image name for remote images.
