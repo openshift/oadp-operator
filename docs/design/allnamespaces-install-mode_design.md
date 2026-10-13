@@ -106,7 +106,7 @@ AllNamespaces is the strategically correct direction:
 
 ## High-Level Design
 
-Two CSV metadata changes and two Go code changes:
+Two CSV metadata changes and three Go code changes:
 
 | # | Change | Why |
 |---|---|---|
@@ -114,8 +114,9 @@ Two CSV metadata changes and two Go code changes:
 | 2 | Add `OPERATOR_NAMESPACE` env var (from `metadata.namespace`) + Go fallback | `WATCH_NAMESPACE` is `""` in AllNamespaces mode by OLM design; operator needs its own namespace separately |
 | 3 | Add `permissions` entries for `non-admin-controller` and `velero` SAs | OLM requires these to create the ServiceAccounts in AllNamespaces mode |
 | 4 | Remove the manager cache's `DefaultNamespaces` restriction | Lets one operator instance reconcile DPAs across all namespaces, enabling multi-tenant DPA support |
+| 5 | Reconcile the `velero` ServiceAccount + RBAC per DPA namespace | OLM only creates the CSV-declared ServiceAccounts in the install namespace; tenant namespaces need them too |
 
-The RBAC `clusterPermissions` already granted cluster scope prior to this change (via `+kubebuilder:rbac` markers compiled into `config/rbac/role.yaml`), so no RBAC changes were required for Change 4 — only the cache restriction in `cmd/main.go` was blocking cluster-wide reconciliation.
+The RBAC `clusterPermissions` already granted cluster scope prior to Change 4 (via `+kubebuilder:rbac` markers compiled into `config/rbac/role.yaml`), so only the cache restriction in `cmd/main.go` was blocking cluster-wide reconciliation. Change 5 adds one new operator permission — `rbac.authorization.k8s.io` clusterroles/clusterrolebindings — so the operator can maintain the tenant RBAC itself.
 
 **How the operator resolves its namespace in each mode:**
 
@@ -207,11 +208,13 @@ This restricted every watch and `List` call registered through the manager's cli
 
 #### Multi-tenant Velero: how it holds together
 
-Removing the cache restriction raises an obvious question: if multiple DPAs in different namespaces are all reconciled by the same operator, do the resulting Velero instances interfere with each other? Three things make this safe without further code changes:
+Removing the cache restriction raises an obvious question: if multiple DPAs in different namespaces are all reconciled by the same operator, do the resulting Velero instances interfere with each other? Three things make this safe:
 
 - **Each Velero deployment already uses `dpa.Namespace`.** `internal/controller/velero.go` places the Velero Deployment, BackupStorageLocations, VolumeSnapshotLocations, and NodeAgent DaemonSet in the DPA's own namespace, not the operator's. This was already namespace-correct before this change — it just never mattered when only one DPA could exist cluster-wide.
 - **Velero itself resolves its own namespace per-pod.** Each Velero server pod sets `VELERO_NAMESPACE` via the Kubernetes downward API (`fieldRef: metadata.namespace`), the same mechanism used for `OPERATOR_NAMESPACE`. Velero's `pkg/client/factory.go` resolves the active namespace from `VELERO_NAMESPACE`, so each Velero instance only watches `Backup`/`Restore`/`BackupStorageLocation` CRs in its own namespace — never the operator's, and never another tenant's. No two Velero instances contend over the same CRs.
 - **The DPA singleton check is already namespace-scoped.** `ValidateDataProtectionCR` (`internal/controller/validator.go`) lists DPAs with `client.ListOptions{Namespace: r.NamespacedName.Namespace}` and rejects a second DPA *within the same namespace*. It does not, and should not, reject DPAs in different namespaces — that's exactly the multi-tenant case this change enables.
+
+A fourth requirement surfaced in live testing and is addressed by [Change 5](#change-5-per-dpa-namespace-velero-serviceaccount-and-rbac): the `velero` ServiceAccount and its RBAC must exist in each tenant namespace for the pods to run at all. That is not an interference risk — it is a prerequisite that Change 4's live test exposed.
 
 One known, pre-existing footgun, operational rather than code: Velero's CLI resolves its target namespace via `VELERO_NAMESPACE`, but a local `$HOME/.config/velero/config.json` config file (`pkg/client/config.go`, `LoadConfig()`) takes precedence over the env var if present. This is a client-side risk only — it is never set in any OADP-managed pod — but should be called out in multi-tenant documentation so operators scripting against the Velero CLI across multiple tenant namespaces don't get silently redirected to a cached namespace.
 
@@ -219,6 +222,40 @@ One exception that required its own fix: the `kubevirt-datamover` plugin is a ge
 
 - `MaxConcurrentReconciles` defaults to `1` and is never overridden in `SetupWithManager`, so today `Reconcile()` calls for every DPA are fully serialized and no race is actually possible.
 - As defense-in-depth against that default changing later (e.g. to improve multi-tenant DPA throughput), the cross-namespace conflict check was extracted into `checkKubevirtDatamoverClusterSingleton()` and is re-run, under a new `kubevirtDatamoverSingletonMu` mutex, immediately before the `CreateOrUpdate` call that actually creates the deployment — making the enforcement atomic regardless of reconciler concurrency. Both the `MaxConcurrentReconciles` reliance and the mutex's defense-in-depth role are documented inline on `SetupWithManager` and next to the mutex.
+
+### Change 5: Per-DPA-Namespace velero ServiceAccount and RBAC
+
+Discovered during live multi-tenant testing (2026-10-13): a DPA in a tenant namespace reconciles correctly — the operator (watching all namespaces, Change 4) creates the Velero Deployment, NodeAgent DaemonSet, and BSL in the DPA's own namespace — but the pods never start:
+
+```
+Error creating: pods "velero-..." is forbidden: error looking up service account oadp-tenant-test/velero: serviceaccount "velero" not found
+```
+
+The `velero` ServiceAccount is created by **OLM from the CSV's ServiceAccount declarations, in the install namespace only**. In AllNamespaces mode OLM copies the CSV to every namespace but does not spread ServiceAccounts or their bindings — and the OLM-generated ClusterRoleBindings for the velero SA's `clusterPermissions` are hardwired to `<install-namespace>/velero`. ServiceAccounts are namespace-scoped resources; there is no cluster-wide equivalent.
+
+The fix is a new `ReconcileVeleroRBAC` step, run before `ReconcileVeleroDeployment` in the reconcile batch, that creates per DPA namespace:
+
+- **ServiceAccount `velero`**, owner-ref'd to the DPA so it is garbage-collected with it. In the install namespace this reconciles the OLM-created SA (adding the owner reference), which also means deleting the install-namespace DPA now deletes that SA until the next reconcile recreates it.
+- **ClusterRole `oadp-velero`** with the velero permission set, shared by all DPAs and reconciled idempotently by each. Cluster-scoped objects cannot be owner-ref'd to a namespaced DPA, so there is no garbage collection for it.
+- **ClusterRoleBinding `oadp-velero-<namespace>`** binding that namespace's `velero` SA to the ClusterRole.
+
+Two deliberate decisions:
+
+- **The ClusterRole rules mirror the CSV's `clusterPermissions` for the velero SA** — 21 rules including `securitycontextconstraints use privileged` — *not* upstream Velero's `install.ClusterRoleBinding` helper, which binds the SA to `cluster-admin`. Tenant Velero instances must get exactly what the install-namespace one gets from OLM, no more. This creates a sync requirement between `bundle/manifests/oadp-operator.clusterserviceversion.yaml` and `veleroClusterRoleRules` in `internal/controller/velero.go`, noted inline in both places.
+- **A cleanup pass deletes `oadp-velero-*` ClusterRoleBindings whose namespace no longer has a DPA.** Without it, a leftover binding would grant the full velero permission set to any `velero` ServiceAccount recreated in that namespace later. The ServiceAccount itself is garbage-collected through the DPA owner reference; the binding cannot be, being cluster-scoped. One case remains: deleting the *last* DPA leaves its binding behind — inert, since its subject SA no longer exists, but untidy. Removing it synchronously would require a DPA finalizer; deferred (see [Known Gaps](#known-gaps)).
+
+The same gap applies to the `non-admin-controller` and `oadp-vm-file-restore-controller-manager` ServiceAccounts if those optional components are enabled in a tenant namespace; extending the pattern to them is follow-up work.
+
+A third constraint surfaced on the first live run of this change: **Kubernetes RBAC escalation prevention**. Creating a ClusterRole that grants permissions the creator does not itself hold is rejected. The first error listed two small gaps (`persistentvolumes`, `pods/log`), but the complete diff from the operator logs showed the operator lacks essentially the *entire* velero permission set — `velero.io * *`, `rbac.authorization.k8s.io * *`, `serviceaccounts *`, `NonResourceURLs *`, all the kubevirt rules — because that set is near-cluster-admin by design (Velero must back up everything). Granting the operator all of it ("creator holds what it grants") would just make the operator cluster-admin in effect and turn its curated permission set into a mirage.
+
+The fix is the Kubernetes-documented escape hatch: the **`escalate` and `bind` verbs on `clusterroles`** ([RBAC docs](https://kubernetes.io/docs/reference/access-authn-authz/rbac/)), the same mechanism OLM itself uses to materialize CSV permissions. The verbs cannot both be `resourceNames`-scoped: the escalation authorization request carries no object name on the create path (POST to the collection endpoint — see `RoleEscalationAuthorized` in `pkg/registry/rbac/escalation_check.go` in kubernetes), so a scoped `escalate` never matches a create; this was confirmed live before the grant was widened. The final grant is therefore:
+
+- `clusterroles`: `create`, `escalate`, `get`, `list`, `watch` — unscoped (unavoidable for creation)
+- `clusterroles`: `bind`, `update`, `patch` — scoped via `resourceNames: [oadp-velero]` (the bind check always carries the referenced role's name, and update/patch requests always carry the object name)
+- `clusterrolebindings`: full CRUD (bindings are per-DPA-namespace with generated names, so they cannot be enumerated in `resourceNames`; the scoped `bind` is what limits which role any binding may reference)
+- no `delete` on `clusterroles` at all (the ClusterRole is never deleted)
+
+The scoping matters: with `bind` limited to `oadp-velero`, the operator cannot attach any other ClusterRole to any identity, and with `update`/`patch` limited to `oadp-velero`, it cannot modify existing ClusterRoles (e.g. widening `cluster-admin`). An "evil" ClusterRole could be *created* under unscoped `escalate`, but nothing could ever bind it through this identity.
 
 ### OLM Behavior in AllNamespaces Mode
 
@@ -260,7 +297,7 @@ This follows the pattern used by the Loki Operator (`openshift-operators-redhat`
 
 Two supported ways to install in AllNamespaces mode, both creating the same OLM resources (CatalogSource, global OperatorGroup, Subscription):
 
-- **Make target (local dev)** — `make deploy-olm-allnamespaces`. Wraps the repo's `deploy-olm` flow (build and push operator/bundle/catalog images, then `oc apply` the CatalogSource, OperatorGroup, and Subscription); the only difference is the OperatorGroup shape: `spec: {}` (empty `targetNamespaces`, OLM's all-namespaces signal) instead of `targetNamespaces: [openshift-adp]`. It reuses the same OperatorGroup name and namespace as `deploy-olm`, so `make undeploy-olm` cleans up either mode. (Done — `make -n` dry-run verified for both modes; live-cluster exercise lands with Phase 3 e2e.)
+- **Make target (local dev)** — `make deploy-olm-allnamespaces`. Wraps the repo's `deploy-olm` flow (build and push operator/bundle/catalog images, then `oc apply` the CatalogSource, OperatorGroup, and Subscription); the only difference is the OperatorGroup shape: `spec: {}` (empty `targetNamespaces`, OLM's all-namespaces signal) instead of `targetNamespaces: [openshift-adp]`. It reuses the same OperatorGroup name and namespace as `deploy-olm`, so `make undeploy-olm` cleans up either mode. (Done — live-cluster verified 2026-10-13: CSV Succeeded, see [Validation](#validation).)
 - **`operator-sdk` one-liner (standalone)** — `operator-sdk run bundle <bundle-image> --install-mode AllNamespaces --security-context-config restricted --namespace openshift-adp`. Installs a pre-built bundle image without the repo's build flow; removed with `operator-sdk cleanup oadp-operator --namespace openshift-adp`.
 - Add a Prow presubmit job that deploys with the make target and runs the existing e2e suite unchanged.
 - This gives immediate signal before writing any new test code.
@@ -293,12 +330,13 @@ Notes:
 - Remove the `cache.Options{DefaultNamespaces: ...}` restriction in `cmd/main.go`.
 - Extract and mutex-protect the `kubevirt-datamover` cluster-wide singleton check-then-act sequence.
 - Verify via `go build`, `go vet`, and `go test ./cmd/...` / `./internal/controller/...` that nothing else depends on the namespace-restricted cache. (Done — see [Validation](#validation).)
+- Add `ReconcileVeleroRBAC` — per-DPA-namespace `velero` ServiceAccount, ClusterRole, and ClusterRoleBinding (Change 5), added after live testing surfaced the missing-SA failure. (Done — see [Validation](#validation).)
 
 ### Phase 6: Multi-Tenant E2E Tests
 
-Not yet implemented. Test scenarios specific to multiple concurrent DPAs:
+The first scenario was verified by hand on a live cluster (2026-10-13, see [Validation](#validation)); the rest are not yet implemented as tests:
 
-- Two DPAs in different namespaces, both reconciled successfully, each with its own independent Velero deployment, BSL/VSL, and NodeAgent DaemonSet.
+- Two DPAs in different namespaces, both reconciled successfully, each with its own independent Velero deployment, BSL/VSL, and NodeAgent DaemonSet. *(Verified live 2026-10-13 — both DPAs `Reconciled=True`, tenant Velero and node-agents Running, both BSLs `Available`. Still needs to be encoded as an automated test.)*
 - A backup created against one tenant's Velero instance is not visible to or picked up by another tenant's Velero instance.
 - A second DPA in a different namespace enabling `kubevirt-datamover` while another namespace already has it enabled is rejected with the existing singleton error.
 - Concurrent creation of two DPAs that both enable `kubevirt-datamover` (stress-testing the mutex added in Change 4) resolves to exactly one winner, not both or neither.
@@ -336,6 +374,7 @@ Rejected:
 - The `velero` SA's ClusterRole grants near-cluster-admin permissions (`apiGroups: ['*'], resources: ['*']`). These are bound via `ClusterRoleBinding`, which is cluster-scoped regardless of install mode. The `OwnNamespace` OperatorGroup does not restrict these permissions — the RBAC posture is identical in both modes.
 - The new `permissions` entries add minimal RBAC (configmaps, leases, events) and are strictly less permissive than the existing `clusterPermissions` for those SAs. In AllNamespaces mode, OLM promotes these to ClusterRoles.
 - A security review of the velero SA permissions is recommended as a general hygiene item, independent of this change.
+- Change 5 has the operator create a stable-named ClusterRole (`oadp-velero`) and per-namespace ClusterRoleBindings mirroring the velero SA's CSV `clusterPermissions`. The rules deliberately mirror the curated CSV set rather than upstream Velero's `cluster-admin` default, so tenant Velero instances receive exactly the install-namespace privilege level — no more. A cleanup pass removes bindings whose namespace no longer has a DPA, so a future recreated `velero` ServiceAccount there does not silently inherit the permission set. To satisfy RBAC escalation prevention the operator holds `escalate` (unscoped, required for the create path) with `bind`/`update`/`patch` scoped via `resourceNames` to `oadp-velero`: it can attach and modify exactly that ClusterRole and nothing else. This adds no effective power: the operator already controls the Velero deployment spec in the install namespace and can therefore run arbitrary code as the `openshift-adp/velero` SA, whose OLM binding already grants near-cluster-admin. The verbs replace that indirect path with a direct, auditable one.
 
 ## Compatibility
 
@@ -348,6 +387,7 @@ Rejected:
 ## Open Issues
 
 1. **Target OADP release**: Which version will include this change?
+2. **Where should multi-tenant DPAs live?** The current implementation puts each DPA in its tenant's namespace (self-serve model: a tenant with DPA-create RBAC in their namespace manages their own backups). The alternative — all DPAs in the operator's namespace with a spec field naming the target namespace for Velero (admin-managed model) — simplifies the watch scope (Change 4 would become optional) but removes tenant self-service and adds a cross-namespace ownership question. Note this choice is orthogonal to the RBAC work: Velero's isolation boundary is the namespace (each Velero instance watches all Backups/BSLs in its own namespace, so two isolated Veleros cannot share one), so *any* multi-tenant design places Velero workloads — and therefore the `velero` SA and its RBAC — in tenant namespaces. Change 5 and the `escalate`/`bind` grant are required either way. Decided for now: keep DPAs in tenant namespaces; revisit if the self-serve model proves wrong for the customer base.
 
 ## Validation
 
@@ -363,7 +403,21 @@ Rejected:
 | Manager started, leader election acquired | AllNamespaces | PASS |
 | `make bundle` idempotent (no post-gen patch) | — | PASS |
 
-**Multi-tenant cache change (Change 4).** Verified at the build/unit level only; not yet cluster-tested:
+**Multi-tenant live test (2026-10-13, OpenShift 4.22 / AWS cluster).** Operator deployed with `make deploy-olm-allnamespaces` at commit `fb3b6451` — i.e. Changes 1-4, before Change 5:
+
+| Check | Result |
+|---|---|
+| Global OperatorGroup (`spec: {}`, `status.namespaces: [""]`) | PASS |
+| CSV `installModes` AllNamespaces=true / OwnNamespace=true, phase Succeeded | PASS |
+| `WATCH_NAMESPACE` = `""`, `OPERATOR_NAMESPACE` = `openshift-adp` in running pod | PASS |
+| DPA in second namespace (`oadp-tenant-test`) reconciled: deployment, DaemonSet, BSL, registry secret, metrics service all created there | PASS |
+| Duplicate DPA in `openshift-adp` rejected ("only one DPA CR can exist per OADP installation namespace") | PASS |
+| CLI/VMDP servers remain only in the operator namespace | PASS |
+| CSV copies in all namespaces (75), Succeeded | PASS |
+| Operator logs clean during cross-namespace reconcile | PASS |
+| Tenant Velero/node-agent pods running | **FAIL** — `serviceaccount "velero" not found`, fixed by Change 5 |
+
+**Multi-tenant cache change (Change 4) — build/unit level:**
 
 | Check | Result |
 |---|---|
@@ -371,14 +425,30 @@ Rejected:
 | `go vet ./cmd/...`, `go vet ./internal/controller/...` | PASS |
 | `go test ./cmd/...` | PASS |
 | `go test ./internal/controller/...` (unit tests, excluding the envtest-based `TestAPIs` Ginkgo suite) | PASS, including existing `kubevirt-datamover` singleton tests |
-| Live cluster test with two DPAs in different namespaces, both reconciling | **Not yet done** — tracked in Phase 6 |
+
+**Per-DPA-namespace velero RBAC (Change 5, commit `fc1c63a6`) — build/unit level:**
+
+| Check | Result |
+|---|---|
+| `go build ./...`, `go vet ./internal/controller/...` | PASS |
+| `TestDPAReconciler_ReconcileVeleroRBAC` (fake-client unit test: SA with owner ref, ClusterRole rules, CRB, stale-CRB cleanup, idempotency) | PASS |
+| `make manifests` / `make bundle`: operator SA's `clusterPermissions` gained `rbac.authorization.k8s.io` clusterroles/clusterrolebindings | PASS |
+| Live run 1 (`fc1c63a6`): `velero` ServiceAccount created in tenant namespace with DPA owner ref; ClusterRole creation rejected by RBAC escalation prevention | Found |
+| Live run 2 (`370e9487`): after granting the first two missing rule sets, escalation still rejected — full log diff shows the operator lacks essentially the entire near-cluster-admin velero permission set | Found → superset approach abandoned |
+| Fix attempt 1 (`011481d2`): `escalate`/`bind` scoped via `resourceNames` to `oadp-velero` | Failed live — the create-path escalation check carries no object name (POST to the collection endpoint), so a scoped `escalate` never matches a create |
+| Fix (`083a16fd`): `escalate` unscoped for creation; `bind`/`update`/`patch` remain scoped to `oadp-velero`; no `delete` on clusterroles | Committed |
+| Live run 4 (`083a16fd`): ClusterRole created with all 21 rules; ClusterRoleBindings for both DPA namespaces; tenant Velero pod running; tenant BSL `Available`; but `Reconciled=False` — cleanup pass failed listing ClusterRoleBindings (`ClusterWideClient` scheme lacked `rbacv1`) | Found → fixed in `6520fff6` |
+| Final live verification (`6520fff6`, 2026-10-13): both DPAs `Reconciled=True`; tenant Velero 1/1 Running; all 3 tenant node-agents 1/1 Running; both BSLs `Available` | **PASS** |
 
 The envtest-based `TestAPIs` suite does not currently run in this environment (missing `etcd`/`kube-apiserver` binaries under `bin/k8s/`), independent of this change.
 
 ## Known Gaps
 
-- **PSA labeling and CLI/VMDP asset setup remain single-namespace.** `cmd/main.go` still only labels the operator's own `watchNamespace` for Pod Security Admission and sets up CLI/VMDP download assets there. Under multi-tenant DPA, each tenant namespace running Velero/NodeAgent pods needs equivalent PSA labeling; this has not been extended per-tenant yet.
-- **No live multi-tenant test coverage yet.** See Phase 6 above.
+- **PSA labeling and CLI/VMDP asset setup remain single-namespace.** `cmd/main.go` still only labels the operator's own `watchNamespace` for Pod Security Admission and sets up CLI/VMDP download assets there. Under multi-tenant DPA, each tenant namespace running Velero/NodeAgent pods needs equivalent PSA labeling; this has not been extended per-tenant yet. (On OpenShift, SCC admission — not PSA labels — is the actual gate, and Change 5's ClusterRole grants `securitycontextconstraints use privileged` to each tenant's `velero` SA, so tenant pods run despite the missing labels; PSA labeling matters for plain-Kubernetes-style admission and best practice.)
+- **Optional-component ServiceAccounts are not per-tenant yet.** The `non-admin-controller` and `oadp-vm-file-restore-controller-manager` ServiceAccounts have the same install-namespace-only gap that Change 5 fixed for the `velero` SA. Enabling those components in a tenant namespace will fail the same way until the `ReconcileVeleroRBAC` pattern is extended to them.
+- **Deleting the last DPA leaves its `oadp-velero-<ns>` ClusterRoleBinding behind** (inert — the subject ServiceAccount is garbage-collected with the DPA). Removing it synchronously requires a DPA finalizer; deferred.
+- **CSV ↔ Go rule sync.** `veleroClusterRoleRules` in `internal/controller/velero.go` must be kept in sync with the CSV's `clusterPermissions` for the velero SA. Noted inline in the code.
+- **Phase 6 scenarios 2-4 not yet tested** — backup isolation between tenants, kubevirt-datamover cross-tenant rejection, and concurrent-creation stress test.
 
 ## Future Enhancements
 
