@@ -33,6 +33,7 @@ import (
 	monitor "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	velerov1 "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
 	appsv1 "k8s.io/api/apps/v1"
+	rbacv1 "k8s.io/api/rbac/v1"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -261,6 +262,7 @@ func main() {
 	utilruntime.Must(oadpv1alpha1.AddToScheme(uncachedClientScheme))
 	utilruntime.Must(appsv1.AddToScheme(uncachedClientScheme))
 	utilruntime.Must(snapshotv1api.AddToScheme(uncachedClientScheme))
+	utilruntime.Must(rbacv1.AddToScheme(uncachedClientScheme))
 	uncachedClient, err := client.New(kubeconf, client.Options{
 		Scheme: uncachedClientScheme,
 	})

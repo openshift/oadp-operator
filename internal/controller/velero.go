@@ -145,10 +145,160 @@ func (r *DataProtectionApplicationReconciler) veleroServiceAccount() *corev1.Ser
 	return sa
 }
 
-func (r *DataProtectionApplicationReconciler) veleroClusterRoleBinding() *rbacv1.ClusterRoleBinding {
-	crb := install.ClusterRoleBinding(r.dpa.Namespace)
-	crb.Labels = getDpaAppLabels(r.dpa)
-	return crb
+// veleroRBACClusterRoleName is the stable name of the ClusterRole the operator
+// maintains for the velero ServiceAccount. OLM binds the CSV's
+// clusterPermissions for that ServiceAccount only in the operator's install
+// namespace (the generated ClusterRoleBindings are hardwired to
+// <install-namespace>/velero), so the operator maintains an equivalent,
+// stable-named ClusterRole itself.
+const veleroRBACClusterRoleName = "oadp-velero"
+
+// veleroClusterRoleRules mirrors the CSV's clusterPermissions for the velero
+// ServiceAccount (bundle/manifests/oadp-operator.clusterserviceversion.yaml).
+// The two must be kept in sync: this grants tenant-namespace Velero
+// deployments exactly what the install-namespace one gets from OLM.
+var veleroClusterRoleRules = []rbacv1.PolicyRule{
+	{APIGroups: []string{"backup.kubevirt.io"}, Resources: []string{"virtualmachinebackups", "virtualmachinebackuptrackers"}, Verbs: []string{"get", "list", "delete"}},
+	{APIGroups: []string{""}, Resources: []string{"persistentvolumeclaims"}, Verbs: []string{"create", "delete", "get", "list", "patch", "update", "watch"}},
+	{APIGroups: []string{""}, Resources: []string{"persistentvolumes"}, Verbs: []string{"delete", "get", "list", "patch", "update", "watch"}},
+	{APIGroups: []string{""}, Resources: []string{"pods"}, Verbs: []string{"create", "delete", "get", "list", "watch"}},
+	{APIGroups: []string{""}, Resources: []string{"pods/log"}, Verbs: []string{"get"}},
+	{APIGroups: []string{""}, Resources: []string{"secrets"}, Verbs: []string{"get", "list", "watch"}},
+	{APIGroups: []string{"backup.kubevirt.io"}, Resources: []string{"virtualmachinebackups", "virtualmachinebackuptrackers"}, Verbs: []string{"create", "delete", "get", "list", "patch", "update", "watch"}},
+	{APIGroups: []string{"backup.kubevirt.io"}, Resources: []string{"virtualmachinebackups/status"}, Verbs: []string{"get"}},
+	{APIGroups: []string{"backup.kubevirt.io"}, Resources: []string{"virtualmachinebackuptrackers/status"}, Verbs: []string{"get", "patch", "update"}},
+	{APIGroups: []string{"kubevirt.io"}, Resources: []string{"virtualmachines"}, Verbs: []string{"get", "list", "watch"}},
+	{APIGroups: []string{"velero.io"}, Resources: []string{"backupstoragelocations"}, Verbs: []string{"get", "list", "watch"}},
+	{APIGroups: []string{"velero.io"}, Resources: []string{"datadownloads", "datauploads"}, Verbs: []string{"get", "list", "patch", "update", "watch"}},
+	{APIGroups: []string{"velero.io"}, Resources: []string{"datadownloads/status", "datauploads/status"}, Verbs: []string{"get", "patch", "update"}},
+	{APIGroups: []string{"authentication.k8s.io"}, Resources: []string{"tokenreviews"}, Verbs: []string{"create"}},
+	{APIGroups: []string{"authorization.k8s.io"}, Resources: []string{"subjectaccessreviews"}, Verbs: []string{"create"}},
+	{APIGroups: []string{"build.openshift.io", "migration.openshift.io", "rbac.authorization.k8s.io", "velero.io"}, Resources: []string{"*"}, Verbs: []string{"*"}},
+	{APIGroups: []string{""}, Resources: []string{"serviceaccounts"}, Verbs: []string{"*"}},
+	{APIGroups: []string{"packages.operators.coreos.com"}, Resources: []string{"packagemanifests"}, Verbs: []string{"*"}},
+	{APIGroups: []string{"*"}, Resources: []string{"*"}, Verbs: []string{"get", "watch", "list", "update", "patch", "create", "delete", "assign", "deletecollection"}},
+	{NonResourceURLs: []string{"*"}, Verbs: []string{"*"}},
+	{APIGroups: []string{"security.openshift.io"}, Resources: []string{"securitycontextconstraints"}, ResourceNames: []string{"privileged"}, Verbs: []string{"use"}},
+}
+
+func veleroRBACLabels() map[string]string {
+	return map[string]string{
+		"app.kubernetes.io/name":       common.Velero,
+		"app.kubernetes.io/managed-by": common.OADPOperator,
+		"app.kubernetes.io/component":  "velero-rbac",
+		oadpv1alpha1.OadpOperatorLabel: "True",
+	}
+}
+
+// ReconcileVeleroRBAC ensures the velero ServiceAccount and the RBAC it needs
+// exist for the DPA's namespace.
+//
+// OLM creates the CSV-declared ServiceAccounts only in the operator's install
+// namespace. With the manager watching all namespaces (multi-tenant DPA, one
+// DPA per namespace), the Velero deployment, node-agent DaemonSet and
+// kubevirt-datamover controller in any other namespace reference a
+// ServiceAccount that otherwise does not exist there, so this reconcile
+// creates, per DPA namespace:
+//
+//   - ServiceAccount "velero", owner-ref'd to the DPA so it is
+//     garbage-collected with it.
+//   - ClusterRole "oadp-velero" with the velero permission set, shared by all
+//     DPAs. Cluster-scoped objects cannot be owner-ref'd to a namespaced DPA,
+//     so it is reconciled idempotently by every DPA instead.
+//   - ClusterRoleBinding "oadp-velero-<namespace>" binding that namespace's
+//     ServiceAccount to the ClusterRole.
+//
+// ClusterRoleBindings whose namespace no longer has a DPA are deleted in a
+// cleanup pass below; see the comment there for the last-DPA-deleted case.
+func (r *DataProtectionApplicationReconciler) ReconcileVeleroRBAC(log logr.Logger) (bool, error) {
+	dpa := r.dpa
+
+	serviceAccount := r.veleroServiceAccount()
+	op, err := controllerutil.CreateOrPatch(r.Context, r.Client, serviceAccount, func() error {
+		serviceAccount.Labels = getDpaAppLabels(dpa)
+		return controllerutil.SetControllerReference(dpa, serviceAccount, r.Scheme)
+	})
+	if err != nil {
+		return false, fmt.Errorf("error reconciling velero ServiceAccount: %w", err)
+	}
+	if debugMode && op != controllerutil.OperationResultNone {
+		log.Info("Velero ServiceAccount reconciled with changes", "operation", op)
+	}
+
+	clusterRole := &rbacv1.ClusterRole{
+		ObjectMeta: metav1.ObjectMeta{Name: veleroRBACClusterRoleName},
+	}
+	op, err = controllerutil.CreateOrPatch(r.Context, r.Client, clusterRole, func() error {
+		clusterRole.Labels = veleroRBACLabels()
+		clusterRole.Rules = veleroClusterRoleRules
+		return nil
+	})
+	if err != nil {
+		return false, fmt.Errorf("error reconciling velero ClusterRole: %w", err)
+	}
+	if debugMode && op != controllerutil.OperationResultNone {
+		log.Info("Velero ClusterRole reconciled with changes", "operation", op)
+	}
+
+	clusterRoleBinding := &rbacv1.ClusterRoleBinding{
+		ObjectMeta: metav1.ObjectMeta{Name: veleroRBACClusterRoleName + "-" + dpa.Namespace},
+	}
+	op, err = controllerutil.CreateOrPatch(r.Context, r.Client, clusterRoleBinding, func() error {
+		clusterRoleBinding.Labels = veleroRBACLabels()
+		clusterRoleBinding.Subjects = []rbacv1.Subject{
+			{Kind: rbacv1.ServiceAccountKind, Name: common.Velero, Namespace: dpa.Namespace},
+		}
+		clusterRoleBinding.RoleRef = rbacv1.RoleRef{
+			APIGroup: rbacv1.GroupName,
+			Kind:     "ClusterRole",
+			Name:     veleroRBACClusterRoleName,
+		}
+		return nil
+	})
+	if err != nil {
+		return false, fmt.Errorf("error reconciling velero ClusterRoleBinding: %w", err)
+	}
+	if op == controllerutil.OperationResultCreated {
+		r.EventRecorder.Event(dpa, corev1.EventTypeNormal, "VeleroRBACReconciled",
+			fmt.Sprintf("created velero ServiceAccount RBAC for namespace %s", dpa.Namespace))
+	}
+
+	// Delete ClusterRoleBindings we manage whose namespace no longer has a
+	// DPA. They are cluster-scoped, so they cannot be garbage-collected
+	// through the DPA's owner reference the way the ServiceAccount is, and a
+	// leftover binding would grant the full velero permission set to any
+	// "velero" ServiceAccount recreated in that namespace later. (If the last
+	// DPA is deleted, no reconcile runs afterwards to clean up its binding:
+	// it stays behind inert, bound to a ServiceAccount that no longer
+	// exists. Removing it would require a DPA finalizer.)
+	crbList := &rbacv1.ClusterRoleBindingList{}
+	if err := r.ClusterWideClient.List(r.Context, crbList, client.MatchingLabels{
+		"app.kubernetes.io/managed-by": common.OADPOperator,
+		"app.kubernetes.io/component":  "velero-rbac",
+	}); err != nil {
+		return false, fmt.Errorf("error listing velero ClusterRoleBindings: %w", err)
+	}
+	dpaList := &oadpv1alpha1.DataProtectionApplicationList{}
+	if err := r.ClusterWideClient.List(r.Context, dpaList); err != nil {
+		return false, fmt.Errorf("error listing DataProtectionApplications: %w", err)
+	}
+	dpaNamespaces := make(map[string]struct{}, len(dpaList.Items))
+	for _, d := range dpaList.Items {
+		dpaNamespaces[d.Namespace] = struct{}{}
+	}
+	for _, crb := range crbList.Items {
+		if len(crb.Subjects) == 0 || crb.Subjects[0].Namespace == dpa.Namespace {
+			continue
+		}
+		if _, ok := dpaNamespaces[crb.Subjects[0].Namespace]; ok {
+			continue
+		}
+		if err := r.ClusterWideClient.Delete(r.Context, &crb); err != nil && !errors.IsNotFound(err) {
+			return false, fmt.Errorf("error deleting stale velero ClusterRoleBinding %s: %w", crb.Name, err)
+		}
+	}
+
+	return true, nil
 }
 
 // Build VELERO Deployment
