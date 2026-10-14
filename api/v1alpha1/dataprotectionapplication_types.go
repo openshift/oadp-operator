@@ -689,7 +689,7 @@ type KubevirtDatamoverConfig struct {
 
 	// MaxConcurrentDataMovers is the maximum number of concurrent active
 	// DataUploads/DataDownloads per direction (DU and DD counted independently).
-	// 0 means unlimited (default behavior).
+	// 0 means unlimited. If unset, the controller defaults to 3.
 	// +kubebuilder:validation:Minimum=0
 	// +optional
 	MaxConcurrentDataMovers *int32 `json:"maxConcurrentDataMovers,omitempty"`
