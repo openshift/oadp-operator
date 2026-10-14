@@ -229,7 +229,7 @@ func dpaUsesCredentialsFile(dpa *oadpv1alpha1.DataProtectionApplication) bool {
 // check-then-act (validate in ValidateDataProtectionCR, create later in
 // ReconcileKubevirtDatamoverController) is only race-free while reconciles
 // do not overlap. Raising concurrency here requires making that sequence
-// atomic first (see the tracking issue referenced on the check).
+// atomic first (see https://github.com/openshift/oadp-operator/issues/2490 referenced on the check).
 func (r *DataProtectionApplicationReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&oadpv1alpha1.DataProtectionApplication{}, builder.WithPredicates(veleroPredicate(r.Scheme))).

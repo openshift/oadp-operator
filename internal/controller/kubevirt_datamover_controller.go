@@ -57,7 +57,7 @@ var (
 // deployment creation later in ReconcileKubevirtDatamoverController) is only
 // safe because reconciles are serialized: MaxConcurrentReconciles is never
 // overridden in SetupWithManager. If that ever changes, this must be made
-// atomic (e.g. a mutex around check + create); see the tracking issue.
+// atomic (e.g. a mutex around check + create); see https://github.com/openshift/oadp-operator/issues/2490.
 func (r *DataProtectionApplicationReconciler) checkKubevirtDatamoverClusterSingleton() error {
 	dpaList := &oadpv1alpha1.DataProtectionApplicationList{}
 	if err := r.ClusterWideClient.List(r.Context, dpaList); err != nil {
