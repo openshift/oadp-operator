@@ -426,7 +426,7 @@ Rejected:
 | `go test ./cmd/...` | PASS |
 | `go test ./internal/controller/...` (unit tests, excluding the envtest-based `TestAPIs` Ginkgo suite) | PASS, including existing `kubevirt-datamover` singleton tests |
 
-**Per-DPA-namespace velero RBAC (Change 5) — build/unit level and live iteration history.** The intermediate fix commits below were squashed into the single Change 5 commit (`3d7b59cd`) on the implementation branch; this table preserves the full development story:
+**Per-DPA-namespace velero RBAC (Change 5) — build/unit level and live iteration history.** The intermediate fix commits below were squashed into the single Change 5 commit (`ea3faad6`, PR [#2488](https://github.com/openshift/oadp-operator/pull/2488)) on the implementation branch; this table preserves the full development story:
 
 | Check | Result |
 |---|---|
