@@ -468,7 +468,8 @@ api-isupdated:
 bundle-isupdated: TEMP:= $(shell mktemp -d)
 bundle-isupdated: VERSION:= $(DEFAULT_VERSION) #prevent VERSION overrides from https://github.com/openshift/release/blob/f1a388ab05d493b6d95b8908e28687b4c0679498/clusters/build-clusters/01_cluster/ci/_origin-release-build/golang-1.19/Dockerfile#LL9C1-L9C1
 bundle-isupdated:
-	@cp -r ./ $(TEMP) && cd $(TEMP) && make bundle && cd - && diff -ruN bundle/ $(TEMP)/bundle/ && echo "bundle is up to date" || (echo "bundle is out of date, run 'make bundle' to update" && exit 1)
+	@cp -r ./ $(TEMP) && cd $(TEMP) && make bundle || (echo "make bundle failed in temp dir; check above for errors" && chmod -R 777 $(TEMP) && rm -rf $(TEMP) && exit 1)
+	@diff -ruN bundle/ $(TEMP)/bundle/ && echo "bundle is up to date" || (echo "bundle is out of date, run 'make bundle' to update" && chmod -R 777 $(TEMP) && rm -rf $(TEMP) && exit 1)
 	@chmod -R 777 $(TEMP) && rm -rf $(TEMP)
 
 .PHONY: check-go-dependencies
