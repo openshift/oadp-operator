@@ -403,7 +403,7 @@ Rejected:
 | Manager started, leader election acquired | AllNamespaces | PASS |
 | `make bundle` idempotent (no post-gen patch) | — | PASS |
 
-**Multi-tenant live test (2026-10-13, OpenShift 4.22 / AWS cluster).** Operator deployed with `make deploy-olm-allnamespaces` at commit `fb3b6451` — i.e. Changes 1-4, before Change 5:
+**Multi-tenant live test (2026-10-13, OpenShift 4.22 / AWS cluster).** Operator deployed with `make deploy-olm-allnamespaces` — i.e. Changes 1-4, before Change 5:
 
 | Check | Result |
 |---|---|
@@ -426,19 +426,19 @@ Rejected:
 | `go test ./cmd/...` | PASS |
 | `go test ./internal/controller/...` (unit tests, excluding the envtest-based `TestAPIs` Ginkgo suite) | PASS, including existing `kubevirt-datamover` singleton tests |
 
-**Per-DPA-namespace velero RBAC (Change 5, commit `fc1c63a6`) — build/unit level:**
+**Per-DPA-namespace velero RBAC (Change 5) — build/unit level and live iteration history.** The intermediate fix commits below were squashed into the single Change 5 commit (`3d7b59cd`) on the implementation branch; this table preserves the full development story:
 
 | Check | Result |
 |---|---|
 | `go build ./...`, `go vet ./internal/controller/...` | PASS |
 | `TestDPAReconciler_ReconcileVeleroRBAC` (fake-client unit test: SA with owner ref, ClusterRole rules, CRB, stale-CRB cleanup, idempotency) | PASS |
 | `make manifests` / `make bundle`: operator SA's `clusterPermissions` gained `rbac.authorization.k8s.io` clusterroles/clusterrolebindings | PASS |
-| Live run 1 (`fc1c63a6`): `velero` ServiceAccount created in tenant namespace with DPA owner ref; ClusterRole creation rejected by RBAC escalation prevention | Found |
-| Live run 2 (`370e9487`): after granting the first two missing rule sets, escalation still rejected — full log diff shows the operator lacks essentially the entire near-cluster-admin velero permission set | Found → superset approach abandoned |
-| Fix attempt 1 (`011481d2`): `escalate`/`bind` scoped via `resourceNames` to `oadp-velero` | Failed live — the create-path escalation check carries no object name (POST to the collection endpoint), so a scoped `escalate` never matches a create |
-| Fix (`083a16fd`): `escalate` unscoped for creation; `bind`/`update`/`patch` remain scoped to `oadp-velero`; no `delete` on clusterroles | Committed |
-| Live run 4 (`083a16fd`): ClusterRole created with all 21 rules; ClusterRoleBindings for both DPA namespaces; tenant Velero pod running; tenant BSL `Available`; but `Reconciled=False` — cleanup pass failed listing ClusterRoleBindings (`ClusterWideClient` scheme lacked `rbacv1`) | Found → fixed in `6520fff6` |
-| Final live verification (`6520fff6`, 2026-10-13): both DPAs `Reconciled=True`; tenant Velero 1/1 Running; all 3 tenant node-agents 1/1 Running; both BSLs `Available` | **PASS** |
+| Live run 1: `velero` ServiceAccount created in tenant namespace with DPA owner ref; ClusterRole creation rejected by RBAC escalation prevention | Found |
+| Live run 2: after granting the first two missing rule sets, escalation still rejected — full log diff shows the operator lacks essentially the entire near-cluster-admin velero permission set | Found → superset approach abandoned |
+| Fix attempt: `escalate`/`bind` scoped via `resourceNames` to `oadp-velero` | Failed live — the create-path escalation check carries no object name (POST to the collection endpoint), so a scoped `escalate` never matches a create |
+| Final fix: `escalate` unscoped for creation; `bind`/`update`/`patch` remain scoped to `oadp-velero`; no `delete` on clusterroles | Committed |
+| Live run 3: ClusterRole created with all 21 rules; ClusterRoleBindings for both DPA namespaces; tenant Velero pod running; tenant BSL `Available`; but `Reconciled=False` — cleanup pass failed listing ClusterRoleBindings (`ClusterWideClient` scheme lacked `rbacv1`) | Found → fixed (scheme registration) |
+| Final live verification (2026-10-13): both DPAs `Reconciled=True`; tenant Velero 1/1 Running; all 3 tenant node-agents 1/1 Running; both BSLs `Available` | **PASS** |
 
 The envtest-based `TestAPIs` suite does not currently run in this environment (missing `etcd`/`kube-apiserver` binaries under `bin/k8s/`), independent of this change.
 
