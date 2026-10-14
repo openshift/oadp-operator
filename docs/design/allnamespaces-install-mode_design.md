@@ -156,7 +156,7 @@ flowchart LR
         C3["Change 3: CSV permissions"]
         C6["deploy-olm-allnamespaces<br/>make target"]
         C2["Change 2: OPERATOR_NAMESPACE<br/>+ fallback"]
-        C4["Change 4: unrestricted cache<br/>+ kubevirt-datamover mutex"]
+        C4["Change 4: unrestricted cache<br/>+ serialized singleton check"]
         C5["Change 5: per-namespace<br/>velero SA + RBAC"]
     end
     subgraph future ["OLMv1 — the jump"]
@@ -181,7 +181,7 @@ flowchart LR
 | 1. `installModes: AllNamespaces` | Falls away | No OperatorGroup, no mode matching — the field is ignored, harmless baggage in the bundle |
 | 2. `OPERATOR_NAMESPACE` + fallback | Survives, matters more | Nothing sets `olm.targetNamespaces`, so `WATCH_NAMESPACE` resolves empty — exactly the condition the fallback handles (it should additionally tolerate *unset*) |
 | 3. CSV `permissions` entries | Falls away | OLMv1 generates no RBAC from any manifest |
-| 4. Unrestricted cache + mutex | Survives, required | OLMv1's imposed topology is the one this enables; pure runtime behavior |
+| 4. Unrestricted cache | Survives, required | OLMv1's imposed topology is the one this enables; pure runtime behavior |
 | `deploy-olm-allnamespaces` | Falls away | OLMv0 flow; OLMv1 deploys via `ClusterExtension` (the `catalog-fbc-build` Makefile help already shows that YAML) |
 | 5. `ReconcileVeleroRBAC` | Becomes mandatory | Under OLMv1 nobody ever creates the velero SA; the operator self-managing workload RBAC is the only model. The `escalate` grant moves from CSV `clusterPermissions` to the admin-provided install ServiceAccount |
 
@@ -316,10 +316,7 @@ A fourth requirement surfaced in live testing and is addressed by [Change 5](#ch
 
 One known, pre-existing footgun, operational rather than code: Velero's CLI resolves its target namespace via `VELERO_NAMESPACE`, but a local `$HOME/.config/velero/config.json` config file (`pkg/client/config.go`, `LoadConfig()`) takes precedence over the env var if present. This is a client-side risk only — it is never set in any OADP-managed pod — but should be called out in multi-tenant documentation so operators scripting against the Velero CLI across multiple tenant namespaces don't get silently redirected to a cached namespace.
 
-One exception that required its own fix: the `kubevirt-datamover` plugin is a genuine cluster-wide singleton — only one instance may run across the entire cluster, regardless of how many DPAs exist. `ValidateDataProtectionCR` already enforced this (using an uncached `ClusterWideClient.List`/`.Get` to check other namespaces' DPAs and their Deployments) before this change, but with reconciliation now happening across namespaces instead of being structurally impossible, the check-then-act sequence — check in `ValidateDataProtectionCR`, act (create the Deployment) later in `ReconcileKubevirtDatamoverController` — needed explicit concurrency protection:
-
-- `MaxConcurrentReconciles` defaults to `1` and is never overridden in `SetupWithManager`, so today `Reconcile()` calls for every DPA are fully serialized and no race is actually possible.
-- As defense-in-depth against that default changing later (e.g. to improve multi-tenant DPA throughput), the cross-namespace conflict check was extracted into `checkKubevirtDatamoverClusterSingleton()` and is re-run, under a new `kubevirtDatamoverSingletonMu` mutex, immediately before the `CreateOrUpdate` call that actually creates the deployment — making the enforcement atomic regardless of reconciler concurrency. Both the `MaxConcurrentReconciles` reliance and the mutex's defense-in-depth role are documented inline on `SetupWithManager` and next to the mutex.
+One exception that needed its own treatment: the `kubevirt-datamover` plugin is a genuine cluster-wide singleton — only one instance may run across the entire cluster, regardless of how many DPAs exist. `ValidateDataProtectionCR` enforces this (using an uncached `ClusterWideClient.List`/`.Get` to check other namespaces' DPAs and their Deployments). With reconciliation now happening across namespaces, the check-then-act sequence — check in `ValidateDataProtectionCR`, act (create the Deployment) later in `ReconcileKubevirtDatamoverController` — has a TOCTOU window, but it cannot open while reconciles are serialized: `MaxConcurrentReconciles` is never overridden in `SetupWithManager` and stays at controller-runtime's default of `1`. A mutex around the check-then-act was prototyped and live-tested during this work, then removed as defense-in-depth against a race that cannot occur under the current configuration — it also moved a `ClusterWideClient` call into a path the envtest specs exercise without one, breaking four specs. The serialization reliance is documented inline on `SetupWithManager` and on the check, and the follow-up for the day concurrency is raised (re-run the check under a mutex immediately before the create, keeping the unlocked validator call for fast feedback) is tracked in [issue #2490](https://github.com/openshift/oadp-operator/issues/2490).
 
 ### Change 5: Per-DPA-Namespace velero ServiceAccount and RBAC
 
@@ -380,7 +377,7 @@ This follows the pattern used by the Loki Operator (`openshift-operators-redhat`
 | 2. Deploy + CI | Makefile target + Prow job with existing e2e suite | Low | Phase 1 |
 | 3. AllNamespaces e2e tests | AllNamespaces-specific test scenarios | Medium | Phase 2 |
 | 4. Migration documentation | OperatorGroup swap procedure | Low | Phase 3 |
-| 5. Multi-tenant DPA reconciliation | Remove cache restriction, mutex-protect kubevirt-datamover singleton | Medium | Phase 1 |
+| 5. Multi-tenant DPA reconciliation | Remove cache restriction, extract kubevirt-datamover singleton check | Medium | Phase 1 |
 | 6. Multi-tenant e2e tests | Concurrent DPAs in different namespaces, cross-tenant isolation | Medium | Phase 5 |
 
 ### Phase 1: CSV + Go Changes
@@ -426,7 +423,7 @@ Notes:
 ### Phase 5: Multi-Tenant DPA Reconciliation
 
 - Remove the `cache.Options{DefaultNamespaces: ...}` restriction in `cmd/main.go`.
-- Extract and mutex-protect the `kubevirt-datamover` cluster-wide singleton check-then-act sequence.
+- Extract the `kubevirt-datamover` cluster-wide singleton check into `checkKubevirtDatamoverClusterSingleton()`; safety relies on serialized reconciles (`MaxConcurrentReconciles` = 1), documented inline and tracked in [#2490](https://github.com/openshift/oadp-operator/issues/2490) for the concurrency follow-up. (A mutex around the check-then-act was prototyped and live-tested, then removed — see Change 4.)
 - Verify via `go build`, `go vet`, and `go test ./cmd/...` / `./internal/controller/...` that nothing else depends on the namespace-restricted cache. (Done — see [Validation](#validation).)
 - Add `ReconcileVeleroRBAC` — per-DPA-namespace `velero` ServiceAccount, ClusterRole, and ClusterRoleBinding (Change 5), added after live testing surfaced the missing-SA failure. (Done — see [Validation](#validation).)
 
@@ -437,7 +434,7 @@ The first scenario was verified by hand on a live cluster (2026-10-13, see [Vali
 - Two DPAs in different namespaces, both reconciled successfully, each with its own independent Velero deployment, BSL/VSL, and NodeAgent DaemonSet. *(Verified live 2026-10-13 — both DPAs `Reconciled=True`, tenant Velero and node-agents Running, both BSLs `Available`. Still needs to be encoded as an automated test.)*
 - A backup created against one tenant's Velero instance is not visible to or picked up by another tenant's Velero instance.
 - A second DPA in a different namespace enabling `kubevirt-datamover` while another namespace already has it enabled is rejected with the existing singleton error.
-- Concurrent creation of two DPAs that both enable `kubevirt-datamover` (stress-testing the mutex added in Change 4) resolves to exactly one winner, not both or neither.
+- Concurrent creation of two DPAs that both enable `kubevirt-datamover` resolves to exactly one winner, not both or neither (validates the serialized-reconciles reliance; see [#2490](https://github.com/openshift/oadp-operator/issues/2490)).
 
 ## Upgrade Path
 
@@ -538,7 +535,14 @@ Rejected:
 | Live run 3: ClusterRole created with all 21 rules; ClusterRoleBindings for both DPA namespaces; tenant Velero pod running; tenant BSL `Available`; but `Reconciled=False` — cleanup pass failed listing ClusterRoleBindings (`ClusterWideClient` scheme lacked `rbacv1`) | Found → fixed (scheme registration) |
 | Final live verification (2026-10-13): both DPAs `Reconciled=True`; tenant Velero 1/1 Running; all 3 tenant node-agents 1/1 Running; both BSLs `Available` | **PASS** |
 
-The envtest-based `TestAPIs` suite does not currently run in this environment (missing `etcd`/`kube-apiserver` binaries under `bin/k8s/`), independent of this change.
+**CI (PR [#2488](https://github.com/openshift/oadp-operator/pull/2488)):**
+
+| Check | Result |
+|---|---|
+| First `unit-test` Prow run | **FAIL** — 4 kubevirt-datamover envtest specs panicked: the mutex re-check in `ReconcileKubevirtDatamoverController` called `ClusterWideClient`, which the spec harness does not set |
+| After removing the mutex (see Change 4) | Full `go test ./internal/controller/` green locally, including all 66 envtest specs — pushed as `399cfe0f` |
+
+Note on running the envtest suite locally: `make envtest` + `bin/setup-envtest use 1.32 --bin-dir bin -p path` installs the assets under `bin/k8s/1.32.0-<os>-<arch>`, which is where `suite_test.go` looks. Run the whole package (`go test ./internal/controller/`), not `-run TestAPIs`: the suite reuses the global client-go scheme, and `configv1` (needed by the node-agent specs) is only registered into it as a side effect of plain tests in `bsl_test.go` running first in file order — with a `-run` filter those never run and four node-agent specs fail with `no kind is registered for the type v1.Infrastructure`.
 
 ## Known Gaps
 
