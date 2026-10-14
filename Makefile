@@ -684,10 +684,13 @@ deploy-olm: undeploy-olm ## Build current branch operator image, bundle image, p
 	else \
 		echo "OperatorGroup already exists"; \
 		OG_NAMESPACES=$$($(OC_CLI) get operatorgroup -n $(OADP_TEST_NAMESPACE) -o jsonpath='{.items[*].spec.targetNamespaces}' 2>/dev/null); \
-		if echo "$$OG_NAMESPACES" | grep -q "$(OADP_TEST_NAMESPACE)"; then \
+		OG_SELECTOR=$$($(OC_CLI) get operatorgroup -n $(OADP_TEST_NAMESPACE) -o jsonpath='{.items[*].spec.selector}' 2>/dev/null); \
+		if [ "$$OG_NAMESPACES" = '["$(OADP_TEST_NAMESPACE)"]' ]; then \
 			EXISTING_MODE="OwnNamespace"; \
-		else \
+		elif { [ -z "$$OG_NAMESPACES" ] || [ "$$OG_NAMESPACES" = "[]" ]; } && [ -z "$$OG_SELECTOR" ]; then \
 			EXISTING_MODE="AllNamespaces"; \
+		else \
+			EXISTING_MODE="selecting other namespaces ($$OG_NAMESPACES$$OG_SELECTOR)"; \
 		fi; \
 		if [ "$$EXISTING_MODE" != "$(INSTALL_MODE)" ]; then \
 			echo "ERROR: OperatorGroup in $(OADP_TEST_NAMESPACE) resolves to $$EXISTING_MODE but INSTALL_MODE=$(INSTALL_MODE) was requested. Delete it (oc delete operatorgroup -n $(OADP_TEST_NAMESPACE) --all) or rerun with a matching INSTALL_MODE." >&2; \

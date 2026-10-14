@@ -225,10 +225,11 @@ func dpaUsesCredentialsFile(dpa *oadpv1alpha1.DataProtectionApplication) bool {
 // is set here, so it defaults to 1 (controller-runtime's default), meaning
 // Reconcile() calls for every DPA across every namespace are fully
 // serialized. The cluster-wide kubevirt-datamover singleton check in
-// checkKubevirtDatamoverClusterSingleton additionally guards its
-// check-then-act with kubevirtDatamoverSingletonMu, so raising concurrency
-// here in the future (e.g. for multi-tenant DPA throughput) will not
-// silently reintroduce a race that lets two DPAs both enable that plugin.
+// checkKubevirtDatamoverClusterSingleton relies on this serialization: its
+// check-then-act (validate in ValidateDataProtectionCR, create later in
+// ReconcileKubevirtDatamoverController) is only race-free while reconciles
+// do not overlap. Raising concurrency here requires making that sequence
+// atomic first (see the tracking issue referenced on the check).
 func (r *DataProtectionApplicationReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&oadpv1alpha1.DataProtectionApplication{}, builder.WithPredicates(veleroPredicate(r.Scheme))).

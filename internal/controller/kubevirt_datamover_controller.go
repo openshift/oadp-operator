@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"os"
 	"strconv"
-	"sync"
 
 	"github.com/go-logr/logr"
 	"github.com/sirupsen/logrus"
@@ -47,27 +46,18 @@ var (
 
 	kdmDpaResourceVersion            = ""
 	previousKubevirtDatamoverEnabled = false
-
-	// kubevirtDatamoverSingletonMu guards the check-then-act sequence that
-	// enforces the cluster-wide kubevirt-datamover singleton: listing all
-	// DPAs/Deployments across namespaces, then creating this namespace's
-	// deployment, must happen atomically with respect to any other DPA's
-	// reconcile doing the same thing concurrently.
-	//
-	// Today this is defense-in-depth rather than a fix for an active bug:
-	// controller-runtime's MaxConcurrentReconciles defaults to 1 (and is not
-	// overridden in SetupWithManager for this reconciler), so Reconcile()
-	// calls for all DPAs are already fully serialized and this race cannot
-	// currently occur. The mutex exists so that raising concurrency in the
-	// future (e.g. for multi-tenant DPA throughput) doesn't silently
-	// reintroduce a TOCTOU window that lets two DPAs both enable the plugin.
-	kubevirtDatamoverSingletonMu sync.Mutex
 )
 
 // checkKubevirtDatamoverClusterSingleton returns an error if some other DPA,
 // in a different namespace, already has the kubevirt-datamover plugin
 // enabled and its deployment installed. Only one instance of the
 // kubevirt-datamover controller is supported per cluster.
+//
+// The check-then-act sequence (this check in ValidateDataProtectionCR, the
+// deployment creation later in ReconcileKubevirtDatamoverController) is only
+// safe because reconciles are serialized: MaxConcurrentReconciles is never
+// overridden in SetupWithManager. If that ever changes, this must be made
+// atomic (e.g. a mutex around check + create); see the tracking issue.
 func (r *DataProtectionApplicationReconciler) checkKubevirtDatamoverClusterSingleton() error {
 	dpaList := &oadpv1alpha1.DataProtectionApplicationList{}
 	if err := r.ClusterWideClient.List(r.Context, dpaList); err != nil {
@@ -88,10 +78,14 @@ func (r *DataProtectionApplicationReconciler) checkKubevirtDatamoverClusterSingl
 				Namespace: dpa.Namespace,
 			},
 		}
-		if err := r.ClusterWideClient.Get(r.Context,
+		err := r.ClusterWideClient.Get(r.Context,
 			types.NamespacedName{Name: kubevirtDatamoverDeployment.Name, Namespace: kubevirtDatamoverDeployment.Namespace},
-			kubevirtDatamoverDeployment); err == nil {
+			kubevirtDatamoverDeployment)
+		if err == nil {
 			return fmt.Errorf("only a single instance of KubeVirt DataMover Controller can be installed across the entire cluster. KubeVirt DataMover controller is already configured and installed in %s namespace", dpa.Namespace)
+		}
+		if !k8serror.IsNotFound(err) {
+			return err
 		}
 	}
 	return nil
@@ -122,20 +116,6 @@ func (r *DataProtectionApplicationReconciler) ReconcileKubevirtDatamoverControll
 		r.EventRecorder.Event(deployment, corev1.EventTypeNormal, "KubevirtDatamoverDeploymentDeleteSucceed",
 			fmt.Sprintf("Kubevirt-datamover controller deployment %s/%s deleted", deployment.Namespace, deployment.Name))
 		return true, nil
-	}
-
-	// Re-check (and hold) the cluster-wide singleton invariant atomically
-	// with the create/update below. ValidateDataProtectionCR already ran
-	// this same check earlier in the reconcile batch for fast feedback, but
-	// unlocked, so a concurrent reconcile for another DPA could have passed
-	// its own check and created its deployment in between. Re-checking here
-	// under the lock is what actually prevents two DPAs from both ending up
-	// with a kubevirt-datamover deployment.
-	kubevirtDatamoverSingletonMu.Lock()
-	defer kubevirtDatamoverSingletonMu.Unlock()
-
-	if err := r.checkKubevirtDatamoverClusterSingleton(); err != nil {
-		return false, err
 	}
 
 	// Create or update deployment

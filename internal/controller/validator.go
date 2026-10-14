@@ -363,13 +363,13 @@ func (r *DataProtectionApplicationReconciler) ValidateDataProtectionCR(log logr.
 
 	// validate kubevirt-datamover plugin enable
 	if r.checkKubevirtDatamoverEnabled() {
-		// Cluster-wide singleton enforcement. This is a best-effort, unlocked
-		// check done here purely for fast user feedback (reject obviously
-		// conflicting DPAs early, before running the rest of the reconcile
-		// batch). The authoritative check, which is also what actually
-		// protects against a concurrent create, is re-run under a mutex
-		// immediately before the deployment is created in
-		// ReconcileKubevirtDatamoverController.
+		// Cluster-wide singleton enforcement. Only one kubevirt-datamover
+		// controller may exist per cluster; this check rejects DPAs in other
+		// namespaces that try to enable the plugin while a deployment already
+		// exists elsewhere. The check-then-act pairing with the deployment
+		// creation in ReconcileKubevirtDatamoverController is race-free only
+		// because reconciles are serialized (MaxConcurrentReconciles is never
+		// overridden in SetupWithManager).
 		if err := r.checkKubevirtDatamoverClusterSingleton(); err != nil {
 			return false, err
 		}

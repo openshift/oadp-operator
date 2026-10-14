@@ -29,7 +29,7 @@ $ make deploy-olm
 ```
 
 To install in AllNamespaces mode instead (global OperatorGroup; the operator
-still watches only its own namespace), run:
+reconciles DataProtectionApplications in all namespaces), run:
 
 ```
 $ make deploy-olm-allnamespaces
