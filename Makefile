@@ -1065,6 +1065,10 @@ else
 MUST_GATHER_IMAGE  ?= quay.io/konveyor/oadp-must-gather:latest
 endif
 TEST_UPGRADE ?= false
+# TEST_ALLNAMESPACES=true runs the AllNamespaces-specific e2e specs (ginkgo
+# label "allnamespaces") in addition to the default suite, meant for jobs that
+# install the operator with a global OperatorGroup (deploy-olm-allnamespaces).
+TEST_ALLNAMESPACES ?= false
 FAIL_FAST ?= true
 TEST_FILTER = (($(shell echo '! aws && ! gcp && ! azure && ! ibmcloud' | \
 $(SED) -r "s/[&]* [!] $(CLUSTER_TYPE)|[!] $(CLUSTER_TYPE) [&]*//")) || $(CLUSTER_TYPE))
@@ -1099,6 +1103,11 @@ ifeq ($(TEST_UPGRADE),true)
 	TEST_FILTER += && (upgrade)
 else
 	TEST_FILTER += && (! upgrade)
+endif
+ifeq ($(TEST_ALLNAMESPACES),true)
+	TEST_FILTER += && (allnamespaces)
+else
+	TEST_FILTER += && (! allnamespaces)
 endif
 ifeq ($(TEST_HCP),true)
 	TEST_FILTER += && (hcp)
@@ -1158,6 +1167,11 @@ test-e2e: test-e2e-setup install-ginkgo $(if $(MUST_GATHER_REPO),build-must-gath
 	$(HCP_EXTERNAL_ARGS) \
 	|| EXIT_CODE=$$?; \
 	exit $${EXIT_CODE:-0}
+
+.PHONY: test-e2e-allnamespaces
+test-e2e-allnamespaces: ## Deploy via OLM in AllNamespaces mode (global OperatorGroup), then run the e2e suite including the AllNamespaces-specific specs
+	$(MAKE) deploy-olm-allnamespaces
+	$(MAKE) test-e2e TEST_ALLNAMESPACES=true
 
 .PHONY: test-e2e-cleanup
 test-e2e-cleanup: login-required
