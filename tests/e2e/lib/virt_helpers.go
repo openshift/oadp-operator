@@ -2064,6 +2064,16 @@ func (v *VirtOperator) RunGuestExecScript(kubeConfig *rest.Config, namespace, vm
 			// rather than aborting on the first bad response.
 			return false, nil
 		}
+		// Transient QEMU guest-agent bug: guest-exec-status sometimes
+		// returns {"error":{"class":"GenericError","desc":"Invalid parameter
+		// 'pid'"}} immediately after the guest-exec dispatch succeeded.
+		// This is a known qemu-guest-agent race (not an OADP product
+		// issue) where the PID is valid but the agent hasn't registered
+		// it yet. Retry instead of aborting.
+		if strings.Contains(out, "Invalid parameter") && strings.Contains(out, "pid") {
+			log.Printf("transient QEMU guest-agent error for VM %s/%s (domain %s): %s — retrying", namespace, vmName, domainName, lastNonEmptyLine(out))
+			return false, nil
+		}
 		if err := json.Unmarshal([]byte(lastNonEmptyLine(out)), &statusReply); err != nil {
 			return false, fmt.Errorf("failed to parse guest-exec-status reply for VM %s/%s (domain %s, raw output: %q): %w", namespace, vmName, domainName, out, err)
 		}
