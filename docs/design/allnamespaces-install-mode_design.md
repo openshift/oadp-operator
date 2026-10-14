@@ -45,7 +45,7 @@ flowchart LR
 
 It is declarative, GitOps-friendly, and uses a cluster-admin security model instead of namespace-scoped ServiceAccount RBAC.
 
-**OLMv1 GA only supports AllNamespaces mode.** The rationale, as documented in the [OLMv1 single/own namespace enhancement proposal](https://github.com/openshift/enhancements/pull/1849):
+**OLMv1 GA has no install-mode concept at all.** With the OperatorGroup gone, nothing exists to select a scope, so every `ClusterExtension` installs cluster-scoped by default — "AllNamespaces" is OLMv0 vocabulary for the topology OLMv1 simply imposes, not a mode OLMv1 supports. The rationale for cluster-scope-only, as documented in the [OLMv1 single/own namespace enhancement proposal](https://github.com/openshift/enhancements/pull/1849):
 
 1. **CRDs are cluster-scoped singletons.** Only one definition of a CRD can exist per cluster. OLMv0's multi-tenancy promise — that multiple operator instances in different namespaces could each own their own CRDs — was architecturally flawed.
 2. **Dependency resolution requires a global view.** OLMv1's explicit dependency model cannot work at namespace scope.
@@ -83,13 +83,111 @@ Additionally, OLM requires every ServiceAccount declared in `clusterPermissions`
 
 ### OLMv1 Alignment
 
-AllNamespaces is the strategically correct direction:
+OLMv1 does not *need* AllNamespaces — it removes the concept of install modes entirely. "AllNamespaces" is OLMv0 vocabulary: a CSV declaration that the operator tolerates a global OperatorGroup. OLMv1 deleted the OperatorGroup, and with it the mechanism that made scope a *choice*. Every extension installs cluster-scoped because nothing exists to select otherwise. (Namespaced installs were bolted back on as Tech Preview in OCP 4.19 — [OCPSTRAT-1711](https://issues.redhat.com/browse/OCPSTRAT-1711) — and remain TP; see [Background](#olmv1--the-new-model).)
 
-- OLMv1 GA (OCP 4.18) shipped with AllNamespaces-only support.
-- OwnNamespace was added as Tech Preview in OCP 4.19 ([OCPSTRAT-1711](https://issues.redhat.com/browse/OCPSTRAT-1711)) and remains TP.
-- Enabling AllNamespaces now positions OADP for OLMv1 readiness without requiring disruptive changes to runtime behavior — the operator continues watching only its own namespace.
+The correct framing for this design: **OLMv1 imposes the AllNamespaces topology. This design lets OADP run that topology under OLMv0 today, so the eventual OLMv1 switch is a deployment-mechanics change rather than a runtime-behavior change.**
 
-> **Note:** AllNamespaces here refers to the install mode (how OLM deploys the operator), not the operator's watch scope.
+One nuance keeps the transition from being a total wipeout: the CSV does not fully die under OLMv1. The bundle still carries it, and OLMv1 renders its `install.spec.deployments` stanza to create the operator Deployment — but stops reading everything around it: `installModes`, `permissions`, `clusterPermissions`. The CSV becomes "deployment spec plus inert metadata."
+
+#### Concept comparison: CSV
+
+```mermaid
+flowchart TB
+    subgraph v0 ["OLMv0 — CSV is a live cluster object"]
+        direction TB
+        CSV0["CSV oadp-operator.v99.0.0<br/>(cluster object, phase: Succeeded)"]
+        CSV0 -->|"installModes matched<br/>against OperatorGroup"| OG0["OperatorGroup<br/>decides install scope"]
+        CSV0 -->|"permissions + clusterPermissions"| GEN0["OLM RBAC generation<br/>(install namespace only)"]
+        CSV0 -->|"install.spec.deployments"| DEP0["Operator Deployment"]
+        CSV0 -.->|"copied to every namespace"| COPY0["CSV copies"]
+    end
+    subgraph v1 ["OLMv1 — CSV is inert bundle metadata"]
+        direction TB
+        BUN1["Bundle image"] --> CSV1["CSV (file inside the bundle)"]
+        CSV1 -->|"only install.spec.deployments<br/>is rendered"| DEP1["Operator Deployment"]
+        CSV1 -.->|"installModes: nothing to match"| DROP1["ignored"]
+        CSV1 -.->|"permissions: no RBAC generation"| DROP2["ignored"]
+    end
+```
+
+#### Concept comparison: ServiceAccount
+
+```mermaid
+flowchart TB
+    subgraph v0 ["OLMv0 — OLM creates SAs at install time, install namespace only"]
+        direction TB
+        CSV0["CSV declares SAs"] --> OLM0["OLM install"]
+        OLM0 --> SA0["velero SA in openshift-adp"]
+        OLM0 -.->|"no SA created in<br/>tenant namespaces"| GAP["tenant namespaces:<br/>no velero SA"]
+        GAP -->|"Change 5"| C5A["operator creates the velero SA<br/>per DPA namespace itself"]
+    end
+    subgraph v1 ["OLMv1 — nobody creates workload SAs, ever"]
+        direction TB
+        CE1["ClusterExtension"] -->|"spec.install.serviceAccount<br/>(admin-provided)"| OP1["operator runs with<br/>the admin SA's privileges"]
+        OP1 -->|"Change 5 — the only model that works"| C5B["operator creates the velero SA<br/>per DPA namespace itself"]
+    end
+```
+
+#### Concept comparison: RBAC
+
+```mermaid
+flowchart TB
+    subgraph v0 ["OLMv0 — OLM generates RBAC from the CSV"]
+        direction TB
+        PERM0["CSV clusterPermissions<br/>(velero SA, near-cluster-admin)"] --> PROMOTE["OLM promotion<br/>(ensureSingletonRBAC)"]
+        PROMOTE --> CRB0["ClusterRoleBindings hardwired to<br/>openshift-adp/velero"]
+        CRB0 -.->|"tenant SAs get nothing"| GAP0["gap"]
+        GAP0 -->|"Change 5"| C5C["operator grants velero permissions<br/>per namespace (scoped escalate/bind)"]
+    end
+    subgraph v1 ["OLMv1 — no RBAC generation at all"]
+        direction TB
+        ADMIN1["admin grants the install SA<br/>what the operator needs<br/>(including escalate)"] --> OP1B["operator"]
+        OP1B --> C5D["Change 5: operator grants velero permissions<br/>per namespace (scoped escalate/bind)"]
+    end
+```
+
+#### What happens to each change when OLMv1 arrives
+
+```mermaid
+flowchart LR
+    subgraph today ["OLMv0 — today"]
+        direction TB
+        C1["Change 1: installModes"]
+        C3["Change 3: CSV permissions"]
+        C6["deploy-olm-allnamespaces<br/>make target"]
+        C2["Change 2: OPERATOR_NAMESPACE<br/>+ fallback"]
+        C4["Change 4: unrestricted cache<br/>+ kubevirt-datamover mutex"]
+        C5["Change 5: per-namespace<br/>velero SA + RBAC"]
+    end
+    subgraph future ["OLMv1 — the jump"]
+        direction TB
+        GONE["falls away:<br/>inert bundle metadata,<br/>nothing consumes installModes"]
+        GONE2["falls away:<br/>no RBAC generation from manifests"]
+        GONE3["falls away:<br/>replaced by the<br/>ClusterExtension flow"]
+        KEEP1["survives, matters more:<br/>olm.targetNamespaces never set,<br/>WATCH_NAMESPACE stays empty"]
+        KEEP2["survives, required:<br/>cluster-scope is imposed"]
+        MUST["becomes mandatory:<br/>nobody else ever creates<br/>workload SAs or RBAC"]
+    end
+    C1 -.->|falls away| GONE
+    C3 -.->|falls away| GONE2
+    C6 -.->|falls away| GONE3
+    C2 ==>|survives| KEEP1
+    C4 ==>|survives| KEEP2
+    C5 ==>|mandatory| MUST
+```
+
+| Change | Fate under OLMv1 | Why |
+|---|---|---|
+| 1. `installModes: AllNamespaces` | Falls away | No OperatorGroup, no mode matching — the field is ignored, harmless baggage in the bundle |
+| 2. `OPERATOR_NAMESPACE` + fallback | Survives, matters more | Nothing sets `olm.targetNamespaces`, so `WATCH_NAMESPACE` resolves empty — exactly the condition the fallback handles (it should additionally tolerate *unset*) |
+| 3. CSV `permissions` entries | Falls away | OLMv1 generates no RBAC from any manifest |
+| 4. Unrestricted cache + mutex | Survives, required | OLMv1's imposed topology is the one this enables; pure runtime behavior |
+| `deploy-olm-allnamespaces` | Falls away | OLMv0 flow; OLMv1 deploys via `ClusterExtension` (the `catalog-fbc-build` Makefile help already shows that YAML) |
+| 5. `ReconcileVeleroRBAC` | Becomes mandatory | Under OLMv1 nobody ever creates the velero SA; the operator self-managing workload RBAC is the only model. The `escalate` grant moves from CSV `clusterPermissions` to the admin-provided install ServiceAccount |
+
+The strategic read: the OLMv0-facing work (Changes 1, 3, the make target) bought the *topology* customers can run today; the runtime work (Changes 2, 4, 5) is what actually crosses the OLMv1 boundary. OLMv0 remains available alongside OLMv1 from OCP 4.18, with removal expected around OCP 6.0 — the CSV-facing changes serve that whole window and quietly stop mattering on the far side of it.
+
+> **Note:** "AllNamespaces" throughout this document refers to the OLMv0 install mode. Under OLMv1 the same runtime topology exists without a name, because no alternative exists either.
 
 ## Goals
 
