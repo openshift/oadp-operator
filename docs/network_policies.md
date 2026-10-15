@@ -68,3 +68,14 @@ The managed-by label added to the node-agent pod template causes its DaemonSet t
 The policies cover the components listed above in the DPA's namespace. VM file restore policies in separate restore namespaces and a uniform label rollout across every component are outside this change. Restored application pods retain their own networking configuration.
 
 The controller tests check generated selectors, excluded ACM and generic workload labels, allowed DNS ports, mover ingress isolation, and ownership-checked cleanup. They do not enforce network traffic. Live validation must exercise ACM startup and backup/restore, DNS over UDP and TCP, OADP backup and restore paths, dynamically created movers, monitoring, and the node-agent rollout on a cluster that enforces NetworkPolicy.
+
+The E2E suite's `network-policy` cases check traffic while OADP's own policies are active. They do not create additional NetworkPolicies:
+
+- Pods with ACM, generic controller-manager, generic Velero, other-operator, other-Velero, and unrelated labels can resolve the API Service, read their test ConfigMap using a restricted service account, and receive HTTP requests from another pod. The inbound check catches an accidentally broad selector even when that policy allows unrestricted egress.
+- A partner service account submits a ConfigMap-only Velero backup and restore through the API from its own pod. The test deletes the original ConfigMap and verifies its restored contents.
+- A monitoring-labelled namespace can reach Velero metrics, while an ordinary namespace cannot. Ordinary pods can reach both download servers, while those servers cannot initiate API connections. Positive checks establish that the destination is reachable before expecting a timeout from a restricted source.
+- The enabled non-admin controller resolves DNS over UDP and TCP through both Service port 53 and endpoint port 5353, and accesses the API. Its other egress is blocked. Monitoring can reach its metrics, while an ordinary namespace cannot. A restricted diagnostic container shares the actual controller pod's network namespace because its image has no shell. The test restores the DPA configuration afterward.
+
+The existing Kopia and CSI data mover backup/restore tests also check that actual node-agent pods match their policy. CSI data mover tests watch upload and download pods from before each operation starts, then check the observed pods against the mover policy, including pods already removed after transfer completion.
+
+These checks run alongside the backup/restore and DPA deployment tests in the existing provider E2E jobs through `make test-e2e`; no separate Prow job is needed. Test pods, service accounts, ConfigMaps, RBAC resources, namespaces, and backup/restore artifacts are cleaned up afterward. Traffic checks require a cluster that enforces NetworkPolicy. Full ACM and individual partner-product integration remain separate validation.
