@@ -102,6 +102,9 @@ func runHCPBackupAndRestore(
 	includedResources := libhcp.HCPIncludedResources
 	excludedResources := libhcp.HCPExcludedResources
 	includedNamespaces := []string{hcNamespace, libhcp.GetHCPNamespace(h.HostedCluster.Name, hcNamespace)}
+	if len(brCase.AdditionalBackupNamespaces) > 0 {
+		includedNamespaces = append(includedNamespaces, brCase.AdditionalBackupNamespaces...)
+	}
 
 	nsRequiresResticDCWorkaround := runHCPBackup(brCase.BackupRestoreCase, backupName, h, includedNamespaces, includedResources, excludedResources)
 
@@ -150,11 +153,12 @@ type VerificationFunctionGuest func(client.Client, string) error
 
 type HCPBackupRestoreCase struct {
 	BackupRestoreCase
-	Mode                   HCBackupRestoreMode
-	PreBackupVerifyGuest   VerificationFunctionGuest
-	PostRestoreVerifyGuest VerificationFunctionGuest
-	Template               string // Optional: only used when Mode == HCPModeCreate
-	Provider               string // Optional: only used when Mode == HCPModeCreate
+	Mode                       HCBackupRestoreMode
+	PreBackupVerifyGuest       VerificationFunctionGuest
+	PostRestoreVerifyGuest     VerificationFunctionGuest
+	Template                   string   // Optional: only used when Mode == HCPModeCreate
+	Provider                   string   // Optional: only used when Mode == HCPModeCreate
+	AdditionalBackupNamespaces []string // Optional: extra namespaces to include in backup (e.g. guest cluster workload namespaces)
 }
 
 var _ = ginkgo.Describe("HCP Backup and Restore tests", ginkgo.Ordered, func() {
