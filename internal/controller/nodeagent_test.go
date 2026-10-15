@@ -23,9 +23,11 @@ import (
 	"github.com/vmware-tanzu/velero/pkg/util/kube"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	networkingv1 "k8s.io/api/networking/v1"
 	storagev1 "k8s.io/api/storage/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/client-go/tools/record"
@@ -425,6 +427,7 @@ func createTestBuiltNodeAgentDaemonSet(options TestBuiltNodeAgentDaemonSetOption
 				ObjectMeta: metav1.ObjectMeta{
 					Labels: map[string]string{
 						"component":                          common.Velero,
+						"app.kubernetes.io/managed-by":       common.OADPOperator,
 						"name":                               common.NodeAgent,
 						"openshift.io/node-agent-cm-version": "",
 						"role":                               common.NodeAgent,
@@ -1800,6 +1803,47 @@ func TestDPAReconciler_buildNodeAgentDaemonset(t *testing.T) {
 					t.Errorf("expected NodeAgent DaemonSet diffs.\nDIFF:%v", cmp.Diff(test.wantNodeAgentDaemonSet, result))
 				}
 			}
+		})
+	}
+}
+
+func TestNodeAgentNetworkPolicyLabels(t *testing.T) {
+	for _, override := range []bool{false, true} {
+		t.Run(fmt.Sprintf("override=%t", override), func(t *testing.T) {
+			dpa := createTestDpaWith(nil, oadpv1alpha1.DataProtectionApplicationSpec{
+				Configuration: &oadpv1alpha1.ApplicationConfig{
+					Velero: &oadpv1alpha1.VeleroConfig{},
+					NodeAgent: &oadpv1alpha1.NodeAgentConfig{
+						NodeAgentCommonFields: oadpv1alpha1.NodeAgentCommonFields{
+							PodConfig: &oadpv1alpha1.PodConfig{Labels: map[string]string{"custom": "retained"}},
+						},
+						UploaderType: "kopia",
+					},
+				},
+			})
+			if override {
+				dpa.Spec.Configuration.NodeAgent.PodConfig.Labels["app.kubernetes.io/managed-by"] = "another-operator"
+			}
+			dpa.AutoCorrect()
+			fakeClient, err := getFakeClientFromObjects(testGenericInfrastructure)
+			require.NoError(t, err)
+			r := &DataProtectionApplicationReconciler{
+				Client: fakeClient, Scheme: fakeClient.Scheme(), dpa: dpa,
+				Context: context.Background(), EventRecorder: record.NewFakeRecorder(10),
+				NamespacedName: types.NamespacedName{Name: dpa.Name, Namespace: dpa.Namespace},
+			}
+			ds, err := r.buildNodeAgentDaemonset(testNodeAgentDaemonSet.DeepCopy())
+			require.NoError(t, err)
+			require.Equal(t, "oadp-operator", ds.Spec.Template.Labels["app.kubernetes.io/managed-by"])
+			require.Equal(t, "retained", ds.Spec.Template.Labels["custom"])
+			require.Equal(t, map[string]string{"component": "velero", "name": "node-agent"}, ds.Spec.Selector.MatchLabels)
+
+			require.NoError(t, r.reconcileVeleroNetworkPolicy(logr.Discard()))
+			np := &networkingv1.NetworkPolicy{}
+			require.NoError(t, fakeClient.Get(r.Context, types.NamespacedName{Name: veleroNetworkPolicyName, Namespace: dpa.Namespace}, np))
+			selector, err := metav1.LabelSelectorAsSelector(&np.Spec.PodSelector)
+			require.NoError(t, err)
+			require.True(t, selector.Matches(labels.Set(ds.Spec.Template.Labels)))
 		})
 	}
 }
