@@ -10,10 +10,12 @@ import (
 	networkingv1 "k8s.io/api/networking/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/utils/ptr"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	oadpv1alpha1 "github.com/openshift/oadp-operator/api/v1alpha1"
 	"github.com/openshift/oadp-operator/pkg/common"
@@ -65,22 +67,138 @@ var _ = ginkgo.Describe("ReconcileNetworkPolicies", func() {
 		gomega.Expect(k8sClient.Delete(ctx, namespace)).To(gomega.Succeed())
 	})
 
-	ginkgo.It("should create default-deny NetworkPolicy", func() {
+	ginkgo.It("should isolate OADP workloads without selecting unrelated pods in the namespace", func() {
+		dpa.Spec.NonAdmin = &oadpv1alpha1.NonAdmin{Enable: ptr.To(true)}
+		dpa.Spec.VMFileRestore = &oadpv1alpha1.VMFileRestore{Enable: ptr.To(true)}
+		dpa.Spec.Configuration.Velero.DefaultPlugins = []oadpv1alpha1.DefaultPlugin{
+			oadpv1alpha1.DefaultPluginKubeVirtDataMover,
+		}
+		gomega.Expect(k8sClient.Update(ctx, dpa)).To(gomega.Succeed())
+		gomega.Expect(k8sClient.Get(ctx, types.NamespacedName{
+			Name: dpa.Name, Namespace: dpa.Namespace,
+		}, r.dpa)).To(gomega.Succeed())
+
 		success, err := r.ReconcileNetworkPolicies(r.Log)
 		gomega.Expect(err).NotTo(gomega.HaveOccurred())
 		gomega.Expect(success).To(gomega.BeTrue())
 
-		np := &networkingv1.NetworkPolicy{}
-		err = k8sClient.Get(ctx, types.NamespacedName{
-			Name:      defaultDenyNetworkPolicyName,
-			Namespace: namespace.Name,
-		}, np)
-		gomega.Expect(err).NotTo(gomega.HaveOccurred())
-		gomega.Expect(np.Spec.PodSelector).To(gomega.Equal(metav1.LabelSelector{}))
-		gomega.Expect(np.Spec.PolicyTypes).To(gomega.ConsistOf(networkingv1.PolicyTypeIngress, networkingv1.PolicyTypeEgress))
-		gomega.Expect(np.Spec.Ingress).To(gomega.BeEmpty())
-		gomega.Expect(np.Spec.Egress).To(gomega.BeEmpty())
+		workloads := map[string]labels.Set{
+			operatorNetworkPolicyName:              {"control-plane": "controller-manager", "app.kubernetes.io/name": "oadp-operator"},
+			veleroNetworkPolicyName:                {"component": "velero", "app.kubernetes.io/managed-by": "oadp-operator"},
+			veleroMoverNetworkPolicyName:           {"oadp.openshift.io/network-policy": "velero"},
+			cliServerNetworkPolicyName:             {"app": "oadp-cli"},
+			vmdpServerNetworkPolicyName:            {"app": "oadp-vmdp"},
+			nonAdminNetworkPolicyName:              {"control-plane": "non-admin-controller"},
+			vmFileRestoreNetworkPolicyName:         {"control-plane": "oadp-vm-file-restore-controller"},
+			kubevirtDatamoverNetworkPolicyName:     {"control-plane": "oadp-kubevirt-datamover-controller"},
+			kubevirtDatamoverPodsNetworkPolicyName: {"kubevirt-datamover.io/pod-type": "upload"},
+		}
+		policies := &networkingv1.NetworkPolicyList{}
+		gomega.Expect(k8sClient.List(ctx, policies, client.InNamespace(namespace.Name))).To(gomega.Succeed())
+		gomega.Expect(policies.Items).To(gomega.HaveLen(len(workloads)))
+		for _, policy := range policies.Items {
+			gomega.Expect(workloads).To(gomega.HaveKey(policy.Name))
+			selector, selectorErr := metav1.LabelSelectorAsSelector(&policy.Spec.PodSelector)
+			gomega.Expect(selectorErr).NotTo(gomega.HaveOccurred())
+			gomega.Expect(selector.Matches(workloads[policy.Name])).To(gomega.BeTrue(), policy.Name)
+			gomega.Expect(selector.Matches(labels.Set{
+				"app": "cluster-backup-chart", "component": "clusterbackup",
+			})).To(gomega.BeFalse(), "policy %s must not isolate the ACM controller", policy.Name)
+			gomega.Expect(selector.Matches(labels.Set{})).To(gomega.BeFalse(), policy.Name)
+			gomega.Expect(selector.Matches(labels.Set{
+				"control-plane": "controller-manager", "app.kubernetes.io/name": "another-operator",
+			})).To(gomega.BeFalse(), "policy %s must not select another operator", policy.Name)
+			gomega.Expect(selector.Matches(labels.Set{
+				"component": "velero", "app.kubernetes.io/managed-by": "another-operator",
+			})).To(gomega.BeFalse(), "policy %s must not select another Velero installation", policy.Name)
+			gomega.Expect(policy.Spec.PolicyTypes).To(gomega.ConsistOf(
+				networkingv1.PolicyTypeIngress, networkingv1.PolicyTypeEgress,
+			), policy.Name)
+		}
 	})
+
+	ginkgo.It("should remove an existing default-deny controlled by the DPA without recreating it", func() {
+		np := &networkingv1.NetworkPolicy{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: defaultDenyNetworkPolicyName, Namespace: namespace.Name,
+				OwnerReferences: []metav1.OwnerReference{*metav1.NewControllerRef(dpa, oadpv1alpha1.GroupVersion.WithKind("DataProtectionApplication"))},
+			},
+			Spec: networkingv1.NetworkPolicySpec{
+				PolicyTypes: []networkingv1.PolicyType{networkingv1.PolicyTypeIngress, networkingv1.PolicyTypeEgress},
+			},
+		}
+		gomega.Expect(k8sClient.Create(ctx, np)).To(gomega.Succeed())
+		for range 2 {
+			success, err := r.ReconcileNetworkPolicies(r.Log)
+			gomega.Expect(err).NotTo(gomega.HaveOccurred())
+			gomega.Expect(success).To(gomega.BeTrue())
+			err = k8sClient.Get(ctx, types.NamespacedName{Name: np.Name, Namespace: np.Namespace}, np)
+			gomega.Expect(apierrors.IsNotFound(err)).To(gomega.BeTrue(), "expected legacy policy to be removed, got: %v", err)
+		}
+	})
+
+	ginkgo.It("should retain the legacy default-deny if a component policy cannot be reconciled", func() {
+		legacy := &networkingv1.NetworkPolicy{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: defaultDenyNetworkPolicyName, Namespace: namespace.Name,
+				OwnerReferences: []metav1.OwnerReference{*metav1.NewControllerRef(dpa, oadpv1alpha1.GroupVersion.WithKind("DataProtectionApplication"))},
+			},
+			Spec: networkingv1.NetworkPolicySpec{
+				PolicyTypes: []networkingv1.PolicyType{networkingv1.PolicyTypeIngress, networkingv1.PolicyTypeEgress},
+			},
+		}
+		gomega.Expect(k8sClient.Create(ctx, legacy)).To(gomega.Succeed())
+		original := legacy.DeepCopy()
+
+		// An existing component policy controlled by another DPA prevents OADP
+		// from applying the replacement policies for this DPA.
+		owner := metav1.NewControllerRef(dpa, oadpv1alpha1.GroupVersion.WithKind("DataProtectionApplication"))
+		owner.Name = "another-dpa"
+		owner.UID = types.UID("another-dpa")
+		conflict := &networkingv1.NetworkPolicy{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: veleroNetworkPolicyName, Namespace: namespace.Name,
+				OwnerReferences: []metav1.OwnerReference{*owner},
+			},
+			Spec: networkingv1.NetworkPolicySpec{PolicyTypes: []networkingv1.PolicyType{networkingv1.PolicyTypeIngress}},
+		}
+		gomega.Expect(k8sClient.Create(ctx, conflict)).To(gomega.Succeed())
+		success, err := r.ReconcileNetworkPolicies(r.Log)
+		gomega.Expect(err).To(gomega.HaveOccurred())
+		gomega.Expect(success).To(gomega.BeFalse())
+		gomega.Expect(k8sClient.Get(ctx, types.NamespacedName{Name: legacy.Name, Namespace: legacy.Namespace}, legacy)).To(gomega.Succeed())
+		gomega.Expect(legacy).To(gomega.Equal(original))
+	})
+
+	ginkgo.DescribeTable("should preserve a default-deny not controlled by the DPA", func(ownership string) {
+		np := &networkingv1.NetworkPolicy{
+			ObjectMeta: metav1.ObjectMeta{Name: defaultDenyNetworkPolicyName, Namespace: namespace.Name},
+			Spec: networkingv1.NetworkPolicySpec{
+				PolicyTypes: []networkingv1.PolicyType{networkingv1.PolicyTypeIngress, networkingv1.PolicyTypeEgress},
+			},
+		}
+		switch ownership {
+		case "another-controller":
+			owner := metav1.NewControllerRef(dpa, oadpv1alpha1.GroupVersion.WithKind("DataProtectionApplication"))
+			owner.UID = types.UID("another-dpa")
+			np.OwnerReferences = []metav1.OwnerReference{*owner}
+		case "non-controller":
+			owner := metav1.NewControllerRef(dpa, oadpv1alpha1.GroupVersion.WithKind("DataProtectionApplication"))
+			owner.Controller = ptr.To(false)
+			np.OwnerReferences = []metav1.OwnerReference{*owner}
+		}
+		gomega.Expect(k8sClient.Create(ctx, np)).To(gomega.Succeed())
+		original := np.DeepCopy()
+		success, err := r.ReconcileNetworkPolicies(r.Log)
+		gomega.Expect(err).NotTo(gomega.HaveOccurred())
+		gomega.Expect(success).To(gomega.BeTrue())
+		gomega.Expect(k8sClient.Get(ctx, types.NamespacedName{Name: np.Name, Namespace: np.Namespace}, np)).To(gomega.Succeed())
+		gomega.Expect(np).To(gomega.Equal(original))
+	},
+		ginkgo.Entry("when user-managed", "unowned"),
+		ginkgo.Entry("when controlled by another DPA", "another-controller"),
+		ginkgo.Entry("when the DPA is only a non-controller owner", "non-controller"),
+	)
 
 	ginkgo.It("should create velero NetworkPolicy with correct port", func() {
 		success, err := r.ReconcileNetworkPolicies(r.Log)
@@ -95,7 +213,10 @@ var _ = ginkgo.Describe("ReconcileNetworkPolicies", func() {
 		gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
 		// Verify pod selector
-		gomega.Expect(np.Spec.PodSelector.MatchLabels).To(gomega.HaveKeyWithValue("component", common.Velero))
+		gomega.Expect(np.Spec.PodSelector.MatchLabels).To(gomega.Equal(map[string]string{
+			"component":                    common.Velero,
+			"app.kubernetes.io/managed-by": common.OADPOperator,
+		}))
 
 		// Verify ingress rules
 		gomega.Expect(np.Spec.Ingress).To(gomega.HaveLen(1))
@@ -128,7 +249,10 @@ var _ = ginkgo.Describe("ReconcileNetworkPolicies", func() {
 		gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
 		// Verify pod selector
-		gomega.Expect(np.Spec.PodSelector.MatchLabels).To(gomega.HaveKeyWithValue("control-plane", "controller-manager"))
+		gomega.Expect(np.Spec.PodSelector.MatchLabels).To(gomega.Equal(map[string]string{
+			"control-plane":          "controller-manager",
+			"app.kubernetes.io/name": common.OADPOperator,
+		}))
 
 		// Verify ingress rules: metrics (8443, scoped to the monitoring namespace) and kubelet
 		// health-probe (8081, open cluster-wide since the kubelet is not a pod) must both be
@@ -156,7 +280,7 @@ var _ = ginkgo.Describe("ReconcileNetworkPolicies", func() {
 		gomega.Expect(np.Spec.Egress).To(gomega.Equal(unrestrictedEgressRule()))
 	})
 
-	ginkgo.It("should create velero-mover NetworkPolicy with unrestricted egress and no ingress", func() {
+	ginkgo.It("should create velero-mover NetworkPolicy with unrestricted egress and denied ingress", func() {
 		success, err := r.ReconcileNetworkPolicies(r.Log)
 		gomega.Expect(err).NotTo(gomega.HaveOccurred())
 		gomega.Expect(success).To(gomega.BeTrue())
@@ -171,8 +295,8 @@ var _ = ginkgo.Describe("ReconcileNetworkPolicies", func() {
 		// Verify pod selector matches the dedicated mover label
 		gomega.Expect(np.Spec.PodSelector.MatchLabels).To(gomega.HaveKeyWithValue(networkPolicyMoverLabel, networkPolicyMoverLabelValue))
 
-		// Egress-only policy: no ingress rules/type, unrestricted egress
-		gomega.Expect(np.Spec.PolicyTypes).To(gomega.ConsistOf(networkingv1.PolicyTypeEgress))
+		// Isolate both directions, allowing only outbound connections.
+		gomega.Expect(np.Spec.PolicyTypes).To(gomega.ConsistOf(networkingv1.PolicyTypeIngress, networkingv1.PolicyTypeEgress))
 		gomega.Expect(np.Spec.Ingress).To(gomega.BeEmpty())
 		gomega.Expect(np.Spec.Egress).To(gomega.Equal(unrestrictedEgressRule()))
 	})
@@ -219,7 +343,30 @@ var _ = ginkgo.Describe("ReconcileNetworkPolicies", func() {
 
 		// Verify scoped egress (DNS + API server only)
 		gomega.Expect(np.Spec.PolicyTypes).To(gomega.ContainElement(networkingv1.PolicyTypeEgress))
-		gomega.Expect(np.Spec.Egress).To(gomega.Equal(scopedEgressRules()))
+		// Assert the actual DNS service and endpoint ports independently of the
+		// generator, so a missing post-DNAT port cannot pass this test.
+		gomega.Expect(np.Spec.Egress).To(gomega.HaveLen(2))
+		dnsEgress := np.Spec.Egress[0]
+		gomega.Expect(dnsEgress.To).To(gomega.Equal([]networkingv1.NetworkPolicyPeer{
+			{
+				NamespaceSelector: &metav1.LabelSelector{
+					MatchLabels: map[string]string{
+						"kubernetes.io/metadata.name": "openshift-dns",
+					},
+				},
+			},
+		}))
+		gomega.Expect(dnsEgress.Ports).To(gomega.ConsistOf(
+			networkingv1.NetworkPolicyPort{Protocol: ptr.To(corev1.ProtocolTCP), Port: ptr.To(intstr.FromInt32(53))},
+			networkingv1.NetworkPolicyPort{Protocol: ptr.To(corev1.ProtocolUDP), Port: ptr.To(intstr.FromInt32(53))},
+			networkingv1.NetworkPolicyPort{Protocol: ptr.To(corev1.ProtocolTCP), Port: ptr.To(intstr.FromInt32(5353))},
+			networkingv1.NetworkPolicyPort{Protocol: ptr.To(corev1.ProtocolUDP), Port: ptr.To(intstr.FromInt32(5353))},
+		))
+		apiEgress := np.Spec.Egress[1]
+		gomega.Expect(apiEgress.To).To(gomega.BeEmpty())
+		gomega.Expect(apiEgress.Ports).To(gomega.Equal([]networkingv1.NetworkPolicyPort{
+			{Protocol: ptr.To(corev1.ProtocolTCP), Port: ptr.To(intstr.FromInt32(6443))},
+		}))
 	})
 
 	ginkgo.It("should NOT create non-admin NetworkPolicy when disabled", func() {
@@ -392,8 +539,9 @@ var _ = ginkgo.Describe("ReconcileNetworkPolicies", func() {
 			Operator: metav1.LabelSelectorOpExists,
 		}))
 
-		// Verify no ingress rule (ephemeral data-transfer pods, not servers)
-		gomega.Expect(np.Spec.PolicyTypes).NotTo(gomega.ContainElement(networkingv1.PolicyTypeIngress))
+		// Isolate ingress without allowing unsolicited inbound connections.
+		gomega.Expect(np.Spec.PolicyTypes).To(gomega.ConsistOf(networkingv1.PolicyTypeIngress, networkingv1.PolicyTypeEgress))
+		gomega.Expect(np.Spec.Ingress).To(gomega.BeEmpty())
 
 		// Verify unrestricted egress (these pods move VM disk data directly to/from
 		// admin-configured, arbitrary S3-compatible endpoints)
@@ -406,10 +554,10 @@ var _ = ginkgo.Describe("ReconcileNetworkPolicies", func() {
 		gomega.Expect(err).NotTo(gomega.HaveOccurred())
 		gomega.Expect(success).To(gomega.BeTrue())
 
-		// Check default-deny NP has controller reference
+		// Check a component policy has the DPA controller reference.
 		np := &networkingv1.NetworkPolicy{}
 		err = k8sClient.Get(ctx, types.NamespacedName{
-			Name:      defaultDenyNetworkPolicyName,
+			Name:      veleroNetworkPolicyName,
 			Namespace: namespace.Name,
 		}, np)
 		gomega.Expect(err).NotTo(gomega.HaveOccurred())
