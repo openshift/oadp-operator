@@ -626,6 +626,9 @@ GIT_REV:=$(shell git rev-parse --short HEAD)
 OADP_TEST_NAMESPACE ?= openshift-adp
 # Namespace to install CatalogSource (openshift-marketplace is the standard location)
 CATALOG_SOURCE_NAMESPACE ?= openshift-marketplace
+# OLM install mode used by deploy-olm: OwnNamespace (namespaced OperatorGroup)
+# or AllNamespaces (global OperatorGroup, empty targetNamespaces)
+INSTALL_MODE ?= OwnNamespace
 
 .PHONY: deploy-olm
 deploy-olm: THIS_OPERATOR_IMAGE?=ttl.sh/oadp-operator-$(GIT_REV):$(TTL_DURATION) # Set target specific variable
@@ -666,14 +669,33 @@ deploy-olm: undeploy-olm ## Build current branch operator image, bundle image, p
 		$(OC_CLI) logs -n $(CATALOG_SOURCE_NAMESPACE) -l olm.catalogSource=$(CATALOG_SOURCE_NAME) --tail=50 2>/dev/null || true; \
 		exit 1; \
 	fi
-	# Create OperatorGroup if not exists
-	@echo "Checking OperatorGroup..."
-	@OG_COUNT=$$($(OC_CLI) get operatorgroup -n $(OADP_TEST_NAMESPACE) --no-headers 2>/dev/null | wc -l | tr -d ' '); \
+	# Create OperatorGroup if not exists (AllNamespaces mode creates a global
+	# OperatorGroup: empty targetNamespaces is OLM's all-namespaces signal)
+	@echo "Checking OperatorGroup (install mode: $(INSTALL_MODE))..."
+	@if [ "$(INSTALL_MODE)" = "AllNamespaces" ]; then \
+		OG_SPEC="spec: {}"; \
+	else \
+		OG_SPEC="spec:\n  targetNamespaces:\n    - $(OADP_TEST_NAMESPACE)"; \
+	fi; \
+	OG_COUNT=$$($(OC_CLI) get operatorgroup -n $(OADP_TEST_NAMESPACE) --no-headers 2>/dev/null | wc -l | tr -d ' '); \
 	if [ "$$OG_COUNT" -eq "0" ]; then \
 		echo "Creating OperatorGroup..."; \
-		echo -e "apiVersion: operators.coreos.com/v1\nkind: OperatorGroup\nmetadata:\n  name: oadp-operator-group\n  namespace: $(OADP_TEST_NAMESPACE)\nspec:\n  targetNamespaces:\n    - $(OADP_TEST_NAMESPACE)" | $(OC_CLI) apply -f -; \
+		echo -e "apiVersion: operators.coreos.com/v1\nkind: OperatorGroup\nmetadata:\n  name: oadp-operator-group\n  namespace: $(OADP_TEST_NAMESPACE)\n$$OG_SPEC" | $(OC_CLI) apply -f -; \
 	else \
 		echo "OperatorGroup already exists"; \
+		OG_NAMESPACES=$$($(OC_CLI) get operatorgroup -n $(OADP_TEST_NAMESPACE) -o jsonpath='{.items[*].spec.targetNamespaces}' 2>/dev/null); \
+		OG_SELECTOR=$$($(OC_CLI) get operatorgroup -n $(OADP_TEST_NAMESPACE) -o jsonpath='{.items[*].spec.selector}' 2>/dev/null); \
+		if [ "$$OG_NAMESPACES" = '["$(OADP_TEST_NAMESPACE)"]' ]; then \
+			EXISTING_MODE="OwnNamespace"; \
+		elif { [ -z "$$OG_NAMESPACES" ] || [ "$$OG_NAMESPACES" = "[]" ]; } && [ -z "$$OG_SELECTOR" ]; then \
+			EXISTING_MODE="AllNamespaces"; \
+		else \
+			EXISTING_MODE="selecting other namespaces ($$OG_NAMESPACES$$OG_SELECTOR)"; \
+		fi; \
+		if [ "$$EXISTING_MODE" != "$(INSTALL_MODE)" ]; then \
+			echo "ERROR: OperatorGroup in $(OADP_TEST_NAMESPACE) resolves to $$EXISTING_MODE but INSTALL_MODE=$(INSTALL_MODE) was requested. Delete it (oc delete operatorgroup -n $(OADP_TEST_NAMESPACE) --all) or rerun with a matching INSTALL_MODE." >&2; \
+			exit 1; \
+		fi; \
 	fi
 	# Create Subscription
 	@echo "Creating Subscription..."
@@ -722,6 +744,10 @@ deploy-olm: undeploy-olm ## Build current branch operator image, bundle image, p
 	@echo "Operator is ready!"
 	@$(OC_CLI) get subscription oadp-operator -n $(OADP_TEST_NAMESPACE)
 	@$(OC_CLI) get csv -n $(OADP_TEST_NAMESPACE)
+
+.PHONY: deploy-olm-allnamespaces
+deploy-olm-allnamespaces: INSTALL_MODE := AllNamespaces
+deploy-olm-allnamespaces: deploy-olm ## Build and install via OLM in AllNamespaces mode (global OperatorGroup)
 
 .PHONY: undeploy-olm
 undeploy-olm: login-required ## Uninstall current branch operator via OLM
@@ -1039,6 +1065,10 @@ else
 MUST_GATHER_IMAGE  ?= quay.io/konveyor/oadp-must-gather:latest
 endif
 TEST_UPGRADE ?= false
+# TEST_ALLNAMESPACES=true runs the AllNamespaces-specific e2e specs (ginkgo
+# label "allnamespaces") in addition to the default suite, meant for jobs that
+# install the operator with a global OperatorGroup (deploy-olm-allnamespaces).
+TEST_ALLNAMESPACES ?= false
 FAIL_FAST ?= true
 TEST_FILTER = (($(shell echo '! aws && ! gcp && ! azure && ! ibmcloud' | \
 $(SED) -r "s/[&]* [!] $(CLUSTER_TYPE)|[!] $(CLUSTER_TYPE) [&]*//")) || $(CLUSTER_TYPE))
@@ -1073,6 +1103,15 @@ ifeq ($(TEST_UPGRADE),true)
 	TEST_FILTER += && (upgrade)
 else
 	TEST_FILTER += && (! upgrade)
+endif
+ifeq ($(TEST_ALLNAMESPACES),true)
+	# Include the allnamespaces-labeled specs alongside the default suite
+	# instead of excluding them, so jobs deploying with a global OperatorGroup
+	# (deploy-olm-allnamespaces) get full-suite coverage under that install.
+	# Note this only adds specs; TEST_CLI=true still selects only cli-labeled
+	# specs on top of it.
+else
+	TEST_FILTER += && (! allnamespaces)
 endif
 ifeq ($(TEST_HCP),true)
 	TEST_FILTER += && (hcp)
@@ -1132,6 +1171,11 @@ test-e2e: test-e2e-setup install-ginkgo $(if $(MUST_GATHER_REPO),build-must-gath
 	$(HCP_EXTERNAL_ARGS) \
 	|| EXIT_CODE=$$?; \
 	exit $${EXIT_CODE:-0}
+
+.PHONY: test-e2e-allnamespaces
+test-e2e-allnamespaces: ## Deploy via OLM in AllNamespaces mode (global OperatorGroup), then run the e2e suite including the AllNamespaces-specific specs
+	$(MAKE) deploy-olm-allnamespaces
+	$(MAKE) test-e2e TEST_ALLNAMESPACES=true
 
 .PHONY: test-e2e-cleanup
 test-e2e-cleanup: login-required

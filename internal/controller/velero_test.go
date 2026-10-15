@@ -28,6 +28,7 @@ import (
 	"github.com/vmware-tanzu/velero/pkg/util/kube"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -4356,5 +4357,96 @@ func TestVeleroAffinityMatchExpressionsDeterministicOrder(t *testing.T) {
 		}
 		require.Equal(t, wantKeys, gotKeys,
 			"iteration %d: matchExpressions keys not in sorted order", i)
+	}
+}
+
+func TestDPAReconciler_ReconcileVeleroRBAC(t *testing.T) {
+	dpa := &oadpv1alpha1.DataProtectionApplication{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-dpa",
+			Namespace: "tenant-ns",
+		},
+		Spec: oadpv1alpha1.DataProtectionApplicationSpec{
+			Configuration: &oadpv1alpha1.ApplicationConfig{
+				Velero: &oadpv1alpha1.VeleroConfig{},
+			},
+		},
+	}
+	otherDpa := dpa.DeepCopy()
+	otherDpa.Name = "other-dpa"
+	otherDpa.Namespace = "other-tenant-ns"
+
+	staleCRB := &rbacv1.ClusterRoleBinding{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:   veleroRBACClusterRoleName + "-gone-ns",
+			Labels: veleroRBACLabels(),
+		},
+		Subjects: []rbacv1.Subject{
+			{Kind: rbacv1.ServiceAccountKind, Name: common.Velero, Namespace: "gone-ns"},
+		},
+		RoleRef: rbacv1.RoleRef{
+			APIGroup: rbacv1.GroupName,
+			Kind:     "ClusterRole",
+			Name:     veleroRBACClusterRoleName,
+		},
+	}
+	survivingCRB := staleCRB.DeepCopy()
+	survivingCRB.Name = veleroRBACClusterRoleName + "-other-tenant-ns"
+	survivingCRB.Subjects[0].Namespace = "other-tenant-ns"
+
+	fakeClient, err := getFakeClientFromObjects(dpa, otherDpa, staleCRB, survivingCRB)
+	if err != nil {
+		t.Fatalf("error creating fake client: %v", err)
+	}
+	r := &DataProtectionApplicationReconciler{
+		Client:            fakeClient,
+		ClusterWideClient: fakeClient,
+		Scheme:            fakeClient.Scheme(),
+		Log:               logr.Discard(),
+		Context:           newContextForTest(),
+		NamespacedName:    types.NamespacedName{Namespace: dpa.Namespace, Name: dpa.Name},
+		EventRecorder:     record.NewFakeRecorder(10),
+		dpa:               dpa,
+	}
+
+	cont, err := r.ReconcileVeleroRBAC(logr.Discard())
+	if err != nil || !cont {
+		t.Fatalf("ReconcileVeleroRBAC() = (%v, %v), want (true, nil)", cont, err)
+	}
+
+	sa := &corev1.ServiceAccount{}
+	if err := fakeClient.Get(newContextForTest(), types.NamespacedName{Name: common.Velero, Namespace: "tenant-ns"}, sa); err != nil {
+		t.Fatalf("velero ServiceAccount not created in DPA namespace: %v", err)
+	}
+	if len(sa.OwnerReferences) != 1 || sa.OwnerReferences[0].Kind != "DataProtectionApplication" || sa.OwnerReferences[0].Name != "test-dpa" {
+		t.Errorf("velero ServiceAccount not owner-ref'd to the DPA: %+v", sa.OwnerReferences)
+	}
+
+	cr := &rbacv1.ClusterRole{}
+	if err := fakeClient.Get(newContextForTest(), types.NamespacedName{Name: veleroRBACClusterRoleName}, cr); err != nil {
+		t.Fatalf("velero ClusterRole not created: %v", err)
+	}
+	if len(cr.Rules) != len(veleroClusterRoleRules) {
+		t.Errorf("ClusterRole rules = %d, want %d", len(cr.Rules), len(veleroClusterRoleRules))
+	}
+
+	crb := &rbacv1.ClusterRoleBinding{}
+	if err := fakeClient.Get(newContextForTest(), types.NamespacedName{Name: veleroRBACClusterRoleName + "-tenant-ns"}, crb); err != nil {
+		t.Fatalf("velero ClusterRoleBinding not created: %v", err)
+	}
+	if len(crb.Subjects) != 1 || crb.Subjects[0].Namespace != "tenant-ns" {
+		t.Errorf("ClusterRoleBinding subjects = %+v, want velero ServiceAccount in tenant-ns", crb.Subjects)
+	}
+
+	if err := fakeClient.Get(newContextForTest(), types.NamespacedName{Name: veleroRBACClusterRoleName + "-gone-ns"}, &rbacv1.ClusterRoleBinding{}); err == nil {
+		t.Error("stale ClusterRoleBinding for a namespace without a DPA was not deleted")
+	}
+	if err := fakeClient.Get(newContextForTest(), types.NamespacedName{Name: veleroRBACClusterRoleName + "-other-tenant-ns"}, &rbacv1.ClusterRoleBinding{}); err != nil {
+		t.Errorf("ClusterRoleBinding for a namespace that still has a DPA should survive: %v", err)
+	}
+
+	cont, err = r.ReconcileVeleroRBAC(logr.Discard())
+	if err != nil || !cont {
+		t.Fatalf("second ReconcileVeleroRBAC() = (%v, %v), want (true, nil)", cont, err)
 	}
 }
