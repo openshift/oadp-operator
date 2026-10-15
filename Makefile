@@ -1105,7 +1105,11 @@ else
 	TEST_FILTER += && (! upgrade)
 endif
 ifeq ($(TEST_ALLNAMESPACES),true)
-	TEST_FILTER += && (allnamespaces)
+	# Include the allnamespaces-labeled specs alongside the default suite
+	# instead of excluding them, so jobs deploying with a global OperatorGroup
+	# (deploy-olm-allnamespaces) get full-suite coverage under that install.
+	# Note this only adds specs; TEST_CLI=true still selects only cli-labeled
+	# specs on top of it.
 else
 	TEST_FILTER += && (! allnamespaces)
 endif
