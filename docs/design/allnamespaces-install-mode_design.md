@@ -394,18 +394,15 @@ Two supported ways to install in AllNamespaces mode, both creating the same OLM 
 
 - **Make target (local dev)** — `make deploy-olm-allnamespaces`. Wraps the repo's `deploy-olm` flow (build and push operator/bundle/catalog images, then `oc apply` the CatalogSource, OperatorGroup, and Subscription); the only difference is the OperatorGroup shape: `spec: {}` (empty `targetNamespaces`, OLM's all-namespaces signal) instead of `targetNamespaces: [openshift-adp]`. It reuses the same OperatorGroup name and namespace as `deploy-olm`, so `make undeploy-olm` cleans up either mode. (Done — live-cluster verified 2026-10-13: CSV Succeeded, see [Validation](#validation).)
 - **`operator-sdk` one-liner (standalone)** — `operator-sdk run bundle <bundle-image> --install-mode AllNamespaces --security-context-config restricted --namespace openshift-adp`. Installs a pre-built bundle image without the repo's build flow; removed with `operator-sdk cleanup oadp-operator --namespace openshift-adp`.
-- Add a Prow presubmit job that deploys with the make target and runs the existing e2e suite unchanged.
-- This gives immediate signal before writing any new test code.
+- **Prow jobs** — added as optional presubmits in `openshift/release` ([#87092](https://github.com/openshift/release/pull/87092), merged 2026-10-15): `5.0-e2e-test-aws-allnamespaces` and `5.0-e2e-test-cli-aws-allnamespaces`, identical to the existing e2e jobs except `OO_TARGET_NAMESPACES: '!all'` (the optional-operators subscribe step creates a global OperatorGroup). The e2e job passes `TEST_ALLNAMESPACES=true` as a make argument so the suite runs the `allnamespaces`-labeled specs alongside the default suite. Both **passed on PR #2488** against the PR's own code — see [Validation](#validation).
 
 ### Phase 3: AllNamespaces Install E2E Tests
 
-Test scenarios specific to AllNamespaces behavior:
+The fresh-install scenario is implemented as `allnamespaces`-labeled ginkgo specs in `tests/e2e/allnamespaces_suite_test.go` (global OperatorGroup shape, dual CSV install modes, `WATCH_NAMESPACE`/`OPERATOR_NAMESPACE` resolution, multi-tenant DPA in a second namespace), selected via `TEST_ALLNAMESPACES=true`. Remaining scenarios not yet implemented as tests:
 
-- **AllNamespaces fresh install**: verify CSV Succeeded, `WATCH_NAMESPACE` = `""`, `OPERATOR_NAMESPACE` = pod namespace, DPA reconciles, Velero deploys.
 - **OwnNamespace to AllNamespaces migration**: install OwnNamespace, swap OperatorGroup to global, verify operator re-deploys and existing DPA continues functioning.
 - **AllNamespaces to OwnNamespace rollback**: reverse the migration, verify operator recovers.
-- **Upgrade to dual-mode CSV**: upgrade from a prior version (OwnNamespace-only) to the new version, verify the existing namespaced OperatorGroup continues to work.
-- **Upgrade test parameterization**: the existing upgrade test hardcodes a namespaced OperatorGroup — parameterize to also test with a global OperatorGroup.
+- **Upgrade to dual-mode CSV**: upgrade from a prior version (OwnNamespace-only) to the new version, verify the existing namespaced OperatorGroup continues to work. Note the upgrade suite manages its own namespaced OperatorGroup and old channel CSVs do not support AllNamespaces, so the AllNamespaces variant of this scenario is the migration flow (install old OwnNamespace, upgrade, then swap the OperatorGroup), not a parameterization.
 
 ### Phase 4: Migration Documentation
 
@@ -534,6 +531,9 @@ Rejected:
 | Final fix: `escalate` unscoped for creation; `bind`/`update`/`patch` remain scoped to `oadp-velero`; no `delete` on clusterroles | Committed |
 | Live run 3: ClusterRole created with all 21 rules; ClusterRoleBindings for both DPA namespaces; tenant Velero pod running; tenant BSL `Available`; but `Reconciled=False` — cleanup pass failed listing ClusterRoleBindings (`ClusterWideClient` scheme lacked `rbacv1`) | Found → fixed (scheme registration) |
 | Final live verification (2026-10-13): both DPAs `Reconciled=True`; tenant Velero 1/1 Running; all 3 tenant node-agents 1/1 Running; both BSLs `Available` | **PASS** |
+| Local run of the `allnamespaces`-labeled specs (`--focus=AllNamespaces`) against the AllNamespaces-installed dev cluster | 4/4 **PASS** (the one suite-level failure was a teardown artifact of the focused run against a cluster with a stray manual DPA) |
+| CI, AllNamespaces install (2026-10-15): `5.0-e2e-test-aws-allnamespaces` on PR #2488 — full standard e2e suite plus the four AllNamespaces specs, fresh leased AWS cluster, images built from the PR's own code, installed via `OO_TARGET_NAMESPACES: '!all'` | **PASS** |
+| CI, AllNamespaces install (2026-10-15): `5.0-e2e-test-cli-aws-allnamespaces` on PR #2488 | **PASS** |
 
 **CI (PR [#2488](https://github.com/openshift/oadp-operator/pull/2488)):**
 
