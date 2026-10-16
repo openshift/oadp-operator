@@ -535,6 +535,12 @@ Rejected:
 | CI, AllNamespaces install (2026-10-15): `5.0-e2e-test-aws-allnamespaces` on PR #2488 — full standard e2e suite plus the four AllNamespaces specs, fresh leased AWS cluster, images built from the PR's own code, installed via `OO_TARGET_NAMESPACES: '!all'` | **PASS** |
 | CI, AllNamespaces install (2026-10-15): `5.0-e2e-test-cli-aws-allnamespaces` on PR #2488 | **PASS** |
 
+**Evidence that the CI install actually resolved AllNamespaces** — three artifacts from the `5.0-e2e-test-aws-allnamespaces` run, one per actor (request → state → outcome):
+
+1. **The request** — the subscribe step's parameter echo (step log, 2026-10-15T17:28:24Z): `OO_TARGET_NAMESPACES: !all`, set by the `openshift/release` job config
+2. **The state** — the subscribe step's `oo_deployment_details.yaml` artifact: `target_namespaces: ""` (the global OperatorGroup; empty is OLM's all-namespaces signal), alongside `csv: oadp-operator.v99.0.0`, `install_namespace: openshift-adp` — written only after the CSV reached `Succeeded`, which a global OperatorGroup only achieves against a CSV declaring AllNamespaces support
+3. **The outcome** — the 1h2m e2e step passing the full standard suite plus the four `allnamespaces`-labeled specs asserting the cluster state directly (global OperatorGroup, dual CSV install modes, `WATCH_NAMESPACE`/`OPERATOR_NAMESPACE` resolution, multi-tenant DPA)
+
 **CI (PR [#2488](https://github.com/openshift/oadp-operator/pull/2488)):**
 
 | Check | Result |
