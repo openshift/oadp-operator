@@ -187,6 +187,20 @@ var _ = ginkgo.Describe("NetworkPolicy", ginkgo.Label("network-policy"), func() 
 		probeClient, err := client.New(kubeConfig, client.Options{Scheme: clientgoscheme.Scheme})
 		gomega.Expect(err).NotTo(gomega.HaveOccurred())
 		fixture = &networkPolicyFixture{ctx: ctx, client: probeClient, id: "np-" + string(uuid.NewUUID())[:8]}
+		originalDPA, err := dpaCR.Get()
+		gomega.Expect(client.IgnoreNotFound(err)).To(gomega.Succeed())
+		// Register before creation so a failed setup also restores the installation.
+		// Later fixture cleanups run first, while Velero and its policies still exist.
+		ginkgo.DeferCleanup(func() {
+			if originalDPA != nil {
+				gomega.Expect(dpaCR.CreateOrUpdate(originalDPA.Spec.DeepCopy())).To(gomega.Succeed())
+				gomega.Eventually(dpaCR.IsReconciledTrue(), 2*time.Minute, 2*time.Second).Should(gomega.BeTrue())
+				return
+			}
+			gomega.Expect(dpaCR.Delete()).To(gomega.Succeed())
+			gomega.Eventually(dpaCR.IsDeleted(), time.Minute, 2*time.Second).Should(gomega.BeTrue())
+			gomega.Eventually(lib.VeleroIsDeleted(kubernetesClientForSuiteRun, namespace), 3*time.Minute, 5*time.Second).Should(gomega.BeTrue())
+		})
 		gomega.Expect(dpaCR.CreateOrUpdate(createTestDPASpec(TestDPASpec{BSLSecretName: bslSecretName}))).To(gomega.Succeed())
 		gomega.Eventually(dpaCR.IsReconciledTrue(), 2*time.Minute, 2*time.Second).Should(gomega.BeTrue())
 		fixture.policy("oadp-operator-network-policy", nil)
