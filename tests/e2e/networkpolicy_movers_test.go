@@ -82,6 +82,11 @@ func observeNetworkPolicyMovers(podLabel string) func(string) {
 			}
 			mu.Unlock()
 		}
+		mu.Lock()
+		if ctx.Err() == nil && watchErr == nil {
+			watchErr = fmt.Errorf("mover pod watch closed before verification")
+		}
+		mu.Unlock()
 	}()
 	return func(operationName string) {
 		ginkgo.GinkgoHelper()

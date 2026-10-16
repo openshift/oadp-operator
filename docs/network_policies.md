@@ -61,6 +61,8 @@ The DPA owns these NetworkPolicy objects. OADP reconciles them, restores deleted
 
 Earlier candidate builds created a namespace-wide policy named `default-deny`. OADP first reconciles the component policies, including mover ingress isolation, then removes that old policy only if the current DPA is its controller owner. Policies without that ownership are preserved. Deletion preconditions prevent a stale read from deleting a replacement or a policy that changed after the read.
 
+If a DPA is deleted and quickly recreated, the new DPA has a different UID, even when its name is reused. A legacy `default-deny` owned by the old DPA can remain active and continue isolating other pods in the namespace until Kubernetes garbage collection removes it. The new DPA leaves that policy for garbage collection because it does not own it.
+
 The managed-by label added to the node-agent pod template causes its DaemonSet to roll out updated pods. An older pod without that label does not match the tightened Velero policy until it is replaced. This is a transition that needs live-cluster validation, especially where additional network policies exist.
 
 ## Scope and validation
