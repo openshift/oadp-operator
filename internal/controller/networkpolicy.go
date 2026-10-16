@@ -32,6 +32,8 @@ const (
 
 	// dnsPort is the standard port used for DNS resolution (TCP and UDP).
 	dnsPort = 53
+	// dnsTargetPort is the port OpenShift DNS pods listen on behind the DNS service.
+	dnsTargetPort = 5353
 	// apiServerPort is the standard port used for the Kubernetes API server.
 	apiServerPort = 6443
 )
@@ -65,7 +67,9 @@ func scopedEgressRules() []networkingv1.NetworkPolicyEgressRule {
 	udp := corev1.ProtocolUDP
 	return []networkingv1.NetworkPolicyEgressRule{
 		{
-			// Allow DNS resolution via the cluster DNS service.
+			// Allow DNS resolution via the cluster DNS service. Include the
+			// OpenShift DNS pod port because OVN-Kubernetes evaluates egress
+			// NetworkPolicies after Service DNAT (service port 53 to pod port 5353).
 			To: []networkingv1.NetworkPolicyPeer{
 				{
 					NamespaceSelector: &metav1.LabelSelector{
@@ -78,6 +82,8 @@ func scopedEgressRules() []networkingv1.NetworkPolicyEgressRule {
 			Ports: []networkingv1.NetworkPolicyPort{
 				{Protocol: &tcp, Port: &intstr.IntOrString{Type: intstr.Int, IntVal: dnsPort}},
 				{Protocol: &udp, Port: &intstr.IntOrString{Type: intstr.Int, IntVal: dnsPort}},
+				{Protocol: &tcp, Port: &intstr.IntOrString{Type: intstr.Int, IntVal: dnsTargetPort}},
+				{Protocol: &udp, Port: &intstr.IntOrString{Type: intstr.Int, IntVal: dnsTargetPort}},
 			},
 		},
 		{
@@ -120,21 +126,12 @@ func createOrUpdateNetworkPolicy(ctx context.Context, c client.Client, np *netwo
 
 // ReconcileNetworkPolicies creates NetworkPolicies for OADP operands.
 // OCPSTRAT-819: Operator creates NPs at runtime for its workloads (operands).
-// Design: Default-deny all ingress/egress traffic in the namespace, then allow only
-// the specific ingress (metrics/health) and egress (DNS/API-server, or unrestricted
-// for operands that talk directly to admin-configured, arbitrary S3-compatible
-// endpoints) each operand actually needs.
+// Each policy selects only its managed workload and isolates both ingress and
+// egress, allowing the traffic that workload needs. Do not isolate the entire
+// namespace: other products, such as ACM, may run their own controllers there.
 //
-// Ordering: all per-operand "allow" NetworkPolicies are reconciled BEFORE the
-// default-deny policy (which is reconciled last). This is intentional: if a
-// transient error (e.g. an "already exists" race during rapid DPA
-// delete/recreate cycles, as happens in e2e tests) aborts this batch partway
-// through, we want the failure mode to be "some allow-NPs may be missing and
-// default-deny hasn't been applied yet" (briefly more permissive, self-heals
-// on the next reconcile) rather than "default-deny is already active but an
-// operand's allow-NP was never created" (a hard outage for that operand,
-// since it would be fully blocked with no egress/ingress until the next
-// successful reconcile).
+// Reconcile all component policies before removing a legacy namespace-wide
+// default-deny, so mover ingress remains isolated throughout the transition.
 func (r *DataProtectionApplicationReconciler) ReconcileNetworkPolicies(log logr.Logger) (bool, error) {
 	// Reconcile OADP operator NetworkPolicy
 	if err := r.reconcileOperatorNetworkPolicy(log); err != nil {
@@ -183,62 +180,49 @@ func (r *DataProtectionApplicationReconciler) ReconcileNetworkPolicies(log logr.
 		return false, err
 	}
 
-	// Reconcile default-deny policy last (baseline security), only after all
-	// allow-NPs above have been successfully created/updated.
-	if err := r.reconcileDefaultDenyNetworkPolicy(log); err != nil {
+	// Remove a legacy namespace-wide policy only after all component policies
+	// have been successfully created/updated.
+	if err := r.deleteLegacyDefaultDenyNetworkPolicy(log); err != nil {
 		return false, err
 	}
 
 	return true, nil
 }
 
-// reconcileDefaultDenyNetworkPolicy creates a default-deny NetworkPolicy for the entire namespace.
-// This provides baseline security: all pods are denied ingress/egress by default,
-// then specific allow rules are added by other NetworkPolicies.
-func (r *DataProtectionApplicationReconciler) reconcileDefaultDenyNetworkPolicy(log logr.Logger) error {
-	np := &networkingv1.NetworkPolicy{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      defaultDenyNetworkPolicyName,
-			Namespace: r.NamespacedName.Namespace,
-		},
+// deleteLegacyDefaultDenyNetworkPolicy removes the namespace-wide policy created
+// by earlier candidate builds. Never delete a policy controlled by another owner
+// or a user-managed policy that happens to have the same name.
+func (r *DataProtectionApplicationReconciler) deleteLegacyDefaultDenyNetworkPolicy(log logr.Logger) error {
+	np := &networkingv1.NetworkPolicy{}
+	key := types.NamespacedName{
+		Name:      defaultDenyNetworkPolicyName,
+		Namespace: r.NamespacedName.Namespace,
 	}
-
-	op, err := createOrUpdateNetworkPolicy(r.Context, r.Client, np, func() error {
-		// Set controller reference
-		if err := controllerutil.SetControllerReference(r.dpa, np, r.Scheme); err != nil {
-			return err
+	if err := r.Get(r.Context, key, np); err != nil {
+		if k8serrors.IsNotFound(err) {
+			return nil
 		}
-
-		// Apply labels
-		np.Labels = getDpaAppLabels(r.dpa)
-		np.Labels, np.Annotations = applyResourceLabels(r.dpa, np.Labels, np.Annotations)
-
-		// Empty podSelector = select ALL pods in namespace
-		// No ingress/egress rules = deny all traffic by default; other NetworkPolicies
-		// in this namespace add back only the specific ingress/egress each operand needs.
-		np.Spec = networkingv1.NetworkPolicySpec{
-			PodSelector: metav1.LabelSelector{},
-			PolicyTypes: []networkingv1.PolicyType{
-				networkingv1.PolicyTypeIngress,
-				networkingv1.PolicyTypeEgress,
-			},
-		}
-
+		return fmt.Errorf("failed to get legacy default-deny NetworkPolicy: %w", err)
+	}
+	if !metav1.IsControlledBy(np, r.dpa) {
 		return nil
-	})
-
-	if err != nil {
-		return fmt.Errorf("failed to reconcile default-deny NetworkPolicy: %w", err)
 	}
 
-	if op == controllerutil.OperationResultCreated || op == controllerutil.OperationResultUpdated {
-		log.Info(fmt.Sprintf("Default-deny NetworkPolicy %s: %s", np.Name, op))
-		r.EventRecorder.Event(np,
-			corev1.EventTypeNormal,
-			"DefaultDenyNetworkPolicyReconciled",
-			fmt.Sprintf("performed %s on default-deny NetworkPolicy %s/%s", op, np.Namespace, np.Name),
-		)
+	// Guard against deleting a replacement or a policy whose ownership changed
+	// after the read, including when the manager's cache is briefly stale.
+	if err := r.Delete(r.Context, np, client.Preconditions{UID: &np.UID, ResourceVersion: &np.ResourceVersion}); err != nil {
+		if k8serrors.IsNotFound(err) {
+			return nil
+		}
+		return fmt.Errorf("failed to delete legacy default-deny NetworkPolicy: %w", err)
 	}
+
+	log.Info("Removed legacy namespace-wide default-deny NetworkPolicy", "namespace", np.Namespace, "name", np.Name)
+	r.EventRecorder.Event(r.dpa,
+		corev1.EventTypeNormal,
+		"LegacyDefaultDenyNetworkPolicyDeleted",
+		fmt.Sprintf("removed legacy default-deny NetworkPolicy %s/%s", np.Namespace, np.Name),
+	)
 	return nil
 }
 
@@ -262,11 +246,13 @@ func (r *DataProtectionApplicationReconciler) reconcileOperatorNetworkPolicy(log
 		np.Labels = getDpaAppLabels(r.dpa)
 		np.Labels, np.Annotations = applyResourceLabels(r.dpa, np.Labels, np.Annotations)
 
-		// Pod selector: control-plane=controller-manager (matches operator pod)
+		// The operator name distinguishes OADP from other controller-manager pods
+		// that can share this namespace.
 		np.Spec = networkingv1.NetworkPolicySpec{
 			PodSelector: metav1.LabelSelector{
 				MatchLabels: map[string]string{
-					"control-plane": "controller-manager",
+					"control-plane":          "controller-manager",
+					"app.kubernetes.io/name": common.OADPOperator,
 				},
 			},
 			PolicyTypes: []networkingv1.PolicyType{
@@ -332,7 +318,7 @@ func (r *DataProtectionApplicationReconciler) reconcileOperatorNetworkPolicy(log
 }
 
 // reconcileVeleroNetworkPolicy creates a NetworkPolicy for the Velero deployment and node-agent daemonset.
-// Note: this selector (component=velero) does NOT cover Velero's dynamically-spawned
+// Note: this selector does NOT cover Velero's dynamically-spawned
 // mover/maintenance pods (CSI DataUpload/DataDownload, PodVolumeBackup/Restore,
 // repository-maintenance jobs) - those are covered by reconcileVeleroMoverNetworkPolicy.
 func (r *DataProtectionApplicationReconciler) reconcileVeleroNetworkPolicy(log logr.Logger) error {
@@ -353,11 +339,13 @@ func (r *DataProtectionApplicationReconciler) reconcileVeleroNetworkPolicy(log l
 		np.Labels = getDpaAppLabels(r.dpa)
 		np.Labels, np.Annotations = applyResourceLabels(r.dpa, np.Labels, np.Annotations)
 
-		// Pod selector: component=velero (matches velero deployment and node-agent daemonset)
+		// Require the OADP managed-by label on both Velero and node-agent pods,
+		// so unrelated workloads with component=velero are not selected.
 		np.Spec = networkingv1.NetworkPolicySpec{
 			PodSelector: metav1.LabelSelector{
 				MatchLabels: map[string]string{
-					"component": common.Velero,
+					"component":                    common.Velero,
+					"app.kubernetes.io/managed-by": common.OADPOperator,
 				},
 			},
 			PolicyTypes: []networkingv1.PolicyType{
@@ -442,9 +430,10 @@ func (r *DataProtectionApplicationReconciler) reconcileVeleroMoverNetworkPolicy(
 				},
 			},
 			PolicyTypes: []networkingv1.PolicyType{
+				networkingv1.PolicyTypeIngress,
 				networkingv1.PolicyTypeEgress,
-				// No ingress rule: these are ephemeral data-transfer/maintenance pods,
-				// not servers, so no inbound traffic is expected.
+				// No ingress rules: deny unsolicited inbound connections to these
+				// ephemeral data-transfer/maintenance pods.
 			},
 			// Egress: unrestricted, same justification as the main Velero NetworkPolicy -
 			// these pods move data directly to/from admin-configured, arbitrary
@@ -512,8 +501,8 @@ func (r *DataProtectionApplicationReconciler) reconcileCLIServerNetworkPolicy(lo
 					},
 				},
 			},
-			// Egress: no rules - this is a static file server with no outbound calls,
-			// so it relies entirely on the namespace default-deny baseline.
+			// Egress: no rules - PolicyTypeEgress denies outbound connections
+			// from this static file server, which makes no outbound calls.
 		}
 
 		return nil
@@ -576,8 +565,8 @@ func (r *DataProtectionApplicationReconciler) reconcileVMDPServerNetworkPolicy(l
 					},
 				},
 			},
-			// Egress: no rules - this is a static file server with no outbound calls,
-			// so it relies entirely on the namespace default-deny baseline.
+			// Egress: no rules - PolicyTypeEgress denies outbound connections
+			// from this static file server, which makes no outbound calls.
 		}
 
 		return nil
@@ -958,9 +947,10 @@ func (r *DataProtectionApplicationReconciler) reconcileKubevirtDatamoverPodsNetw
 				},
 			},
 			PolicyTypes: []networkingv1.PolicyType{
+				networkingv1.PolicyTypeIngress,
 				networkingv1.PolicyTypeEgress,
-				// No ingress rule: these are ephemeral data-transfer pods, not
-				// servers, so no inbound traffic is expected.
+				// No ingress rules: deny unsolicited inbound connections to these
+				// ephemeral data-transfer pods.
 			},
 			// Egress: unrestricted. These pods move VM disk data directly
 			// to/from admin-configured, arbitrary S3-compatible endpoints,
