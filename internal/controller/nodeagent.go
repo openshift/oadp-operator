@@ -598,6 +598,9 @@ func (r *DataProtectionApplicationReconciler) customizeNodeAgentDaemonset(ds *ap
 	// Note: NOT applied to Spec.Selector.MatchLabels as those are immutable after creation
 	ds.Labels, ds.Annotations = applyResourceLabels(dpa, ds.Labels, ds.Annotations)
 	ds.Spec.Template.Labels, ds.Spec.Template.Annotations = applyResourceLabels(dpa, ds.Spec.Template.Labels, ds.Spec.Template.Annotations)
+	// Match the OADP-specific Velero NetworkPolicy without changing the
+	// DaemonSet's immutable selector. Keep this identity despite custom labels.
+	ds.Spec.Template.Labels["app.kubernetes.io/managed-by"] = common.OADPOperator
 
 	// Re-assert selector labels to ensure template labels match selector
 	// This prevents user resourceLabels from overriding selector-critical labels
