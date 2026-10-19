@@ -80,6 +80,7 @@ func (o *OADPDeploymentOperation) Deploy(backupRestoreType lib.BackupRestoreType
 		if backupRestoreType == lib.KOPIA || backupRestoreType == lib.CSIDataMover {
 			log.Printf("Waiting for Node Agent pods to be running")
 			gomega.Eventually(lib.AreNodeAgentPodsRunning(kubernetesClientForSuiteRun, namespace), time.Minute*3, time.Second*5).Should(gomega.BeTrue())
+			expectNodeAgentNetworkPolicy()
 		}
 	}
 
@@ -290,6 +291,10 @@ func runApplicationBackupAndRestore(brCase ApplicationBackupRestoreCase, updateL
 }
 
 func runBackup(brCase BackupRestoreCase, backupName string) bool {
+	var verifyMovers func(string)
+	if brCase.BackupRestoreType == lib.CSIDataMover {
+		verifyMovers = observeNetworkPolicyMovers(velero.DataUploadLabel)
+	}
 	nsRequiresResticDCWorkaround, err := lib.NamespaceRequiresResticDCWorkaround(dpaCR.Client, brCase.Namespace)
 	gomega.Expect(err).ToNot(gomega.HaveOccurred())
 
@@ -329,11 +334,18 @@ func runBackup(brCase BackupRestoreCase, backupName string) bool {
 	gomega.Expect(err).ToNot(gomega.HaveOccurred())
 	gomega.Expect(succeeded).To(gomega.Equal(true))
 	log.Printf("Backup for case %s succeeded", brCase.Name)
+	if verifyMovers != nil {
+		verifyMovers(backupName)
+	}
 
 	return nsRequiresResticDCWorkaround
 }
 
 func runRestore(brCase BackupRestoreCase, backupName, restoreName string, nsRequiresResticDCWorkaround bool) {
+	var verifyMovers func(string)
+	if brCase.BackupRestoreType == lib.CSIDataMover {
+		verifyMovers = observeNetworkPolicyMovers(velero.DataDownloadLabel)
+	}
 	log.Printf("Creating restore %s for case %s", restoreName, brCase.Name)
 	var err error
 
@@ -371,6 +383,9 @@ func runRestore(brCase BackupRestoreCase, backupName, restoreName string, nsRequ
 	succeeded, err := lib.IsRestoreCompletedSuccessfully(kubernetesClientForSuiteRun, dpaCR.Client, namespace, restoreName)
 	gomega.Expect(err).ToNot(gomega.HaveOccurred())
 	gomega.Expect(succeeded).To(gomega.Equal(true))
+	if verifyMovers != nil {
+		verifyMovers(restoreName)
+	}
 
 	if nsRequiresResticDCWorkaround {
 		// We run the dc-post-restore.sh script for both restic and

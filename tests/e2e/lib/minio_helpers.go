@@ -250,10 +250,8 @@ func DeployMinioWithTLS(ctx context.Context, c *kubernetes.Clientset, namespace 
 		return "", fmt.Errorf("creating minio service: %w", err)
 	}
 
-	// The OADP operator's NetworkPolicy suite installs a default-deny policy on this
-	// namespace (see internal/controller/networkpolicy.go), which only allow-lists
-	// OADP-managed workloads. This minio pod is a test-only fixture unknown to those
-	// policies, so it needs its own explicit allow rule for Velero to reach it over TLS.
+	// Keep the test fixture's ingress policy explicit: Velero needs to reach
+	// MinIO over TLS even in namespaces with additional NetworkPolicies.
 	protoTCP := corev1.ProtocolTCP
 	np := &networkingv1.NetworkPolicy{
 		ObjectMeta: metav1.ObjectMeta{
