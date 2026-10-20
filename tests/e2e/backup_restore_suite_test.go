@@ -668,9 +668,16 @@ var _ = ginkgo.Describe("Multiple BSL with custom CA cert tests", ginkgo.Ordered
 
 			// Check BSL status - only the default BSL needs to be available
 			log.Print("Checking if default BSL is available")
+			gomega.Eventually(func() int {
+				bsls, err := dpaCR.ListBSLs()
+				if err != nil {
+					return -1
+				}
+				return len(bsls.Items)
+			}, time.Minute*3, time.Second*5).Should(gomega.Equal(3), "Should have 3 BSLs configured")
+
 			bsls, err := dpaCR.ListBSLs()
 			gomega.Expect(err).NotTo(gomega.HaveOccurred())
-			gomega.Expect(len(bsls.Items)).To(gomega.Equal(3), "Should have 3 BSLs configured")
 
 			// Find the default BSL
 			var defaultBSL *velero.BackupStorageLocation
