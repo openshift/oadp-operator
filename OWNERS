@@ -1,4 +1,5 @@
 approvers:
+  - akarol
   - jwmatthews
   - sseago
   - shawn-hurley
@@ -7,6 +8,7 @@ approvers:
   - kaovilai
   - joeavaikath
 reviewers:
+  - akarol
   - sseago
   - shubham-pampattiwar
   - kaovilai
