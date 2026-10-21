@@ -7,16 +7,22 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 
 	oadpv1alpha1 "github.com/openshift/oadp-operator/api/v1alpha1"
+	"github.com/openshift/oadp-operator/pkg/common"
 )
 
 func veleroPredicate(scheme *runtime.Scheme) predicate.Predicate {
 	return predicate.Funcs{
 		// Update returns true if the Update event should be processed
 		UpdateFunc: func(e event.UpdateEvent) bool {
-			if e.ObjectOld.GetGeneration() == e.ObjectNew.GetGeneration() {
-				return false
+			if e.ObjectOld.GetGeneration() != e.ObjectNew.GetGeneration() {
+				return isObjectOurs(scheme, e.ObjectOld)
 			}
-			return isObjectOurs(scheme, e.ObjectOld)
+			// Generation unchanged — still reconcile if a functionally
+			// consumed annotation was added, removed, or modified.
+			if hasRelevantAnnotationChange(e.ObjectOld, e.ObjectNew) {
+				return isObjectOurs(scheme, e.ObjectOld)
+			}
+			return false
 		},
 		// Create returns true if the Create event should be processed
 		CreateFunc: func(e event.CreateEvent) bool {
@@ -27,6 +33,23 @@ func veleroPredicate(scheme *runtime.Scheme) predicate.Predicate {
 			return !e.DeleteStateUnknown && isObjectOurs(scheme, e.Object)
 		},
 	}
+}
+
+// hasRelevantAnnotationChange returns true if any functionally consumed
+// DPA annotation has changed between the old and new object.
+func hasRelevantAnnotationChange(oldObj, newObj client.Object) bool {
+	relevantAnnotations := []string{
+		common.UnsupportedVeleroServerArgsAnnotation,
+		common.UnsupportedNodeAgentServerArgsAnnotation,
+	}
+	oldAnnotations := oldObj.GetAnnotations()
+	newAnnotations := newObj.GetAnnotations()
+	for _, key := range relevantAnnotations {
+		if oldAnnotations[key] != newAnnotations[key] {
+			return true
+		}
+	}
+	return false
 }
 
 // isObjectOurs returns true if the object is ours.
