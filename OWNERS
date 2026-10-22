@@ -1,4 +1,5 @@
 approvers:
+  - akarol
   - jwmatthews
   - PrasadJoshi12
   - sseago
@@ -9,6 +10,7 @@ approvers:
   - mpryc
   - joeavaikath
 reviewers:
+  - akarol
   - PrasadJoshi12
   - sseago
   - shubham-pampattiwar
