@@ -62,8 +62,8 @@ var (
 	// Default kubevirt-datamover-controller container resources. The
 	// controller caches DataUploads, VirtualMachineBackups, PVCs and pods, so
 	// its memory grows with the number of VMs and the size of the cluster.
-	// There is no CPU limit so CPU throttling cannot slow down the health
-	// probes.
+	// There is no CPU limit, so the controller is never throttled for
+	// exceeding a CPU quota while answering its health probes.
 	kubevirtDatamoverDefaultResourceRequirements = corev1.ResourceRequirements{
 		Requests: corev1.ResourceList{
 			corev1.ResourceCPU:    resource.MustParse("100m"),

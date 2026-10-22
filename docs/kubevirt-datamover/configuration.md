@@ -153,7 +153,7 @@ resources:
     memory: 1Gi
 ```
 
-There is no CPU limit, so CPU throttling cannot slow down the controller's health probes. You can change these values with `spec.configuration.kubevirtDatamover.podConfig.resourceAllocations`, the same field shape as `podConfig.resourceAllocations` for Velero and the Node Agent:
+There is no CPU limit, so the controller is never throttled for exceeding a CPU quota while answering its health probes (CPU contention on a busy node can still slow it down). You can change these values with `spec.configuration.kubevirtDatamover.podConfig.resourceAllocations`, the same field shape as `podConfig.resourceAllocations` for Velero and the Node Agent:
 
 ```yaml
 spec:
@@ -167,9 +167,10 @@ spec:
             memory: 2Gi
 ```
 
-- Each `cpu`, `memory` or `ephemeral-storage` request and limit you set replaces the matching default. Anything you leave unset (or set to `0`) keeps its default, so the example above keeps the `100m` CPU request. Other resource names and `claims` are not supported, and the DPA fails validation if you set them.
+- Each `cpu`, `memory` or `ephemeral-storage` request and limit you set replaces the matching default. Anything you leave unset (or set to `0`) keeps its default, so the example above keeps the `100m` CPU request. Other resource names and `claims` are not supported.
 - The memory limit can be raised or lowered but not removed.
-- If you set only a request and it is above the default limit, the limit is raised to match. If you set only a limit and it is below the default request, the request is lowered to match. If you set both a request and a limit for the same resource and the request is larger, the DPA fails validation.
+- If you set only a request and it is above the default limit, the limit is raised to match. If you set only a limit and it is below the default request, the request is lowered to match.
+- When the `kubevirt-datamover` plugin is enabled, the DPA fails validation if `resourceAllocations` sets an unsupported resource name or `claims`, or sets both a request and a limit for the same resource with the request larger than the limit. When the plugin is not enabled, the field is not used or checked.
 - The operator sets the `GOMEMLIMIT` environment variable on the controller to 90% of the memory limit, so the Go garbage collector works harder as memory use approaches the limit instead of letting the container run out of memory.
 
 Both health probes use a 5 second timeout and a failure threshold of 5. After 5 consecutive failures, the liveness probe restarts the controller (about 85 seconds after the first failure), and the readiness probe marks the pod not ready.
