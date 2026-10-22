@@ -116,7 +116,7 @@ require (
 	github.com/joho/godotenv v1.3.0 // indirect
 	github.com/josharian/intern v1.0.0 // indirect
 	github.com/json-iterator/go v1.1.12 // indirect
-	github.com/klauspost/compress v1.17.8 // indirect
+	github.com/klauspost/compress v1.18.7 // indirect
 	github.com/klauspost/cpuid/v2 v2.2.6 // indirect
 	github.com/klauspost/pgzip v1.2.6 // indirect
 	github.com/klauspost/reedsolomon v1.12.1 // indirect
@@ -194,8 +194,8 @@ require (
 	sigs.k8s.io/yaml v1.4.0 // indirect
 )
 
-replace github.com/vmware-tanzu/velero => github.com/openshift/velero v0.10.2-0.20261016203254-8ee6993b52f5
+replace github.com/vmware-tanzu/velero => github.com/openshift/velero v0.10.2-0.20261021172656-95f0016887d9
 
-replace github.com/kopia/kopia => github.com/migtools/kopia v0.0.0-20261014150428-5df37bbf94f9
+replace github.com/kopia/kopia => github.com/migtools/kopia v0.0.0-20261021155627-32202dc3afcd
 
 exclude github.com/kcp-dev/kcp/sdk v0.0.0-00010101000000-000000000000
