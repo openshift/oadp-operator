@@ -4,7 +4,47 @@ import (
 	"errors"
 	"reflect"
 	"testing"
+	"time"
 )
+
+func TestRetryBucketRegion(t *testing.T) {
+	origAttempts, origBackoff := bucketRegionAttempts, bucketRegionRetryBackoff
+	defer func() { bucketRegionAttempts, bucketRegionRetryBackoff = origAttempts, origBackoff }()
+	bucketRegionAttempts, bucketRegionRetryBackoff = 3, time.Millisecond
+
+	tests := []struct {
+		name       string
+		failFirstN int
+		wantRegion string
+		wantErr    bool
+		wantCalls  int
+	}{
+		{name: "succeeds first try", failFirstN: 0, wantRegion: "us-west-2", wantCalls: 1},
+		{name: "recovers after transient failures", failFirstN: 2, wantRegion: "us-west-2", wantCalls: 3},
+		{name: "gives up after all attempts fail", failFirstN: 3, wantErr: true, wantCalls: 3},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			calls := 0
+			got, err := retryBucketRegion(func() (string, error) {
+				calls++
+				if calls <= tt.failFirstN {
+					return "", errors.New("connection reset by peer")
+				}
+				return "us-west-2", nil
+			})
+			if (err != nil) != tt.wantErr {
+				t.Errorf("retryBucketRegion() error = %v, wantErr %v", err, tt.wantErr)
+			}
+			if got != tt.wantRegion {
+				t.Errorf("retryBucketRegion() = %q, want %q", got, tt.wantRegion)
+			}
+			if calls != tt.wantCalls {
+				t.Errorf("lookup called %d times, want %d", calls, tt.wantCalls)
+			}
+		})
+	}
+}
 
 func TestGetBucketRegion(t *testing.T) {
 	tests := []struct {
