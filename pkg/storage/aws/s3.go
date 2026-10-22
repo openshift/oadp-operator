@@ -25,6 +25,8 @@ var GetBucketRegionFunc = getBucketRegionImpl
 var (
 	bucketRegionAttempts     = 3
 	bucketRegionRetryBackoff = 500 * time.Millisecond
+	// bucketRegionAttemptTimeout bounds each lookup attempt so retries cannot hang a reconcile.
+	bucketRegionAttemptTimeout = 15 * time.Second
 )
 
 func BucketRegionIsDiscoverable(bucket string) bool {
@@ -67,6 +69,8 @@ func retryBucketRegion(lookup func() (string, error)) (string, error) {
 
 func getBucketRegionOnce(bucket string) (string, error) {
 	var region string
+	ctx, cancel := context.WithTimeout(context.Background(), bucketRegionAttemptTimeout)
+	defer cancel()
 	// GetBucketRegion will attempt to get the region for a bucket using the client's configured region to determine
 	// which AWS partition to perform the query on.
 	// Client therefore needs to be configured with region.
@@ -75,13 +79,13 @@ func getBucketRegionOnce(bucket string) (string, error) {
 	// Also set to use anonymous credentials. This works for both public and private buckets as AWS Security
 	// confirmed that HeadBucket API (used by GetBucketRegion) doesn't enforce s3:ListBucket permissions
 	// for region retrieval - this is expected AWS behavior.
-	cfg, err := config.LoadDefaultConfig(context.Background(),
+	cfg, err := config.LoadDefaultConfig(ctx,
 		config.WithRegion("us-east-1"), // This is not default region being used, this is to specify a region hinting server that we will use to get region from.
 	)
 	if err != nil {
 		return "", err
 	}
-	region, err = manager.GetBucketRegion(context.Background(), s3.NewFromConfig(cfg), bucket, func(o *s3.Options) {
+	region, err = manager.GetBucketRegion(ctx, s3.NewFromConfig(cfg), bucket, func(o *s3.Options) {
 		// AWS Security confirmed that anonymous credentials can be used here for GetBucketRegion.
 		// The HeadBucket API endpoint used internally by GetBucketRegion does not enforce
 		// s3:ListBucket permissions for retrieving bucket region information.
