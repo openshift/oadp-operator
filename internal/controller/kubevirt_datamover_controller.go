@@ -48,6 +48,49 @@ var (
 	previousKubevirtDatamoverEnabled = false
 )
 
+// checkKubevirtDatamoverClusterSingleton returns an error if some other DPA,
+// in a different namespace, already has the kubevirt-datamover plugin
+// enabled and its deployment installed. Only one instance of the
+// kubevirt-datamover controller is supported per cluster.
+//
+// The check-then-act sequence (this check in ValidateDataProtectionCR, the
+// deployment creation later in ReconcileKubevirtDatamoverController) is only
+// safe because reconciles are serialized: MaxConcurrentReconciles is never
+// overridden in SetupWithManager. If that ever changes, this must be made
+// atomic (e.g. a mutex around check + create); see https://github.com/openshift/oadp-operator/issues/2490.
+func (r *DataProtectionApplicationReconciler) checkKubevirtDatamoverClusterSingleton() error {
+	dpaList := &oadpv1alpha1.DataProtectionApplicationList{}
+	if err := r.ClusterWideClient.List(r.Context, dpaList); err != nil {
+		return err
+	}
+	for _, dpa := range dpaList.Items {
+		if dpa.Namespace == r.NamespacedName.Namespace {
+			continue
+		}
+		// Check if other DPA has kubevirt-datamover enabled
+		otherReconciler := &DataProtectionApplicationReconciler{dpa: &dpa}
+		if !otherReconciler.checkKubevirtDatamoverEnabled() {
+			continue
+		}
+		kubevirtDatamoverDeployment := &appsv1.Deployment{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      kubevirtDatamoverObjectName,
+				Namespace: dpa.Namespace,
+			},
+		}
+		err := r.ClusterWideClient.Get(r.Context,
+			types.NamespacedName{Name: kubevirtDatamoverDeployment.Name, Namespace: kubevirtDatamoverDeployment.Namespace},
+			kubevirtDatamoverDeployment)
+		if err == nil {
+			return fmt.Errorf("only a single instance of KubeVirt DataMover Controller can be installed across the entire cluster. KubeVirt DataMover controller is already configured and installed in %s namespace", dpa.Namespace)
+		}
+		if !k8serror.IsNotFound(err) {
+			return err
+		}
+	}
+	return nil
+}
+
 // ReconcileKubevirtDatamoverController manages the kubevirt-datamover controller deployment
 func (r *DataProtectionApplicationReconciler) ReconcileKubevirtDatamoverController(log logr.Logger) (bool, error) {
 	deployment := &appsv1.Deployment{
