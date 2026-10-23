@@ -59,3 +59,7 @@ This differs from upstream Velero/Node Agent pod(s) in that the default resource
 ### Other podConfig Options
 
 The `podConfig` field also supports `tolerations`, `nodeSelector`, `labels`, and `env`. See [pod_config.md](pod_config.md) for full documentation.
+
+### KubeVirt DataMover controller
+
+The KubeVirt DataMover controller pod uses `configuration.kubevirtDatamover.podConfig.resourceAllocations`. Unlike the Velero and Node Agent `podConfig`, it only supports `resourceAllocations`, and it has its own defaults, including a memory limit. See [Controller resources](../kubevirt-datamover/configuration.md#controller-resources).

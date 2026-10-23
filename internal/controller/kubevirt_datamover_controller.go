@@ -3,6 +3,7 @@ package controller
 import (
 	"fmt"
 	"os"
+	"slices"
 	"strconv"
 
 	"github.com/go-logr/logr"
@@ -29,6 +30,17 @@ const (
 	kubevirtDatamoverControlPlaneKey   = "control-plane"
 	kubevirtDatamoverControlPlaneValue = "oadp-kubevirt-datamover-controller"
 	kdmDpaResourceVersionAnnotation    = oadpv1alpha1.OadpOperatorLabel + "-kdm-dpa-resource-version"
+
+	// Probe tuning. /healthz and /readyz are healthz.Ping, so a failed probe
+	// means the process could not answer HTTP in time (for example while
+	// stalled near its memory limit). With a 5s timeout and 5 consecutive
+	// failures the liveness probe (period 20s) restarts the container about
+	// 85s after the first failed probe, instead of about 40s with the
+	// Kubernetes defaults (1s timeout, 3 failures).
+	kubevirtDatamoverProbeTimeoutSeconds   = 5
+	kubevirtDatamoverProbeFailureThreshold = 5
+
+	kubevirtDatamoverResourceAllocationsPath = "spec.configuration.kubevirtDatamover.podConfig.resourceAllocations"
 )
 
 var (
@@ -46,6 +58,31 @@ var (
 
 	kdmDpaResourceVersion            = ""
 	previousKubevirtDatamoverEnabled = false
+
+	// Default kubevirt-datamover-controller container resources. The
+	// controller caches DataUploads, VirtualMachineBackups, PVCs and pods, so
+	// its memory grows with the number of VMs and the size of the cluster.
+	// There is no CPU limit, so the controller is never throttled for
+	// exceeding a CPU quota while answering its health probes.
+	kubevirtDatamoverDefaultResourceRequirements = corev1.ResourceRequirements{
+		Requests: corev1.ResourceList{
+			corev1.ResourceCPU:    resource.MustParse("100m"),
+			corev1.ResourceMemory: resource.MustParse("256Mi"),
+		},
+		Limits: corev1.ResourceList{
+			corev1.ResourceMemory: resource.MustParse("1Gi"),
+		},
+	}
+
+	// The only resources that can be set in
+	// kubevirtDatamover.podConfig.resourceAllocations (the ones
+	// getResourceListFrom applies), in the order request/limit conflicts are
+	// checked.
+	kubevirtDatamoverResourceNames = []corev1.ResourceName{
+		corev1.ResourceCPU,
+		corev1.ResourceMemory,
+		corev1.ResourceEphemeralStorage,
+	}
 )
 
 // ReconcileKubevirtDatamoverController manages the kubevirt-datamover controller deployment
@@ -146,6 +183,12 @@ func ensureKubevirtDatamoverRequiredSpecs(
 	imagePullPolicy corev1.PullPolicy,
 	r *DataProtectionApplicationReconciler,
 ) error {
+	// Get resource requirements
+	resources, err := getKubevirtDatamoverResourceReqs(dpa)
+	if err != nil {
+		return err
+	}
+
 	// Build environment variables
 	envVars := []corev1.EnvVar{
 		{
@@ -158,25 +201,13 @@ func ensureKubevirtDatamoverRequiredSpecs(
 		},
 	}
 
-	// Add log level if configured
-	if dpa.Spec.Configuration != nil && dpa.Spec.Configuration.Velero != nil {
+	// The Go runtime does not read the container memory limit, so set a soft
+	// limit below it to make the GC work harder before the container runs out
+	// of memory.
+	if goMemLimit, ok := kubevirtDatamoverGoMemLimit(resources.Limits); ok {
 		envVars = append(envVars, corev1.EnvVar{
-			Name: common.LogLevelEnvVar,
-			Value: func() string {
-				level, err := logrus.ParseLevel(dpa.Spec.Configuration.Velero.LogLevel)
-				if err != nil {
-					return ""
-				}
-				return strconv.FormatUint(uint64(level), 10)
-			}(),
-		})
-	}
-
-	// Add log format if configured
-	if len(dpa.Spec.LogFormat) > 0 {
-		envVars = append(envVars, corev1.EnvVar{
-			Name:  common.LogFormatEnvVar,
-			Value: string(dpa.Spec.LogFormat),
+			Name:  "GOMEMLIMIT",
+			Value: goMemLimit,
 		})
 	}
 
@@ -205,9 +236,6 @@ func ensureKubevirtDatamoverRequiredSpecs(
 	podAnnotations := map[string]string{
 		kdmDpaResourceVersionAnnotation: kdmDpaResourceVersion,
 	}
-
-	// Get resource requirements
-	resources := r.getKubevirtDatamoverResources()
 
 	// Set deployment spec
 	deploymentObject.Spec.Replicas = ptr.To(int32(1))
@@ -250,6 +278,9 @@ func ensureKubevirtDatamoverRequiredSpecs(
 		"--metrics-bind-address=:8443",
 		"--metrics-secure=true",
 	}
+	// The controller reads its log settings from controller-runtime's zap
+	// flags, not from the LOG_LEVEL and LOG_FORMAT environment variables.
+	args = append(args, kubevirtDatamoverLogArgs(dpa)...)
 	if dpa.Spec.Configuration != nil && dpa.Spec.Configuration.KubevirtDatamover != nil {
 		if dpa.Spec.Configuration.KubevirtDatamover.MaxIncrementalBackups != nil {
 			args = append(args, fmt.Sprintf("--max-incremental-backups=%d",
@@ -301,28 +332,8 @@ func ensureKubevirtDatamoverRequiredSpecs(
 			},
 			ReadOnlyRootFilesystem: ptr.To(true),
 		},
-		LivenessProbe: &corev1.Probe{
-			ProbeHandler: corev1.ProbeHandler{
-				HTTPGet: &corev1.HTTPGetAction{
-					Path:   "/healthz",
-					Port:   intstr.FromInt(8081),
-					Scheme: corev1.URISchemeHTTP,
-				},
-			},
-			InitialDelaySeconds: 15,
-			PeriodSeconds:       20,
-		},
-		ReadinessProbe: &corev1.Probe{
-			ProbeHandler: corev1.ProbeHandler{
-				HTTPGet: &corev1.HTTPGetAction{
-					Path:   "/readyz",
-					Port:   intstr.FromInt(8081),
-					Scheme: corev1.URISchemeHTTP,
-				},
-			},
-			InitialDelaySeconds: 5,
-			PeriodSeconds:       10,
-		},
+		LivenessProbe:            kubevirtDatamoverProbe("/healthz", 15, 20),
+		ReadinessProbe:           kubevirtDatamoverProbe("/readyz", 5, 10),
 		TerminationMessagePolicy: corev1.TerminationMessageFallbackToLogsOnError,
 	}
 
@@ -332,8 +343,11 @@ func ensureKubevirtDatamoverRequiredSpecs(
 	} else {
 		for index, container := range deploymentObject.Spec.Template.Spec.Containers {
 			if container.Name == "manager" {
-				// Update dynamic fields that can change based on DPA configuration
-				// Static fields (Command, Ports, SecurityContext, Probes) are left as-is
+				// Update dynamic fields that can change based on DPA configuration.
+				// Probes are also re-applied so existing deployments pick up probe
+				// changes on upgrade; every field the API server defaults is set
+				// explicitly, so this does not cause an update on every reconcile.
+				// Static fields (Command, Ports, SecurityContext) are left as-is
 				kubevirtDatamoverContainer := &deploymentObject.Spec.Template.Spec.Containers[index]
 				kubevirtDatamoverContainer.Image = image
 				kubevirtDatamoverContainer.ImagePullPolicy = imagePullPolicy
@@ -341,6 +355,8 @@ func ensureKubevirtDatamoverRequiredSpecs(
 				kubevirtDatamoverContainer.Env = envVars
 				kubevirtDatamoverContainer.EnvFrom = envFrom
 				kubevirtDatamoverContainer.Resources = resources
+				kubevirtDatamoverContainer.LivenessProbe = containerSpec.LivenessProbe
+				kubevirtDatamoverContainer.ReadinessProbe = containerSpec.ReadinessProbe
 				kubevirtDatamoverContainer.TerminationMessagePolicy = corev1.TerminationMessageFallbackToLogsOnError
 				kubevirtDatamoverContainerFound = true
 				break
@@ -363,6 +379,10 @@ func ensureKubevirtDatamoverRequiredSpecs(
 			Name: "bound-sa-token",
 			VolumeSource: corev1.VolumeSource{
 				Projected: &corev1.ProjectedVolumeSource{
+					// Set explicitly to the API server default so the
+					// deployment does not differ from the stored object on
+					// every reconcile.
+					DefaultMode: ptr.To(common.DefaultProjectedPermission),
 					Sources: []corev1.VolumeProjection{
 						{
 							ServiceAccountToken: &corev1.ServiceAccountTokenProjection{
@@ -408,16 +428,179 @@ func (r *DataProtectionApplicationReconciler) getKubevirtDatamoverControllerImag
 	return "quay.io/konveyor/kubevirt-datamover-controller:latest"
 }
 
-func (r *DataProtectionApplicationReconciler) getKubevirtDatamoverResources() corev1.ResourceRequirements {
-	// Conservative defaults matching vmfilerestore pattern
-	return corev1.ResourceRequirements{
-		Limits: corev1.ResourceList{
-			corev1.ResourceCPU:    resource.MustParse("500m"),
-			corev1.ResourceMemory: resource.MustParse("128Mi"),
+// kubevirtDatamoverProbe returns an HTTP probe against the health probe port.
+// Every field the API server defaults is set explicitly so the probe compares
+// equal to the stored object and re-applying it on update is a no-op.
+func kubevirtDatamoverProbe(path string, initialDelaySeconds, periodSeconds int32) *corev1.Probe {
+	return &corev1.Probe{
+		ProbeHandler: corev1.ProbeHandler{
+			HTTPGet: &corev1.HTTPGetAction{
+				Path:   path,
+				Port:   intstr.FromInt(8081),
+				Scheme: corev1.URISchemeHTTP,
+			},
 		},
-		Requests: corev1.ResourceList{
-			corev1.ResourceCPU:    resource.MustParse("10m"),
-			corev1.ResourceMemory: resource.MustParse("64Mi"),
-		},
+		InitialDelaySeconds: initialDelaySeconds,
+		PeriodSeconds:       periodSeconds,
+		TimeoutSeconds:      kubevirtDatamoverProbeTimeoutSeconds,
+		SuccessThreshold:    1,
+		FailureThreshold:    kubevirtDatamoverProbeFailureThreshold,
 	}
+}
+
+// getKubevirtDatamoverResourceReqs returns the kubevirt-datamover-controller
+// container resources: the defaults, with each cpu, memory or
+// ephemeral-storage request or limit set in
+// spec.configuration.kubevirtDatamover.podConfig.resourceAllocations
+// replacing the matching default.
+//
+// When a value from the DPA conflicts with a default (for example a memory
+// request above the default memory limit), the default is adjusted to match
+// the DPA value. A request above a limit when both come from the DPA is an
+// error.
+func getKubevirtDatamoverResourceReqs(dpa *oadpv1alpha1.DataProtectionApplication) (corev1.ResourceRequirements, error) {
+	resources := *kubevirtDatamoverDefaultResourceRequirements.DeepCopy()
+	if dpa.Spec.Configuration == nil || dpa.Spec.Configuration.KubevirtDatamover == nil ||
+		dpa.Spec.Configuration.KubevirtDatamover.PodConfig == nil {
+		return resources, nil
+	}
+	allocations := dpa.Spec.Configuration.KubevirtDatamover.PodConfig.ResourceAllocations
+
+	// getResourceListFrom only applies cpu, memory and ephemeral-storage, skips
+	// zero values and passes negative ones through, so reject anything it
+	// would drop or pass on invalid instead of silently ignoring it.
+	if len(allocations.Claims) > 0 {
+		return resources, fmt.Errorf("%s: claims is not supported", kubevirtDatamoverResourceAllocationsPath)
+	}
+	for _, list := range []struct {
+		field  string
+		values corev1.ResourceList
+	}{
+		{field: "requests", values: allocations.Requests},
+		{field: "limits", values: allocations.Limits},
+	} {
+		// Sort so the same resource is reported on every reconcile.
+		names := make([]corev1.ResourceName, 0, len(list.values))
+		for name := range list.values {
+			names = append(names, name)
+		}
+		slices.Sort(names)
+		for _, name := range names {
+			if !slices.Contains(kubevirtDatamoverResourceNames, name) {
+				return resources, fmt.Errorf("%s: %s.%s is not supported; only cpu, memory and ephemeral-storage can be set",
+					kubevirtDatamoverResourceAllocationsPath, list.field, name)
+			}
+			if quantity := list.values[name]; quantity.Sign() < 0 {
+				return resources, fmt.Errorf("%s: %s.%s must not be negative, got %s",
+					kubevirtDatamoverResourceAllocationsPath, list.field, name, quantity.String())
+			}
+		}
+	}
+
+	if allocations.Requests != nil {
+		requests, err := getResourceListFrom(allocations.Requests, resources.Requests)
+		if err != nil {
+			return resources, err
+		}
+		resources.Requests = *requests
+	}
+	if allocations.Limits != nil {
+		limits, err := getResourceListFrom(allocations.Limits, resources.Limits)
+		if err != nil {
+			return resources, err
+		}
+		resources.Limits = *limits
+	}
+
+	for _, name := range kubevirtDatamoverResourceNames {
+		request, hasRequest := resources.Requests[name]
+		limit, hasLimit := resources.Limits[name]
+		if !hasRequest || !hasLimit || request.Cmp(limit) <= 0 {
+			continue
+		}
+		requestSet := isResourceSet(allocations.Requests, name)
+		limitSet := isResourceSet(allocations.Limits, name)
+		switch {
+		case requestSet && limitSet:
+			return resources, fmt.Errorf("%s: requests.%s (%s) must be less than or equal to limits.%s (%s)",
+				kubevirtDatamoverResourceAllocationsPath, name, request.String(), name, limit.String())
+		case requestSet:
+			resources.Limits[name] = request.DeepCopy()
+		case limitSet:
+			resources.Requests[name] = limit.DeepCopy()
+		}
+	}
+
+	return resources, nil
+}
+
+// isResourceSet reports whether list has a non-zero value for name, matching
+// the values getResourceListFrom applies.
+func isResourceSet(list corev1.ResourceList, name corev1.ResourceName) bool {
+	quantity, ok := list[name]
+	return ok && !quantity.IsZero()
+}
+
+// kubevirtDatamoverGoMemLimit returns the GOMEMLIMIT value for the given
+// container limits: 90% of the memory limit, in bytes. It returns false when
+// there is no memory limit.
+func kubevirtDatamoverGoMemLimit(limits corev1.ResourceList) (string, bool) {
+	memoryLimit, ok := limits[corev1.ResourceMemory]
+	if !ok {
+		return "", false
+	}
+	// Divide first so large limits cannot overflow int64.
+	goMemLimit := memoryLimit.Value() / 10 * 9
+	if goMemLimit <= 0 {
+		return "", false
+	}
+	// GOMEMLIMIT takes a byte count or a B/KiB/MiB/GiB/TiB suffix, not
+	// Kubernetes quantity suffixes such as Mi, so always use plain bytes.
+	return strconv.FormatInt(goMemLimit, 10), true
+}
+
+// kubevirtDatamoverLogArgs returns the controller-runtime zap flags for the
+// DPA log settings.
+func kubevirtDatamoverLogArgs(dpa *oadpv1alpha1.DataProtectionApplication) []string {
+	logLevel := ""
+	if dpa.Spec.Configuration != nil && dpa.Spec.Configuration.Velero != nil {
+		logLevel = dpa.Spec.Configuration.Velero.LogLevel
+	}
+	return []string{
+		"--zap-log-level=" + kubevirtDatamoverZapLogLevel(logLevel),
+		"--zap-encoder=" + kubevirtDatamoverZapEncoder(dpa.Spec.LogFormat),
+	}
+}
+
+// kubevirtDatamoverZapLogLevel maps a velero.logLevel value (a logrus level)
+// to a --zap-log-level value. The flag only accepts debug, info, error, panic
+// or a positive verbosity, and the controller exits on startup for anything
+// else, so unset and unknown values map to info.
+// The controller logs its warnings at info and its fatal errors at error, so
+// warning maps to info and fatal and panic map to error instead of hiding
+// those messages.
+func kubevirtDatamoverZapLogLevel(logLevel string) string {
+	level, err := logrus.ParseLevel(logLevel)
+	if err != nil {
+		return "info"
+	}
+	switch level {
+	case logrus.TraceLevel:
+		// V(2), one step more verbose than debug (V(1)).
+		return "2"
+	case logrus.DebugLevel:
+		return "debug"
+	case logrus.InfoLevel, logrus.WarnLevel:
+		return "info"
+	default:
+		return "error"
+	}
+}
+
+// kubevirtDatamoverZapEncoder maps the DPA logFormat to a --zap-encoder value.
+func kubevirtDatamoverZapEncoder(logFormat oadpv1alpha1.LogFormat) string {
+	if logFormat == oadpv1alpha1.LogFormatJSON {
+		return "json"
+	}
+	return "console"
 }

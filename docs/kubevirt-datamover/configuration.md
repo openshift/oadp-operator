@@ -140,6 +140,54 @@ All three fields are optional. If you leave them unset, the controller uses its 
 
 You can also override the temporary backup PVC size on a per-VM basis with the `kubevirt-datamover.io/backup-pvc-size` annotation on the VirtualMachine (a Kubernetes quantity, for example `50Gi`). The controller normally calculates this size from the VM's disk, so you only need this if you have a VM where the automatic sizing isn't giving you enough headroom.
 
+### Controller resources
+
+The controller caches DataUploads, VirtualMachineBackups, PVCs and pods, so its memory use grows with the number of VMs being backed up and with the size of the cluster. By default its container gets:
+
+```yaml
+resources:
+  requests:
+    cpu: 100m
+    memory: 256Mi
+  limits:
+    memory: 1Gi
+```
+
+There is no CPU limit, so the controller is never throttled for exceeding a CPU quota while answering its health probes (CPU contention on a busy node can still slow it down). You can change these values with `spec.configuration.kubevirtDatamover.podConfig.resourceAllocations`, the same field shape as `podConfig.resourceAllocations` for Velero and the Node Agent:
+
+```yaml
+spec:
+  configuration:
+    kubevirtDatamover:
+      podConfig:
+        resourceAllocations:
+          requests:
+            memory: 512Mi
+          limits:
+            memory: 2Gi
+```
+
+- Each `cpu`, `memory` or `ephemeral-storage` request and limit you set replaces the matching default. Anything you leave unset (or set to `0`) keeps its default, so the example above keeps the `100m` CPU request. Other resource names and `claims` are not supported.
+- The memory limit can be raised or lowered but not removed.
+- If you set only a request and it is above the default limit, the limit is raised to match. If you set only a limit and it is below the default request, the request is lowered to match.
+- When the `kubevirt-datamover` plugin is enabled, the DPA fails validation if `resourceAllocations` sets an unsupported resource name or `claims`, or sets both a request and a limit for the same resource with the request larger than the limit. When the plugin is not enabled, the field is not used or checked.
+- The operator sets the `GOMEMLIMIT` environment variable on the controller to 90% of the memory limit, so the Go garbage collector works harder as memory use approaches the limit instead of letting the container run out of memory.
+
+Both health probes use a 5 second timeout and a failure threshold of 5. After 5 consecutive failures, the liveness probe restarts the controller (about 85 seconds after the first failure), and the readiness probe marks the pod not ready.
+
+### Controller logging
+
+The controller follows the DPA's log settings. `spec.configuration.velero.logLevel` sets its log level, and `spec.logFormat` sets its log format:
+
+| `velero.logLevel` | Controller log level |
+|---|---|
+| unset, `info`, `warning` | `info` |
+| `trace` | `2` (debug plus V(2) messages) |
+| `debug` | `debug` |
+| `error`, `fatal`, `panic` | `error` |
+
+`warning` maps to `info` because the controller logs its warnings at info level, and `fatal` and `panic` map to `error` so its error messages are never hidden. A `logFormat` of `text` (the default) produces console output, and `json` produces JSON.
+
 ## Volume policy configuration
 
 Velero decides which backup path to use for a given PVC through volume policies. To route a VM's disks through KubeVirt DataMover rather than a CSI snapshot, add a custom action to your Velero volume policy that targets `kubevirt` as the datamover. The ConfigMap needs to hold exactly one data entry, Velero rejects a ConfigMap with zero or more than one key, but the key itself can be named anything you like. Velero just reads whatever single value is in `data` and treats it as the policy YAML, it does not look for a key called `policy.yaml` specifically. Most examples (including this one) use `policy.yaml` by convention, but if you create the ConfigMap from a file with a different name, that works fine too.
