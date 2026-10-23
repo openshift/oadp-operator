@@ -1027,6 +1027,7 @@ HCO_INDEX_TAG ?= nightly
 # hcp
 TEST_HCP ?= false
 TEST_HCP_EXTERNAL ?= false
+TEST_HCP_GUEST ?= false
 HCP_EXTERNAL_ARGS ?= ""
 # other
 TEST_CLI ?= false
@@ -1084,6 +1085,11 @@ ifeq ($(TEST_HCP_EXTERNAL),true)
 	HCP_EXTERNAL_ARGS = -hc_backup_restore_mode=$(HC_BACKUP_RESTORE_MODE) -hc_name=$(HC_NAME) -hc_namespace=$(HC_NAMESPACE) -sc_kubeconfig=$(SC_KUBECONFIG)
 else
 	TEST_FILTER += && (! hcp_external)
+endif
+ifeq ($(TEST_HCP_GUEST),true)
+	TEST_FILTER += && (hcp_guest)
+else
+	TEST_FILTER += && (! hcp_guest)
 endif
 ifeq ($(TEST_CLI),true)
 	TEST_FILTER += && (cli)
