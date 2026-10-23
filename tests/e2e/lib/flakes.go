@@ -113,6 +113,11 @@ func CheckIfFlakeOccurred(logs []string) bool {
 			Description:         "virt-controller's reconcileStart() (pkg/storage/cbt/backup.go) can mark an already-successfully-completed VirtualMachineBackup Failed with reason SourceLost: cleanupVMIState() clears the VMI's BackupStatus and re-triggers reconcile before the backup's own just-written terminal status is visible via the informer's async cache, so the stale reconcile wrongly concludes the status was lost mid-flight -- observed live immediately after a real 'Completed VirtualMachineBackup, warning: ...' event, first seen testing kubevirt/kubevirt nightly (v1.20.0). Fixed at kubevirt/kubevirt#18957 (checks the API server directly before concluding lost); distinct from CNV-85377/kubevirt/kubevirt#18949.",
 			StringSearchPattern: "VMI backup status was lost",
 		},
+		{
+			Issue:               "https://prow.ci.openshift.org/view/gs/test-platform-results/logs/periodic-ci-openshift-oadp-operator-oadp-1.4-4.18-e2e-test-cli-aws-periodic/2112725780243943424",
+			Description:         "Transient Velero single-worker BSL validation hang causing BSL phase to remain unset until test timeout",
+			StringSearchPattern: "BSL .* phase is not yet set",
+		},
 	}
 	logString := strings.Join(logs, "\n")
 
