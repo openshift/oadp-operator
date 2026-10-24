@@ -30,14 +30,15 @@ import (
 // eliminating the need for temporary credential files as used by AWS/GCP providers.
 func (r *DataProtectionApplicationReconciler) ReconcileAzureWorkloadIdentitySecret(log logr.Logger) (bool, error) {
 	dpa := r.dpa
-	azureClientID := os.Getenv(stsflow.ClientIDEnvKey)
 
 	// Only create secret if Azure workload identity environment variables are present
-	azureTenantID := os.Getenv(stsflow.TenantIDEnvKey)
-	if azureClientID == "" || azureTenantID == "" || os.Getenv(stsflow.SubscriptionIDEnvKey) == "" {
+	if !stsflow.AzureIsWorkloadIdentity() {
 		// No Azure workload identity configured, nothing to do
 		return true, nil
 	}
+
+	azureClientID := os.Getenv(stsflow.ClientIDEnvKey)
+	azureTenantID := os.Getenv(stsflow.TenantIDEnvKey)
 
 	secret := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
