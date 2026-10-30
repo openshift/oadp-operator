@@ -137,6 +137,13 @@ var virtualMachineBackupGvr = schema.GroupVersionResource{
 	Version:  "v1alpha1",
 }
 
+// dataUploadGvr is the Velero v2alpha1 DataUpload resource.
+var dataUploadGvr = schema.GroupVersionResource{
+	Group:    "velero.io",
+	Version:  "v2alpha1",
+	Resource: "datauploads",
+}
+
 var kubevirtCrGvr = schema.GroupVersionResource{
 	Group:    "kubevirt.io",
 	Resource: "kubevirts",
@@ -1661,37 +1668,38 @@ func (v *VirtOperator) CheckVMBackupTrackerExists(namespace string) (bool, error
 	return len(list.Items) > 0, nil
 }
 
-// GetVMBBackupType finds the VirtualMachineBackup in namespace whose
-// annotationDataUploadName annotation matches dataUploadName, and returns its
-// status.type ("full"/"incremental") and status.checkpointName.
-func (v *VirtOperator) GetVMBBackupType(namespace, dataUploadName string) (backupType, checkpointName string, err error) {
-	list, err := v.Dynamic.Resource(virtualMachineBackupGvr).Namespace(namespace).List(context.Background(), metav1.ListOptions{})
+// GetVMBBackupType reads the backup type from the DataUpload's
+// kubevirt-datamover.io/expected-backup-type annotation (reliably set by
+// kubevirt-datamover-controller for both full and incremental backups),
+// and optionally looks up the VirtualMachineBackup in namespace for
+// status.checkpointName (best-effort — the VMB may already be deleted
+// by the time this runs).
+func (v *VirtOperator) GetVMBBackupType(namespace, oadpNamespace, dataUploadName string) (backupType, checkpointName string, err error) {
+	// Read the DataUpload to get the expected backup type annotation.
+	du, err := v.Dynamic.Resource(dataUploadGvr).Namespace(oadpNamespace).Get(context.Background(), dataUploadName, metav1.GetOptions{})
 	if err != nil {
-		return "", "", fmt.Errorf("failed to list VirtualMachineBackups in %s: %w", namespace, err)
+		return "", "", fmt.Errorf("failed to get DataUpload %s/%s: %w", oadpNamespace, dataUploadName, err)
+	}
+	backupType = du.GetAnnotations()[annotationExpectedBackupType]
+	if backupType == "" {
+		backupType = "full"
+	}
+
+	// Best-effort: try to find the VMB for checkpointName, but don't error
+	// if it's missing (it may already be deleted by the time we look).
+	list, listErr := v.Dynamic.Resource(virtualMachineBackupGvr).Namespace(namespace).List(context.Background(), metav1.ListOptions{})
+	if listErr != nil {
+		log.Printf("GetVMBBackupType: could not list VirtualMachineBackups in %s (best-effort, continuing): %v", namespace, listErr)
+		return backupType, "", nil
 	}
 	for _, vmb := range list.Items {
 		if vmb.GetAnnotations()[annotationDataUploadName] != dataUploadName {
 			continue
 		}
-		found := false
-		backupType, found, err = unstructured.NestedString(vmb.Object, "status", "type")
-		if err != nil {
-			return "", "", fmt.Errorf("failed to read status.type from VirtualMachineBackup %s/%s: %w", namespace, vmb.GetName(), err)
-		}
-		if !found {
-			return "", "", fmt.Errorf("VirtualMachineBackup %s/%s has no status.type yet", namespace, vmb.GetName())
-		}
-		foundCheckpoint := false
-		checkpointName, foundCheckpoint, err = unstructured.NestedString(vmb.Object, "status", "checkpointName")
-		if err != nil {
-			return "", "", fmt.Errorf("failed to read status.checkpointName from VirtualMachineBackup %s/%s: %w", namespace, vmb.GetName(), err)
-		}
-		if !foundCheckpoint {
-			return "", "", fmt.Errorf("VirtualMachineBackup %s/%s has no status.checkpointName yet", namespace, vmb.GetName())
-		}
-		return backupType, checkpointName, nil
+		cp, _, _ := unstructured.NestedString(vmb.Object, "status", "checkpointName")
+		return backupType, cp, nil
 	}
-	return "", "", fmt.Errorf("no VirtualMachineBackup found in %s with %s=%s", namespace, annotationDataUploadName, dataUploadName)
+	return backupType, "", nil
 }
 
 // VMBHasNoConditions finds the VirtualMachineBackup in namespace whose

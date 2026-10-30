@@ -931,7 +931,7 @@ var _ = ginkgo.Describe("VM backup and restore tests", ginkgo.Ordered, func() {
 				var actualBackupType string
 				gomega.Eventually(func() error {
 					var err error
-					actualBackupType, _, err = v.GetVMBBackupType(incSeqNamespace, dataUploadName)
+					actualBackupType, _, err = v.GetVMBBackupType(incSeqNamespace, namespace, dataUploadName)
 					return err
 				}, 5*time.Minute, time.Second*5).Should(gomega.Succeed(), "failed to get VirtualMachineBackup status for DataUpload %s", dataUploadName)
 				// VirtualMachineBackup.status.type is PascalCase (virt-controller's own
@@ -981,7 +981,7 @@ var _ = ginkgo.Describe("VM backup and restore tests", ginkgo.Ordered, func() {
 		// sequence — and this It does its own full cleanup at the end anyway (matching
 		// runVmBackupAndRestore's "avoid finalizers in namespace deletion" convention), so
 		// the shared AfterEach's redundant Undeploy/deleteNamespace afterward is a no-op.
-		ginkgo.It("full backup, incremental chain, restart, and max-limit fallback", ginkgo.Label("virt", "kdm"), func() {
+		ginkgo.It("full backup, incremental chain, and restart", ginkgo.Label("virt", "kdm"), func() {
 			ginkgo.By("backup 1: first-ever backup is full")
 			runSequenceBackup("full")
 
@@ -993,19 +993,86 @@ var _ = ginkgo.Describe("VM backup and restore tests", ginkgo.Ordered, func() {
 			gomega.Expect(err).ToNot(gomega.HaveOccurred(), "VM %s/%s failed to restart", incSeqNamespace, incSeqVMName)
 			runSequenceBackup("incremental")
 
-			ginkgo.By("hitting maxIncrementalBackups forces a full backup")
-			// Per-VM annotation override (takes effect immediately, unlike patching the
-			// DPA-level setting which requires waiting for a controller rollout).
-			err = v.SetVMAnnotation(incSeqNamespace, incSeqVMName, "kubevirt-datamover.io/max-incremental-backups", "2")
-			gomega.Expect(err).ToNot(gomega.HaveOccurred(), "failed to set max-incremental-backups annotation on VM %s/%s", incSeqNamespace, incSeqVMName)
-			// backupCount is 3 (1 full + 2 incremental) at this point, so
-			// incrementalCount(2) >= maxIncrementalBackups(2) forces this backup full.
-			runSequenceBackup("full")
-
 			err = v.RemoveVm(incSeqNamespace, incSeqVMName, 5*time.Minute)
 			gomega.Expect(err).To(gomega.BeNil(), "failed to remove VM %s/%s", incSeqNamespace, incSeqVMName)
 			err = lib.DeleteNamespace(v.Clientset, incSeqNamespace)
 			gomega.Expect(err).To(gomega.BeNil(), "failed to delete namespace %s", incSeqNamespace)
+		})
+
+		// Standalone test for the maxIncrementalBackups annotation, separated from
+		// the incremental-chain test above because maxIncrementalBackups counts
+		// per-chain, and the VM restart in that test resets the chain — mixing the
+		// two concerns made the expected backup types confusing.
+		//
+		// With maxInc=1 the chain should be: full → incremental → forced full
+		// (3 backups total, no VM restart step).
+		ginkgo.It("maxIncrementalBackups forces a full backup after the configured number of incrementals", ginkgo.Label("virt", "kdm"), func() {
+			const (
+				maxIncNamespace = "cirros-test"
+				maxIncVMName    = "cirros-test"
+				maxIncTemplate  = "./sample-applications/virtual-machines/cirros-test/cirros-test-cbt.yaml"
+			)
+
+			// Set up VM fresh (the previous It tore down the namespace).
+			gomega.Eventually(v.IsNamespaceDeletedClearingStuckVMBFinalizers(kubernetesClientForSuiteRun, maxIncNamespace), time.Minute*2, time.Second*5).
+				Should(gomega.BeTrue(), "namespace %s was not deleted before maxInc test setup", maxIncNamespace)
+
+			err := lib.CreateNamespace(v.Clientset, maxIncNamespace)
+			gomega.Expect(err).To(gomega.BeNil(), "failed to create namespace %s", maxIncNamespace)
+			err = lib.InstallApplication(v.Client, maxIncTemplate)
+			gomega.Expect(err).To(gomega.BeNil(), "failed to install VM template %s in namespace %s", maxIncTemplate, maxIncNamespace)
+
+			log.Printf("Waiting for VM %s/%s to reach Running status", maxIncNamespace, maxIncVMName)
+			err = wait.PollUntilContextTimeout(context.Background(), 10*time.Second, 15*time.Minute, true, func(ctx context.Context) (bool, error) {
+				status, statusErr := v.GetVmStatus(maxIncNamespace, maxIncVMName)
+				if statusErr != nil {
+					return false, nil
+				}
+				return status == "Running", nil
+			})
+			gomega.Expect(err).ToNot(gomega.HaveOccurred(), "VM %s/%s did not reach Running status", maxIncNamespace, maxIncVMName)
+			err = v.WaitForVMReady(maxIncNamespace, maxIncVMName, 5*time.Minute)
+			gomega.Expect(err).ToNot(gomega.HaveOccurred(), "VM %s/%s was not ready", maxIncNamespace, maxIncVMName)
+
+			// Set maxIncrementalBackups=1: allow 1 incremental before forcing full.
+			err = v.SetVMAnnotation(maxIncNamespace, maxIncVMName, "kubevirt-datamover.io/max-incremental-backups", "1")
+			gomega.Expect(err).ToNot(gomega.HaveOccurred(), "failed to set max-incremental-backups annotation on VM %s/%s", maxIncNamespace, maxIncVMName)
+
+			// Local backup counter and runner, separate from the outer runSequenceBackup's
+			// backupCount so this test's naming is self-contained.
+			maxIncBackupCount := 0
+			runMaxIncBackup := func(expectedType string) {
+				maxIncBackupCount++
+				backupName := fmt.Sprintf("cirros-maxinc-%d", maxIncBackupCount)
+
+				runKubevirtDMBackup(v, maxIncNamespace, backupName, map[string]string{"kubevirt-datamover.io/skip-quiesce": "true"}, func(dataUploadName, expectedBackupType string) {
+					gomega.Expect(expectedBackupType).To(gomega.Equal(expectedType), "controller's expected-backup-type annotation on DataUpload")
+
+					var actualBackupType string
+					gomega.Eventually(func() error {
+						var err error
+						actualBackupType, _, err = v.GetVMBBackupType(maxIncNamespace, namespace, dataUploadName)
+						return err
+					}, 5*time.Minute, time.Second*5).Should(gomega.Succeed(), "failed to get VirtualMachineBackup status for DataUpload %s", dataUploadName)
+					actualBackupType = strings.ToLower(actualBackupType)
+					gomega.Expect(actualBackupType).To(gomega.Equal(expectedType), "actual VirtualMachineBackup.Status.Type")
+					gomega.Expect(actualBackupType).To(gomega.Equal(strings.ToLower(expectedBackupType)), "expected vs. actual backup type must not mismatch")
+				})
+			}
+
+			ginkgo.By("backup 1: first-ever backup is full")
+			runMaxIncBackup("full")
+
+			ginkgo.By("backup 2: incremental (incrementalCount=0 < maxInc=1)")
+			runMaxIncBackup("incremental")
+
+			ginkgo.By("backup 3: forced full (incrementalCount=1 >= maxInc=1)")
+			runMaxIncBackup("full")
+
+			err = v.RemoveVm(maxIncNamespace, maxIncVMName, 5*time.Minute)
+			gomega.Expect(err).To(gomega.BeNil(), "failed to remove VM %s/%s", maxIncNamespace, maxIncVMName)
+			err = lib.DeleteNamespace(v.Clientset, maxIncNamespace)
+			gomega.Expect(err).To(gomega.BeNil(), "failed to delete namespace %s", maxIncNamespace)
 		})
 
 		ginkgo.PIt("backup after deleting libvirt checkpoints with maxIncrementalBackups=0 hangs forever — blocked by CNV-85377", ginkgo.Label("virt", "kdm"), func() {
@@ -1079,7 +1146,7 @@ var _ = ginkgo.Describe("VM backup and restore tests", ginkgo.Ordered, func() {
 			var actualBackupType string
 			gomega.Eventually(func() error {
 				var err error
-				actualBackupType, _, err = v.GetVMBBackupType(vmNamespace, dataUploadName)
+				actualBackupType, _, err = v.GetVMBBackupType(vmNamespace, namespace, dataUploadName)
 				return err
 			}, 5*time.Minute, time.Second*5).Should(gomega.Succeed(), "failed to get VirtualMachineBackup status for DataUpload %s", dataUploadName)
 			actualBackupType = strings.ToLower(actualBackupType)
