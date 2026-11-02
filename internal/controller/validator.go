@@ -40,11 +40,15 @@ func (r *DataProtectionApplicationReconciler) ValidateDataProtectionCR(log logr.
 		return false, errors.New("DPA CR Velero configuration cannot be nil")
 	}
 
-	// Check for deprecated PodAnnotations field and log warning
+	// Check for deprecated PodAnnotations field and log warning.
+	// The replacement 'podConfig.annotations' fields are not present in the OADP 1.5 CRD
+	// (they are added in OADP 1.6 under OADP-6360), so on 1.5 users must keep using
+	// 'podAnnotations'. Do not direct them to fields that do not exist on this release.
 	if len(r.dpa.Spec.PodAnnotations) > 0 {
 		deprecationWarning := "(Deprecation Warning) The 'podAnnotations' field is deprecated. " +
-			"Please migrate to 'configuration.velero.podConfig.annotations' for Velero pods " +
-			"and 'configuration.nodeAgent.podConfig.annotations' for NodeAgent pods."
+			"Its replacement, 'configuration.velero.podConfig.annotations' and " +
+			"'configuration.nodeAgent.podConfig.annotations', is available starting in OADP 1.6. " +
+			"These fields do not exist in OADP 1.5, so continue using 'podAnnotations' on this release."
 		// V(-1) corresponds to the warn level
 		log.V(-1).Info(deprecationWarning)
 		r.EventRecorder.Event(r.dpa, corev1.EventTypeWarning, "DeprecationPodAnnotations", deprecationWarning)

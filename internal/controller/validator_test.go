@@ -2683,7 +2683,7 @@ func TestDPAReconciler_ValidateDataProtectionCR_PodAnnotationsDeprecationWarning
 	// Check that deprecation warning was logged
 	found := false
 	for _, log := range logOutput {
-		if log == "(Deprecation Warning) The 'podAnnotations' field is deprecated. Please migrate to 'configuration.velero.podConfig.annotations' for Velero pods and 'configuration.nodeAgent.podConfig.annotations' for NodeAgent pods." {
+		if log == "(Deprecation Warning) The 'podAnnotations' field is deprecated. Its replacement, 'configuration.velero.podConfig.annotations' and 'configuration.nodeAgent.podConfig.annotations', is available starting in OADP 1.6. These fields do not exist in OADP 1.5, so continue using 'podAnnotations' on this release." {
 			found = true
 			break
 		}
@@ -2784,7 +2784,7 @@ func TestDPAReconciler_ValidateDataProtectionCR_NoPodAnnotationsNoWarning(t *tes
 
 	// Check that deprecation warning was NOT logged
 	for _, log := range logOutput {
-		if log == "(Deprecation Warning) The 'podAnnotations' field is deprecated. Please migrate to 'configuration.velero.podConfig.annotations' for Velero pods and 'configuration.nodeAgent.podConfig.annotations' for NodeAgent pods." {
+		if log == "(Deprecation Warning) The 'podAnnotations' field is deprecated. Its replacement, 'configuration.velero.podConfig.annotations' and 'configuration.nodeAgent.podConfig.annotations', is available starting in OADP 1.6. These fields do not exist in OADP 1.5, so continue using 'podAnnotations' on this release." {
 			t.Errorf("Deprecation warning should not be logged when PodAnnotations is not used. Logs: %v", logOutput)
 		}
 	}
