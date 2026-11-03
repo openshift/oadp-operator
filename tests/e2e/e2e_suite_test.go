@@ -260,6 +260,13 @@ var _ = ginkgo.AfterSuite(func() {
 	gomega.Expect(err).ToNot(gomega.HaveOccurred())
 	err = lib.DeleteSecret(kubernetesClientForSuiteRun, namespace, bslSecretNameWithCarriageReturn)
 	gomega.Expect(err).ToNot(gomega.HaveOccurred())
+	// Guest-only HCP tests create and clean up their guest-cluster DPA within
+	// the test; they do not deploy a management-cluster DPA to undeploy here.
+	if os.Getenv("TEST_HCP_GUEST") == "true" {
+		return
+	}
+	// For other tests, remove only the resources managed by their deployment
+	// mode: default owns the DPA, while ROSA owns the BSL and VSL.
 	oadpDeploymentOperation := NewOADPDeploymentOperationDefault()
 	if HCBackupRestoreMode(hcBackupRestoreMode) == HCModeExternalROSA {
 		oadpDeploymentOperation = NewOADPDeploymentOperationROSA()
