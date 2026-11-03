@@ -1,0 +1,27 @@
+# permissions for end users to view nonadminschedules.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    app.kubernetes.io/name: clusterrole
+    app.kubernetes.io/instance: nonadminschedule-viewer-role
+    app.kubernetes.io/component: rbac
+    app.kubernetes.io/created-by: oadp-nac
+    app.kubernetes.io/part-of: oadp-nac
+    app.kubernetes.io/managed-by: kustomize
+  name: nonadminschedule-viewer-role
+rules:
+- apiGroups:
+  - oadp.openshift.io
+  resources:
+  - nonadminschedules
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - oadp.openshift.io
+  resources:
+  - nonadminschedules/status
+  verbs:
+  - get
