@@ -147,6 +147,21 @@ func TestStripDefaultPorts(t *testing.T) {
 			base: "https://10.0.188.30:9000",
 			want: "https://10.0.188.30:9000",
 		},
+		{
+			name: "HTTP port is removed from IPv6 URL",
+			base: "http://[fd00::1]:80/bucket-name",
+			want: "http://[fd00::1]/bucket-name",
+		},
+		{
+			name: "HTTPS port is removed from IPv6 URL",
+			base: "https://[fd00::1]:443",
+			want: "https://[fd00::1]",
+		},
+		{
+			name: "alternate port is preserved in IPv6 URL",
+			base: "http://[fd00::1]:9000",
+			want: "http://[fd00::1]:9000",
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

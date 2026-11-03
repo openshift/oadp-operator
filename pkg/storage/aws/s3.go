@@ -5,6 +5,7 @@ import (
 	"errors"
 	"net/http"
 	"net/url"
+	"strings"
 
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/credentials"
@@ -73,6 +74,11 @@ func StripDefaultPorts(fromUrl string) (string, error) {
 	}
 	request.SanitizeHostForHeader(&r)
 	if r.Host != "" {
+		// SanitizeHostForHeader drops the brackets of IPv6 literals; put them
+		// back so the URL stays valid.
+		if strings.Contains(r.Host, ":") {
+			r.Host = "[" + r.Host + "]"
+		}
 		r.URL.Host = r.Host
 	}
 	return r.URL.String(), nil
