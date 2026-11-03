@@ -8,6 +8,7 @@ import (
 	"log"
 	"os"
 	"strings"
+	"time"
 
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -32,6 +33,30 @@ func CreateNamespace(clientset *kubernetes.Clientset, namespace string) error {
 	ns := corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: namespace}}
 	_, err := clientset.CoreV1().Namespaces().Create(context.Background(), &ns, metav1.CreateOptions{})
 	if apierrors.IsAlreadyExists(err) {
+		existingNs, getErr := clientset.CoreV1().Namespaces().Get(context.Background(), namespace, metav1.GetOptions{})
+		if apierrors.IsNotFound(getErr) {
+			// Namespace finished deleting between Create and Get; retry Create.
+			_, err = clientset.CoreV1().Namespaces().Create(context.Background(), &ns, metav1.CreateOptions{})
+			return err
+		}
+		if getErr != nil {
+			return fmt.Errorf("failed to get existing namespace %s: %w", namespace, getErr)
+		}
+		if existingNs.Status.Phase == corev1.NamespaceTerminating {
+			log.Printf("Namespace %s is terminating, waiting for deletion before re-creating", namespace)
+			waitErr := wait.PollUntilContextTimeout(context.Background(), 5*time.Second, 2*time.Minute, true, func(ctx context.Context) (bool, error) {
+				_, getErr := clientset.CoreV1().Namespaces().Get(ctx, namespace, metav1.GetOptions{})
+				if apierrors.IsNotFound(getErr) {
+					return true, nil
+				}
+				return false, getErr
+			})
+			if waitErr != nil {
+				return fmt.Errorf("timed out waiting for terminating namespace %s to be deleted: %w", namespace, waitErr)
+			}
+			_, err = clientset.CoreV1().Namespaces().Create(context.Background(), &ns, metav1.CreateOptions{})
+			return err
+		}
 		return nil
 	}
 	return err
