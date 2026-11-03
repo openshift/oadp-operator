@@ -73,7 +73,19 @@ var debugMode = os.Getenv("DEBUG") == "true"
 //+kubebuilder:rbac:groups=velero.io,resources=*,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=security.openshift.io,resources=securitycontextconstraints,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=security.openshift.io,resources=securitycontextconstraints,verbs=use,resourceNames=privileged
+//+kubebuilder:rbac:groups=rbac.authorization.k8s.io,resources=clusterrolebindings,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups="",resources=secrets;configmaps;pods;services;serviceaccounts;endpoints;persistentvolumeclaims;events,verbs=get;list;watch;create;update;patch;delete;deletecollection
+// ReconcileVeleroRBAC (internal/controller/velero.go) creates a ClusterRole mirroring the
+// velero ServiceAccount's CSV clusterPermissions, which is near-cluster-admin. RBAC
+// escalation prevention rejects creating a ClusterRole that grants permissions the creator
+// does not hold. The escalate verb cannot be scoped with resourceNames for the create path
+// (the authorization request carries no object name on POST, see
+// pkg/registry/rbac/escalation_check.go in kubernetes), so it is granted unscoped; bind,
+// update and patch stay scoped to the oadp-velero ClusterRole, which is what limits what
+// the operator can actually grant and modify.
+//+kubebuilder:rbac:groups=rbac.authorization.k8s.io,resources=clusterroles,verbs=get;list;watch;create;escalate
+//+kubebuilder:rbac:groups=rbac.authorization.k8s.io,resources=clusterroles,verbs=update;patch;bind,resourceNames=oadp-velero
+//+kubebuilder:rbac:groups=rbac.authorization.k8s.io,resources=clusterrolebindings,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups="",resources=namespaces,verbs=get;list;watch;create;update;patch
 //+kubebuilder:rbac:groups=apps,resources=deployments;daemonsets,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=route.openshift.io,resources=routes,verbs=get;list;watch;create;update;patch;delete
@@ -119,6 +131,7 @@ func (r *DataProtectionApplicationReconciler) Reconcile(ctx context.Context, req
 		r.LabelVSLSecrets,
 		r.ReconcileVolumeSnapshotLocations,
 		r.ReconcileAzureWorkloadIdentitySecret,
+		r.ReconcileVeleroRBAC,
 		r.ReconcileVeleroDeployment,
 		r.ReconcileNodeAgentConfigMap,
 		r.ReconcileBackupRepositoryConfigMap,
@@ -208,6 +221,15 @@ func dpaUsesCredentialsFile(dpa *oadpv1alpha1.DataProtectionApplication) bool {
 }
 
 // SetupWithManager sets up the controller with the Manager.
+// SetupWithManager wires up the DPA reconciler. Note: no WithOptions(controller.Options{MaxConcurrentReconciles: ...})
+// is set here, so it defaults to 1 (controller-runtime's default), meaning
+// Reconcile() calls for every DPA across every namespace are fully
+// serialized. The cluster-wide kubevirt-datamover singleton check in
+// checkKubevirtDatamoverClusterSingleton relies on this serialization: its
+// check-then-act (validate in ValidateDataProtectionCR, create later in
+// ReconcileKubevirtDatamoverController) is only race-free while reconciles
+// do not overlap. Raising concurrency here requires making that sequence
+// atomic first (see https://github.com/openshift/oadp-operator/issues/2490 referenced on the check).
 func (r *DataProtectionApplicationReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&oadpv1alpha1.DataProtectionApplication{}, builder.WithPredicates(veleroPredicate(r.Scheme))).
