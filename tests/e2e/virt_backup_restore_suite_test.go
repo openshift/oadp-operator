@@ -929,13 +929,13 @@ var _ = ginkgo.Describe("VM backup and restore tests", ginkgo.Ordered, func() {
 					actualBackupType, _, err = v.GetVMBBackupType(incSeqNamespace, dataUploadName)
 					return err
 				}, 5*time.Minute, time.Second*5).Should(gomega.Succeed(), "failed to get VirtualMachineBackup status for DataUpload %s", dataUploadName)
-				// VirtualMachineBackup.status.type is PascalCase (virt-controller's own
+				// VirtualMachineBackup status.includedVolumes[].type is PascalCase (virt-controller's own
 				// convention, e.g. "Full"/"Incremental"), while the DataUpload's
 				// expected-backup-type annotation is lowercase (kubevirt-datamover-controller's
 				// convention, e.g. "full"/"incremental") -- normalize case before comparing
 				// these two independently-maintained values.
 				actualBackupType = strings.ToLower(actualBackupType)
-				gomega.Expect(actualBackupType).To(gomega.Equal(expectedType), "actual VirtualMachineBackup.Status.Type")
+				gomega.Expect(actualBackupType).To(gomega.Equal(expectedType), "actual VirtualMachineBackup backup type (status.includedVolumes[].type)")
 				gomega.Expect(actualBackupType).To(gomega.Equal(strings.ToLower(expectedBackupType)), "expected vs. actual backup type must not mismatch")
 			})
 		}
@@ -1061,7 +1061,7 @@ var _ = ginkgo.Describe("VM backup and restore tests", ginkgo.Ordered, func() {
 
 	// verifyBackupType returns a runKubevirtDMBackup callback that hard-asserts
 	// both the DataUpload's expected-backup-type annotation and the
-	// VirtualMachineBackup's actual Status.Type match expectedType -- mirrors
+	// VirtualMachineBackup's actual backup type (status.includedVolumes[].type) match expectedType -- mirrors
 	// the check already done inline in runSequenceBackup above, factored out
 	// since the incremental-restore test below needs the same check twice
 	// (full, then incremental) and getting this wrong would silently
@@ -1078,7 +1078,7 @@ var _ = ginkgo.Describe("VM backup and restore tests", ginkgo.Ordered, func() {
 				return err
 			}, 5*time.Minute, time.Second*5).Should(gomega.Succeed(), "failed to get VirtualMachineBackup status for DataUpload %s", dataUploadName)
 			actualBackupType = strings.ToLower(actualBackupType)
-			gomega.Expect(actualBackupType).To(gomega.Equal(expectedType), "actual VirtualMachineBackup.Status.Type for DataUpload %s", dataUploadName)
+			gomega.Expect(actualBackupType).To(gomega.Equal(expectedType), "actual VirtualMachineBackup backup type (status.includedVolumes[].type) for DataUpload %s", dataUploadName)
 		}
 	}
 
