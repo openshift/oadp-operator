@@ -1692,8 +1692,12 @@ func (v *VirtOperator) GetVMBBackupType(namespace, dataUploadName string) (backu
 			if volType == "" {
 				return "", "", fmt.Errorf("VirtualMachineBackup %s/%s has an included volume with no type yet", namespace, vmb.GetName())
 			}
-			if !strings.EqualFold(volType, "Incremental") {
+			switch {
+			case strings.EqualFold(volType, "Incremental"):
+			case strings.EqualFold(volType, "Full"):
 				backupType = "Full"
+			default:
+				return "", "", fmt.Errorf("VirtualMachineBackup %s/%s has an included volume with unknown type %q", namespace, vmb.GetName(), volType)
 			}
 		}
 		foundCheckpoint := false
