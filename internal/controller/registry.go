@@ -686,42 +686,23 @@ func (r *DataProtectionApplicationReconciler) ReconcileRegistrySecrets(log logr.
 	}
 
 	// Now for each of these bsl instances, create a registry secret
+	registrySecretNames := map[string]bool{}
 	for _, bsl := range bslList.Items {
-		// skip for GCP as nothing is directly exposed in env vars
-		if bsl.Spec.Provider == GCPProvider {
+		// skip for GCP as nothing is directly exposed in env vars, and skip
+		// all BSLs when image backup is disabled
+		if bsl.Spec.Provider == GCPProvider || !dpa.BackupImages() {
 			continue
 		}
 		secret := corev1.Secret{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      "oadp-" + bsl.Name + "-" + bsl.Spec.Provider + "-registry-secret",
+				Name:      registrySecretName(bsl),
 				Namespace: r.NamespacedName.Namespace,
 				Labels: map[string]string{
 					oadpv1alpha1.OadpOperatorLabel: "True",
 				},
 			},
 		}
-
-		if !dpa.BackupImages() {
-			deleteContext := context.Background()
-			if err := r.Get(deleteContext, types.NamespacedName{
-				Name:      secret.Name,
-				Namespace: r.NamespacedName.Namespace,
-			}, &secret); err != nil {
-				if k8serror.IsNotFound(err) {
-					return true, nil
-				}
-				return false, err
-			}
-
-			deleteOptionPropagationForeground := metav1.DeletePropagationForeground
-			if err := r.Delete(deleteContext, &secret, &client.DeleteOptions{PropagationPolicy: &deleteOptionPropagationForeground}); err != nil {
-				r.EventRecorder.Event(&secret, corev1.EventTypeNormal, "DeleteRegistrySecretFailed", fmt.Sprintf("Could not delete registry secret %s from %s:"+err.Error(), secret.Name, secret.Namespace))
-				return false, err
-			}
-			r.EventRecorder.Event(&secret, corev1.EventTypeNormal, "DeletedRegistrySecret", fmt.Sprintf("Registry secret %s deleted from %s", secret.Name, secret.Namespace))
-
-			return true, nil
-		}
+		registrySecretNames[secret.Name] = true
 
 		// Create Secret
 		op, err := controllerutil.CreateOrPatch(r.Context, r.Client, &secret, func() error {
@@ -743,7 +724,62 @@ func (r *DataProtectionApplicationReconciler) ReconcileRegistrySecrets(log logr.
 		}
 	}
 
+	// Delete registry secrets that no longer belong to a BSL, e.g. the BSL was
+	// removed from the DPA, its provider changed, or backupImages was disabled.
+	if err := r.deleteStaleRegistrySecrets(registrySecretNames); err != nil {
+		return false, err
+	}
+
 	return true, nil
+}
+
+func registrySecretName(bsl velerov1.BackupStorageLocation) string {
+	return "oadp-" + bsl.Name + "-" + bsl.Spec.Provider + "-registry-secret"
+}
+
+// isRegistrySecretName reports whether name has the structure produced by
+// registrySecretName for a provider that gets a registry secret.
+func isRegistrySecretName(name string) bool {
+	bslAndProvider, ok := strings.CutPrefix(name, "oadp-")
+	if !ok {
+		return false
+	}
+	bslAndProvider, ok = strings.CutSuffix(bslAndProvider, "-registry-secret")
+	if !ok {
+		return false
+	}
+	for _, provider := range []string{AWSProvider, AzureProvider} {
+		if bslName, ok := strings.CutSuffix(bslAndProvider, "-"+provider); ok && bslName != "" {
+			return true
+		}
+	}
+	return false
+}
+
+// deleteStaleRegistrySecrets deletes registry secrets controlled by the DPA
+// whose names are not in keep.
+func (r *DataProtectionApplicationReconciler) deleteStaleRegistrySecrets(keep map[string]bool) error {
+	secretList := corev1.SecretList{}
+	if err := r.List(r.Context, &secretList,
+		client.InNamespace(r.NamespacedName.Namespace),
+		client.MatchingLabels{oadpv1alpha1.OadpOperatorLabel: "True"},
+	); err != nil {
+		return err
+	}
+	for i := range secretList.Items {
+		secret := &secretList.Items[i]
+		if keep[secret.Name] ||
+			!isRegistrySecretName(secret.Name) ||
+			!metav1.IsControlledBy(secret, r.dpa) {
+			continue
+		}
+		if err := r.Delete(r.Context, secret); err != nil && !k8serror.IsNotFound(err) {
+			r.EventRecorder.Event(secret, corev1.EventTypeNormal, "DeleteRegistrySecretFailed", fmt.Sprintf("Could not delete registry secret %s from %s:"+err.Error(), secret.Name, secret.Namespace))
+			return err
+		}
+		r.EventRecorder.Event(secret, corev1.EventTypeNormal, "DeletedRegistrySecret", fmt.Sprintf("Registry secret %s deleted from %s", secret.Name, secret.Namespace))
+	}
+	return nil
 }
 
 func (r *DataProtectionApplicationReconciler) patchRegistrySecret(secret *corev1.Secret, bsl *velerov1.BackupStorageLocation) error {
