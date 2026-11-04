@@ -1667,8 +1667,10 @@ func (v *VirtOperator) CheckVMBackupTrackerExists(namespace string) (bool, error
 // plus status.checkpointName.
 //
 // KubeVirt dropped the whole-backup status.type field in favour of the
-// per-volume type, so the backup is "Incremental" only if every included
-// volume is incremental, and "Full" if any volume was backed up in full.
+// per-volume type. This mirrors kubevirt-datamover-controller, which records
+// one type per checkpoint: "Incremental" if any included volume is incremental
+// (so the checkpoint's parent chain is preserved), "Full" only if every volume
+// is full.
 func (v *VirtOperator) GetVMBBackupType(namespace, dataUploadName string) (backupType, checkpointName string, err error) {
 	list, err := v.Dynamic.Resource(virtualMachineBackupGvr).Namespace(namespace).List(context.Background(), metav1.ListOptions{})
 	if err != nil {
@@ -1685,17 +1687,16 @@ func (v *VirtOperator) GetVMBBackupType(namespace, dataUploadName string) (backu
 		if !found || len(volumes) == 0 {
 			return "", "", fmt.Errorf("VirtualMachineBackup %s/%s has no status.includedVolumes yet", namespace, vmb.GetName())
 		}
-		backupType = "Incremental"
+		backupType = "Full"
 		for _, vol := range volumes {
 			volMap, _ := vol.(map[string]interface{})
 			volType, _ := volMap["type"].(string)
-			if volType == "" {
-				return "", "", fmt.Errorf("VirtualMachineBackup %s/%s has an included volume with no type yet", namespace, vmb.GetName())
-			}
 			switch {
+			case volType == "":
+				return "", "", fmt.Errorf("VirtualMachineBackup %s/%s has an included volume with no type yet", namespace, vmb.GetName())
 			case strings.EqualFold(volType, "Incremental"):
+				backupType = "Incremental"
 			case strings.EqualFold(volType, "Full"):
-				backupType = "Full"
 			default:
 				return "", "", fmt.Errorf("VirtualMachineBackup %s/%s has an included volume with unknown type %q", namespace, vmb.GetName(), volType)
 			}
