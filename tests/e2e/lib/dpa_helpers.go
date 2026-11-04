@@ -301,7 +301,7 @@ func (v *DpaCustomResource) BSLsAreUpdated(updateTime time.Time) wait.ConditionF
 		}
 
 		for _, bsl := range bsls.Items {
-			if !bsl.Status.LastValidationTime.After(updateTime) {
+			if bsl.Status.LastValidationTime == nil || !bsl.Status.LastValidationTime.After(updateTime) {
 				return false, nil
 			}
 		}
