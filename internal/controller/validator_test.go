@@ -2786,6 +2786,106 @@ func TestDPAReconciler_ValidateDataProtectionCR(t *testing.T) {
 			},
 			wantErr: false,
 		},
+		{
+			name: "kubevirt-datamover with valid resourceAllocations - success",
+			dpa: &oadpv1alpha1.DataProtectionApplication{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-DPA-CR",
+					Namespace: "test-ns",
+				},
+				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
+					Configuration: &oadpv1alpha1.ApplicationConfig{
+						Velero: &oadpv1alpha1.VeleroConfig{
+							DefaultPlugins: []oadpv1alpha1.DefaultPlugin{
+								oadpv1alpha1.DefaultPluginKubeVirtDataMover,
+							},
+							NoDefaultBackupLocation: true,
+						},
+						KubevirtDatamover: &oadpv1alpha1.KubevirtDatamoverConfig{
+							PodConfig: &oadpv1alpha1.KubevirtDatamoverPodConfig{
+								ResourceAllocations: corev1.ResourceRequirements{
+									Requests: corev1.ResourceList{
+										corev1.ResourceMemory: resource.MustParse("2Gi"),
+									},
+								},
+							},
+						},
+					},
+					BackupImages: ptr.To(false),
+				},
+			},
+			objects: []client.Object{},
+			wantErr: false,
+		},
+		{
+			name: "kubevirt-datamover with memory request above memory limit - error",
+			dpa: &oadpv1alpha1.DataProtectionApplication{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-DPA-CR",
+					Namespace: "test-ns",
+				},
+				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
+					Configuration: &oadpv1alpha1.ApplicationConfig{
+						Velero: &oadpv1alpha1.VeleroConfig{
+							DefaultPlugins: []oadpv1alpha1.DefaultPlugin{
+								oadpv1alpha1.DefaultPluginKubeVirtDataMover,
+							},
+							NoDefaultBackupLocation: true,
+						},
+						KubevirtDatamover: &oadpv1alpha1.KubevirtDatamoverConfig{
+							PodConfig: &oadpv1alpha1.KubevirtDatamoverPodConfig{
+								ResourceAllocations: corev1.ResourceRequirements{
+									Requests: corev1.ResourceList{
+										corev1.ResourceMemory: resource.MustParse("2Gi"),
+									},
+									Limits: corev1.ResourceList{
+										corev1.ResourceMemory: resource.MustParse("1Gi"),
+									},
+								},
+							},
+						},
+					},
+					BackupImages: ptr.To(false),
+				},
+			},
+			objects:    []client.Object{},
+			wantErr:    true,
+			messageErr: "spec.configuration.kubevirtDatamover.podConfig.resourceAllocations: requests.memory (2Gi) must be less than or equal to limits.memory (1Gi)",
+		},
+		{
+			name: "kubevirt-datamover disabled - resourceAllocations not validated",
+			dpa: &oadpv1alpha1.DataProtectionApplication{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "test-DPA-CR",
+					Namespace: "test-ns",
+				},
+				Spec: oadpv1alpha1.DataProtectionApplicationSpec{
+					Configuration: &oadpv1alpha1.ApplicationConfig{
+						Velero: &oadpv1alpha1.VeleroConfig{
+							DefaultPlugins: []oadpv1alpha1.DefaultPlugin{
+								oadpv1alpha1.DefaultPluginOpenShift,
+							},
+							NoDefaultBackupLocation: true,
+						},
+						KubevirtDatamover: &oadpv1alpha1.KubevirtDatamoverConfig{
+							PodConfig: &oadpv1alpha1.KubevirtDatamoverPodConfig{
+								ResourceAllocations: corev1.ResourceRequirements{
+									Requests: corev1.ResourceList{
+										corev1.ResourceMemory: resource.MustParse("2Gi"),
+									},
+									Limits: corev1.ResourceList{
+										corev1.ResourceMemory: resource.MustParse("1Gi"),
+									},
+								},
+							},
+						},
+					},
+					BackupImages: ptr.To(false),
+				},
+			},
+			objects: []client.Object{},
+			wantErr: false,
+		},
 	}
 	for _, tt := range tests {
 		tt.objects = append(tt.objects, tt.dpa)

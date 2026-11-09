@@ -363,6 +363,10 @@ func (r *DataProtectionApplicationReconciler) ValidateDataProtectionCR(log logr.
 
 	// validate kubevirt-datamover plugin enable
 	if r.checkKubevirtDatamoverEnabled() {
+		if _, err := getKubevirtDatamoverResourceReqs(r.dpa); err != nil {
+			return false, err
+		}
+
 		// Check for cluster-wide singleton enforcement
 		dpaList := &oadpv1alpha1.DataProtectionApplicationList{}
 		err = r.ClusterWideClient.List(r.Context, dpaList)
