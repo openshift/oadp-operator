@@ -68,3 +68,37 @@ func Test_FilterLogLinesContaining_noSubstrsReturnsInputUnchanged(t *testing.T) 
 		t.Fatalf("expected unfiltered passthrough with no substrs, got:\n%s", got)
 	}
 }
+
+// Real Kubernetes Events captured from the AfterEach event dump of the live
+// CI failure pull-ci-migtools-kubevirt-datamover-controller-oadp-1.6-virt-kdm-e2e-test-aws/2119941301204946944
+// (2026-11-10, kubevirt/kubevirt v1.20.0 nightly). GetNamespaceEventMessages
+// formats each event as "Reason: Message" -- these are the exact strings a
+// caller passing event texts into CheckIfFlakeOccurred feeds it, and the
+// #18957 event is the ONLY place that flake's signature ever surfaces (never
+// in any pod's log), which is why callers MUST include namespace events.
+const realEventCompleted = "Successfully completed VirtualMachineBackup"
+const realEvent18957 = "VMI backup status was lost"
+
+func Test_CheckIfFlakeOccurred_matchesKubevirt18957EventText(t *testing.T) {
+	// The full event-list shape GetNamespaceEventMessages returns for the
+	// failing namespace: the healthy completion event followed by the #18957
+	// false-failure event, plus an unrelated healthy event.
+	eventTexts := []string{
+		"VirtualMachineBackupCompletedSuccessfully: " + realEventCompleted,
+		"VirtualMachineBackupFailed: " + realEvent18957,
+		"SuccessfulCreate: created virtualmachine cirros-test",
+	}
+	if !CheckIfFlakeOccurred(eventTexts) {
+		t.Fatalf("expected the kubevirt/kubevirt#18957 event text %q, as formatted by GetNamespaceEventMessages, to match a registered flake pattern", realEvent18957)
+	}
+}
+
+func Test_CheckIfFlakeOccurred_noFalsePositiveOnHealthyEvents(t *testing.T) {
+	eventTexts := []string{
+		"VirtualMachineBackupCompletedSuccessfully: " + realEventCompleted,
+		"SuccessfulCreate: created virtualmachine cirros-test",
+	}
+	if CheckIfFlakeOccurred(eventTexts) {
+		t.Fatalf("expected healthy namespace events to match no flake pattern")
+	}
+}
