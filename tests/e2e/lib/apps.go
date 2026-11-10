@@ -33,6 +33,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
+	corev1client "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -391,6 +392,53 @@ func GetNamespaceEventMessages(c *kubernetes.Clientset, namespace string) []stri
 	}
 	messages := make([]string, 0, len(events.Items))
 	for _, event := range events.Items {
+		messages = append(messages, fmt.Sprintf("%s: %s", event.Reason, event.Message))
+	}
+	return messages
+}
+
+// GetNamespaceEventMessagesSince is GetNamespaceEventMessages restricted to
+// events whose timestamp is not before since -- callers polling for a
+// flake signature must scope to the current backup's own window: multiple
+// backups can share one VM namespace within a single spec (e.g. the
+// incremental-sequence backups, or a full+incremental pair), and a known-flake
+// event from an EARLIER backup in that namespace lingers for the Kubernetes
+// event TTL (~1h), so an unscoped fetch would let a stale event flake-skip a
+// perfectly healthy later backup. Uses LastTimestamp, falling back to
+// EventTime for events that only carry the newer field. Takes
+// corev1client.CoreV1Interface rather than *kubernetes.Clientset so tests
+// can drive it with a fake clientset.
+func GetNamespaceEventMessagesSince(c corev1client.CoreV1Interface, namespace string, since time.Time) []string {
+	// Kubernetes serializes event timestamps at whole-second precision (RFC3339,
+	// no sub-second), while callers pass a fractional-second time.Now(): an
+	// event emitted at 01:09:58.750 reads back as 01:09:58 and would be wrongly
+	// filtered by a since of 01:09:58.9. Truncate the cutoff DOWN to whole
+	// seconds so an in-window event is never dropped to serialization
+	// precision. A small clock-skew tolerance is subtracted on top: the test
+	// runner's clock can run ahead of the apiserver's timestamping node, which
+	// would otherwise place an in-window event before the cutoff. Together the
+	// ~2s of extra staleness this re-admits is unreachable in practice
+	// (backups sharing a VM namespace run minutes apart, never within seconds
+	// of each other).
+	since = since.Truncate(time.Second).Add(-2 * time.Second)
+	// Bounded so a stalled API call can't block the flake-detection poll
+	// callbacks past their own timeouts (they can't cancel this call for us).
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	events, err := c.Events(namespace).List(ctx, metav1.ListOptions{})
+	if err != nil {
+		log.Printf("could not list events in namespace %s for flake-detection: %v", namespace, err)
+		return nil
+	}
+	messages := make([]string, 0, len(events.Items))
+	for _, event := range events.Items {
+		ts := event.LastTimestamp.Time
+		if ts.IsZero() {
+			ts = event.EventTime.Time
+		}
+		if ts.Before(since) {
+			continue
+		}
 		messages = append(messages, fmt.Sprintf("%s: %s", event.Reason, event.Message))
 	}
 	return messages
