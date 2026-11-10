@@ -1662,12 +1662,20 @@ func (v *VirtOperator) CheckVMBackupTrackerExists(namespace string) (bool, error
 }
 
 // GetVMBBackupType finds the VirtualMachineBackup in namespace whose
-// annotationDataUploadName annotation matches dataUploadName, and returns the
-// backup type ("Full"/"Incremental") derived from status.includedVolumes[].type
-// plus status.checkpointName.
+// annotationDataUploadName annotation matches dataUploadName, and returns its
+// backup type ("Full"/"Incremental") plus status.checkpointName.
 //
-// KubeVirt dropped the whole-backup status.type field in favour of the
-// per-volume type. This mirrors kubevirt-datamover-controller, which records
+// KubeVirt has populated status.includedVolumes since 5ffb3383, but the
+// per-volume type only since c32da47a4 (dropping the whole-backup status.type
+// in f1a69f53c) -- that generation ships in HCO 1.20.0+ nightly only. oadp-1.6
+// runs against BOTH generations -- 4.22 clusters pin HCO 1.19.0 (KubeVirt
+// emits volumeName-only includedVolumes entries and the whole-backup
+// status.type) while 4.23+/5.0 track nightly (per-volume types only) -- so
+// read the per-volume types when any volume reports one and fall back to
+// status.type otherwise, mirroring kubevirt-datamover-controller's
+// resolveVMBBackupType.
+//
+// The per-volume collapse mirrors kubevirt-datamover-controller, which records
 // one type per checkpoint: "Incremental" if any included volume is incremental
 // (so the checkpoint's parent chain is preserved), "Full" only if every volume
 // is full.
@@ -1684,22 +1692,44 @@ func (v *VirtOperator) GetVMBBackupType(namespace, dataUploadName string) (backu
 		if err != nil {
 			return "", "", fmt.Errorf("failed to read status.includedVolumes from VirtualMachineBackup %s/%s: %w", namespace, vmb.GetName(), err)
 		}
-		if !found || len(volumes) == 0 {
-			return "", "", fmt.Errorf("VirtualMachineBackup %s/%s has no status.includedVolumes yet", namespace, vmb.GetName())
-		}
-		backupType = "Full"
+		// Old KubeVirt (HCO <= 1.19.0, e.g. the oadp-1.6 4.22 fallback pin)
+		// emits volumeName-only entries; gate the per-volume read on at least
+		// one volume reporting a type so those fall through to status.type.
+		typed := false
 		for _, vol := range volumes {
 			volMap, _ := vol.(map[string]interface{})
-			volType, _ := volMap["type"].(string)
-			switch {
-			case volType == "":
-				return "", "", fmt.Errorf("VirtualMachineBackup %s/%s has an included volume with no type yet", namespace, vmb.GetName())
-			case strings.EqualFold(volType, "Incremental"):
-				backupType = "Incremental"
-			case strings.EqualFold(volType, "Full"):
-			default:
-				return "", "", fmt.Errorf("VirtualMachineBackup %s/%s has an included volume with unknown type %q", namespace, vmb.GetName(), volType)
+			if t, _ := volMap["type"].(string); t != "" {
+				typed = true
+				break
 			}
+		}
+		if found && typed {
+			backupType = "Full"
+			for _, vol := range volumes {
+				volMap, _ := vol.(map[string]interface{})
+				volType, _ := volMap["type"].(string)
+				switch {
+				case volType == "":
+					return "", "", fmt.Errorf("VirtualMachineBackup %s/%s has an included volume with no type yet", namespace, vmb.GetName())
+				case strings.EqualFold(volType, "Incremental"):
+					backupType = "Incremental"
+				case strings.EqualFold(volType, "Full"):
+				default:
+					return "", "", fmt.Errorf("VirtualMachineBackup %s/%s has an included volume with unknown type %q", namespace, vmb.GetName(), volType)
+				}
+			}
+		} else {
+			// No volume reports a type (old KubeVirt: volumeName-only entries
+			// or no includedVolumes at all) -- fall back to the legacy
+			// whole-backup status.type.
+			legacy, foundLegacy, err := unstructured.NestedString(vmb.Object, "status", "type")
+			if err != nil {
+				return "", "", fmt.Errorf("failed to read status.type from VirtualMachineBackup %s/%s: %w", namespace, vmb.GetName(), err)
+			}
+			if !foundLegacy {
+				return "", "", fmt.Errorf("VirtualMachineBackup %s/%s has neither status.includedVolumes[].type nor status.type yet", namespace, vmb.GetName())
+			}
+			backupType = legacy
 		}
 		foundCheckpoint := false
 		checkpointName, foundCheckpoint, err = unstructured.NestedString(vmb.Object, "status", "checkpointName")
