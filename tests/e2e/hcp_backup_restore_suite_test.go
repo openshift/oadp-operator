@@ -101,6 +101,9 @@ func runHCPBackupAndRestore(
 	log.Printf("Backing up HC")
 	includedResources := libhcp.HCPIncludedResources
 	excludedResources := libhcp.HCPExcludedResources
+	// The HC and HCP namespaces are always required for an HCP backup.
+	// Additional backup namespaces (for example, guest workload namespaces) are
+	// optional inputs for individual test scenarios, not part of this baseline.
 	includedNamespaces := []string{hcNamespace, libhcp.GetHCPNamespace(h.HostedCluster.Name, hcNamespace)}
 
 	nsRequiresResticDCWorkaround := runHCPBackup(brCase.BackupRestoreCase, backupName, h, includedNamespaces, includedResources, excludedResources)
