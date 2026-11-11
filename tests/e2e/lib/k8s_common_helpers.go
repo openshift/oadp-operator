@@ -33,38 +33,30 @@ func CreateNamespace(clientset *kubernetes.Clientset, namespace string) error {
 	ns := corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: namespace}}
 	_, err := clientset.CoreV1().Namespaces().Create(context.Background(), &ns, metav1.CreateOptions{})
 	if apierrors.IsAlreadyExists(err) {
-		// The namespace already exists — but it may be Terminating, which
-		// would cause subsequent resource creation to fail with "unable to
-		// create new content in namespace ... because it is being terminated".
-		// Check its phase and, if Terminating, wait for full deletion then
-		// re-create. If the namespace disappears between the Create above
-		// and this Get (NotFound), just retry the Create directly.
-		existing, getErr := clientset.CoreV1().Namespaces().Get(context.Background(), namespace, metav1.GetOptions{})
+		existingNs, getErr := clientset.CoreV1().Namespaces().Get(context.Background(), namespace, metav1.GetOptions{})
 		if apierrors.IsNotFound(getErr) {
-			// Namespace was deleted between Create and Get; create it now.
+			// Namespace finished deleting between Create and Get; retry Create.
 			_, err = clientset.CoreV1().Namespaces().Create(context.Background(), &ns, metav1.CreateOptions{})
 			return err
 		}
 		if getErr != nil {
 			return fmt.Errorf("failed to get existing namespace %s: %w", namespace, getErr)
 		}
-		if existing.Status.Phase == corev1.NamespaceTerminating {
-			log.Printf("Namespace %s is Terminating, waiting for deletion before re-creating", namespace)
-			pollErr := wait.PollUntilContextTimeout(context.Background(), 5*time.Second, 3*time.Minute, true, func(ctx context.Context) (bool, error) {
-				_, err := clientset.CoreV1().Namespaces().Get(ctx, namespace, metav1.GetOptions{})
-				if apierrors.IsNotFound(err) {
+		if existingNs.Status.Phase == corev1.NamespaceTerminating {
+			log.Printf("Namespace %s is terminating, waiting for deletion before re-creating", namespace)
+			waitErr := wait.PollUntilContextTimeout(context.Background(), 5*time.Second, 2*time.Minute, true, func(ctx context.Context) (bool, error) {
+				_, getErr := clientset.CoreV1().Namespaces().Get(ctx, namespace, metav1.GetOptions{})
+				if apierrors.IsNotFound(getErr) {
 					return true, nil
 				}
-				return false, err
+				return false, getErr
 			})
-			if pollErr != nil {
-				return fmt.Errorf("timed out waiting for Terminating namespace %s to be deleted: %w", namespace, pollErr)
+			if waitErr != nil {
+				return fmt.Errorf("timed out waiting for terminating namespace %s to be deleted: %w", namespace, waitErr)
 			}
-			// Namespace is gone; create it fresh.
 			_, err = clientset.CoreV1().Namespaces().Create(context.Background(), &ns, metav1.CreateOptions{})
 			return err
 		}
-		// Namespace exists and is Active — nothing to do.
 		return nil
 	}
 	return err
