@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"hash/fnv"
 	"log"
+	"strconv"
 	"strings"
 	"time"
 
@@ -154,6 +155,25 @@ const (
 	communityHcoIndexImage  = "quay.io/kubevirt/hyperconverged-cluster-index"
 )
 
+const (
+	// hcoNightlyIndexTag is the moving index tag that tracks HCO main (the
+	// Makefile's HCO_INDEX_TAG default).
+	hcoNightlyIndexTag = "nightly"
+
+	// hcoNightlyMinKubeMinor is the kube minor version the nightly index
+	// requires: HCO 1.20.0 sets spec.minKubeVersion: 1.36.0 on its CSV
+	// (kubevirt/hyperconverged-cluster-operator#4670), and OLM refuses to
+	// install a CSV whose minKubeVersion exceeds the cluster's kube version.
+	// OpenShift 4.22 runs kube 1.35, the newest OCP release affected.
+	hcoNightlyMinKubeMinor = 36
+
+	// hcoNightlyFallbackTag is the newest HCO release whose CSV has no
+	// minKubeVersion constraint, still new enough for the suite's VEP-25
+	// (incremental backup) requirement of HCO >= 1.18.0. Substituted for the
+	// nightly tag on clusters too old to install it.
+	hcoNightlyFallbackTag = "1.19.0"
+)
+
 type VirtOperator struct {
 	Client           client.Client
 	Clientset        *kubernetes.Clientset
@@ -199,6 +219,65 @@ func communityChannelFromTag(indexTag string) string {
 		return "stable-v" + parts[0] + "." + parts[1]
 	}
 	return "stable-v" + indexTag
+}
+
+// ResolveCommunityHcoIndexTag returns the community HCO index tag to install
+// from. The moving "nightly" tag is downgraded to the pinned
+// hcoNightlyFallbackTag when the cluster's kube version is older than the
+// nightly catalog's minKubeVersion (kubevirt/hyperconverged-cluster-operator#4670
+// set it to 1.36.0 for HCO 1.20.0; OpenShift 4.22 runs kube 1.35), because OLM
+// would otherwise refuse the install and the virt suite cannot run at all. Any
+// other tag is returned unchanged since it was requested explicitly. Errors
+// probing the server version are logged and are not fatal: the requested tag
+// is kept.
+func ResolveCommunityHcoIndexTag(clientset *kubernetes.Clientset, indexTag string) string {
+	if indexTag != hcoNightlyIndexTag || clientset == nil {
+		return indexTag
+	}
+	serverVersion, err := clientset.Discovery().ServerVersion()
+	if err != nil {
+		log.Printf("Could not determine server kube version (%v); keeping HCO index tag %q as requested", err, indexTag)
+		return indexTag
+	}
+	major, minor, ok := parseKubeVersion(serverVersion.Major, serverVersion.Minor)
+	if !ok {
+		log.Printf("Could not parse server kube version %q; keeping HCO index tag %q as requested", serverVersion.GitVersion, indexTag)
+		return indexTag
+	}
+	return resolveHcoIndexTagForKubeVersion(indexTag, major, minor)
+}
+
+// resolveHcoIndexTagForKubeVersion applies the nightly-tag fallback decision
+// for the given kube version; see ResolveCommunityHcoIndexTag.
+func resolveHcoIndexTagForKubeVersion(indexTag string, major, minor int) string {
+	if indexTag != hcoNightlyIndexTag {
+		return indexTag
+	}
+	if major == 1 && minor < hcoNightlyMinKubeMinor {
+		log.Printf("HCO index tag %q requires kube >= 1.%d (minKubeVersion, kubevirt/hyperconverged-cluster-operator#4670) but this cluster runs kube 1.%d; falling back to pinned HCO index tag %q",
+			indexTag, hcoNightlyMinKubeMinor, minor, hcoNightlyFallbackTag)
+		return hcoNightlyFallbackTag
+	}
+	return indexTag
+}
+
+// parseKubeVersion parses the Major/Minor fields of a discovery ServerVersion.
+// Minor can carry suffixes such as "35+" or "35+gc123"; only leading digits
+// are significant.
+func parseKubeVersion(major, minor string) (int, int, bool) {
+	majorNum, err := strconv.Atoi(strings.TrimSpace(major))
+	if err != nil {
+		return 0, 0, false
+	}
+	digits := minor
+	if i := strings.IndexFunc(minor, func(r rune) bool { return r < '0' || r > '9' }); i >= 0 {
+		digits = minor[:i]
+	}
+	minorNum, err := strconv.Atoi(digits)
+	if err != nil {
+		return 0, 0, false
+	}
+	return majorNum, minorNum, true
 }
 
 // EnsureCommunityHcoCatalog creates a CatalogSource in openshift-marketplace
