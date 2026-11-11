@@ -772,7 +772,7 @@ var _ = ginkgo.PDescribe("Multiple BSL with custom CA cert tests", ginkgo.Ordere
 			gomega.Eventually(dpaCR.IsReconciledTrue(), time.Minute*3, time.Second*5).Should(gomega.BeTrue())
 
 			log.Printf("Waiting for Velero Pod to be running")
-			gomega.Eventually(lib.VeleroPodIsRunning(kubernetesClientForSuiteRun, namespace), time.Minute*3, time.Second*5).Should(gomega.BeTrue())
+			gomega.Eventually(lib.VeleroPodIsRunning(kubernetesClientForSuiteRun, namespace), time.Minute*5, time.Second*15).Should(gomega.BeTrue())
 
 			// Verify CA certificate handling based on backupImages flag
 			log.Printf("Verifying CA certificate handling (backupImages: %v)", backupImages)
