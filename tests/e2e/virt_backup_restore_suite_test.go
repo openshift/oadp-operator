@@ -723,9 +723,9 @@ var _ = ginkgo.Describe("VM backup and restore tests", ginkgo.Ordered, func() {
 		indexTag := ""
 		communityChannel := ""
 		if useCommunityHco {
-			indexTag = hcoIndexTag
-			log.Printf("Creating community HCO CatalogSource with index tag %s", hcoIndexTag)
-			communityChannel, err = lib.EnsureCommunityHcoCatalog(dynamicClientForSuiteRun, hcoIndexTag, 2*time.Minute)
+			indexTag = lib.ResolveCommunityHcoIndexTag(kubernetesClientForSuiteRun, hcoIndexTag)
+			log.Printf("Creating community HCO CatalogSource with index tag %s (requested %s)", indexTag, hcoIndexTag)
+			communityChannel, err = lib.EnsureCommunityHcoCatalog(dynamicClientForSuiteRun, indexTag, 2*time.Minute)
 			gomega.Expect(err).To(gomega.BeNil())
 		}
 
