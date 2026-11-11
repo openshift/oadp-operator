@@ -380,6 +380,12 @@ func (v *DpaCustomResource) BSLsAreUpdated(updateTime time.Time) wait.ConditionF
 		}
 
 		for _, bsl := range bsls.Items {
+			// Velero only sets LastValidationTime after its first validation of the BSL,
+			// so it is nil on a freshly created or recreated BSL.
+			if bsl.Status.LastValidationTime == nil {
+				log.Printf("BSL %s has not been validated yet", bsl.Name)
+				return false, nil
+			}
 			if !bsl.Status.LastValidationTime.After(updateTime) {
 				return false, nil
 			}
