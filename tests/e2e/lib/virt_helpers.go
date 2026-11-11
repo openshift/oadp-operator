@@ -129,8 +129,8 @@ var virtualMachineBackupTrackerGvr = schema.GroupVersionResource{
 
 // virtualMachineBackupGvr is the per-backup VirtualMachineBackup (VMB) resource — distinct
 // from VirtualMachineBackupTracker (VMBT, tracked via virtualMachineBackupTrackerGvr above),
-// which persists checkpoint state across backups. VMB.Status.Type reports "full" or
-// "incremental" for a single completed backup.
+// which persists checkpoint state across backups. VMB status.includedVolumes[].type reports "Full" or "Incremental"
+// for a single completed backup.
 var virtualMachineBackupGvr = schema.GroupVersionResource{
 	Group:    "backup.kubevirt.io",
 	Resource: "virtualmachinebackups",
@@ -1662,8 +1662,13 @@ func (v *VirtOperator) CheckVMBackupTrackerExists(namespace string) (bool, error
 }
 
 // GetVMBBackupType finds the VirtualMachineBackup in namespace whose
-// annotationDataUploadName annotation matches dataUploadName, and returns its
-// status.type ("full"/"incremental") and status.checkpointName.
+// annotationDataUploadName annotation matches dataUploadName, and returns the
+// backup type ("Full"/"Incremental") derived from status.includedVolumes[].type
+// plus status.checkpointName.
+//
+// KubeVirt dropped the whole-backup status.type field in favour of the
+// per-volume type, so the backup is "Incremental" only if every included
+// volume is incremental, and "Full" if any volume was backed up in full.
 func (v *VirtOperator) GetVMBBackupType(namespace, dataUploadName string) (backupType, checkpointName string, err error) {
 	list, err := v.Dynamic.Resource(virtualMachineBackupGvr).Namespace(namespace).List(context.Background(), metav1.ListOptions{})
 	if err != nil {
@@ -1673,13 +1678,23 @@ func (v *VirtOperator) GetVMBBackupType(namespace, dataUploadName string) (backu
 		if vmb.GetAnnotations()[annotationDataUploadName] != dataUploadName {
 			continue
 		}
-		found := false
-		backupType, found, err = unstructured.NestedString(vmb.Object, "status", "type")
+		volumes, found, err := unstructured.NestedSlice(vmb.Object, "status", "includedVolumes")
 		if err != nil {
-			return "", "", fmt.Errorf("failed to read status.type from VirtualMachineBackup %s/%s: %w", namespace, vmb.GetName(), err)
+			return "", "", fmt.Errorf("failed to read status.includedVolumes from VirtualMachineBackup %s/%s: %w", namespace, vmb.GetName(), err)
 		}
-		if !found {
-			return "", "", fmt.Errorf("VirtualMachineBackup %s/%s has no status.type yet", namespace, vmb.GetName())
+		if !found || len(volumes) == 0 {
+			return "", "", fmt.Errorf("VirtualMachineBackup %s/%s has no status.includedVolumes yet", namespace, vmb.GetName())
+		}
+		backupType = "Incremental"
+		for _, vol := range volumes {
+			volMap, _ := vol.(map[string]interface{})
+			volType, _ := volMap["type"].(string)
+			if volType == "" {
+				return "", "", fmt.Errorf("VirtualMachineBackup %s/%s has an included volume with no type yet", namespace, vmb.GetName())
+			}
+			if !strings.EqualFold(volType, "Incremental") {
+				backupType = "Full"
+			}
 		}
 		foundCheckpoint := false
 		checkpointName, foundCheckpoint, err = unstructured.NestedString(vmb.Object, "status", "checkpointName")
