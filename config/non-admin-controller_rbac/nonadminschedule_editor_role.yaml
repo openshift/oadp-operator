@@ -1,0 +1,31 @@
+# permissions for end users to edit nonadminschedules.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    app.kubernetes.io/name: clusterrole
+    app.kubernetes.io/instance: nonadminschedule-editor-role
+    app.kubernetes.io/component: rbac
+    app.kubernetes.io/created-by: oadp-nac
+    app.kubernetes.io/part-of: oadp-nac
+    app.kubernetes.io/managed-by: kustomize
+  name: nonadminschedule-editor-role
+rules:
+- apiGroups:
+  - oadp.openshift.io
+  resources:
+  - nonadminschedules
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - oadp.openshift.io
+  resources:
+  - nonadminschedules/status
+  verbs:
+  - get
