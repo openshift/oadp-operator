@@ -951,6 +951,11 @@ TEST_VIRT_KDM ?= false
 # live from the catalog's PackageManifest, not guessed from this tag's shape,
 # so unpinned tags like "nightly" work correctly here. Override to a pinned
 # release (e.g. "1.18.0") for a reproducible/stable run instead.
+# Note: HCO 1.20.0+ sets minKubeVersion 1.36.0 on its CSV
+# (kubevirt/hyperconverged-cluster-operator#4670), so nightly cannot install on
+# OpenShift 4.22 (kube 1.35); on such clusters the e2e suite automatically
+# falls back to a pinned release tag -- see ResolveCommunityHcoIndexTag in
+# tests/e2e/lib/virt_helpers.go.
 HCO_INDEX_TAG ?= nightly
 # hcp
 TEST_HCP ?= false
