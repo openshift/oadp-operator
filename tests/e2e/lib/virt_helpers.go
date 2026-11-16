@@ -1757,23 +1757,13 @@ func (v *VirtOperator) GetVMBBackupType(namespace, dataUploadName string) (backu
 		if vmb.GetAnnotations()[annotationDataUploadName] != dataUploadName {
 			continue
 		}
-		volumes, found, err := unstructured.NestedSlice(vmb.Object, "status", "includedVolumes")
+		found := false
+		backupType, found, err = unstructured.NestedString(vmb.Object, "status", "type")
 		if err != nil {
-			return "", "", fmt.Errorf("failed to read status.includedVolumes from VirtualMachineBackup %s/%s: %w", namespace, vmb.GetName(), err)
+			return "", "", fmt.Errorf("failed to read status.type from VirtualMachineBackup %s/%s: %w", namespace, vmb.GetName(), err)
 		}
-		if !found || len(volumes) == 0 {
-			return "", "", fmt.Errorf("VirtualMachineBackup %s/%s has no status.includedVolumes yet", namespace, vmb.GetName())
-		}
-		backupType = "Incremental"
-		for _, vol := range volumes {
-			volMap, _ := vol.(map[string]interface{})
-			volType, _ := volMap["type"].(string)
-			if volType == "" {
-				return "", "", fmt.Errorf("VirtualMachineBackup %s/%s has an included volume with no type yet", namespace, vmb.GetName())
-			}
-			if !strings.EqualFold(volType, "Incremental") {
-				backupType = "Full"
-			}
+		if !found {
+			return "", "", fmt.Errorf("VirtualMachineBackup %s/%s has no status.type yet", namespace, vmb.GetName())
 		}
 		foundCheckpoint := false
 		checkpointName, foundCheckpoint, err = unstructured.NestedString(vmb.Object, "status", "checkpointName")
