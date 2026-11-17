@@ -8,11 +8,15 @@ import (
 	"github.com/go-logr/logr"
 	velerov1 "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
 	corev1 "k8s.io/api/core/v1"
+	k8serror "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/tools/record"
+	"k8s.io/utils/ptr"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
 	oadpv1alpha1 "github.com/openshift/oadp-operator/api/v1alpha1"
 )
@@ -905,6 +909,152 @@ func Test_replaceCarriageReturn(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			if got := replaceCarriageReturn(tt.args.data, tt.args.logger); !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("replaceCarriageReturn() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestDPAReconciler_ReconcileRegistrySecrets(t *testing.T) {
+	const ns = "test-ns"
+	testScheme, err := getSchemeForFakeClientForRegistry()
+	if err != nil {
+		t.Fatalf("failed to build scheme: %v", err)
+	}
+	newDPA := func(backupImages *bool) *oadpv1alpha1.DataProtectionApplication {
+		return &oadpv1alpha1.DataProtectionApplication{
+			ObjectMeta: metav1.ObjectMeta{Name: "test-dpa", Namespace: ns, UID: "test-dpa-uid"},
+			Spec:       oadpv1alpha1.DataProtectionApplicationSpec{BackupImages: backupImages},
+		}
+	}
+	newBSL := func(name, provider string) *velerov1.BackupStorageLocation {
+		return &velerov1.BackupStorageLocation{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      name,
+				Namespace: ns,
+				Labels:    map[string]string{"app.kubernetes.io/component": "bsl"},
+			},
+			Spec: velerov1.BackupStorageLocationSpec{Provider: provider},
+		}
+	}
+	newRegistrySecret := func(name string, owner *oadpv1alpha1.DataProtectionApplication) *corev1.Secret {
+		secret := &corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      name,
+				Namespace: ns,
+				Labels:    map[string]string{oadpv1alpha1.OadpOperatorLabel: "True"},
+			},
+		}
+		if owner != nil {
+			if err := controllerutil.SetControllerReference(owner, secret, testScheme); err != nil {
+				t.Fatalf("failed to set controller reference: %v", err)
+			}
+		}
+		return secret
+	}
+	cloudCredentials := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{Name: "cloud-credentials", Namespace: ns},
+		Data:       secretData,
+	}
+
+	tests := []struct {
+		name        string
+		dpa         *oadpv1alpha1.DataProtectionApplication
+		objects     func(dpa *oadpv1alpha1.DataProtectionApplication) []client.Object
+		wantSecrets []string
+		goneSecrets []string
+	}{
+		{
+			name: "registry secret of a BSL removed from the DPA is deleted",
+			dpa:  newDPA(nil),
+			objects: func(dpa *oadpv1alpha1.DataProtectionApplication) []client.Object {
+				return []client.Object{
+					cloudCredentials.DeepCopy(),
+					newBSL("bsl-1", AWSProvider),
+					newRegistrySecret("oadp-bsl-1-aws-registry-secret", dpa),
+					newRegistrySecret("oadp-removed-bsl-aws-registry-secret", dpa),
+				}
+			},
+			wantSecrets: []string{"oadp-bsl-1-aws-registry-secret", "cloud-credentials"},
+			goneSecrets: []string{"oadp-removed-bsl-aws-registry-secret"},
+		},
+		{
+			name: "registry secrets not controlled by the DPA are kept",
+			dpa:  newDPA(nil),
+			objects: func(dpa *oadpv1alpha1.DataProtectionApplication) []client.Object {
+				return []client.Object{
+					cloudCredentials.DeepCopy(),
+					newBSL("bsl-1", AWSProvider),
+					newRegistrySecret("oadp-user-aws-registry-secret", nil),
+					newRegistrySecret("oadp-other-secret", dpa),
+				}
+			},
+			wantSecrets: []string{"oadp-bsl-1-aws-registry-secret", "oadp-user-aws-registry-secret", "oadp-other-secret"},
+		},
+		{
+			name: "DPA-controlled secrets not matching the generated registry secret name are kept",
+			dpa:  newDPA(nil),
+			objects: func(dpa *oadpv1alpha1.DataProtectionApplication) []client.Object {
+				return []client.Object{
+					cloudCredentials.DeepCopy(),
+					newBSL("bsl-1", AWSProvider),
+					newRegistrySecret("oadp-registry-secret", dpa),
+					newRegistrySecret("oadp-aws-registry-secret", dpa),
+					newRegistrySecret("oadp-removed-bsl-gcp-registry-secret", dpa),
+					newRegistrySecret("oadp-removed-bsl-azure-registry-secret", dpa),
+				}
+			},
+			wantSecrets: []string{
+				"oadp-bsl-1-aws-registry-secret",
+				"oadp-registry-secret",
+				"oadp-aws-registry-secret",
+				"oadp-removed-bsl-gcp-registry-secret",
+			},
+			goneSecrets: []string{"oadp-removed-bsl-azure-registry-secret"},
+		},
+		{
+			name: "all registry secrets are deleted when backupImages is disabled",
+			dpa:  newDPA(ptr.To(false)),
+			objects: func(dpa *oadpv1alpha1.DataProtectionApplication) []client.Object {
+				return []client.Object{
+					cloudCredentials.DeepCopy(),
+					newBSL("bsl-1", AWSProvider),
+					newBSL("bsl-2", AWSProvider),
+					newRegistrySecret("oadp-bsl-1-aws-registry-secret", dpa),
+					newRegistrySecret("oadp-bsl-2-aws-registry-secret", dpa),
+				}
+			},
+			wantSecrets: []string{"cloud-credentials"},
+			goneSecrets: []string{"oadp-bsl-1-aws-registry-secret", "oadp-bsl-2-aws-registry-secret"},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			fakeClient, err := getFakeClientFromObjects(append(tt.objects(tt.dpa), tt.dpa)...)
+			if err != nil {
+				t.Fatalf("error in creating fake client, likely programmer error: %v", err)
+			}
+			r := &DataProtectionApplicationReconciler{
+				Client:         fakeClient,
+				Scheme:         fakeClient.Scheme(),
+				Log:            logr.Discard(),
+				Context:        newContextForTest(),
+				NamespacedName: types.NamespacedName{Namespace: ns, Name: tt.dpa.Name},
+				EventRecorder:  record.NewFakeRecorder(10),
+				dpa:            tt.dpa,
+			}
+			if _, err := r.ReconcileRegistrySecrets(r.Log); err != nil {
+				t.Fatalf("ReconcileRegistrySecrets() error = %v", err)
+			}
+			for _, name := range tt.wantSecrets {
+				if err := fakeClient.Get(r.Context, types.NamespacedName{Namespace: ns, Name: name}, &corev1.Secret{}); err != nil {
+					t.Errorf("expected secret %s to exist: %v", name, err)
+				}
+			}
+			for _, name := range tt.goneSecrets {
+				err := fakeClient.Get(r.Context, types.NamespacedName{Namespace: ns, Name: name}, &corev1.Secret{})
+				if !k8serror.IsNotFound(err) {
+					t.Errorf("expected secret %s to be deleted, got err %v", name, err)
+				}
 			}
 		})
 	}
