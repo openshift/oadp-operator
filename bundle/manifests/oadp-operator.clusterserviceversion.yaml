@@ -175,6 +175,26 @@ metadata:
         },
         {
           "apiVersion": "oadp.openshift.io/v1alpha1",
+          "kind": "NonAdminSchedule",
+          "metadata": {
+            "labels": {
+              "app.kubernetes.io/managed-by": "kustomize",
+              "app.kubernetes.io/name": "oadp-non-admin"
+            },
+            "name": "nightly-backup"
+          },
+          "spec": {
+            "paused": false,
+            "schedule": "0 2 * * *",
+            "template": {
+              "backupSpec": {
+                "ttl": "720h"
+              }
+            }
+          }
+        },
+        {
+          "apiVersion": "oadp.openshift.io/v1alpha1",
           "kind": "VirtualMachineBackupsDiscovery",
           "metadata": {
             "labels": {
@@ -579,6 +599,9 @@ spec:
       kind: NonAdminRestore
       name: nonadminrestores.oadp.openshift.io
       version: v1alpha1
+    - kind: NonAdminSchedule
+      name: nonadminschedules.oadp.openshift.io
+      version: v1alpha1
     - description: A velero pod volume backup is a restic backup of persistent volumes
         attached to a running pod.
       displayName: PodVolumeBackup
@@ -800,6 +823,7 @@ spec:
           - nonadminbackupstoragelocations
           - nonadmindownloadrequests
           - nonadminrestores
+          - nonadminschedules
           verbs:
           - create
           - delete
@@ -815,6 +839,7 @@ spec:
           - nonadminbackupstoragelocations/finalizers
           - nonadmindownloadrequests/finalizers
           - nonadminrestores/finalizers
+          - nonadminschedules/finalizers
           verbs:
           - update
         - apiGroups:
@@ -825,6 +850,7 @@ spec:
           - nonadminbackupstoragelocations/status
           - nonadmindownloadrequests/status
           - nonadminrestores/status
+          - nonadminschedules/status
           verbs:
           - get
           - patch
@@ -837,6 +863,7 @@ spec:
           - deletebackuprequests
           - downloadrequests
           - restores
+          - schedules
           verbs:
           - create
           - delete
@@ -849,6 +876,7 @@ spec:
           - velero.io
           resources:
           - backupstoragelocations/status
+          - schedules/status
           verbs:
           - get
           - patch

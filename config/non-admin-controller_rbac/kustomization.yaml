@@ -23,4 +23,5 @@ resources:
 - nonadmindownloadrequest_admin_role.yaml
 - nonadmindownloadrequest_editor_role.yaml
 - nonadmindownloadrequest_viewer_role.yaml
-
+- nonadminschedule_editor_role.yaml
+- nonadminschedule_viewer_role.yaml
