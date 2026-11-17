@@ -170,6 +170,7 @@ var _ = ginkgo.Describe("Configuration testing for DPA Custom Resource", func() 
 			gomega.Expect(err).NotTo(gomega.HaveOccurred())
 
 			log.Printf("Waiting for velero Pod to be running")
+			gomega.Eventually(lib.VeleroPodIsRunning(kubernetesClientForSuiteRun, namespace), time.Minute*3, time.Second*15).Should(gomega.BeTrue())
 			// TODO do not use Consistently
 			gomega.Consistently(lib.VeleroPodIsRunning(kubernetesClientForSuiteRun, namespace), time.Minute*1, time.Second*15).Should(gomega.BeTrue())
 			timeAfterVeleroIsRunning := time.Now()

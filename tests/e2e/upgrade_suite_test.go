@@ -155,6 +155,7 @@ var _ = ginkgo.Describe("OADP upgrade scenarios", ginkgo.Ordered, func() {
 
 			// check if updated DPA is reconciled
 			log.Print("Checking if DPA was reconciled after update")
+			gomega.Eventually(dpaCR.IsReconciledTrue(), time.Minute*3, time.Second*15).Should(gomega.BeTrue())
 			// TODO do not use Consistently, using because no field in DPA is updated telling when it was last reconciled
 			gomega.Consistently(dpaCR.IsReconciledTrue(), time.Minute*3, time.Second*15).Should(gomega.BeTrue())
 
