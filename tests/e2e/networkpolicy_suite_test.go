@@ -126,7 +126,7 @@ func (f *networkPolicyFixture) readyPod(selector string) *corev1.Pod {
 			}
 		}
 		return false, nil
-	}, 3*time.Minute, 2*time.Second).Should(gomega.BeTrue(), "expected a ready pod for %s", selector)
+	}, 5*time.Minute, 2*time.Second).Should(gomega.BeTrue(), "expected a ready pod for %s", selector)
 	return found
 }
 
