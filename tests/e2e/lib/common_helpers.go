@@ -10,6 +10,7 @@ import (
 	"os"
 	"os/exec"
 	"strings"
+	"time"
 )
 
 type RequestParameters struct {
@@ -203,21 +204,46 @@ func convertJsonStringToURLParams(payload string) (string, error) {
 // that the site is reachable. If there is an error during the request
 // or if the status code indicates an error, it returns false.
 func IsURLReachable(url string) (bool, error) {
-	// Attempt to perform a GET request to the specified URL Head
-	resp, err := http.Get(url)
-	if err != nil {
-		// An error occurred during the HTTP request
-		return false, err
-	}
-	defer resp.Body.Close()
+	// Retry on non-2xx responses to tolerate the delay between pod
+	// readiness and HAProxy route backend propagation. When a pod
+	// becomes Ready the route may still return 503 for a few seconds
+	// until HAProxy picks up the new endpoint.
+	const maxRetries = 5
+	const retryInterval = 5 * time.Second
 
-	// Check if the response status code indicates success (2xx range)
-	if resp.StatusCode >= 200 && resp.StatusCode < 300 {
-		return true, nil
+	var lastErr error
+	for attempt := 0; attempt <= maxRetries; attempt++ {
+		if attempt > 0 {
+			log.Printf("IsURLReachable: retrying URL %s (attempt %d/%d) after non-2xx response", url, attempt+1, maxRetries+1)
+			time.Sleep(retryInterval)
+		}
+
+		// Attempt to perform a GET request to the specified URL
+		resp, err := http.Get(url)
+		if err != nil {
+			// A connection-level error is not retryable.
+			return false, err
+		}
+
+		// Close the body immediately instead of deferring, because defer
+		// only runs when the function returns — not between loop iterations.
+		// Deferring inside a loop would leak up to maxRetries open bodies.
+		statusCode := resp.StatusCode
+		if closeErr := resp.Body.Close(); closeErr != nil {
+			return false, closeErr
+		}
+
+		// Check if the response status code indicates success (2xx range)
+		if statusCode >= 200 && statusCode < 300 {
+			return true, nil
+		}
+
+		lastErr = fmt.Errorf("HTTP request failed with status code: %d", statusCode)
+		log.Printf("IsURLReachable: URL %s returned status %d", url, statusCode)
 	}
 
-	// The response status code indicates an error
-	return false, fmt.Errorf("HTTP request failed with status code: %d", resp.StatusCode)
+	// All retries exhausted
+	return false, lastErr
 }
 
 // MakeHTTPRequest performs an HTTP request with the specified URL, request method, and payload.
