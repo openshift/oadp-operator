@@ -7,6 +7,8 @@
 
 > **Scope note:** This document originally proposed AllNamespaces install mode with runtime behavior unchanged (the operator would still watch only its own namespace). That scope has since expanded: implementing AllNamespaces install mode made cluster-wide watching straightforward enough that it was done as part of the same effort, so this document now also covers true multi-tenant DPA support. The original "watch only own namespace" framing is preserved below in Background/OLM context, but Goals, Non-Goals, Detailed Design, and Validation reflect the current, broader scope.
 
+> **Release scope (2026-11-20):** OADP 1.7's primary install-mode scope is AllNamespaces only. This design describes the dual-mode implementation (`OwnNamespace` + `AllNamespaces`), which is the possible alternative. Customer migration remains TBD. See the [OLMv1 Transition Timeline](olmv1-transition-timeline.md).
+
 ## Background
 
 ### OLMv0 — Current model
@@ -55,6 +57,7 @@ It is declarative, GitOps-friendly, and uses a cluster-admin security model inst
 
 - OCP 4.21 release notes explicitly state these modes "continued as a Technology Preview feature" and are "not recommended for production use."
 - A planned GA promotion was subsequently reversed. [OPRUN-4514](https://issues.redhat.com/browse/OPRUN-4514) ("Revert Single/Own Namespace promotion to GA") explicitly states the goal was to return the feature to `TPNU` status; the upstream revert is [operator-controller#2568](https://github.com/operator-framework/operator-controller/pull/2568).
+- OLMv1 5.1 removes this Tech Preview support; after 5.1, OLMv1 has no namespaced install mode.
 
 `OwnNamespace` and `SingleNamespace` are not a viable option for production operators.
 
@@ -83,7 +86,11 @@ Additionally, OLM requires every ServiceAccount declared in `clusterPermissions`
 
 ### OLMv1 Alignment
 
-OLMv1 does not *need* AllNamespaces — it removes the concept of install modes entirely. "AllNamespaces" is OLMv0 vocabulary: a CSV declaration that the operator tolerates a global OperatorGroup. OLMv1 deleted the OperatorGroup, and with it the mechanism that made scope a *choice*. Every extension installs cluster-scoped because nothing exists to select otherwise. (Namespaced installs were bolted back on as Tech Preview in OCP 4.19 — [OCPSTRAT-1711](https://issues.redhat.com/browse/OCPSTRAT-1711) — and remain TP; see [Background](#olmv1--the-new-model).)
+OLMv1 does not *need* AllNamespaces — it removes the concept of install modes entirely. "AllNamespaces" is OLMv0 vocabulary: a CSV declaration that the operator tolerates a global OperatorGroup. OLMv1 deleted the OperatorGroup, and with it the mechanism that made scope a *choice*. Every extension installs cluster-scoped because nothing exists to select otherwise. (Namespaced installs were bolted back on as Tech Preview in OCP 4.19 — [OCPSTRAT-1711](https://issues.redhat.com/browse/OCPSTRAT-1711) — and are removed in OCP 5.1; see [Background](#olmv1--the-new-model).)
+
+See the [OLMv1 Transition Timeline](olmv1-transition-timeline.md) for the release-gated milestones and OADP's position in them.
+
+See [Install-Mode Wiring](install-mode-wiring.md) for the OwnNamespace, AllNamespaces, and OLMv1 component diagrams.
 
 The correct framing for this design: **OLMv1 imposes the AllNamespaces topology. This design lets OADP run that topology under OLMv0 today, so the eventual OLMv1 switch is a deployment-mechanics change rather than a runtime-behavior change.**
 
@@ -185,7 +192,7 @@ flowchart LR
 | `deploy-olm-allnamespaces` | Falls away | OLMv0 flow; OLMv1 deploys via `ClusterExtension` (the `catalog-fbc-build` Makefile help already shows that YAML) |
 | 5. `ReconcileVeleroRBAC` | Becomes mandatory | Under OLMv1 nobody ever creates the velero SA; the operator self-managing workload RBAC is the only model. The `escalate` grant moves from CSV `clusterPermissions` to the admin-provided install ServiceAccount |
 
-The strategic read: the OLMv0-facing work (Changes 1, 3, the make target) bought the *topology* customers can run today; the runtime work (Changes 2, 4, 5) is what actually crosses the OLMv1 boundary. OLMv0 remains available alongside OLMv1 from OCP 4.18, with removal expected around OCP 6.0 — the CSV-facing changes serve that whole window and quietly stop mattering on the far side of it.
+The strategic read: the OLMv0-facing work (Changes 1, 3, the make target) bought the *topology* customers can run today; the runtime work (Changes 2, 4, 5) is what actually crosses the OLMv1 boundary. OLMv0 remains available alongside OLMv1 from OCP 4.18 and is deprecated at 5.2, supported through 5.x — the CSV-facing changes serve that whole window and quietly stop mattering on the far side of it.
 
 > **Note:** "AllNamespaces" throughout this document refers to the OLMv0 install mode. Under OLMv1 the same runtime topology exists without a name, because no alternative exists either.
 
@@ -222,6 +229,8 @@ The RBAC `clusterPermissions` already granted cluster scope prior to Change 4 (v
 |---|---|---|---|
 | Namespaced (OwnNamespace) | `openshift-adp` | `openshift-adp` | `openshift-adp` (from `WATCH_NAMESPACE`) |
 | Global (AllNamespaces) | `""` (empty — OLM's all-namespaces signal) | `openshift-adp` | `openshift-adp` (fallback to `OPERATOR_NAMESPACE`) |
+
+See [Install-Mode Wiring](install-mode-wiring.md) for the full component diagrams.
 
 ## Detailed Design
 
@@ -435,6 +444,8 @@ The first scenario was verified by hand on a live cluster (2026-10-13, see [Vali
 
 ## Upgrade Path
 
+These statements assume the dual-mode CSV (the alternative 1.7 scope). An AllNamespaces-only 1.7 requires the migration path tracked in the [OLMv1 Transition Timeline](olmv1-transition-timeline.md).
+
 - Upgrading from a prior OADP version (OwnNamespace-only CSV) to the version with this change is seamless.
 - Adding `AllNamespaces: true` is a safe superset change — OLM does not reject the upgrade.
 - The customer's existing namespaced OperatorGroup continues to work.
@@ -478,7 +489,7 @@ Rejected:
 
 ## Open Issues
 
-1. **Target OADP release**: Which version will include this change?
+1. **Target OADP release**: OADP 1.7 is the target for the AllNamespaces feature. Whether 1.7 ships AllNamespaces-only (primary) or dual-mode (alternative) is tracked in the [OLMv1 Transition Timeline](olmv1-transition-timeline.md).
 2. **Where should multi-tenant DPAs live?** The current implementation puts each DPA in its tenant's namespace (self-serve model: a tenant with DPA-create RBAC in their namespace manages their own backups). The alternative — all DPAs in the operator's namespace with a spec field naming the target namespace for Velero (admin-managed model) — simplifies the watch scope (Change 4 would become optional) but removes tenant self-service and adds a cross-namespace ownership question. Note this choice is orthogonal to the RBAC work: Velero's isolation boundary is the namespace (each Velero instance watches all Backups/BSLs in its own namespace, so two isolated Veleros cannot share one), so *any* multi-tenant design places Velero workloads — and therefore the `velero` SA and its RBAC — in tenant namespaces. Change 5 and the `escalate`/`bind` grant are required either way. Decided for now: keep DPAs in tenant namespaces; revisit if the self-serve model proves wrong for the customer base.
 
 ## Validation
@@ -562,10 +573,10 @@ Note on running the envtest suite locally: `make envtest` + `bin/setup-envtest u
 
 ### Future: Deprecating OwnNamespace
 
-OADP does not plan to drop `OwnNamespace` support immediately, but AllNamespaces is the strategically correct long-term direction (see [OLMv1 Alignment](#olmv1-alignment)), and a future major version may want to make AllNamespaces the only supported mode. This requires a path that doesn't strand existing `OwnNamespace` customers across a version bump (e.g. a hypothetical 1.6 → 1.7 jump). Open questions, not yet resolved:
+The 1.7 install-mode scope is tracked in the [OLMv1 Transition Timeline](olmv1-transition-timeline.md). The primary scope is AllNamespaces only; the dual-mode CSV described in this design is the possible alternative. The migration path for existing OwnNamespace customers remains TBD. Open questions, not yet resolved:
 
 - **Two-stage deprecation, mirroring prior OADP precedent.** OADP has twice shipped a soft-deprecation release (log warning via `log.V(-1).Info(...)` + `EventRecorder` warning event) ahead of a later hard-rejection release — restic → nodeAgent, and VSM/Volsync → Velero's built-in datamover (see `9ce4670a`). The same two-stage shape (warn on `OwnNamespace` for N releases, then reject it in `ValidateDataProtectionCR`) is the natural candidate here, but the actual timeline and release targets are undecided.
-- **How OLM behaves when a new CSV's `installModes` narrows.** It's not yet confirmed whether OLM blocks or stalls an in-place upgrade when a new CSV's supported install modes no longer include the mode the existing OperatorGroup requires (i.e. dropping `OwnNamespace: true` from `installModes` while a customer still has a namespaced OperatorGroup). This needs to be verified against OLM source/behavior before any hard-cutover release — a single CSV silently failing to progress is a worse outcome than failing an explicit admission check.
+- **How OLM behaves when a new CSV's `installModes` narrows.** Confirmed: OLM fails the new CSV with `UnsupportedOperatorGroup` while the existing OperatorGroup selects a mode the CSV no longer supports. The failure is non-terminal; changing the OperatorGroup to a supported configuration moves the CSV back to pending. The remaining work is validating the upgrade and InstallPlan recovery sequence, not whether OLM rejects the mismatch.
 - **Customer-facing migration tooling.** The Phase 4 migration doc already covers the manual OperatorGroup swap; a forced cutover would need this to be either automated or called out prominently enough (changelog, must-gather, console warnings) that customers don't hit it unexpectedly during an unrelated upgrade.
 
-This section intentionally has no implementation yet — it exists to capture the direction and open questions raised while implementing multi-tenant DPA support, so they aren't lost before a dedicated design effort picks them up.
+This section intentionally has no implementation yet — it exists to capture the direction and open questions raised while implementing multi-tenant DPA support, so they aren't lost before the migration study picks them up.
