@@ -38,6 +38,7 @@ rules:
   - nonadminbackupstoragelocations
   - nonadmindownloadrequests
   - nonadminrestores
+  - nonadminschedules
   verbs:
   - create
   - delete
@@ -53,6 +54,7 @@ rules:
   - nonadminbackupstoragelocations/finalizers
   - nonadmindownloadrequests/finalizers
   - nonadminrestores/finalizers
+  - nonadminschedules/finalizers
   verbs:
   - update
 - apiGroups:
@@ -63,6 +65,7 @@ rules:
   - nonadminbackupstoragelocations/status
   - nonadmindownloadrequests/status
   - nonadminrestores/status
+  - nonadminschedules/status
   verbs:
   - get
   - patch
@@ -75,6 +78,7 @@ rules:
   - deletebackuprequests
   - downloadrequests
   - restores
+  - schedules
   verbs:
   - create
   - delete
@@ -87,6 +91,7 @@ rules:
   - velero.io
   resources:
   - backupstoragelocations/status
+  - schedules/status
   verbs:
   - get
   - patch

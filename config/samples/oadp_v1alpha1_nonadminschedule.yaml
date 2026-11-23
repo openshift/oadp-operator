@@ -1,0 +1,13 @@
+apiVersion: oadp.openshift.io/v1alpha1
+kind: NonAdminSchedule
+metadata:
+  labels:
+    app.kubernetes.io/name: oadp-non-admin
+    app.kubernetes.io/managed-by: kustomize
+  name: nightly-backup
+spec:
+  schedule: "0 2 * * *"
+  paused: false
+  template:
+    backupSpec:
+      ttl: 720h
