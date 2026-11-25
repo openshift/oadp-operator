@@ -168,7 +168,7 @@ oc apply -f restore.yaml
 oc get restore my-vm-restore -n openshift-adp -w
 ```
 
-On the restore path, the kubevirt-datamover-plugin's Restore Item Action creates a `DataDownload` resource, which the controller processes through its own phase sequence. The controller downloads the checkpoint chain from object storage and reconstructs the disk image using `qemu-img rebase`, chaining each incremental checkpoint onto its parent rather than flattening everything onto the full backup in one step. This preserves the same layered structure the backup had, and lets the controller avoid downloading the full backup data again for every incremental restore.
+On the restore path, the kubevirt-datamover-plugin's Restore Item Action creates a `DataDownload` resource, which the controller processes through its own phase sequence. The controller downloads the checkpoint chain from object storage and reconstructs the disk image using `qemu-img rebase`, chaining each incremental checkpoint onto its parent rather than flattening everything onto the full backup in one step. Every restore downloads the full checkpoint chain, including the full backup and all incrementals.
 
 Once the `DataDownload` reaches `Completed`, the restored PVC is bound and rebound to the new VM created by Velero's standard VM restore path (handled by kubevirt-velero-plugin), and the VM should come up with its data intact.
 
@@ -182,6 +182,43 @@ Check that the VM started correctly:
 oc get vm my-vm -n my-vm-namespace
 oc get vmi my-vm -n my-vm-namespace
 ```
+
+## Monitoring progress
+
+Both `DataUpload` (during backup) and `DataDownload` (during restore) resources report progress fields in their `.status` that let you track how far along the data transfer is. These are especially useful for large VMs where a backup or restore can take a while, and you want to know whether things are actually moving or stuck.
+
+### DataUpload progress (backup)
+
+During a backup, the `DataUpload` object's status exposes three fields:
+
+- **`status.progress.totalBytes`**: The raw capacity of the source PVCs being backed up. This is the full disk size, not the amount of data actually being transferred.
+- **`status.incrementalBytes`**: The actual size of the `.qcow2` payload being transferred to object storage. For incremental backups, this will be significantly smaller than `totalBytes`, because CBT means only the changed blocks since the last backup are being sent. Comparing this to `totalBytes` gives you a sense of how much efficiency you are getting from incremental backups.
+- **`status.progress.bytesDone`**: The number of `.qcow2` bytes successfully uploaded to object storage so far. Watch this climb toward `incrementalBytes` to track real-time upload progress.
+
+Check progress across all DataUploads:
+
+```bash
+oc get datauploads.velero.io -n openshift-adp -o custom-columns=NAME:.metadata.name,PHASE:.status.phase,TOTAL:.status.progress.totalBytes,DONE:.status.progress.bytesDone,INCREMENTAL:.status.incrementalBytes
+```
+
+### DataDownload progress (restore)
+
+During a restore, the `DataDownload` object reports:
+
+- **`status.progress.totalBytes`**: The total size of all `.qcow2` files in the checkpoint chain that need to be downloaded from object storage. This includes the full backup plus every incremental layer on top of it.
+- **`status.progress.bytesDone`**: The number of `.qcow2` bytes successfully downloaded so far.
+
+`incrementalBytes` is not populated during restore. On the restore path, the controller has to download the entire chain (full backup plus all incrementals) to reconstruct the flat raw disk, so there is no separate "incremental vs total" distinction to report.
+
+Check progress across all DataDownloads:
+
+```bash
+oc get datadownloads.velero.io -n openshift-adp -o custom-columns=NAME:.metadata.name,PHASE:.status.phase,TOTAL:.status.progress.totalBytes,DONE:.status.progress.bytesDone
+```
+
+### The progress bar pauses at 100% during restore
+
+During a restore, once `bytesDone` reaches `totalBytes` (100% of the download), the progress will appear to stall. This is normal. At that point, all the `.qcow2` checkpoint files have been downloaded, and the downloader pod is running `qemu-img rebase` and `qemu-img convert` to flatten the chain into a single raw disk image that can be written to the target PVC. This reconstruction phase can take a noticeable amount of time for large disks, but the `DataDownload` will remain in the `InProgress` phase with progress showing 100% until it finishes and transitions to `Completed`. If you see progress stuck at 100% for a while, check the downloader pod's logs before assuming something is wrong.
 
 ## Verifying data integrity
 
