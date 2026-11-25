@@ -75,6 +75,17 @@ const (
 	ErrMsgUpdateSecret = "unable to update secret resource: %v"
 )
 
+// AzureIsWorkloadIdentity checks if Azure workload identity environment variables are configured.
+// Returns true if all required Azure workload identity environment variables are present:
+// - CLIENTID (Azure client ID)
+// - TENANTID (Azure tenant ID)
+// - SUBSCRIPTIONID (Azure subscription ID)
+func AzureIsWorkloadIdentity() bool {
+	return os.Getenv(ClientIDEnvKey) != "" &&
+		os.Getenv(TenantIDEnvKey) != "" &&
+		os.Getenv(SubscriptionIDEnvKey) != ""
+}
+
 // STSStandardizedFlow creates secrets for Short Term Service Account Tokens from environment variables for
 // AWS STS, GCP WIF, and Azure following the standardized authentication workflow (https://github.com/openshift/enhancements/pull/1800).
 // Users provide these values during web console installation, and they are set as environment
