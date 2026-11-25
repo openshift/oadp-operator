@@ -37,6 +37,8 @@ For more details on the `loadAffinity` feature see the [Understanding node affin
 
 > **Note:** In the DPA CRD specification the above OpenShift `nodeAffinity` is defined as `loadAffinity`.
 
+> **Important:** OADP applies `nodeAgent.loadAffinity` to the NodeAgent DaemonSet as well as to the DataMover pods. Upstream Velero applies `loadAffinity` to the DataMover pods only. As a result, no NodeAgent pod runs on nodes that do not match `loadAffinity`. File System Backup (Kopia `PodVolumeBackup`/`PodVolumeRestore`) runs in the NodeAgent pod on the node of the pod that mounts the volume, so pod volumes on non-matching nodes cannot be backed up or restored with File System Backup. If you use File System Backup, make sure `loadAffinity` matches every node that runs workloads you back up this way. With per-StorageClass entries (see below), the NodeAgent DaemonSet runs on the union of all entries.
+
 ```yaml
 spec:
   configuration:
