@@ -327,7 +327,7 @@ metadata:
     features.operators.openshift.io/disconnected: "true"
     features.operators.openshift.io/fips-compliant: "true"
     features.operators.openshift.io/proxy-aware: "true"
-    features.operators.openshift.io/tls-profiles: "false"
+    features.operators.openshift.io/tls-profiles: "true"
     features.operators.openshift.io/token-auth-aws: "true"
     features.operators.openshift.io/token-auth-azure: "true"
     features.operators.openshift.io/token-auth-gcp: "true"
@@ -1096,6 +1096,18 @@ spec:
           - update
           - watch
         - apiGroups:
+          - authentication.k8s.io
+          resources:
+          - tokenreviews
+          verbs:
+          - create
+        - apiGroups:
+          - authorization.k8s.io
+          resources:
+          - subjectaccessreviews
+          verbs:
+          - create
+        - apiGroups:
           - cloudcredential.openshift.io
           resources:
           - credentialsrequests
@@ -1106,6 +1118,7 @@ spec:
         - apiGroups:
           - config.openshift.io
           resources:
+          - apiservers
           - infrastructures
           verbs:
           - get
@@ -1500,6 +1513,8 @@ spec:
               containers:
               - args:
                 - --leader-elect
+                - --metrics-bind-address=:8443
+                - --metrics-secure=true
                 command:
                 - /manager
                 env:
@@ -1554,6 +1569,10 @@ spec:
                   initialDelaySeconds: 15
                   periodSeconds: 20
                 name: manager
+                ports:
+                - containerPort: 8443
+                  name: https
+                  protocol: TCP
                 readinessProbe:
                   httpGet:
                     path: /readyz

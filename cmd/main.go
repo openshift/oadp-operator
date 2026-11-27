@@ -30,6 +30,7 @@ import (
 	consolev1 "github.com/openshift/api/console/v1"
 	routev1 "github.com/openshift/api/route/v1"
 	security "github.com/openshift/api/security/v1"
+	tlspkg "github.com/openshift/controller-runtime-common/pkg/tls"
 	monitor "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	velerov1 "github.com/vmware-tanzu/velero/pkg/apis/velero/v1"
 	appsv1 "k8s.io/api/apps/v1"
@@ -51,6 +52,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
+	"sigs.k8s.io/controller-runtime/pkg/metrics/filters"
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 
@@ -107,7 +109,7 @@ func main() {
 	flag.BoolVar(&enableLeaderElection, "leader-elect", false,
 		"Enable leader election for controller manager. "+
 			"Enabling this will ensure there is only one active controller manager.")
-	flag.BoolVar(&secureMetrics, "metrics-secure", false,
+	flag.BoolVar(&secureMetrics, "metrics-secure", true,
 		"If set the metrics endpoint is served securely")
 	flag.BoolVar(&enableHTTP2, "enable-http2", false,
 		"If set, HTTP/2 will be enabled for the metrics and webhook servers")
@@ -159,6 +161,29 @@ func main() {
 		os.Exit(1)
 	}
 
+	// Establish a cancelable context tied to OS signals. The TLS profile watcher
+	// cancels it when the cluster TLS profile changes, so the manager shuts down
+	// and the pod restarts with the new configuration.
+	ctx, cancel := context.WithCancel(ctrl.SetupSignalHandler())
+	defer cancel()
+
+	// Fetch the cluster-wide TLS security profile (APIServer config) and build a
+	// tls.Config option that enforces its minimum TLS version, cipher suites, and
+	// groups (curve preferences, including ML-KEM X25519MLKEM768) on every TLS
+	// server the operator runs.
+	bootstrapScheme := runtime.NewScheme()
+	utilruntime.Must(configv1.AddToScheme(bootstrapScheme))
+	bootstrapClient, err := client.New(kubeconf, client.Options{Scheme: bootstrapScheme})
+	if err != nil {
+		setupLog.Error(err, "unable to create bootstrap client for TLS profile")
+		os.Exit(1)
+	}
+	profileTLSOpt, tlsProfileSpec, err := resolveClusterTLSProfile(ctx, bootstrapClient)
+	if err != nil {
+		setupLog.Error(err, "unable to resolve cluster TLS profile")
+		os.Exit(1)
+	}
+
 	// if the enable-http2 flag is false (the default), http/2 should be disabled
 	// due to its vulnerabilities. More specifically, disabling http/2 will
 	// prevent from being vulnerable to the HTTP/2 Stream Cancelation and
@@ -170,7 +195,9 @@ func main() {
 		c.NextProtos = []string{"http/1.1"}
 	}
 
-	tlsOpts := []func(*tls.Config){}
+	// profileTLSOpt applies the cluster TLS profile first; disableHTTP2 then sets
+	// NextProtos (ALPN), which the profile does not manage.
+	tlsOpts := []func(*tls.Config){profileTLSOpt}
 	if !enableHTTP2 {
 		tlsOpts = append(tlsOpts, disableHTTP2)
 	}
@@ -179,13 +206,21 @@ func main() {
 		TLSOpts: tlsOpts,
 	})
 
+	metricsServerOptions := metricsserver.Options{
+		BindAddress:   metricsAddr,
+		SecureServing: secureMetrics,
+		TLSOpts:       tlsOpts,
+	}
+	if secureMetrics {
+		// Protect the metrics endpoint with authn/authz via controller-runtime's
+		// built-in filter (SubjectAccessReview-based), replacing the previous
+		// kube-rbac-proxy sidecar.
+		metricsServerOptions.FilterProvider = filters.WithAuthenticationAndAuthorization
+	}
+
 	mgr, err := ctrl.NewManager(kubeconf, ctrl.Options{
-		Scheme: scheme,
-		Metrics: metricsserver.Options{
-			BindAddress:   metricsAddr,
-			SecureServing: secureMetrics,
-			TLSOpts:       tlsOpts,
-		},
+		Scheme:                 scheme,
+		Metrics:                metricsServerOptions,
 		WebhookServer:          webhookServer,
 		HealthProbeBindAddress: probeAddr,
 		// Enable leader election only if requested via flag AND not disabled by config.
@@ -299,6 +334,21 @@ func main() {
 	}
 	//+kubebuilder:scaffold:builder
 
+	// Watch the cluster TLS security profile and shut the manager down (via the
+	// cancelable context) when it changes, so the pod restarts and all TLS servers
+	// pick up the new profile.
+	if err = (&tlspkg.SecurityProfileWatcher{
+		Client:                mgr.GetClient(),
+		InitialTLSProfileSpec: tlsProfileSpec,
+		OnProfileChange: func(_ context.Context, _, _ configv1.TLSProfileSpec) {
+			setupLog.Info("cluster TLS profile changed, shutting down to reload")
+			cancel()
+		},
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to set up TLS profile watcher")
+		os.Exit(1)
+	}
+
 	// Add CLI/VMDP download setup runnables.
 	// Skip when namespace-scoped mode is off or the ConsoleCLIDownload CRD
 	// is absent (clusters without Console capability, e.g. SNO).
@@ -339,10 +389,44 @@ func main() {
 	}
 
 	setupLog.Info("starting manager")
-	if err := mgr.Start(ctrl.SetupSignalHandler()); err != nil {
+	if err := mgr.Start(ctx); err != nil {
 		setupLog.Error(err, "problem running manager")
 		os.Exit(1)
 	}
+}
+
+// resolveClusterTLSProfile fetches the cluster-wide TLS security profile from the
+// APIServer config and builds a tls.Config option that enforces its minimum TLS
+// version, cipher suites, and groups (curve preferences, including the
+// post-quantum X25519MLKEM768 hybrid). When the profile cannot be read it falls
+// back to the Intermediate profile. It returns the option (for TLSOpts) and the
+// resolved profile spec (for the change watcher).
+func resolveClusterTLSProfile(ctx context.Context, c client.Client) (func(*tls.Config), configv1.TLSProfileSpec, error) {
+	profileSpec, err := tlspkg.FetchAPIServerTLSProfile(ctx, c)
+	if err != nil {
+		setupLog.Error(err, "unable to fetch APIServer TLS profile, falling back to Intermediate")
+		profileSpec = *configv1.TLSProfiles[configv1.TLSProfileIntermediateType]
+	}
+	tlsOpt, unsupported, err := tlspkg.NewTLSConfigFromProfile(profileSpec)
+	if err != nil {
+		return nil, profileSpec, fmt.Errorf("build TLS config from cluster profile: %w", err)
+	}
+	if len(unsupported) > 0 {
+		setupLog.Info("cluster TLS profile contains entries unsupported by Go; they will be ignored", "unsupported", unsupported)
+	}
+
+	// Guard against a profile whose cipher names are all unrecognized by Go: that
+	// would leave CipherSuites empty and let Go fall back to its built-in default
+	// ciphers, potentially negotiating ciphers the profile did not approve. This
+	// only applies below TLS 1.3 (TLS 1.3 cipher suites are fixed and not
+	// configurable). Fail closed rather than silently serving default ciphers.
+	probe := &tls.Config{}
+	tlsOpt(probe)
+	if probe.MinVersion < tls.VersionTLS13 && len(profileSpec.Ciphers) > 0 && len(probe.CipherSuites) == 0 {
+		return nil, profileSpec, fmt.Errorf("cluster TLS profile lists ciphers but none are supported by Go; refusing to fall back to default ciphers (unsupported: %v)", unsupported)
+	}
+
+	return tlsOpt, profileSpec, nil
 }
 
 // getWatchNamespace returns the Namespace the operator should be watching for changes

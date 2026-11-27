@@ -106,9 +106,15 @@ spec:
               value: quay.io/konveyor/kubevirt-datamover-plugin:latest
           args:
             - --leader-elect
+            - --metrics-bind-address=:8443
+            - --metrics-secure=true
           image: controller:latest
           imagePullPolicy: Always
           name: manager
+          ports:
+            - name: https
+              containerPort: 8443
+              protocol: TCP
           terminationMessagePolicy: FallbackToLogsOnError
           securityContext:
             capabilities:
