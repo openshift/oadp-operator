@@ -18,16 +18,20 @@ package main
 
 import (
 	"context"
+	"crypto/tls"
 	"errors"
 	"testing"
 	"time"
 
+	configv1 "github.com/openshift/api/config/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/discovery"
 	fakediscovery "k8s.io/client-go/discovery/fake"
 	"k8s.io/client-go/kubernetes/fake"
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
+	crfake "sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
 
 // Tests that addPodSecurityPrivilegedLabels do not override the existing labels in OADP namespace
@@ -416,5 +420,110 @@ func TestWaitForRequiredCRDs_PartialAvailability(t *testing.T) {
 	err := waitForRequiredCRDsWithClient(ctx, mockClient)
 	if err == nil {
 		t.Error("waitForRequiredCRDs() expected error when not all CRDs available, got nil")
+	}
+}
+
+// TestResolveClusterTLSProfile verifies that the operator builds a tls.Config
+// option from the cluster TLS security profile — including the groups/curve
+// preferences (OADP-9072) — and falls back to Intermediate when the APIServer
+// config is unavailable.
+func TestResolveClusterTLSProfile(t *testing.T) {
+	scheme := runtime.NewScheme()
+	if err := configv1.AddToScheme(scheme); err != nil {
+		t.Fatalf("add configv1 to scheme: %v", err)
+	}
+
+	tests := []struct {
+		name           string
+		apiServer      *configv1.APIServer
+		wantMinVersion uint16
+	}{
+		{
+			name:           "no APIServer config falls back to Intermediate",
+			apiServer:      nil,
+			wantMinVersion: tls.VersionTLS12,
+		},
+		{
+			name: "Modern profile enforces TLS 1.3",
+			apiServer: &configv1.APIServer{
+				ObjectMeta: metav1.ObjectMeta{Name: "cluster"},
+				Spec: configv1.APIServerSpec{
+					TLSSecurityProfile: &configv1.TLSSecurityProfile{
+						Type: configv1.TLSProfileModernType,
+					},
+				},
+			},
+			wantMinVersion: tls.VersionTLS13,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			builder := crfake.NewClientBuilder().WithScheme(scheme)
+			if tt.apiServer != nil {
+				builder = builder.WithObjects(tt.apiServer)
+			}
+
+			opt, spec, err := resolveClusterTLSProfile(context.Background(), builder.Build())
+			if err != nil {
+				t.Fatalf("resolveClusterTLSProfile returned error: %v", err)
+			}
+			if opt == nil {
+				t.Fatal("expected a non-nil TLS option")
+			}
+
+			cfg := &tls.Config{}
+			opt(cfg)
+
+			if cfg.MinVersion != tt.wantMinVersion {
+				t.Errorf("MinVersion = 0x%x, want 0x%x", cfg.MinVersion, tt.wantMinVersion)
+			}
+
+			// The groups/curve field must be honored (OADP-9072), and the default
+			// OpenShift profiles lead with the post-quantum ML-KEM hybrid group.
+			if len(spec.Groups) == 0 {
+				t.Errorf("expected resolved profile to carry TLS groups")
+			}
+			hasMLKEM := false
+			for _, curve := range cfg.CurvePreferences {
+				if curve == tls.X25519MLKEM768 {
+					hasMLKEM = true
+					break
+				}
+			}
+			if !hasMLKEM {
+				t.Errorf("expected CurvePreferences to include X25519MLKEM768, got %v", cfg.CurvePreferences)
+			}
+		})
+	}
+}
+
+// TestResolveClusterTLSProfile_RejectsAllUnsupportedCiphers ensures the operator
+// fails closed (rather than silently serving Go's default ciphers) when a custom
+// profile below TLS 1.3 lists only cipher names Go does not support.
+func TestResolveClusterTLSProfile_RejectsAllUnsupportedCiphers(t *testing.T) {
+	scheme := runtime.NewScheme()
+	if err := configv1.AddToScheme(scheme); err != nil {
+		t.Fatalf("add configv1 to scheme: %v", err)
+	}
+
+	apiServer := &configv1.APIServer{
+		ObjectMeta: metav1.ObjectMeta{Name: "cluster"},
+		Spec: configv1.APIServerSpec{
+			TLSSecurityProfile: &configv1.TLSSecurityProfile{
+				Type: configv1.TLSProfileCustomType,
+				Custom: &configv1.CustomTLSProfile{
+					TLSProfileSpec: configv1.TLSProfileSpec{
+						MinTLSVersion: configv1.VersionTLS12,
+						Ciphers:       []string{"NOT-A-REAL-CIPHER"},
+					},
+				},
+			},
+		},
+	}
+	c := crfake.NewClientBuilder().WithScheme(scheme).WithObjects(apiServer).Build()
+
+	if _, _, err := resolveClusterTLSProfile(context.Background(), c); err == nil {
+		t.Fatal("expected an error when all configured ciphers are unsupported, got nil")
 	}
 }
